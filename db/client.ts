@@ -557,6 +557,7 @@ const MIGRATIONS = [
   // (Step) für {{param.*}}-Interpolation → Workflows wiederverwendbar statt nur
   // reproduzierbar. Additiv, NULL = heutiges Verhalten.
   path.join(process.cwd(), "db", "migrations", "0130_flow_params.sql"),
+  path.join(process.cwd(), "db", "migrations", "0131_pii_vault.sql"),
 ];
 
 let cached: LazyDb | null = null;
