@@ -56,6 +56,18 @@ describe("makeStreamDetokenizer", () => {
     const b = d.push(token.slice(6)) + d.flush();
     expect(a + b).toBe("x alice@example.com");
   });
+
+  it("does not leak a half-written token when a stray [[ arrives first (H1)", () => {
+    const d = makeStreamDetokenizer(raw, "ws");
+    let out = d.push("see " + token.slice(0, 6)); // "see [[EMAI" → "[[EMAI" held
+    expect(out).toBe("see ");
+    // A second "[[" appears before the first token closes. The earlier held,
+    // half-written "[[EMAI" must NOT surface to the user (the old lastIndexOf
+    // logic emitted it; the first-unclosed-open logic holds it).
+    out += d.push(" [[ junk");
+    expect(out).toBe("see ");
+    expect(out).not.toContain("[[EMAI");
+  });
 });
 
 describe("makeSseDetokenizer", () => {

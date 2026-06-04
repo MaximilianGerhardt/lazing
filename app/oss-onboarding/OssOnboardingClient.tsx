@@ -655,6 +655,18 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
               one-click tool install, engine connect, and your first workspace.
               Every step can be revisited later.
             </p>
+            <p
+              style={{ ...subLeadStyle, fontSize: 12, opacity: 0.75, marginTop: 14 }}
+              data-test="welcome-disclaimer"
+            >
+              <strong>AI &amp; privacy.</strong> You are interacting with AI. When you
+              use an external engine (Claude / Codex), your prompts are sent to that
+              provider. laz.ing can keep personal data on your machine via the built-in
+              PII vault — you can enable it at the end of setup, and entity detection can
+              even run on a small local model. This is an early step toward GDPR / EU AI
+              Act readiness; see <code>docs/privacy.md</code> and{" "}
+              <code>docs/compliance.md</code>. Not legal advice.
+            </p>
             <div style={btnRowStyle}>
               <button type="button" onClick={() => goNext("welcome")} disabled={busy} style={ctaStyle} data-test="cta-welcome">
                 Begin setup
@@ -1123,6 +1135,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
                 ))}
               </div>
             ) : null}
+            <PrivacyVaultToggle />
             <div style={btnRowStyle}>
               {finalizeResult ? (
                 <button type="button" onClick={enterLazyos} style={ctaStyle} data-test="cta-enter">Enter lazyOS</button>
@@ -1154,6 +1167,91 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
         {error ? <div style={errorBoxStyle} role="alert" data-test="oss-error">{error}</div> : null}
       </div>
     </>
+  );
+}
+
+// ---- Privacy / PII vault toggle (finalize step) --------------------------
+
+function PrivacyVaultToggle() {
+  const [vault, setVault] = useState(false);
+  const [ner, setNer] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const apply = async (nextVault: boolean, nextNer: boolean): Promise<void> => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/onboarding/privacy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ vault: nextVault, ner: nextNer }),
+      });
+      const j = (await res.json().catch(() => null)) as { note?: string | null } | null;
+      setNote(j?.note ?? null);
+    } catch {
+      /* non-fatal */
+    } finally {
+      setBusy(false);
+    }
+  };
+  const rowStyle: React.CSSProperties = {
+    display: "flex",
+    gap: 8,
+    alignItems: "flex-start",
+    fontSize: 13,
+    margin: "8px 0",
+    cursor: "pointer",
+  };
+  return (
+    <div
+      style={{
+        border: "1px solid color-mix(in oklab, var(--ink, #f5f5f5) 10%, transparent)",
+        borderRadius: 10,
+        padding: 14,
+        margin: "14px 0",
+        background: "color-mix(in oklab, #ffffff 2%, transparent)",
+      }}
+      data-test="privacy-vault"
+    >
+      <strong style={{ fontSize: 13 }}>Privacy — keep personal data local</strong>
+      <label style={rowStyle}>
+        <input
+          type="checkbox"
+          checked={vault}
+          disabled={busy}
+          onChange={(e) => {
+            setVault(e.target.checked);
+            void apply(e.target.checked, ner);
+          }}
+          data-test="privacy-vault-toggle"
+        />
+        <span>
+          When you use an external engine (Claude / Codex), replace personal entities
+          (emails, IBANs, cards, phones, IPs) with local placeholders. Real values are
+          encrypted on this machine; the cloud only ever sees the placeholders.
+        </span>
+      </label>
+      {vault ? (
+        <label style={rowStyle}>
+          <input
+            type="checkbox"
+            checked={ner}
+            disabled={busy}
+            onChange={(e) => {
+              setNer(e.target.checked);
+              void apply(vault, e.target.checked);
+            }}
+            data-test="privacy-ner-toggle"
+          />
+          <span>Also detect names (person / org / location) with a small local model (needs Ollama).</span>
+        </label>
+      ) : null}
+      {note ? <p style={{ fontSize: 12, opacity: 0.8, margin: "6px 0 0" }}>{note}</p> : null}
+      <p style={{ fontSize: 11, opacity: 0.6, margin: "8px 0 0" }}>
+        An early step toward GDPR / EU AI Act readiness — see docs/privacy.md and
+        docs/compliance.md. Not legal advice.
+      </p>
+    </div>
   );
 }
 

@@ -20,6 +20,9 @@ import path from "node:path";
 export const WRITABLE_ENV_KEYS = Object.freeze([
   "OPENAI_API_KEY",
   "ANTHROPIC_API_KEY",
+  // Privacy / PII vault toggles (booleans). Append-only like the keys above.
+  "LAZYOS_PII_VAULT",
+  "LAZYOS_PII_NER",
 ] as const);
 export type WritableEnvKey = (typeof WRITABLE_ENV_KEYS)[number];
 

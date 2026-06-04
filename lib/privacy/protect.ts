@@ -16,13 +16,38 @@
  */
 
 import { getDb } from "@/db/client";
+import { encryptCredential } from "@/lib/security/credentials";
 
 import { detectNamedEntitiesOllama, nerEnabled } from "./pii-ner-ollama";
 import { tokenizeText, detokenizeText } from "./pii-vault";
 
+let keyOk = false;
+let keyWarned = false;
+/** The vault needs LAZYOS_CREDENTIAL_KEY to encrypt values. Validate it cheaply. */
+function credentialKeyPresent(): boolean {
+  if (keyOk) return true;
+  try {
+    encryptCredential("x");
+    keyOk = true;
+    return true;
+  } catch {
+    if (!keyWarned) {
+      keyWarned = true;
+      console.error(
+        "[pii-vault] LAZYOS_PII_VAULT is on but LAZYOS_CREDENTIAL_KEY is missing/invalid — " +
+          "the vault is DISABLED (chat keeps working, but PII is NOT protected). Set the key.",
+      );
+    }
+    return false;
+  }
+}
+
 export function piiVaultEnabled(): boolean {
   const v = (process.env.LAZYOS_PII_VAULT ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "on";
+  if (!(v === "1" || v === "true" || v === "on")) return false;
+  // Fail-open to "off" (with a one-time warning) rather than crashing chat when
+  // the encryption key is absent.
+  return credentialKeyPresent();
 }
 
 export interface ProtectResult {
@@ -82,4 +107,36 @@ export function tokenizeMessages<T extends EngineMessageLike>(
       ? ({ ...m, content: tokenizeText(raw, workspaceId, m.content).text } as T)
       : m,
   );
+}
+
+/**
+ * Like tokenizeMessages, but ALSO runs the optional local-LLM NER layer
+ * (PERSON / ORG / LOCATION) when LAZYOS_PII_NER is on — so names are tokenized too,
+ * not just structured identifiers. Falls back to the deterministic sync path when
+ * NER is off or the model is unavailable (fail-soft). Use this on outbound chat.
+ */
+export async function tokenizeMessagesAsync<T extends EngineMessageLike>(
+  workspaceId: string,
+  messages: T[],
+  opts: { signal?: AbortSignal } = {},
+): Promise<T[]> {
+  if (!piiVaultEnabled() || !workspaceId) return messages;
+  if (!nerEnabled()) return tokenizeMessages(workspaceId, messages);
+  const raw = getDb().$raw;
+  const out: T[] = [];
+  for (const m of messages) {
+    if (typeof m.content !== "string") {
+      out.push(m);
+      continue;
+    }
+    const extra = await detectNamedEntitiesOllama(m.content, opts);
+    out.push({ ...m, content: tokenizeText(raw, workspaceId, m.content, extra).text } as T);
+  }
+  return out;
+}
+
+/** Deterministic-only single-text tokenize for callers that already have a DB handle. */
+export function tokenizeStringForExternal(workspaceId: string, text: string): string {
+  if (!piiVaultEnabled() || !workspaceId || !text) return text;
+  return tokenizeText(getDb().$raw, workspaceId, text).text;
 }

@@ -49,8 +49,13 @@ afterAll(() => {
 });
 
 describe("allowlist", () => {
-  it("contains only the two provider keys", () => {
-    expect([...WRITABLE_ENV_KEYS]).toEqual(["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]);
+  it("contains the provider keys and the PII vault toggles", () => {
+    expect([...WRITABLE_ENV_KEYS]).toEqual([
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "LAZYOS_PII_VAULT",
+      "LAZYOS_PII_NER",
+    ]);
   });
 
   it("rejects non-allowlisted keys", () => {

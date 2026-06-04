@@ -33,15 +33,16 @@ export function makeStreamDetokenizer(raw: RawDb, workspaceId: string): StreamDe
   return {
     push(chunk: string): string {
       buf += chunk;
-      // Determine how much is safe to emit. Hold back a trailing incomplete token.
+      // Determine how much is safe to emit. Everything up to and including the
+      // last "]]" is fully resolved, so hold back from the FIRST "[[" that comes
+      // after it (the token still streaming). Using the first unclosed open — not
+      // the last — avoids emitting an earlier half-written token when a second
+      // "[[" arrives in the same buffer.
       let hold = buf.length;
-      const lastOpen = buf.lastIndexOf("[[");
-      if (
-        lastOpen !== -1 &&
-        !buf.slice(lastOpen).includes("]]") &&
-        buf.length - lastOpen <= MAX_TOKEN_LEN
-      ) {
-        hold = lastOpen; // an incomplete "[[…" token starts here
+      const lastClose = buf.lastIndexOf("]]");
+      const dangling = buf.indexOf("[[", lastClose === -1 ? 0 : lastClose + 2);
+      if (dangling !== -1 && buf.length - dangling <= MAX_TOKEN_LEN) {
+        hold = dangling;
       } else if (buf.endsWith("[")) {
         hold = buf.length - 1; // a lone trailing "[" could become "[["
       }

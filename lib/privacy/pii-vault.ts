@@ -50,25 +50,41 @@ function lookupOrCreateToken(
   value: string,
 ): string {
   const h = valueHash(workspaceId, type, value);
-  const existing = raw
-    .prepare("SELECT token FROM pii_vault WHERE workspace_id = ? AND value_hash = ?")
-    .get(workspaceId, h) as { token: string } | undefined;
-  if (existing) return existing.token;
+  const findByHash = (): string | undefined =>
+    (
+      raw
+        .prepare("SELECT token FROM pii_vault WHERE workspace_id = ? AND value_hash = ?")
+        .get(workspaceId, h) as { token: string } | undefined
+    )?.token;
 
-  // Next sequential counter for (workspace, type). Append-only → COUNT+1 is the
-  // next index; the unique (workspace, token) index guards against collisions.
-  const cnt = raw
-    .prepare("SELECT COUNT(*) AS c FROM pii_vault WHERE workspace_id = ? AND entity_type = ?")
-    .get(workspaceId, type) as { c: number } | undefined;
-  const n = (cnt?.c ?? 0) + 1;
-  const token = `[[${type}_${n}]]`;
-  raw
-    .prepare(
-      `INSERT INTO pii_vault (id, workspace_id, token, entity_type, value_enc, value_hash, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(`pii_${ulid()}`, workspaceId, token, type, encryptCredential(value), h, Date.now());
-  return token;
+  const existing = findByHash();
+  if (existing) return existing;
+
+  const enc = encryptCredential(value);
+  const insert = raw.prepare(
+    `INSERT INTO pii_vault (id, workspace_id, token, entity_type, value_enc, value_hash, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  );
+  // Counter-race guard: this DB is shared with the agent-server process, so the
+  // COUNT+1 → INSERT pair is not atomic across processes. On a unique-index
+  // conflict, re-read by value (a concurrent writer already stored it) or retry
+  // with a fresh counter.
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const cnt = raw
+      .prepare("SELECT COUNT(*) AS c FROM pii_vault WHERE workspace_id = ? AND entity_type = ?")
+      .get(workspaceId, type) as { c: number } | undefined;
+    const token = `[[${type}_${(cnt?.c ?? 0) + 1}]]`;
+    try {
+      insert.run(`pii_${ulid()}`, workspaceId, token, type, enc, h, Date.now());
+      return token;
+    } catch {
+      const again = findByHash();
+      if (again) return again; // value was stored by a concurrent writer
+      // else: token-counter collision → loop and recompute the count
+    }
+  }
+  // Effectively unreachable; never leak the raw value — fall back to a placeholder.
+  return findByHash() ?? `[[${type}_0]]`;
 }
 
 /**

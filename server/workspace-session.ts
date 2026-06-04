@@ -1290,11 +1290,24 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
   // NEVER throws.
   const turnStartedAt = Date.now();
   const logReqId = opts.reqId ?? `turn-${turnStartedAt}`;
+  // PII vault: opts.prompt arrives tokenized from the proxy. The local event log
+  // is local + workspace-scoped, so persist the REAL text — rehydrate it here.
+  // Fail-soft: never break the (non-throwing) log.
+  let logPrompt = opts.prompt;
+  try {
+    const { piiVaultEnabled } = await import('../lib/privacy/protect');
+    if (piiVaultEnabled()) {
+      const { detokenizeText } = await import('../lib/privacy/pii-vault');
+      logPrompt = detokenizeText(getAgentDb(), opts.workspaceId, logPrompt).text;
+    }
+  } catch {
+    /* keep tokenized rather than fail the log */
+  }
   logPromptSent({
     reqId: logReqId,
     workspaceId: opts.workspaceId,
     sessionId: handle.sessionId,
-    prompt: opts.prompt,
+    prompt: logPrompt,
   });
 
   // Fan-out event emitter: calls the caller's onEvent AND writes to the
@@ -1567,8 +1580,18 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
         topK: 8,
         tokenCap: 4000,
       });
-      const ragBlock = formatForPrompt(ragResult);
-      if (ragBlock) effectivePrompt = `${ragBlock}\n---\n${opts.prompt}`;
+      let ragBlock = formatForPrompt(ragResult);
+      // PII vault: the retrieved RAG context can contain customer emails / IBANs /
+      // names, so tokenize it too BEFORE it is prepended to the cloud prompt. The
+      // proxy's stream detokenizer rehydrates the response locally afterwards.
+      if (ragBlock) {
+        const { piiVaultEnabled } = await import('../lib/privacy/protect');
+        if (piiVaultEnabled()) {
+          const { tokenizeText } = await import('../lib/privacy/pii-vault');
+          ragBlock = tokenizeText(getAgentDb(), opts.workspaceId, ragBlock).text;
+        }
+        effectivePrompt = `${ragBlock}\n---\n${opts.prompt}`;
+      }
     }
   } catch (err) {
     console.warn(

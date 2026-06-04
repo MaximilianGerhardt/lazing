@@ -36,7 +36,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { emitChatMessageSent, emitChatMessageCompleted } from "@/lib/events/emit";
-import { piiVaultEnabled, tokenizeMessages } from "@/lib/privacy/protect";
+import { piiVaultEnabled, tokenizeMessagesAsync } from "@/lib/privacy/protect";
 import { makeSseDetokenizer } from "@/lib/privacy/sse-detokenize";
 import { ulid } from "@/lib/ulid";
 import { appendLedgerRow } from "@/lib/chat/ledger";
@@ -501,14 +501,18 @@ export async function POST(req: Request): Promise<Response> {
       headers["x-lazyos-acting-user-id"] = subjectHeader.slice("user:".length);
     }
 
+    // PII vault: tokenize personal entities OUT of the prompt before it is
+    // forwarded to the agent server (Claude CLI → cloud), including the optional
+    // local-LLM name detection. Pure pass-through when LAZYOS_PII_VAULT is off.
+    const forwardMessages = await tokenizeMessagesAsync(
+      body.workspaceId,
+      body.messages,
+    );
     upstream = await fetch(targetUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        // PII vault: tokenize personal entities OUT of the prompt before it is
-        // forwarded to the agent server (Claude CLI → cloud). Pure pass-through
-        // when LAZYOS_PII_VAULT is off.
-        messages: tokenizeMessages(body.workspaceId, body.messages),
+        messages: forwardMessages,
         workspaceId: body.workspaceId,
         // Passed through; agent-server ignores unknown keys today.
         sensitivityFloor: body.sensitivityFloor,
@@ -942,33 +946,30 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
       void (async () => {
         try {
           const { orchestrate } = await import("@/lib/llm/orchestrator");
-          const { tokenizeMessages, rehydrate } = await import(
+          const { tokenizeMessagesAsync, rehydrate } = await import(
             "@/lib/privacy/protect"
           );
           const result = await orchestrate({
             mode,
             // PII vault: replace personal entities with local tokens BEFORE the
-            // prompt reaches any cloud engine. Pure pass-through when
-            // LAZYOS_PII_VAULT is off (originals are untouched; persistence above
-            // already used the real text).
-            messages: tokenizeMessages(workspaceId, messages),
-            // Sicherheit: codexMode wird nur dann gesetzt wenn der Caller es
-            // explizit mitgegeben hat. Für 'codex-cli' und 'parallel-all' kommt
-            // immer 'read' (aus dem engineMode-Branch oben). Für 'ollama'
-            // bleibt undefined — Ollama ignoriert das Feld vollständig.
-            // Kein Pfad hier kann codexMode:'write' setzen.
+            // prompt reaches any cloud engine — including the optional local-LLM
+            // name detection. Pure pass-through when LAZYOS_PII_VAULT is off.
+            messages: await tokenizeMessagesAsync(workspaceId, messages),
+            // codexMode is only set when the caller passed it explicitly ('read'
+            // for codex-cli / parallel-all). No path here can set 'write'.
             ...(codexMode !== undefined ? { codexMode } : {}),
           });
+
+          // Detokenize ONCE: real values for the user-visible frame AND for
+          // persistence below (the cloud only ever saw the tokens).
+          const shownText = rehydrate(workspaceId, result.text);
 
           // Frame 2: ready (sessionId null — kein persistenter agent-server-
           // Session-Context, nur Single-Shot-Antwort)
           controller.enqueue(frame("ready", { sessionId: null }));
 
-          // Frame 3: token (full answer as one delta chunk). Detokenize locally
-          // so the user sees the real values; the cloud only ever saw the tokens.
-          controller.enqueue(
-            frame("token", { delta: rehydrate(workspaceId, result.text) }),
-          );
+          // Frame 3: token (full answer as one delta chunk) — real values.
+          controller.enqueue(frame("token", { delta: shownText }));
 
           // Frame 4: done
           controller.enqueue(
@@ -987,11 +988,11 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
             await emitChatMessageCompleted({
               workspaceId,
               entityId: ulid(),
-              content: result.text,
+              content: shownText,
               actor: "system",
               outcome: "ok",
-              // result.engine = die Engine die gewonnen hat (bei parallel-all:
-              // fastest), mode = was der Caller angefordert hat.
+              // result.engine = the winning engine (parallel-all: fastest);
+              // mode = what the caller requested.
               metadata: { engine: result.engine, mode, codexMode: codexMode ?? "read" },
             });
           } catch (persistErr) {
@@ -1004,7 +1005,7 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
             appendLedgerRow(getDb().$raw, {
               coordKey: workspaceId,
               role: "assistant",
-              contentFull: result.text,
+              contentFull: shownText,
               conversationThreadId: pendingPromptId,
             });
           } catch (ledgerErr) {
