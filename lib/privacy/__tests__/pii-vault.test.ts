@@ -109,4 +109,20 @@ describe("pii-vault", () => {
     expect(t.text).toBe("just a harmless sentence");
     expect(t.entityCount).toBe(0);
   });
+
+  it("re-tokenizes a known name in a later turn (cross-turn sweep)", () => {
+    // Turn 1: a NER-style span tokenizes a name.
+    const t1 = tokenizeText(raw, "ws-a", "ping Alexandra Schmidt now", [
+      { type: "PERSON", start: 5, end: 22, value: "Alexandra Schmidt" },
+    ]);
+    expect(t1.text).toContain("[[PERSON_1]]");
+    // Turn 2: same name reappears with NO span passed — the known-value sweep
+    // catches it (no model call) and reuses the same token.
+    const t2 = tokenizeText(raw, "ws-a", "tell Alexandra Schmidt hello");
+    expect(t2.text).toContain("[[PERSON_1]]");
+    expect(t2.text).not.toContain("Alexandra Schmidt");
+    // A different workspace must NOT pick up that name.
+    const other = tokenizeText(raw, "ws-b", "tell Alexandra Schmidt hello");
+    expect(other.text).toContain("Alexandra Schmidt");
+  });
 });

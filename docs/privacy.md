@@ -84,17 +84,21 @@ The vault is wired into the **default chat paths**, verified by review:
 - ✅ Structured PII (email/IBAN/card/phone/IP) everywhere; **names** on the new
   user message when the NER option is on.
 
-Not yet covered (tracked):
+- ✅ **Multi-agent swarm / workstream runs** (tier-orchestrator, ultracoding,
+  bug-swarm, auto-dispatch): all flow through `spawnInTmux`, which now tokenizes
+  the system + user prompt at that single CLI-spawn chokepoint and rehydrates the
+  result. One choke point covers every swarm path.
+- ✅ **Names across turns**: a known-value sweep re-tokenizes a name in later
+  turns once any turn's NER has stored it (no repeated model calls).
 
-- ◻ **Multi-agent swarm / workstream runs** (`server/agents/tier-orchestrator.ts`,
-  `spawnInTmux`, ultracoding, bug-swarm): these spawn the CLI on a separate path
-  that is **not yet tokenized**. Use the swarm with care for sensitive data until
-  the single CLI-spawn chokepoint lands.
-- ◻ **Agent transcript stream** (per-token replay log) is not rehydrated.
-- ◻ **Names in re-sent history**: NER runs on the new message; older messages get
-  deterministic tokenization only (a known-value sweep is the planned fix).
+Still tracked:
 
-**Plan:** move tokenization to a single chokepoint at the actual `claude`/`codex`
-CLI spawn (covers every path at once) + a known-entity sweep so a name tokenized
-once stays tokenized in later turns. Until then, the claims above are scoped to the
-covered paths — laz.ing does **not** promise zero PII egress on the swarm path yet.
+- ◻ **Agent transcript stream** (the per-token replay log) is not yet rehydrated —
+  it is an internal debug/replay artifact, lower visibility than chat history.
+- ◻ **Recall**: deterministic detection is conservative; without NER, names are
+  only caught after a first NER pass. Detector coverage (more identifier types,
+  bare-format phones) is an ongoing improvement.
+
+The protection is now wired at the cloud boundary on every chat + swarm path,
+gated by `LAZYOS_PII_VAULT`. Recall (which entities are detected) remains a
+best-effort, improving surface — enable the local NER layer for names.

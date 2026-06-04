@@ -231,9 +231,35 @@ export async function spawnInTmux(args: SpawnArgs): Promise<SpawnResult> {
   const doneFlag = `${logFile}.done`;
   const exitFile = `${logFile}.exit`;
 
-  // 1. Write prompt + system prompt to temp files
-  writeFileSync(promptFile, args.userPrompt, 'utf8');
-  writeFileSync(systemFile, args.systemPrompt, 'utf8');
+  // PII vault chokepoint: every CLI spawn (tier-orchestrator / ultracoding /
+  // bug-swarm / auto-dispatch) flows through spawnInTmux, so tokenize the system
+  // + user prompt before they are written/sent, and rehydrate the captured result
+  // below. Deterministic (N6), workspace-scoped (N9); fail-soft → identity.
+  let spawnDetok = (t: string): string => t;
+  let userPromptOut = args.userPrompt;
+  let systemPromptOut = args.systemPrompt;
+  try {
+    const { piiVaultEnabled } = await import('../../lib/privacy/protect');
+    if (piiVaultEnabled()) {
+      const { tokenizeText, detokenizeText } = await import('../../lib/privacy/pii-vault');
+      const { getAgentDb } = await import('../db');
+      const piiRaw = getAgentDb();
+      userPromptOut = args.userPrompt
+        ? tokenizeText(piiRaw, args.workspaceId, args.userPrompt).text
+        : args.userPrompt;
+      systemPromptOut = args.systemPrompt
+        ? tokenizeText(piiRaw, args.workspaceId, args.systemPrompt).text
+        : args.systemPrompt;
+      spawnDetok = (t: string): string =>
+        t ? detokenizeText(piiRaw, args.workspaceId, t).text : t;
+    }
+  } catch {
+    /* keep originals + identity detok */
+  }
+
+  // 1. Write prompt + system prompt to temp files (tokenized when the vault is on)
+  writeFileSync(promptFile, userPromptOut, 'utf8');
+  writeFileSync(systemFile, systemPromptOut, 'utf8');
 
   // 2. Build the inline bash command — executed in the tmux session.
   //    cd into the workspace, strip ANTHROPIC_API_KEY so the MAX plan takes effect,
@@ -569,7 +595,9 @@ export async function spawnInTmux(args: SpawnArgs): Promise<SpawnResult> {
   }
 
   return {
-    text,
+    // PII vault: rehydrate the cloud's reply (it echoed our tokens back) so the
+    // caller persists/streams REAL values. Identity when the vault is off.
+    text: spawnDetok(text),
     tokens,
     costCents,
     durationMs,

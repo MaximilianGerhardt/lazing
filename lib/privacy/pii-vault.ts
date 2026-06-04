@@ -17,7 +17,62 @@ import { createHash } from "node:crypto";
 import { encryptCredential, decryptCredential } from "@/lib/security/credentials";
 import { ulid } from "@/lib/ulid";
 
-import { detectDeterministic, mergeSpans, type PiiSpan } from "./pii-detectors";
+import {
+  detectDeterministic,
+  mergeSpans,
+  type PiiSpan,
+  type PiiType,
+} from "./pii-detectors";
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Spans for entity VALUES already in this workspace's vault (e.g. names a prior
+ * turn's NER detected) that reappear in `text`. This keeps a once-tokenized name
+ * tokenized in later turns WITHOUT re-running the model — closing the
+ * "names in re-sent history" gap. Scoped to NER types + length >= 4 + word
+ * boundaries to avoid false matches on short/common strings.
+ */
+export function knownValueSpans(
+  raw: import("better-sqlite3").Database,
+  workspaceId: string,
+  text: string,
+): PiiSpan[] {
+  if (!workspaceId || !text) return [];
+  let rows: Array<{ entity_type: string; value_enc: string }>;
+  try {
+    rows = raw
+      .prepare(
+        "SELECT entity_type, value_enc FROM pii_vault WHERE workspace_id = ? AND entity_type IN ('PERSON','ORG','LOCATION')",
+      )
+      .all(workspaceId) as Array<{ entity_type: string; value_enc: string }>;
+  } catch {
+    return [];
+  }
+  const spans: PiiSpan[] = [];
+  for (const row of rows) {
+    let value: string;
+    try {
+      value = decryptCredential(row.value_enc);
+    } catch {
+      continue;
+    }
+    if (value.length < 4) continue;
+    const re = new RegExp(`(?<!\\w)${escapeRegExp(value)}(?!\\w)`, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      spans.push({
+        type: row.entity_type as PiiType,
+        start: m.index,
+        end: m.index + value.length,
+        value,
+      });
+    }
+  }
+  return spans;
+}
 
 type RawDb = import("better-sqlite3").Database;
 
@@ -100,8 +155,13 @@ export function tokenizeText(
 ): TokenizeResult {
   if (!workspaceId || !text) return { text, entityCount: 0, tokens: [] };
 
-  // Merge deterministic + injected spans, resolve overlaps, replace from the end.
-  const spans = mergeSpans([...detectDeterministic(text), ...extraSpans]);
+  // Merge deterministic + known-value (cross-turn names) + injected spans,
+  // resolve overlaps, replace from the end.
+  const spans = mergeSpans([
+    ...detectDeterministic(text),
+    ...knownValueSpans(raw, workspaceId, text),
+    ...extraSpans,
+  ]);
   if (spans.length === 0) return { text, entityCount: 0, tokens: [] };
 
   spans.sort((a, b) => b.start - a.start);
