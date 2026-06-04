@@ -36,6 +36,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { emitChatMessageSent, emitChatMessageCompleted } from "@/lib/events/emit";
+import { piiVaultEnabled, tokenizeMessages } from "@/lib/privacy/protect";
+import { makeSseDetokenizer } from "@/lib/privacy/sse-detokenize";
 import { ulid } from "@/lib/ulid";
 import { appendLedgerRow } from "@/lib/chat/ledger";
 import { getDb } from "@/db/client";
@@ -503,7 +505,10 @@ export async function POST(req: Request): Promise<Response> {
       method: "POST",
       headers,
       body: JSON.stringify({
-        messages: body.messages,
+        // PII vault: tokenize personal entities OUT of the prompt before it is
+        // forwarded to the agent server (Claude CLI → cloud). Pure pass-through
+        // when LAZYOS_PII_VAULT is off.
+        messages: tokenizeMessages(body.workspaceId, body.messages),
         workspaceId: body.workspaceId,
         // Passed through; agent-server ignores unknown keys today.
         sensitivityFloor: body.sensitivityFloor,
@@ -656,6 +661,11 @@ export async function POST(req: Request): Promise<Response> {
   // Tool-Calls zwischen Tokens.
   const HEARTBEAT_INTERVAL_MS = 5_000;
 
+  // PII vault: when on, detokenize the streamed agent deltas back to real values
+  // locally — buffering placeholders that split across frames. Off → raw forward.
+  const sseDetok = piiVaultEnabled()
+    ? makeSseDetokenizer(getDb().$raw, body.workspaceId)
+    : null;
   const pass = new ReadableStream<Uint8Array>({
     start(controller) {
       let firstUpstreamByteSeen = false;
@@ -710,8 +720,13 @@ export async function POST(req: Request): Promise<Response> {
                   heartbeatTimer = null;
                 }
               }
-              controller.enqueue(value);
+              const chunk = sseDetok ? sseDetok.push(value) : value;
+              if (chunk.length > 0) controller.enqueue(chunk);
             }
+          }
+          if (sseDetok) {
+            const tail = sseDetok.flush();
+            if (tail.length > 0) controller.enqueue(tail);
           }
           controller.close();
         } catch (err) {
@@ -927,9 +942,16 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
       void (async () => {
         try {
           const { orchestrate } = await import("@/lib/llm/orchestrator");
+          const { tokenizeMessages, rehydrate } = await import(
+            "@/lib/privacy/protect"
+          );
           const result = await orchestrate({
             mode,
-            messages,
+            // PII vault: replace personal entities with local tokens BEFORE the
+            // prompt reaches any cloud engine. Pure pass-through when
+            // LAZYOS_PII_VAULT is off (originals are untouched; persistence above
+            // already used the real text).
+            messages: tokenizeMessages(workspaceId, messages),
             // Sicherheit: codexMode wird nur dann gesetzt wenn der Caller es
             // explizit mitgegeben hat. Für 'codex-cli' und 'parallel-all' kommt
             // immer 'read' (aus dem engineMode-Branch oben). Für 'ollama'
@@ -942,8 +964,11 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
           // Session-Context, nur Single-Shot-Antwort)
           controller.enqueue(frame("ready", { sessionId: null }));
 
-          // Frame 3: token (komplette Antwort als ein Delta-Chunk)
-          controller.enqueue(frame("token", { delta: result.text }));
+          // Frame 3: token (full answer as one delta chunk). Detokenize locally
+          // so the user sees the real values; the cloud only ever saw the tokens.
+          controller.enqueue(
+            frame("token", { delta: rehydrate(workspaceId, result.text) }),
+          );
 
           // Frame 4: done
           controller.enqueue(

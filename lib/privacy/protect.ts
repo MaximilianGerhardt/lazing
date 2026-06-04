@@ -59,3 +59,27 @@ export function rehydrate(workspaceId: string, text: string): string {
   if (!piiVaultEnabled()) return text;
   return detokenizeText(getDb().$raw, workspaceId, text).text;
 }
+
+export interface EngineMessageLike {
+  role: string;
+  content: string;
+}
+
+/**
+ * Tokenize the `content` of every message bound for an external engine. Returns a
+ * NEW array — the originals are untouched, so message persistence and on-screen
+ * display keep the real text while only the cloud-bound copy is tokenized. Pure
+ * pass-through when the vault is off.
+ */
+export function tokenizeMessages<T extends EngineMessageLike>(
+  workspaceId: string,
+  messages: T[],
+): T[] {
+  if (!piiVaultEnabled() || !workspaceId) return messages;
+  const raw = getDb().$raw;
+  return messages.map((m) =>
+    typeof m.content === "string"
+      ? ({ ...m, content: tokenizeText(raw, workspaceId, m.content).text } as T)
+      : m,
+  );
+}

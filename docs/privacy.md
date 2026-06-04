@@ -58,11 +58,12 @@ pass-throughs when `LAZYOS_PII_VAULT` is off.
 
 ## Scope & limits (honest)
 
-- This v1 ships the **vault + detectors + the integration seam + tests**. It does
-  **not** yet auto-wrap the live streaming chat path — streaming responses can
-  split a `[[TOKEN]]` across chunks, so transparent rehydration there needs
-  buffering and is a deliberate next step. Until then, call the seam explicitly
-  around non-streaming cloud calls.
+- It is **wired into the chat stream route** (`app/api/chat/stream`): outgoing
+  prompts are tokenized before they reach the cloud engine(s) (parallel-all,
+  Codex, and the agent-server Claude path), and responses are detokenized locally
+  — including a **buffered SSE transform** for the streamed agent path so a token
+  split across chunks is reassembled before the user sees it. All of this is gated
+  by `LAZYOS_PII_VAULT`: when off, the path is a byte-identical pass-through.
 - Regex detection is conservative (it favors precision over recall to avoid
   mangling text). The local-NER layer raises recall for names but is best-effort
   and model-dependent.
