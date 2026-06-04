@@ -63,16 +63,17 @@ cd lazing
 
 pnpm install
 
-cp .env.example .env.local
-# Fill in at least the REQUIRED block:
-#   LAZYOS_AUTH_SECRET, LAZYOS_ACCESS_CODE,
-#   LAZYOS_CREDENTIAL_KEY, LAZYOS_OWNER_EMAIL
-# (see Configuration below)
-
-bash scripts/setup.sh   # idempotent: migrations + default org/workspace + owner user
+bash scripts/setup.sh   # auto-generates the required secrets, runs migrations,
+                        # seeds the default org/workspace/owner. Idempotent.
 
 pnpm dev                # web app on http://localhost:4200
 ```
+
+`setup.sh` creates `.env.local` and **auto-generates** the three required secrets
+(`LAZYOS_AUTH_SECRET`, `LAZYOS_CREDENTIAL_KEY`, `LAZYOS_ACCESS_CODE`); the owner
+e-mail defaults to `owner@localhost`. To use your own values, set them first
+(edit `.env.local` or `export LAZYOS_OWNER_EMAIL=…`) — real values are never
+overwritten. It prints your solo-self-host login code at the end.
 
 Optionally, in a second terminal, start the long-running agent server for
 real CLI agent sessions (it lives in `server/` with its own dependencies):

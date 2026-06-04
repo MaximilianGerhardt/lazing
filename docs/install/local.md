@@ -18,34 +18,32 @@ A step-by-step for running laz.ing (formerly `lazyOS`) on your own machine (macO
 ## 1. Clone
 
 ```bash
-git clone https://github.com/<your-fork>/lazyos.git
-cd lazyos
+git clone https://github.com/MaximilianGerhardt/lazing.git
+cd lazing
 ```
 
-## 2. Configure
+## 2. Configure (optional — `setup.sh` does this for you)
+
+You can skip straight to step 3: `setup.sh` creates `.env.local` and
+**auto-generates** the three required secrets (`LAZYOS_AUTH_SECRET`,
+`LAZYOS_CREDENTIAL_KEY`, `LAZYOS_ACCESS_CODE`) with `crypto.randomBytes`, and
+defaults `LAZYOS_OWNER_EMAIL` to `owner@localhost`. Real values are never
+overwritten, so the step is idempotent.
+
+To use your own values instead, set them before running setup — either edit
+`.env.local`, or export them:
 
 ```bash
-cp .env.example .env.local
+export LAZYOS_OWNER_EMAIL=you@example.com     # picked up by setup.sh
+# (or copy cp .env.example .env.local and fill the REQUIRED block by hand)
 ```
 
-Fill **at minimum**:
-
-```bash
-# 32 random bytes hex — generate one:
-#   node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))'
-LAZYOS_AUTH_SECRET=<...>
-
-# >= 16 chars. Used as operator-bootstrap-code AND solo-self-host master-login.
-LAZYOS_ACCESS_CODE=<...>
-
-# 64 hex chars (= 32 bytes). AES-256-GCM key for credentials at rest:
-#   node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))'
-LAZYOS_CREDENTIAL_KEY=<...>
-
-# the email of the founder user
-LAZYOS_OWNER_EMAIL=you@example.com
-LAZYOS_OWNER_DISPLAY_NAME="Your Name"
-```
+| Variable | What | Generate |
+|---|---|---|
+| `LAZYOS_AUTH_SECRET` | HMAC for session cookies | auto, or `node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))'` |
+| `LAZYOS_CREDENTIAL_KEY` | AES-256-GCM key (64 hex) for creds at rest | auto, same command |
+| `LAZYOS_ACCESS_CODE` | solo-self-host master-login code | auto |
+| `LAZYOS_OWNER_EMAIL` | founder e-mail | defaults to `owner@localhost` |
 
 Optional but recommended:
 
