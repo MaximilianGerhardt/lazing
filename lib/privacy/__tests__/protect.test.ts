@@ -89,3 +89,67 @@ describe("protect seam — ON", () => {
     expect(b[0].content).toMatch(/\[\[EMAIL_1\]\]/);
   });
 });
+
+type ChatEngine = import("@/lib/llm/engines/types").ChatEngine;
+
+/** A fake engine that records what it received and echoes it back. */
+function fakeEngine(id: ChatEngine["id"]): {
+  engine: ChatEngine;
+  received: () => string | null;
+} {
+  let seen: string | null = null;
+  const engine: ChatEngine = {
+    id,
+    detect: async () => ({ engine: id, available: true, reason: "", probeMs: 0 }),
+    chat: async (req) => {
+      seen = req.messages.map((m) => m.content).join(" | ");
+      // Echo the (token-bearing) content back so the caller can prove rehydration.
+      return {
+        engine: id,
+        model: "fake",
+        text: `reply → ${req.messages[req.messages.length - 1]?.content ?? ""}`,
+        latencyMs: 1,
+      };
+    },
+  };
+  return { engine, received: () => seen };
+}
+
+describe("protectEngine — the cloud-egress boundary wrapper", () => {
+  it("CLOUD engine: tokenizes what the engine receives, rehydrates the reply", async () => {
+    on();
+    const f = fakeEngine("claude-cli");
+    const wrapped = P.protectEngine("ws-pe", f.engine);
+    expect(wrapped).not.toBe(f.engine); // a real wrapper, not the same object
+
+    const res = await wrapped.chat({
+      messages: [{ role: "user", content: "mail erin@example.com please" }],
+    });
+
+    // The cloud engine only ever saw a token, never the real address:
+    expect(f.received()).not.toContain("erin@example.com");
+    expect(f.received()).toMatch(/\[\[EMAIL_1\]\]/);
+    // The caller gets the real value back (reply was rehydrated locally):
+    expect(res.text).toContain("erin@example.com");
+    expect(res.text).not.toMatch(/\[\[EMAIL_1\]\]/);
+  });
+
+  it("LOCAL ollama engine: returned untouched (identity — never tokenized)", () => {
+    on();
+    const f = fakeEngine("ollama");
+    expect(P.protectEngine("ws-pe", f.engine)).toBe(f.engine);
+  });
+
+  it("vault OFF or no workspace scope: returned untouched (identity)", () => {
+    const f = fakeEngine("claude-cli");
+    delete process.env.LAZYOS_PII_VAULT;
+    expect(P.protectEngine("ws-pe", f.engine)).toBe(f.engine); // off → identity
+    on();
+    expect(P.protectEngine("", f.engine)).toBe(f.engine); // no scope → identity
+  });
+
+  it("null engine (no engine available) passes through as null", () => {
+    on();
+    expect(P.protectEngine("ws-pe", null)).toBeNull();
+  });
+});

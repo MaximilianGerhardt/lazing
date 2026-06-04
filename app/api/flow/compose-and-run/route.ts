@@ -52,6 +52,7 @@ import {
   getEffectiveWorkspaceRole,
 } from "@/lib/security/permissions";
 import { detectEngines, pickEngine } from "@/lib/llm/engines/selector";
+import { protectEngine } from "@/lib/privacy/protect";
 import { composeAndRun } from "@/lib/flow/compose-and-run";
 import { FlowComposeError } from "@/lib/flow/compose";
 import { FlowDispatchError } from "@/lib/flow/execute";
@@ -192,7 +193,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   // 4. Engine für den Default-Decompose wählen (codex ausgeschlossen — wie
   //    plan-dispatch.ts). Ohne Engine → 503 (kein Plan komponierbar).
   const selection = await detectEngines();
-  const engine = pickEngine(selection, ["codex-cli"]);
+  // PII vault: wrap at the engine boundary — the resolved pick is claude-cli
+  // (cloud) and the decompose embeds the user intent verbatim (N1).
+  const engine = protectEngine(workspaceId, pickEngine(selection, ["codex-cli"]));
   if (!engine) {
     logComposeAndRunStep(reqId, "route response", {
       status: 503,

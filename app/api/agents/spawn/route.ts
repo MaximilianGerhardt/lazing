@@ -54,6 +54,8 @@ interface SpawnBody {
   fleetId?: string;
   intent?: string;
   parentWorkstreamId?: string;
+  /** PII-vault scope (N9): when set, cloud-engine prompts are tokenized. */
+  workspaceId?: string;
   roles?: string[];
   engines?: string[];
   worktreePaths?: string[];
@@ -74,6 +76,10 @@ export async function POST(req: Request): Promise<Response> {
   const intent = typeof body.intent === 'string' ? body.intent : '';
   const parentWorkstreamId =
     typeof body.parentWorkstreamId === 'string' ? body.parentWorkstreamId : 'ws-default';
+  const workspaceId =
+    typeof body.workspaceId === 'string' && body.workspaceId.length > 0
+      ? body.workspaceId
+      : undefined;
   const roles = Array.isArray(body.roles) ? body.roles : [];
   const engines = Array.isArray(body.engines) ? body.engines : [];
   const worktreePaths = Array.isArray(body.worktreePaths) ? body.worktreePaths : [];
@@ -159,6 +165,7 @@ export async function POST(req: Request): Promise<Response> {
           parentWorkstreamId,
           worktreePath,
           engine,
+          ...(workspaceId ? { workspaceId } : {}),
         })) {
           ingestLaneEvent(fleetId, ev, { intentText: intent });
           if (ev.kind === 'started') {

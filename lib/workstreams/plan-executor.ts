@@ -74,6 +74,7 @@
 
 import { listRootPlanSteps, setPlanStepStatus } from '@/lib/workstreams/plan-repo';
 import { detectEngines, pickEngine } from '@/lib/llm/engines/selector';
+import { protectEngine } from '@/lib/privacy/protect';
 import { resourcePool } from '@/lib/agents/resource-pool';
 import { MODEL_NAMES } from '@/lib/agents/pricing';
 import { waitForBudget } from '@/lib/agents/tpm-budget';
@@ -616,7 +617,11 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
   //    Nicht-Destruktiv-Gebot). Erlaubt: claude-cli (--print, tool-fähig via
   //    tmux-spawn-flags) + ollama (reiner /api/chat-POST, text-only).
   const selection = await detectEngines();
-  const engine = pickEngine(selection, ['codex-cli']);
+  // PII vault: wrap at the engine boundary. The text-only step branch sends the
+  // step prompt (built from the verbatim user intent, N1) straight to claude-cli
+  // (cloud) without going through spawnInTmux — so tokenize/rehydrate here. The
+  // real-spawn branch is already covered by spawnInTmux; pass-through for ollama.
+  const engine = protectEngine(workspaceId, pickEngine(selection, ['codex-cli']));
 
   if (!engine) {
     console.error(`[plan-executor] Keine Engine verfügbar. Alle Steps werden auf 'failed' gesetzt.`);

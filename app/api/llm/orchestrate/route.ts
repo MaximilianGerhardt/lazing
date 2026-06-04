@@ -33,6 +33,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
 import { orchestrate, type EngineMode } from '@/lib/llm/orchestrator';
+import { tokenizeMessagesAsync, rehydrate } from '@/lib/privacy/protect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,6 +63,11 @@ const BodySchema = z.object({
   maxTokens: z.number().int().positive().optional(),
   timeoutMs: z.number().int().nonnegative().optional(),
   parallelTimeoutMs: z.number().int().nonnegative().optional(),
+  // PII vault: when a workspace scope is supplied, outbound messages are
+  // tokenized before they reach the (cloud) racers and the winning text is
+  // rehydrated locally. Absent → scope-less dev/smoke pass-through (this endpoint
+  // is not on the main chat path, which tokenizes in app/api/chat/stream).
+  workspaceId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -88,11 +94,17 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const body = parsed.data;
   const mode = body.mode as EngineMode;
+  const workspaceId = body.workspaceId ?? '';
 
   try {
+    // PII vault: tokenize outbound messages when a workspace scope is present
+    // (pass-through otherwise / when the vault is off).
+    const messages = workspaceId
+      ? await tokenizeMessagesAsync(workspaceId, body.messages)
+      : body.messages;
     const result = await orchestrate({
       mode,
-      messages: body.messages,
+      messages,
       model: body.model,
       maxTokens: body.maxTokens,
       timeoutMs: body.timeoutMs,
@@ -101,7 +113,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       // write-codex via this endpoint regardless of what the body contained.
       codexMode: 'read',
     });
-    return NextResponse.json(result);
+    // Rehydrate the winning text locally before returning it to the caller.
+    const shown = workspaceId ? rehydrate(workspaceId, result.text) : result.text;
+    return NextResponse.json({ ...result, text: shown });
   } catch (err) {
     return NextResponse.json(
       {

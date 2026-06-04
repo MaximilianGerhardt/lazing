@@ -16,6 +16,7 @@
  */
 
 import { getDb } from "@/db/client";
+import type { ChatEngine, EngineId } from "@/lib/llm/engines/types";
 import { encryptCredential } from "@/lib/security/credentials";
 
 import { detectNamedEntitiesOllama, nerEnabled } from "./pii-ner-ollama";
@@ -152,4 +153,48 @@ export async function tokenizeMessagesAsync<T extends EngineMessageLike>(
 export function tokenizeStringForExternal(workspaceId: string, text: string): string {
   if (!piiVaultEnabled() || !workspaceId || !text) return text;
   return tokenizeText(getDb().$raw, workspaceId, text).text;
+}
+
+/** Cloud engines whose `.chat()` egress must be tokenized; local ollama is exempt. */
+const CLOUD_ENGINE_IDS = new Set<EngineId>(["claude-cli", "codex-cli"]);
+
+/**
+ * Wrap a CLOUD `ChatEngine` so every `.chat()` tokenizes the outbound messages and
+ * rehydrates the reply — the single boundary that makes "a caller forgot to
+ * tokenize" impossible for any cloud-egress site that routes through it. This is
+ * the systemic answer to the recurring leak class where `pickEngine(sel,
+ * ['codex-cli'])` still resolves to `claude-cli` (a cloud engine) and the caller
+ * sends a raw prompt.
+ *
+ * Pass-through (returns the engine untouched, zero overhead, byte-identical
+ * behaviour) when: the vault is off, there is no workspace scope, the engine is
+ * null, or the engine is LOCAL (ollama never leaves the box). Uses the sync
+ * deterministic + cross-turn-name tokenizer; the optional NER layer stays on the
+ * primary chat path (tokenizeMessagesAsync).
+ *
+ * Usage at every cloud-egress site:
+ *   const engine = protectEngine(workspaceId, pickEngine(selection, ['codex-cli']));
+ */
+export function protectEngine(workspaceId: string, engine: ChatEngine): ChatEngine;
+export function protectEngine(
+  workspaceId: string,
+  engine: ChatEngine | null,
+): ChatEngine | null;
+export function protectEngine(
+  workspaceId: string,
+  engine: ChatEngine | null,
+): ChatEngine | null {
+  if (!engine || !workspaceId || !piiVaultEnabled()) return engine;
+  if (!CLOUD_ENGINE_IDS.has(engine.id)) return engine; // local → no tokenization
+  return {
+    id: engine.id,
+    detect: () => engine.detect(),
+    chat: async (req) => {
+      const safe = { ...req, messages: tokenizeMessages(workspaceId, req.messages) };
+      const res = await engine.chat(safe);
+      return typeof res.text === "string"
+        ? { ...res, text: rehydrate(workspaceId, res.text) }
+        : res;
+    },
+  };
 }

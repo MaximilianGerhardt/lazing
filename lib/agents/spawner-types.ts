@@ -166,6 +166,14 @@ export interface SpawnSubagentInput {
   readonly intent: SubagentIntent;
   readonly parentWorkstreamId: string;
   /**
+   * Workspace scope for the PII vault (N9). When set, the default adapter
+   * factory wraps the (cloud) engine so the system + user prompts — which embed
+   * the verbatim operator intent (N1) — are tokenized before egress and the
+   * reply is rehydrated locally. Optional: absent → no tokenization (legacy /
+   * test path, byte-identical).
+   */
+  readonly workspaceId?: string;
+  /**
    * Absolute path of the worktree the engine should run in.
    *
    * For text-only spawns (no Write/Edit/Bash in allowedTools) this is passed

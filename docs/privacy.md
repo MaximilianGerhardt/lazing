@@ -94,6 +94,21 @@ The vault is wired into the **default chat paths**, verified by review:
   chokepoint; they are now covered explicitly rather than by assumption.
 - ✅ **Names across turns**: a known-value sweep re-tokenizes a name in later
   turns once any turn's NER has stored it (no repeated model calls).
+- ✅ **Secondary LLM features that call the cloud engine directly** — background
+  plan-dispatch on the default chat path, `/api/innovate`, `/api/lanes/compile`,
+  `/api/flow/compose-and-run`, the plan-executor text-only step branch,
+  `/api/agents/spawn`, and image generation (`/api/imagegen`). A fourth review
+  found these all shared one root cause: `pickEngine(selection, ['codex-cli'])`
+  still resolves to **claude-cli (cloud)**, and each caller sent a raw prompt. The
+  fix is one boundary wrapper, `protectEngine(workspaceId, engine)`
+  (`lib/privacy/protect.ts`), applied at every cloud-egress site: it tokenizes the
+  outbound messages and rehydrates the reply, and is a pass-through for local
+  Ollama or when the vault is off.
+- ✅ **Regression guard (N6):** a deterministic source test
+  (`lib/privacy/__tests__/egress-guard.test.ts`) fails the build if a new file
+  uses the codex-excluded `pickEngine` pattern, or calls the cloud engine
+  directly, without routing through `protectEngine` — so this leak class cannot
+  silently return.
 
 Still tracked:
 

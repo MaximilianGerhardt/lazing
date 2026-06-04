@@ -19,6 +19,7 @@
 // simply ignore the field today.
 
 import { getEngine, type EngineChatRequest, type EngineId } from '@/lib/llm/engines';
+import { protectEngine } from '@/lib/privacy/protect';
 
 import type { SubagentEngine } from './spawner-types';
 import type { SpawnerAdapter, SpawnerAdapterFactory } from './spawner';
@@ -44,7 +45,11 @@ function engineIdFromSubagentEngine(engine: SubagentEngine): EngineId {
  */
 export const defaultSpawnerAdapterFactory: SpawnerAdapterFactory = (input) => {
   const engineId = engineIdFromSubagentEngine(input.engine);
-  const engine = getEngine(engineId);
+  // PII vault: wrap at the engine boundary when a workspace scope is present, so
+  // the system + user prompts (verbatim operator intent, N1) are tokenized before
+  // a cloud engine sees them and the reply is rehydrated. Pass-through for ollama,
+  // vault-off, or no scope (test factories pass no workspaceId).
+  const engine = protectEngine(input.workspaceId ?? '', getEngine(engineId));
 
   const adapter: SpawnerAdapter = {
     async runOnce(args) {

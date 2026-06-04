@@ -24,6 +24,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { resolveActor } from "@/lib/cloud/actor";
 import { startImageJob } from "@/lib/imagegen/job-store";
+import { tokenizeStringForExternal } from "@/lib/privacy/protect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +68,12 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const actor = resolveActor(req);
-  const job = startImageJob({ workspace, prompt, actor });
+  // PII vault: the image prompt goes to the cloud Codex MCP server (gpt-image).
+  // Tokenize it first — the cloud must not receive e.g. "a photo of <real name>"
+  // or an email/IBAN embedded in the instruction. Output is a PNG, so there is
+  // nothing to rehydrate. Pass-through when the vault is off.
+  const safePrompt = tokenizeStringForExternal(workspace, prompt);
+  const job = startImageJob({ workspace, prompt: safePrompt, actor });
   return NextResponse.json(
     { jobId: job.id, status: job.status },
     { status: 202, headers: { "Cache-Control": "no-store" } },

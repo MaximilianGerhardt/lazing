@@ -37,6 +37,7 @@ import { insertProposedPlan } from '@/lib/workstreams/plan-repo';
 import { createWorkstream, updateWorkstream } from '@/lib/workstreams/service';
 import { emitOrUpdateCard } from '@/lib/events/emit-or-update-card';
 import { detectEngines, pickEngine } from '@/lib/llm/engines/selector';
+import { protectEngine } from '@/lib/privacy/protect';
 import { resourcePool } from '@/lib/agents/resource-pool';
 import type { PoolSlot } from '@/lib/agents/resource-pool';
 import { waitForBudget } from '@/lib/agents/tpm-budget';
@@ -112,7 +113,12 @@ export async function tryPlanDispatch(args: {
   //    Dateien/Shell). Der Planer braucht nur Text (Plan-JSON); claude-cli/ollama
   //    genügen. Keine Engine → kein Decompose, normaler Turn.
   const selection = await detectEngines();
-  const engine = pickEngine(selection, ['codex-cli']);
+  // PII vault: wrap at the engine boundary. pickEngine(…,['codex-cli']) still
+  // resolves to claude-cli (cloud) when available, so the planner prompt — which
+  // embeds the verbatim user intent (N1) — must be tokenized before egress. The
+  // wrapper is a pass-through for ollama / vault-off, and preserves engine.id so
+  // the slot-kind + ultrathink gates below are unchanged.
+  const engine = protectEngine(args.workspaceId, pickEngine(selection, ['codex-cli']));
   if (!engine) {
     return { decomposed: false, reason: 'no-engine-available' };
   }

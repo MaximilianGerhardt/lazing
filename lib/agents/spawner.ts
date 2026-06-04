@@ -102,6 +102,12 @@ export interface SpawnerAdapterFactoryInput {
   readonly engine: SubagentEngine;
   readonly workspacePath: string;
   readonly allowedSkills: readonly string[];
+  /**
+   * Workspace scope for the PII vault (N9). Forwarded from SpawnSubagentInput.
+   * The default factory uses it to wrap a cloud engine (tokenize prompts /
+   * rehydrate reply). Optional — absent → no tokenization (test factories).
+   */
+  readonly workspaceId?: string;
 }
 
 export type SpawnerAdapterFactory = (input: SpawnerAdapterFactoryInput) => SpawnerAdapter;
@@ -434,6 +440,7 @@ export function createSubagentSpawner(config: SubagentSpawnerConfig): SubagentSp
           engine: input.engine,
           workspacePath: effectiveWorktreePath,
           allowedSkills,
+          ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
         });
 
         const systemPrompt = composeSubagentSystemPrompt({
