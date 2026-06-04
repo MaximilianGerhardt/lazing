@@ -1226,9 +1226,10 @@ function PrivacyVaultToggle() {
           data-test="privacy-vault-toggle"
         />
         <span>
-          When you use an external engine (Claude / Codex), replace personal entities
-          (emails, IBANs, cards, phones, IPs) with local placeholders. Real values are
-          encrypted on this machine; the cloud only ever sees the placeholders.
+          When you use an external engine (Claude / Codex), detected personal
+          entities (emails, IBANs, cards, phones, IPs — and names with the option
+          below) are replaced with local placeholders before the prompt is sent.
+          Real values are encrypted on this machine.
         </span>
       </label>
       {vault ? (

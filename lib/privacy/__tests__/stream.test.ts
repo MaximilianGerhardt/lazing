@@ -68,6 +68,17 @@ describe("makeStreamDetokenizer", () => {
     expect(out).toBe("see ");
     expect(out).not.toContain("[[EMAI");
   });
+
+  it("holds a real token even after an over-long literal [[ (H1, >MAX_TOKEN_LEN)", () => {
+    const d = makeStreamDetokenizer(raw, "ws");
+    const literal = "[[" + "x".repeat(39); // a "[[" too long to be a token
+    // literal + the start of a REAL token, in one chunk
+    let out = d.push(literal + token.slice(0, 9)); // token.slice(0,9) = "[[EMAIL_1"
+    expect(out).not.toContain("[[EMAIL_1"); // the real partial token must be held
+    out += d.push(token.slice(9) + " end"); // "]] end" closes it
+    out += d.flush();
+    expect(out).toContain("alice@example.com"); // real token resolved, not leaked
+  });
 });
 
 describe("makeSseDetokenizer", () => {

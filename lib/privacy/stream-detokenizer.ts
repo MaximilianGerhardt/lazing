@@ -39,11 +39,23 @@ export function makeStreamDetokenizer(raw: RawDb, workspaceId: string): StreamDe
       // the last — avoids emitting an earlier half-written token when a second
       // "[[" arrives in the same buffer.
       let hold = buf.length;
-      const lastClose = buf.lastIndexOf("]]");
-      const dangling = buf.indexOf("[[", lastClose === -1 ? 0 : lastClose + 2);
-      if (dangling !== -1 && buf.length - dangling <= MAX_TOKEN_LEN) {
-        hold = dangling;
-      } else if (buf.endsWith("[")) {
+      let searchFrom = buf.lastIndexOf("]]");
+      searchFrom = searchFrom === -1 ? 0 : searchFrom + 2;
+      // Find the first "[[" whose dangling window is short enough to still be an
+      // unclosed token. Skip any "[[" that is already too long to be a token —
+      // that one is literal text (so we must NOT hold or release on it), keep
+      // scanning. This prevents an over-long literal "[[…" from forcing the whole
+      // buffer (incl. a following real partial token) to be released raw.
+      for (;;) {
+        const dangling = buf.indexOf("[[", searchFrom);
+        if (dangling === -1) break;
+        if (buf.length - dangling <= MAX_TOKEN_LEN) {
+          hold = dangling;
+          break;
+        }
+        searchFrom = dangling + 2;
+      }
+      if (hold === buf.length && buf.endsWith("[")) {
         hold = buf.length - 1; // a lone trailing "[" could become "[["
       }
       const emit = buf.slice(0, hold);

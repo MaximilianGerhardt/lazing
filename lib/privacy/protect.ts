@@ -123,13 +123,26 @@ export async function tokenizeMessagesAsync<T extends EngineMessageLike>(
   if (!piiVaultEnabled() || !workspaceId) return messages;
   if (!nerEnabled()) return tokenizeMessages(workspaceId, messages);
   const raw = getDb().$raw;
+  // NER is a local-model call (bounded by its own timeout). Run it ONCE — on the
+  // new (last) user message — not over the whole re-sent history, so latency is
+  // a single model round-trip, not N of them. Older messages get deterministic
+  // tokenization (structured PII); their names were NER-tokenized when they were
+  // the new message in their own turn.
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") {
+      lastUserIdx = i;
+      break;
+    }
+  }
   const out: T[] = [];
-  for (const m of messages) {
+  for (let i = 0; i < messages.length; i += 1) {
+    const m = messages[i] as T;
     if (typeof m.content !== "string") {
       out.push(m);
       continue;
     }
-    const extra = await detectNamedEntitiesOllama(m.content, opts);
+    const extra = i === lastUserIdx ? await detectNamedEntitiesOllama(m.content, opts) : [];
     out.push({ ...m, content: tokenizeText(raw, workspaceId, m.content, extra).text } as T);
   }
   return out;

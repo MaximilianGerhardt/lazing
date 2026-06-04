@@ -1310,6 +1310,25 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
     prompt: logPrompt,
   });
 
+  // PII vault: one gated, synchronous tokenize/detokenize pair for this turn.
+  // piiTok runs BEFORE the spawn (system prompt + RAG block) so the cloud only
+  // sees placeholders; piiDetok runs inside the (sync) close callback so local
+  // persistence (history / ledger / event log) keeps the REAL values. Fail-soft
+  // → identity functions when the vault is off or unavailable.
+  let piiTok = (t: string): string => t;
+  let piiDetok = (t: string): string => t;
+  try {
+    const { piiVaultEnabled } = await import('../lib/privacy/protect');
+    if (piiVaultEnabled()) {
+      const { tokenizeText, detokenizeText } = await import('../lib/privacy/pii-vault');
+      const piiRaw = getAgentDb();
+      piiTok = (t: string): string => (t ? tokenizeText(piiRaw, opts.workspaceId, t).text : t);
+      piiDetok = (t: string): string => (t ? detokenizeText(piiRaw, opts.workspaceId, t).text : t);
+    }
+  } catch {
+    /* keep identity functions */
+  }
+
   // Fan-out event emitter: calls the caller's onEvent AND writes to the
   // transcript. Transcript write errors are swallowed so they cannot break
   // the SSE path.
@@ -1470,7 +1489,9 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
     // lazyOS concepts. Keep the text SHORT — long system prompts burn
     // tokens every turn.
     '--append-system-prompt',
-    buildLazyosSystemPrompt(opts.workspaceId),
+    // PII vault: the system prompt embeds subchat customer comms + workspace
+    // notes + the handoff block — tokenize it before it reaches the cloud.
+    piiTok(buildLazyosSystemPrompt(opts.workspaceId)),
   ];
   // For a freshly-minted session, pass --session-id so we can persist the
   // UUID we stored. For an existing session, use --resume to continue the
@@ -1583,13 +1604,9 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
       let ragBlock = formatForPrompt(ragResult);
       // PII vault: the retrieved RAG context can contain customer emails / IBANs /
       // names, so tokenize it too BEFORE it is prepended to the cloud prompt. The
-      // proxy's stream detokenizer rehydrates the response locally afterwards.
+      // response is rehydrated locally afterwards.
       if (ragBlock) {
-        const { piiVaultEnabled } = await import('../lib/privacy/protect');
-        if (piiVaultEnabled()) {
-          const { tokenizeText } = await import('../lib/privacy/pii-vault');
-          ragBlock = tokenizeText(getAgentDb(), opts.workspaceId, ragBlock).text;
-        }
+        ragBlock = piiTok(ragBlock);
         effectivePrompt = `${ragBlock}\n---\n${opts.prompt}`;
       }
     }
@@ -1901,7 +1918,7 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
         reqId: logReqId,
         workspaceId: opts.workspaceId,
         sessionId: handle.sessionId,
-        text: responseText,
+        text: piiDetok(responseText),
         tool_calls: toolCalls,
         duration_ms: finalDurMs,
         subtype: tooManyTurns ? 'too_many_turns' : finalIsError ? 'error' : 'success',
@@ -1925,7 +1942,7 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
           appendLedgerRow(getAgentDb(), {
             coordKey: opts.workspaceId,
             role: 'assistant',
-            contentFull: ledgerCompletionContent,
+            contentFull: piiDetok(ledgerCompletionContent),
             conversationThreadId: opts.pendingPromptId ?? logReqId,
           });
         } catch (err) {
@@ -1975,7 +1992,9 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
       emitChatMessageCompleted({
         workspaceId: opts.workspaceId,
         entityId: completionEntityId,
-        content: completionContent,
+        // PII vault: persist the REAL text (history/reload source); the cloud
+        // only ever saw tokens, the model echoes them back, we rehydrate here.
+        content: piiDetok(completionContent),
         durationMs: finalDurMs,
         outcome,
         partial: outcome !== 'ok',
