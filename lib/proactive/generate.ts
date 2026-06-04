@@ -76,6 +76,10 @@ export async function generateAndStore(
       mode: 'claude-cli',
       messages: [{ role: 'user', content: prompt }],
       parallelTimeoutMs: 30_000,
+      // PII vault: this prompt embeds the verbatim customer transcript (names,
+      // emails, IBANs…). Scope → orchestrate() tokenizes before the cloud and
+      // rehydrates the suggestion locally.
+      workspaceId,
     });
     const suggestion = (result.text ?? '').trim();
     if (!suggestion) return; // empty output → store nothing

@@ -104,11 +104,21 @@ The vault is wired into the **default chat paths**, verified by review:
   (`lib/privacy/protect.ts`), applied at every cloud-egress site: it tokenizes the
   outbound messages and rehydrates the reply, and is a pass-through for local
   Ollama or when the vault is off.
+- ✅ **The `orchestrate()` indirection** (proactive subchat suggestions —
+  including the one that fires automatically on every inbound customer message —
+  plus the subchat reply- and question-suggestion helpers). These reach the cloud
+  via `orchestrate({ mode: 'claude-cli', … })`, not a literal `engine.chat()`, so
+  the boundary is `orchestrate()` itself: it now tokenizes the inbound messages
+  and rehydrates the reply whenever a `workspaceId` is supplied (one chokepoint
+  for every caller; pass-through for the vault-off / no-scope case). The main chat
+  path pre-tokenizes with the NER layer and is unaffected.
 - ✅ **Regression guard (N6):** a deterministic source test
   (`lib/privacy/__tests__/egress-guard.test.ts`) fails the build if a new file
-  uses the codex-excluded `pickEngine` pattern, or calls the cloud engine
-  directly, without routing through `protectEngine` — so this leak class cannot
-  silently return.
+  (a) uses the codex-excluded `pickEngine` pattern, (b) calls the cloud engine
+  directly, or (c) calls `orchestrate({…})` without a `workspaceId` — without
+  routing through `protectEngine` / the orchestrate chokepoint. Four successive
+  reviews each found a fresh variant of this one leak class; the guard is what
+  stops a fifth from silently returning.
 
 Still tracked:
 

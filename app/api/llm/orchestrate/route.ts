@@ -33,7 +33,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
 import { orchestrate, type EngineMode } from '@/lib/llm/orchestrator';
-import { tokenizeMessagesAsync, rehydrate } from '@/lib/privacy/protect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -94,17 +93,11 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const body = parsed.data;
   const mode = body.mode as EngineMode;
-  const workspaceId = body.workspaceId ?? '';
 
   try {
-    // PII vault: tokenize outbound messages when a workspace scope is present
-    // (pass-through otherwise / when the vault is off).
-    const messages = workspaceId
-      ? await tokenizeMessagesAsync(workspaceId, body.messages)
-      : body.messages;
     const result = await orchestrate({
       mode,
-      messages,
+      messages: body.messages,
       model: body.model,
       maxTokens: body.maxTokens,
       timeoutMs: body.timeoutMs,
@@ -112,10 +105,12 @@ export async function POST(req: NextRequest): Promise<Response> {
       // Defense-in-depth: hardcoded 'read' — client can never escalate to
       // write-codex via this endpoint regardless of what the body contained.
       codexMode: 'read',
+      // PII vault: orchestrate() tokenizes the outbound messages and rehydrates
+      // the reply internally when a workspace scope is supplied (pass-through
+      // otherwise). This endpoint is not on the main chat path.
+      ...(body.workspaceId ? { workspaceId: body.workspaceId } : {}),
     });
-    // Rehydrate the winning text locally before returning it to the caller.
-    const shown = workspaceId ? rehydrate(workspaceId, result.text) : result.text;
-    return NextResponse.json({ ...result, text: shown });
+    return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(
       {

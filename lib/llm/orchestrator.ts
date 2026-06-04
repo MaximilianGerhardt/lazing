@@ -32,6 +32,7 @@ import type {
   EngineChatResponse,
   EngineId,
 } from './engines/types';
+import { piiVaultEnabled, tokenizeMessages, rehydrate } from '@/lib/privacy/protect';
 
 // Additive (2026-06-02): 'ultracoding' is a NEW literal alongside the union.
 // It delegates to the multi-agent worktree orchestrator (see orchestrate()).
@@ -53,6 +54,14 @@ export interface OrchestratorRequest extends EngineChatRequest {
   parallelTimeoutMs?: number;
   /** Only consumed by mode:'ultracoding'. Ignored by every other branch. */
   ultracodingWorkspaceId?: string;
+  /**
+   * PII-vault scope (N9). When set, orchestrate() tokenizes the inbound messages
+   * before they reach the (cloud) engines and rehydrates the winning text — the
+   * single chokepoint for every orchestrate() caller. Pass-through when the vault
+   * is off / this is empty. The main chat path pre-tokenizes with the NER layer
+   * and does NOT set this, so it is unaffected (no double processing).
+   */
+  workspaceId?: string;
 }
 
 export interface OrchestratorAttempt {
@@ -112,6 +121,22 @@ export async function orchestrate(
       signal: req.signal,
     });
   }
+  // ── PII vault: single chokepoint for every non-ultracoding orchestrate()
+  // caller. When a workspace scope is supplied, tokenize the inbound messages
+  // before any engine (cloud racer / single engine / consensus synthesis) sees
+  // them, and rehydrate the winning text on the way out. Pass-through for
+  // vault-off / no scope. (ultracoding above has its own tokenization path.)
+  const piiWs = req.workspaceId ?? '';
+  const piiOn = piiWs.length > 0 && piiVaultEnabled();
+  if (piiOn) {
+    // Mutate messages in place (not `req = {...req}`) so TypeScript keeps the
+    // `mode !== 'ultracoding'` narrowing from the early return above; req is a
+    // fresh per-call argument object, so mutating it has no external effect.
+    req.messages = tokenizeMessages(piiWs, req.messages);
+  }
+  const finalize = (r: OrchestratorResult): OrchestratorResult =>
+    piiOn ? { ...r, text: rehydrate(piiWs, r.text) } : r;
+
   // ── existing code below UNCHANGED from here. ──
   const selection = await detectEngines();
   const availableIds = selection.available
@@ -147,13 +172,13 @@ export async function orchestrate(
         }
       }
       const res = await getEngine(req.mode).chat(chatReq);
-      return {
+      return finalize({
         ...res,
         mode: req.mode,
         attempts: [
           { engine: req.mode, latencyMs: Date.now() - t0, won: true },
         ],
-      };
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       throw new Error(`orchestrator: ${req.mode} failed: ${msg}`);
@@ -258,11 +283,11 @@ export async function orchestrate(
 
     // Genau eine Engine erfolgreich → kein Konsens nötig, direkt zurück.
     if (fulfilled.length === 1) {
-      return {
+      return finalize({
         ...fulfilled[0].res,
         mode: 'parallel-all',
         attempts: [...attempts.values()],
-      };
+      });
     }
 
     // ≥2 Engines → überlagern + Konsens synthetisieren (claude-cli, N11).
@@ -275,22 +300,22 @@ export async function orchestrate(
         responses: fulfilled.map((f) => ({ engine: f.id, text: f.res.text })),
         signal: req.signal,
       });
-      return {
+      return finalize({
         ...fulfilled[0].res,
         text: consensus.text,
         model: `consensus · ${consensus.engines.join('+')}`,
         mode: 'parallel-all',
         attempts: [...attempts.values()],
-      };
+      });
     } catch {
       const best = fulfilled
         .slice()
         .sort((a, b) => b.res.text.length - a.res.text.length)[0];
-      return {
+      return finalize({
         ...best.res,
         mode: 'parallel-all',
         attempts: [...attempts.values()],
-      };
+      });
     }
   } catch (err) {
     clearTimeout(overallTimeout);

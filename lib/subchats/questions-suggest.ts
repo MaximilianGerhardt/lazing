@@ -83,6 +83,8 @@ export async function suggestQuestionsForSubchat(
       mode: 'claude-cli',
       messages: [{ role: 'user', content: prompt }],
       parallelTimeoutMs: 30_000,
+      // PII vault: the prompt embeds the verbatim customer transcript.
+      workspaceId,
     });
     return parseSuggestions(result.text ?? '');
   } catch (err) {

@@ -62,6 +62,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       mode: 'claude-cli',
       messages: [{ role: 'user', content: prompt }],
       parallelTimeoutMs: 30_000,
+      // PII vault: the prompt embeds the verbatim customer transcript.
+      workspaceId: sc.workspaceId,
     });
     const suggestions = parseSuggestions(result.text);
     return NextResponse.json({ suggestions, engine: result.engine }, { headers: { 'Cache-Control': 'no-store' } });

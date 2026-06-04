@@ -124,6 +124,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       mode: 'claude-cli', // Opus-tier für Plan/Decision (Model-Tiering); NIEMALS Fast-Mode.
       messages: [{ role: 'user', content: prompt }],
       parallelTimeoutMs: 30_000,
+      // PII vault: the prompt embeds the verbatim customer transcript + RAG.
+      workspaceId,
     });
     const suggestion = (result.text ?? '').trim();
     return NextResponse.json(

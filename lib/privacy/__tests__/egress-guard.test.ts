@@ -95,4 +95,53 @@ describe("PII vault — cloud-egress source guard (N6)", () => {
         "documented allow-list entry explaining why the egress is already tokenized.",
     ).toEqual([]);
   });
+
+  it("every orchestrate({...}) call site passes a workspaceId (or is allow-listed)", () => {
+    // The leak class roast #5 found: orchestrate() is itself a cloud-egress
+    // boundary (it calls getEngine(req.mode).chat()), reached dynamically via
+    // `mode`. A call that omits `workspaceId` runs the racers on raw PII. Every
+    // call site must pass a scope — unless it pre-tokenizes (main chat path) or
+    // carries no user PII (dev fixtures).
+    // `await orchestrate({` — the actual call shape. The `await` prefix excludes
+    // doc-comment references like `orchestrate({mode:'claude-cli'})`.
+    const ORCH_CALL = /await\s+orchestrate\(\s*\{/g;
+    const ALLOW = new Map<string, string>([
+      [
+        "app/api/chat/stream/route.ts",
+        "main chat path pre-tokenizes with the NER layer (tokenizeMessagesAsync) + rehydrates",
+      ],
+      [
+        "lib/skills/benchmark.ts",
+        "developer skill-eval fixtures — no user/customer PII",
+      ],
+    ]);
+
+    const offenders: string[] = [];
+    for (const f of sourceFiles()) {
+      if (rel(f) === "lib/llm/orchestrator.ts") continue; // the definition itself
+      if (ALLOW.has(rel(f))) continue;
+      // Strip `//` line comments (replace-with-empty preserves newlines → line
+      // numbers stay correct) so inline comments inside a call don't bloat the
+      // look-ahead window past the workspaceId field.
+      const src = readFileSync(f, "utf8").replace(/\/\/[^\n]*/g, "");
+      let m: RegExpExecArray | null;
+      ORCH_CALL.lastIndex = 0;
+      while ((m = ORCH_CALL.exec(src)) !== null) {
+        // The call's argument object — look ahead far enough to cover a
+        // multi-line { mode, messages, …, workspaceId } literal.
+        const window = src.slice(m.index, m.index + 600);
+        if (!window.includes("workspaceId")) {
+          const line = src.slice(0, m.index).split("\n").length;
+          offenders.push(`${rel(f)}:${line}`);
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      "These orchestrate({...}) calls do not pass a workspaceId — the racers would " +
+        "see raw PII. Add `workspaceId` so orchestrate() tokenizes/rehydrates, or " +
+        "add a documented allow-list entry (pre-tokenized / no-PII).",
+    ).toEqual([]);
+  });
 });
