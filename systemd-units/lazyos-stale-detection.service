@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing stale detection — weekly dry run (file cleanup)
+Documentation=lib/stale-detection/scanner.ts
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lazyos
+ExecStart=/usr/bin/pnpm tsx /opt/lazyos/scripts/stale-detection-sniper.ts
+StandardOutput=journal
+StandardError=journal
+Nice=10

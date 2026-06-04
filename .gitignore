@@ -1,0 +1,90 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+# but DO ship the placeholder example (no secrets — see README / setup.sh)
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# local MVP data (push subscriptions, etc. — nicht committen)
+/data/*
+# Whitelist: Twin-YAMLs sind Source-of-Truth (Pattern 2 Digital-Twin MVP).
+!/data/max_twin.yaml
+!/data/*_twin.yaml
+
+# sub-package node_modules
+server/node_modules/
+server/*.tsbuildinfo
+
+# deprecated archive (ist lokal, nicht nötig im remote)
+server/*.v1-sdk-deprecated
+server/tools.v1-mcp-deprecated/
+models/
+
+# Phase ORG (2026-04-27) — Claude-Code agent memory (lokal)
+.claude/agent-memory/
+
+
+# Phase AU.0 (2026-04-28) — instance-specific Org-Suggestion-Mappings
+/data/org-suggestions.json
+
+# stale-detection sniper output (dry-run, regenerated weekly)
+.stale-detection-suggestions.md
+# legacy name (vor Rename 2026-05-01) — bleibt zur Sicherheit ignored
+.unlearning-suggestions.md
+
+# active-test isolated deps
+tests/active/node_modules/
+tests/active/playwright-report/
+tests/active/test-results/
+.next-dev/
+
+.next-buildcheck/
+
+# Build staging + rollback artifacts — never commit
+.next.bak/
+.next.predeploy/
+.next-verify/
+.next-buildcheck/
+.next-oss/
+.claude/worktrees/
+node_modules
+HANDOVER.md
+STARTSCHUSS.md
+.handover/

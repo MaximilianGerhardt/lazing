@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing daily full sweep — RAG stale-file detection
+Documentation=scripts/daily-full-sweep.ts (dry run, writes data/daily-sweep-suggestions.md)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lazyos
+ExecStart=/usr/bin/pnpm tsx /opt/lazyos/scripts/daily-full-sweep.ts
+StandardOutput=journal
+StandardError=journal
+Nice=15

@@ -1,0 +1,19 @@
+[Unit]
+Description=lazyOS Heartbeat Sweep Timer (every 60s)
+# The service unit we pull in.
+Requires=lazyos-heartbeat.service
+
+[Timer]
+# First fire: 30s after boot (let Next.js finish warming).
+OnBootSec=30s
+# Then every 60s relative to the last invocation.
+OnUnitActiveSec=60s
+# Accuracy: default is 1min — we want tighter so the 60s cadence is honored.
+AccuracySec=5s
+# Persistent=false: a missed tick while systemd was stopped does NOT fire
+# a catch-up sweep — fresh data only.
+Persistent=false
+Unit=lazyos-heartbeat.service
+
+[Install]
+WantedBy=timers.target

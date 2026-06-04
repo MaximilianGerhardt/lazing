@@ -1,0 +1,33 @@
+[Unit]
+Description=lazyOS Heartbeat Sweep (one-shot)
+# Do not fire this on boot — wait until the Next.js service is actually
+# listening on :4200. The .timer pulls us in after 60s regardless.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Single-user VPS — this is the owner's own shell. Running as root so the curl
+# process (and by extension the Next.js API handling the tick) has the
+# same UID/GID as the agent-backend. No privilege drop needed.
+User=root
+# EnvironmentFile exposes LAZYOS_CRON_KEY without putting it in the unit
+# file (which ends up in /etc). Keep the key in root-owned, 0600 file.
+EnvironmentFile=/etc/lazyos/lazyos.env
+# -f: fail fast on HTTP errors so systemd logs them as failures
+# -s: silent (no progress bar)
+# -S: still show errors on stderr
+# --max-time 20: hard ceiling — a sweep that takes >20s means something
+#   is very wrong (10 workspaces * 5s probes should stay under 7s).
+ExecStart=/usr/bin/curl -fsS \
+  --max-time 20 \
+  -H "Authorization: Bearer ${LAZYOS_CRON_KEY}" \
+  http://127.0.0.1:4200/api/heartbeat/tick
+
+# Surface curl output in journald for post-mortem.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+# Pulled in by the .timer, not by any target directly.
+WantedBy=multi-user.target

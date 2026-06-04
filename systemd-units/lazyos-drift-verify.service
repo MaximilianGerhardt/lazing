@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing drift verify — daily reasoning-audit re-run
+Documentation=lib/audit/reasoning-verify.ts
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lazyos
+ExecStart=/usr/bin/pnpm tsx /opt/lazyos/scripts/verify-reasoning-drift.ts --max=50 --since-hours=24
+StandardOutput=journal
+StandardError=journal
+Nice=10

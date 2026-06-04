@@ -1,0 +1,483 @@
+@import "tailwindcss";
+@import "./components.css";
+@import "./organizations-palette.css";
+
+/* =========================================================
+   LAZYOS DESIGN MANIFEST v1.0 — Token System
+   Einziger Ort für Hex-Werte. Alle Komponenten greifen auf
+   diese Variablen zu. Kein Hardcode in Komponenten-CSS.
+   ========================================================= */
+
+:root {
+  color-scheme: dark;
+
+  /* ——— SHEET (Präsentations-Grundschicht) ——— */
+  --sheet: #070707;
+  --sheet-1: #0A0A0B;
+  --sheet-2: #0E0E0F;
+  --sheet-3: #141416;
+
+  /* ——— TINTE (Textstufen) ——— */
+  --ink: #F5F5F7;
+  --ink-2: #A1A1A6;
+  --ink-3: #636366;
+  --ink-4: #3A3A3C;
+
+  /* ——— LINIEN ——— */
+  --line: rgba(255, 255, 255, 0.06);
+  --line-2: rgba(255, 255, 255, 0.12);
+
+  /* ——— OBERFLÄCHEN ——— */
+  --screen: #000;
+  --card: rgba(255, 255, 255, 0.04);
+  --card-2: rgba(255, 255, 255, 0.08);
+  --card-3: rgba(255, 255, 255, 0.12);
+  --glass: rgba(20, 20, 22, 0.7);
+  --sep: rgba(255, 255, 255, 0.06);
+  --primary: #FAFAFA;
+  --label: #8E8E93;
+  --dim: #6E6E73;
+
+  /* ——— KONTEXT-AKZENTE (je Projekt / Mandant) ——— */
+  --a-north: #FF9F0A;
+  --a-clientb: #30D158;
+  --a-own: #BF5AF2;
+  --a-private: #64D2FF;
+
+  /* ——— SEMANTISCH ——— */
+  --a-danger: #FF453A;
+  --a-warn: #FFD60A;
+
+  /* ——— ENGINES ——— */
+  --e-claude: #D97757;
+  --e-codex: #10A37F;
+  --e-local: #8E8E93;
+
+  /* ——— TERMINAL ——— */
+  --term-bg: #0A0B0C;
+  --term-line: #E5E5E7;
+  --term-dim: #8E8E93;
+  --term-ok: #30D158;
+  --term-warn: #FF9F0A;
+  --term-err: #FF453A;
+
+  /* ——— DYNAMISCH (Segment-Scope, bei Wechsel überschreiben) ——— */
+  --a-now: var(--a-north);
+
+  /* ——— SEMANTIK-ALIASES (2026-05-01 Bug B · helle Card-Backgrounds) ———
+     /lab Inline-Styles und Welle-7-Cards referenzieren --fg/--fg-muted/
+     --accent/--a-ok/--line-3 mit Hex-Fallback-Werten (#fff, #999, #4a9eff,
+     #27ae60, rgba(0,0,0,0.06)). Sind die Variablen nicht definiert, greift
+     der Fallback auf weiß bzw. rgb-light → das macht die Surface-Card-
+     Vorschau im Live-Tab hell. Mit diesen Aliases bleiben alle Render-
+     Pfade im Apple-Pure-Dark. */
+  --fg: var(--ink);
+  --fg-muted: var(--ink-2);
+  --fg-subtle: var(--ink-3);
+  --accent: var(--a-now);
+  --a-ok: var(--a-clientb);
+  --line-3: var(--line);
+
+  /* ——— FONT STACKS ——— */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* ——— TYPOGRAFIE-TOKENS (P1: min 13px body, Eyebrow/Caption erlaubt klein) ———
+     body  ≥ 13px, lesbare Texte immer ≥ 13px.
+     label = 11px uppercase mit letter-spacing — nur für Formular-Labels (WCAG
+             exception: decorative allcaps with spacing, Kontrast auf Sheet ≥ 4.5:1
+             sichergestellt durch --ink-2 wo nötig).
+     caption = 11px für Mono-Eyebrows / Section-Titles (uppercase + spacing + --ink-3
+               nur auf --sheet/--sheet-1/--sheet-2, NICHT auf transparenten Cards).
+  */
+  --fs-body: 13px;
+  --fs-body-sm: 13px;       /* bodytexte ≥ 13px — kein Wert darunter für Fließtext */
+  --fs-label: 11px;         /* Formular-Labels uppercase+spacing (nicht Fließtext) */
+  --fs-caption: 11px;       /* Eyebrows/Section-Titles uppercase+spacing (nicht Fließtext) */
+  --lh-body: 1.55;
+  --lh-caption: 1.4;
+
+  /* ——— KONTRAST: Text auf Cards ———
+     --ink-3 auf --card (rgba(255,255,255,0.04)) = ~3.8:1 < 4.5:1 AA.
+     Für lesbare Texte auf Cards (Beschreibungen, Meta-Info) => --ink-2 (~8:1).
+     --ink-3 weiterhin OK für uppercase Eyebrows/Section-Titles auf Sheet-Hintergründen.
+     --on-card ist der Token für Fließtext auf Card-Hintergründen.
+  */
+  --on-card: var(--ink-2);
+
+  /* ——— KONTRAST: Text/Icons AUF Akzent-Flächen (SHARED TOKEN CONTRACT) ———
+     Akzent-Surfaces (var(--a-now) etc.) sind helle, gesättigte Farben — weißer
+     Text darauf ist AA-grenzwertig bis -fail (z.B. #fff auf --a-clientb #30D158
+     ~1.4:1). --on-accent ist near-black (= --sheet) und ersetzt JEDES #fff/white
+     on-accent. --on-accent-2 ist die gedimmte Meta-Variante (own-Bubble-Timestamp
+     o.ä.) auf Akzent. Wie --on-card als CSS-var konsumiert (var(--on-accent)),
+     KEIN Tailwind-color-Mirror — andere Agenten KONSUMIEREN, nicht redefinieren. */
+  --on-accent: var(--sheet);
+  --on-accent-2: color-mix(in oklab, var(--on-accent) 72%, transparent);
+}
+
+/* Tailwind v4 theme integration — Utility-Classes für Tokens */
+@theme inline {
+  --color-sheet: var(--sheet);
+  --color-sheet-1: var(--sheet-1);
+  --color-sheet-2: var(--sheet-2);
+  --color-sheet-3: var(--sheet-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-card-3: var(--card-3);
+  --color-glass: var(--glass);
+  --color-a-north: var(--a-north);
+  --color-a-clientb: var(--a-clientb);
+  --color-a-own: var(--a-own);
+  --color-a-private: var(--a-private);
+  --color-a-danger: var(--a-danger);
+  --color-a-warn: var(--a-warn);
+  --color-e-claude: var(--e-claude);
+  --color-e-codex: var(--e-codex);
+  --color-e-local: var(--e-local);
+  --color-a-now: var(--a-now);
+  --color-term-bg: var(--term-bg);
+  --color-term-line: var(--term-line);
+  --color-term-ok: var(--term-ok);
+  --color-term-warn: var(--term-warn);
+  --color-term-err: var(--term-err);
+  --color-dim: var(--dim);
+  --color-label: var(--label);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-xs: 5px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 100px;
+
+  /* ——— SPRING-PHYSICS (Pure CSS Approximation) ——— */
+  --spring-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+  --spring-bouncy: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  --spring-precise: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ——— TIMING-DURATION ——— */
+  --dur-instant: 80ms;
+  --dur-quick: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
+  --dur-glacial: 600ms;
+
+  /* ——— PRESS-INTERAKTION (iOS Tap-Feedback) ——— */
+  --press-scale: 0.96;
+  --press-scale-strong: 0.92;
+  --press-shadow-lift: 0 1px 0 rgba(0, 0, 0, 0.4);
+
+  /* ——— iMESSAGE-BUBBLES ——— */
+  --bubble-radius: 18px;
+  --bubble-tail-radius: 6px;
+  --bubble-padding: 12px 16px;
+  --bubble-padding-compact: 8px 12px;
+  --bubble-gap-same-sender: 4px;
+  --bubble-gap-new-sender: 14px;
+  --bubble-max: min(720px, 86%);
+
+  /* ——— SPACING-SCALE (4/8/12/16/24/32 grid) ——— */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+
+  /* ——— STREAMING / TYPING ——— */
+  --caret-color-active: var(--a-now);
+  --caret-width: 8px;
+  --caret-height: 14px;
+  --typing-dot-size: 6px;
+  --typing-dot-gap: 4px;
+  --typing-pulse-duration: 1.2s;
+  --streaming-border-glow: 0 0 0 1px color-mix(in oklab, var(--a-now) 38%, transparent);
+
+  /* ——— SAFE-AREA / iOS-Chrome ——— */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --notch-height: max(env(safe-area-inset-top), 20px);
+  --composer-clearance: calc(env(safe-area-inset-bottom, 0px) + 12px);
+
+  /* ——— HAPTICS (Hook-Convention, kein CSS) ——— */
+  --haptic-light: 8;
+  --haptic-medium: 14;
+  --haptic-heavy: 24;
+}
+
+/* =========================================================
+   RESET + BASE
+   ========================================================= */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  background: var(--sheet);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+/* Welle 5 (2026-05-01): iOS-Native-Behavior. `overscroll-behavior-y:
+   contain` verhindert Bounce-Refresh am Top-Scroll und Pull-to-Refresh
+   außerhalb des Chat-Containers. Pure-PWA-Feel ohne Browser-Chrome. */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* TopNav ist position:fixed (iOS-Robust). Body braucht entsprechend
+   padding-top damit Content nicht hinter der Bar versteckt ist.
+   --topnav-h wird vom TopNav-Component live aktualisiert (ResizeObserver),
+   Default 84px deckt mobile clamp + safe-area. */
+body {
+  padding-top: var(--topnav-h, 84px);
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100vh;
+}
+
+/* =========================================================
+   iOS Safari Zoom-Prevention on Focus
+   Safari zoomt bei Input-Focus wenn computed font-size < 16px.
+   Wir zwingen mit !important auf Mobile, weil viele Components
+   eigene font-sizes setzen die spezifischer sind.
+   ========================================================= */
+@media (hover: none) and (pointer: coarse), (max-width: 900px) {
+  input,
+  textarea,
+  select,
+  [contenteditable],
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
+
+/* =========================================================
+   SIGNATUR-HINTERGRUND (Manifest v1.0, unverhandelbar)
+   Drei radiale Glows + körniges Noise-Overlay. Pseudo-element-Layer
+   bleiben (statt body background-attachment: fixed), iOS-Safari
+   rendert sie verlässlicher. Alpha-Werte = Original-Branding-Konstante
+   (Max-Feedback 2026-04-25: vorherige Hochskalierung war zu hell).
+   ========================================================= */
+body {
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Radial-Glow-Layer: drei Spots aus Akzentfarben, fixed ueber die
+   gesamte Viewport. Liegt UNTER dem Grain. Hoehe = 100lvh (large
+   viewport - bleibt konstant, ignoriert Keyboard-Shrink) damit die
+   Glow-Positionen sich nicht verziehen wenn iOS-Keyboard den
+   visual-viewport schrumpft. */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100lvh;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(ellipse at 15% 0%, rgba(255, 159, 10, 0.08), transparent 45%),
+    radial-gradient(ellipse at 85% 20%, rgba(191, 90, 242, 0.06), transparent 45%),
+    radial-gradient(ellipse at 50% 100%, rgba(48, 209, 88, 0.05), transparent 55%);
+}
+
+/* Grain-Overlay: koerniger SVG-Filter, ueber den Glows. */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100lvh;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.35'/></svg>");
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+}
+
+/* Content-Container sitzt ÜBER dem Grain-Overlay */
+.sheet {
+  position: relative;
+  z-index: 2;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: clamp(40px, 5vw, 96px) clamp(20px, 4vw, 56px);
+}
+
+/* =========================================================
+   SEGMENT-SCOPE — dynamischer Akzent per body.classList
+   ========================================================= */
+body.segment-north { --a-now: var(--a-north); }
+body.segment-clientb { --a-now: var(--a-clientb); }
+body.segment-own { --a-now: var(--a-own); }
+body.segment-private { --a-now: var(--a-private); }
+
+/* =========================================================
+   TYPOGRAFIE-HELPER (aus Manifest v1.0)
+   ========================================================= */
+.t-display {
+  font-family: var(--font-display);
+  font-size: clamp(44px, 7.5vw, 104px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.96;
+}
+
+/* .t-h1 war NIE definiert (UI/UX-Audit 2026-06-03) — 8 Seiten (Decisions,
+   Kalender, Tickets, Workstreams, Skills, Routines …) fielen auf Browser-UA-
+   Headings zurück (kein SF Pro Display, kein Tracking). Schließt die Lücke
+   zwischen .t-display und .t-h2. Inline-fontSize-Overrides auf den Seiten
+   bleiben wirksam; diese Klasse liefert Family/Weight/Tracking/Leading. */
+.t-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.99;
+}
+
+.t-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5vw, 62px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+.t-h3 {
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.t-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);   /* 11px — uppercase + 0.18em tracking = caption-class */
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.t-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);   /* 11px — decorative mono label, wide tracking */
+  color: var(--dim);
+  letter-spacing: 0.005em;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+/* Gradient-Text (nur Headlines, max 4 Wörter) */
+.gradient-text {
+  background: linear-gradient(135deg, var(--a-north), var(--a-own));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-style: italic;
+  font-weight: 300;
+}
+
+/* =========================================================
+   ANIMATIONS (aus Manifest v1.0)
+   ========================================================= */
+@keyframes bl {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes beat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
+@keyframes lazyos-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Last-known-good Surface-Cross-Fade (Apple-UX Slice 1, 2026-05-30).
+   Weicher Übergang wenn die vorige gültige Surface-Version während eines
+   Re-Streams weitergezeigt wird — kein harter Flip. Unter
+   prefers-reduced-motion via globalem Catch-all instant. */
+@keyframes lazyos-surface-fade {
+  from { opacity: 0.78; }
+  to   { opacity: 1; }
+}
+
+/* Streaming-Cursor (Caret blinkt während Assistant schreibt). */
+@keyframes lazyos-cursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Typing-Indicator-Dots (3-Punkte vor Stream-Start). */
+@keyframes lazyos-typing {
+  0%, 80%, 100% {
+    transform: translateY(0) scale(0.85);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px) scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* prefers-reduced-motion Catch-all (Apple-HIG). Stillt ALLE Animationen über
+   den Universal-Selektor: Dauer→instant + iteration-count→1 (bricht
+   Endlos-Loops). Deckt damit explizit die drei Surface-Animationen ab:
+     1. `lazyos-shimmer` auf der Skeleton-Brand-Hairline (infinite → 1×, instant)
+     2. `lazyos-shimmer` auf dem Skeleton-Shimmer-Overlay (infinite → 1×, instant)
+     3. `lazyos-surface-fade` auf dem Last-known-good-Cross-Fade (instant)
+   Kein per-Keyframe-Override nötig — der Universal-Selektor greift, weil alle
+   drei via `animation` auf realen Elementen laufen. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

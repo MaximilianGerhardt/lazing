@@ -1,0 +1,13 @@
+[Unit]
+Description=laz.ing sessions cleanup timer (daily 03:00 UTC)
+Requires=lazyos-sessions-cleanup.service
+
+[Timer]
+# Daily at 03:00 UTC. Persistent: catches up missed runs after a reboot.
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+AccuracySec=1m
+
+[Install]
+WantedBy=timers.target

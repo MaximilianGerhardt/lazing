@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing unlearning reflection timer — Sunday 22:30 (after retry 21:00 + stale-detection 22:00)
+
+[Timer]
+OnCalendar=Sun 22:30:00
+RandomizedDelaySec=5m
+Persistent=true
+Unit=lazyos-unlearning-reflection.service
+
+[Install]
+WantedBy=timers.target

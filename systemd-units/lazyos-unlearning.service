@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing unlearning — weekly dry run
+Documentation=lib/unlearning/
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lazyos
+ExecStart=/usr/bin/pnpm tsx /opt/lazyos/scripts/unlearning-sniper.ts
+StandardOutput=journal
+StandardError=journal
+Nice=10

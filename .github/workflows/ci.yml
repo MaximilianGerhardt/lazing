@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm tsc --noEmit
+
+      - name: Build
+        env:
+          # Stub-Werte für den Build — niemals echte Geheimnisse hier rein.
+          # Der Build läuft ohne DB; alles dynamische ist runtime.
+          LAZYOS_AUTH_SECRET: ci-stub-auth-secret-do-not-use-in-prod
+          LAZYOS_ACCESS_CODE: ci-stub-access-code-do-not-use
+          LAZYOS_CREDENTIAL_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+        run: pnpm next build
+
+      - name: Migration smoke (per-statement loader)
+        run: pnpm tsx -e "import { getDb } from './db/client'; const db = getDb(); console.log('migrations applied, db ready');"
+        env:
+          LAZYOS_DB_PATH: /tmp/lazyos-ci-smoke.db

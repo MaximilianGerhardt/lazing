@@ -1,0 +1,26 @@
+{
+  "skill": "document-deliverables",
+  "tasks": [
+    {
+      "prompt": "Der Kunde will ein Angebot als PDF-Datei in laz.ing. Antworte NUR mit dem konkreten Vorgehen + dem CLI-Befehl, nichts sonst.",
+      "assertions": [
+        { "contains": "cloud generate" },
+        { "contains": "surface:document" }
+      ]
+    },
+    {
+      "prompt": "Erstelle eine Kosten-Aufstellung als Excel-Datei in laz.ing. Welcher konkrete CLI-Befehl + JSON-Form?",
+      "assertions": [
+        { "contains": "xlsx" },
+        { "contains": "cloud generate" }
+      ]
+    },
+    {
+      "prompt": "Mach mir einen Pitch/ein Deck für den Kunden. Welcher laz.ing-Weg liefert das schönste Ergebnis (nicht pptx)?",
+      "assertions": [
+        { "contains": "html" },
+        { "matches": "pdf|deck" }
+      ]
+    }
+  ]
+}

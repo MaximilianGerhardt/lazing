@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing unlearning retry — weekly re-try of failed experiments
+Documentation=lib/unlearning/experiment-tracker.ts
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lazyos
+ExecStart=/usr/bin/pnpm tsx /opt/lazyos/scripts/weekly-retry-sniper.ts --apply
+StandardOutput=journal
+StandardError=journal
+Nice=10

@@ -1,0 +1,264 @@
+/* =========================================================
+   lazyOS Organizations Palette — 40 Gradient-Tripel
+   (2026-04-24, Organizations-Refactor)
+   ---------------------------------------------------------
+   Pro Palette: --palette-N-from, --palette-N-mid, --palette-N-to
+   als HSL-Werte. Jede Organization wählt eine Palette-Index
+   (0–39), setzt via body.palette-N die aktiven --a-now /
+   --a-now-from / --a-now-to Variablen.
+
+   Verteilung:
+   00–04  Corporate/Neutral (navy, slate, stone, silver, bone)
+   05–14  Warm-Spektrum    (amber → orange → coral → red → magenta)
+   15–24  Kalt-Spektrum    (cyan → sky → teal → mint → emerald)
+   25–34  Accent-Kreis     (violet → purple → pink → fuchsia → lavender)
+   35–39  Metal/Archive    (platinum, bronze, olive, stone-cold, archive)
+   ========================================================= */
+
+:root {
+  /* 00 · deep-navy — Example Company (corporate, stabil) */
+  --palette-0-from:  hsl(218, 55%, 22%);
+  --palette-0-mid:   hsl(218, 60%, 48%);
+  --palette-0-to:    hsl(218, 70%, 68%);
+
+  /* 01 · slate-grey — Max Privat (neutral, zurückhaltend) */
+  --palette-1-from:  hsl(215, 14%, 30%);
+  --palette-1-mid:   hsl(215, 16%, 52%);
+  --palette-1-to:    hsl(215, 20%, 72%);
+
+  /* 02 · stone-warm */
+  --palette-2-from:  hsl(32, 10%, 34%);
+  --palette-2-mid:   hsl(32, 14%, 56%);
+  --palette-2-to:    hsl(32, 20%, 76%);
+
+  /* 03 · silver-light */
+  --palette-3-from:  hsl(0, 0%, 40%);
+  --palette-3-mid:   hsl(0, 0%, 62%);
+  --palette-3-to:    hsl(0, 0%, 82%);
+
+  /* 04 · bone-ivory */
+  --palette-4-from:  hsl(40, 20%, 52%);
+  --palette-4-mid:   hsl(40, 30%, 72%);
+  --palette-4-to:    hsl(40, 40%, 88%);
+
+  /* 05 · amber-deep */
+  --palette-5-from:  hsl(42, 90%, 38%);
+  --palette-5-mid:   hsl(42, 92%, 54%);
+  --palette-5-to:    hsl(42, 94%, 72%);
+
+  /* 06 · honey-gold */
+  --palette-6-from:  hsl(38, 85%, 42%);
+  --palette-6-mid:   hsl(38, 88%, 58%);
+  --palette-6-to:    hsl(38, 92%, 76%);
+
+  /* 07 · sunset-orange */
+  --palette-7-from:  hsl(24, 85%, 44%);
+  --palette-7-mid:   hsl(24, 90%, 58%);
+  --palette-7-to:    hsl(24, 95%, 74%);
+
+  /* 08 · coral-orange — lazyOS (Aktions-Primär) */
+  --palette-8-from:  hsl(18, 80%, 46%);
+  --palette-8-mid:   hsl(18, 85%, 60%);
+  --palette-8-to:    hsl(18, 90%, 76%);
+
+  /* 09 · rose-red */
+  --palette-9-from:  hsl(8, 75%, 44%);
+  --palette-9-mid:   hsl(8, 80%, 58%);
+  --palette-9-to:    hsl(8, 85%, 74%);
+
+  /* 10 · crimson */
+  --palette-10-from: hsl(350, 70%, 42%);
+  --palette-10-mid:  hsl(350, 75%, 56%);
+  --palette-10-to:   hsl(350, 80%, 72%);
+
+  /* 11 · magenta */
+  --palette-11-from: hsl(330, 65%, 44%);
+  --palette-11-mid:  hsl(330, 70%, 58%);
+  --palette-11-to:   hsl(330, 75%, 74%);
+
+  /* 12 · forest-green — Demo PV (Energie/Natur) */
+  --palette-12-from: hsl(140, 55%, 30%);
+  --palette-12-mid:  hsl(140, 60%, 44%);
+  --palette-12-to:   hsl(140, 65%, 64%);
+
+  /* 13 · pine-deep */
+  --palette-13-from: hsl(155, 50%, 26%);
+  --palette-13-mid:  hsl(155, 55%, 40%);
+  --palette-13-to:   hsl(155, 60%, 60%);
+
+  /* 14 · olive-moss */
+  --palette-14-from: hsl(80, 40%, 32%);
+  --palette-14-mid:  hsl(80, 45%, 48%);
+  --palette-14-to:   hsl(80, 50%, 68%);
+
+  /* 15 · mint-fresh */
+  --palette-15-from: hsl(165, 55%, 38%);
+  --palette-15-mid:  hsl(165, 60%, 52%);
+  --palette-15-to:   hsl(165, 65%, 70%);
+
+  /* 16 · teal-deep */
+  --palette-16-from: hsl(180, 55%, 32%);
+  --palette-16-mid:  hsl(180, 60%, 46%);
+  --palette-16-to:   hsl(180, 65%, 66%);
+
+  /* 17 · cerulean */
+  --palette-17-from: hsl(195, 70%, 38%);
+  --palette-17-mid:  hsl(195, 75%, 52%);
+  --palette-17-to:   hsl(195, 80%, 70%);
+
+  /* 18 · amber-gold — Example Workspace A (premium, Vertrauen) */
+  --palette-18-from: hsl(45, 95%, 42%);
+  --palette-18-mid:  hsl(45, 98%, 56%);
+  --palette-18-to:   hsl(45, 100%, 74%);
+
+  /* 19 · ocean-blue */
+  --palette-19-from: hsl(210, 70%, 38%);
+  --palette-19-mid:  hsl(210, 75%, 54%);
+  --palette-19-to:   hsl(210, 80%, 72%);
+
+  /* 20 · azure-light */
+  --palette-20-from: hsl(205, 85%, 46%);
+  --palette-20-mid:  hsl(205, 90%, 60%);
+  --palette-20-to:   hsl(205, 95%, 76%);
+
+  /* 21 · sky-blue */
+  --palette-21-from: hsl(200, 80%, 48%);
+  --palette-21-mid:  hsl(200, 85%, 62%);
+  --palette-21-to:   hsl(200, 90%, 78%);
+
+  /* 22 · cyan-bright */
+  --palette-22-from: hsl(188, 75%, 44%);
+  --palette-22-mid:  hsl(188, 82%, 58%);
+  --palette-22-to:   hsl(188, 88%, 76%);
+
+  /* 23 · jade */
+  --palette-23-from: hsl(150, 50%, 36%);
+  --palette-23-mid:  hsl(150, 55%, 50%);
+  --palette-23-to:   hsl(150, 60%, 68%);
+
+  /* 24 · sky-cyan — Example App (frisch, jung) */
+  --palette-24-from: hsl(192, 75%, 44%);
+  --palette-24-mid:  hsl(192, 80%, 58%);
+  --palette-24-to:   hsl(192, 85%, 76%);
+
+  /* 25 · indigo-deep */
+  --palette-25-from: hsl(240, 60%, 38%);
+  --palette-25-mid:  hsl(240, 65%, 54%);
+  --palette-25-to:   hsl(240, 70%, 72%);
+
+  /* 26 · royal-violet */
+  --palette-26-from: hsl(260, 55%, 42%);
+  --palette-26-mid:  hsl(260, 60%, 56%);
+  --palette-26-to:   hsl(260, 65%, 74%);
+
+  /* 27 · purple-plum */
+  --palette-27-from: hsl(280, 50%, 40%);
+  --palette-27-mid:  hsl(280, 55%, 54%);
+  --palette-27-to:   hsl(280, 60%, 72%);
+
+  /* 28 · orchid */
+  --palette-28-from: hsl(295, 55%, 44%);
+  --palette-28-mid:  hsl(295, 60%, 58%);
+  --palette-28-to:   hsl(295, 65%, 74%);
+
+  /* 29 · fuchsia */
+  --palette-29-from: hsl(320, 65%, 46%);
+  --palette-29-mid:  hsl(320, 70%, 60%);
+  --palette-29-to:   hsl(320, 75%, 76%);
+
+  /* 30 · electric-violet — example-product-c/example-brand (Produkt-Brand) */
+  --palette-30-from: hsl(272, 70%, 44%);
+  --palette-30-mid:  hsl(272, 75%, 58%);
+  --palette-30-to:   hsl(272, 82%, 76%);
+
+  /* 31 · lavender-soft */
+  --palette-31-from: hsl(258, 50%, 54%);
+  --palette-31-mid:  hsl(258, 60%, 68%);
+  --palette-31-to:   hsl(258, 70%, 82%);
+
+  /* 32 · periwinkle */
+  --palette-32-from: hsl(230, 55%, 52%);
+  --palette-32-mid:  hsl(230, 60%, 66%);
+  --palette-32-to:   hsl(230, 65%, 80%);
+
+  /* 33 · sage */
+  --palette-33-from: hsl(110, 25%, 42%);
+  --palette-33-mid:  hsl(110, 30%, 56%);
+  --palette-33-to:   hsl(110, 35%, 74%);
+
+  /* 34 · dusty-rose */
+  --palette-34-from: hsl(355, 35%, 48%);
+  --palette-34-mid:  hsl(355, 40%, 62%);
+  --palette-34-to:   hsl(355, 45%, 78%);
+
+  /* 35 · platinum-cool */
+  --palette-35-from: hsl(200, 10%, 48%);
+  --palette-35-mid:  hsl(200, 15%, 66%);
+  --palette-35-to:   hsl(200, 20%, 82%);
+
+  /* 36 · silver-mono — example-tool (meta-system) */
+  --palette-36-from: hsl(210, 8%, 42%);
+  --palette-36-mid:  hsl(210, 10%, 60%);
+  --palette-36-to:   hsl(210, 12%, 78%);
+
+  /* 37 · bronze */
+  --palette-37-from: hsl(28, 40%, 38%);
+  --palette-37-mid:  hsl(28, 50%, 52%);
+  --palette-37-to:   hsl(28, 60%, 70%);
+
+  /* 38 · olive-archive */
+  --palette-38-from: hsl(60, 15%, 36%);
+  --palette-38-mid:  hsl(60, 20%, 52%);
+  --palette-38-to:   hsl(60, 25%, 70%);
+
+  /* 39 · desaturated-stone — Archived */
+  --palette-39-from: hsl(220, 6%, 32%);
+  --palette-39-mid:  hsl(220, 8%, 48%);
+  --palette-39-to:   hsl(220, 10%, 66%);
+}
+
+/* ---------------------------------------------------------
+   Body-Class-Switcher: body.palette-N setzt die aktiven
+   --a-now-from/mid/to Variablen. Fallback: mid = --a-now für
+   Legacy-Components die nur single-color erwarten.
+   --------------------------------------------------------- */
+body.palette-0 { --a-now: var(--palette-0-mid); --a-now-from: var(--palette-0-from); --a-now-to: var(--palette-0-to); }
+body.palette-1 { --a-now: var(--palette-1-mid); --a-now-from: var(--palette-1-from); --a-now-to: var(--palette-1-to); }
+body.palette-2 { --a-now: var(--palette-2-mid); --a-now-from: var(--palette-2-from); --a-now-to: var(--palette-2-to); }
+body.palette-3 { --a-now: var(--palette-3-mid); --a-now-from: var(--palette-3-from); --a-now-to: var(--palette-3-to); }
+body.palette-4 { --a-now: var(--palette-4-mid); --a-now-from: var(--palette-4-from); --a-now-to: var(--palette-4-to); }
+body.palette-5 { --a-now: var(--palette-5-mid); --a-now-from: var(--palette-5-from); --a-now-to: var(--palette-5-to); }
+body.palette-6 { --a-now: var(--palette-6-mid); --a-now-from: var(--palette-6-from); --a-now-to: var(--palette-6-to); }
+body.palette-7 { --a-now: var(--palette-7-mid); --a-now-from: var(--palette-7-from); --a-now-to: var(--palette-7-to); }
+body.palette-8 { --a-now: var(--palette-8-mid); --a-now-from: var(--palette-8-from); --a-now-to: var(--palette-8-to); }
+body.palette-9 { --a-now: var(--palette-9-mid); --a-now-from: var(--palette-9-from); --a-now-to: var(--palette-9-to); }
+body.palette-10 { --a-now: var(--palette-10-mid); --a-now-from: var(--palette-10-from); --a-now-to: var(--palette-10-to); }
+body.palette-11 { --a-now: var(--palette-11-mid); --a-now-from: var(--palette-11-from); --a-now-to: var(--palette-11-to); }
+body.palette-12 { --a-now: var(--palette-12-mid); --a-now-from: var(--palette-12-from); --a-now-to: var(--palette-12-to); }
+body.palette-13 { --a-now: var(--palette-13-mid); --a-now-from: var(--palette-13-from); --a-now-to: var(--palette-13-to); }
+body.palette-14 { --a-now: var(--palette-14-mid); --a-now-from: var(--palette-14-from); --a-now-to: var(--palette-14-to); }
+body.palette-15 { --a-now: var(--palette-15-mid); --a-now-from: var(--palette-15-from); --a-now-to: var(--palette-15-to); }
+body.palette-16 { --a-now: var(--palette-16-mid); --a-now-from: var(--palette-16-from); --a-now-to: var(--palette-16-to); }
+body.palette-17 { --a-now: var(--palette-17-mid); --a-now-from: var(--palette-17-from); --a-now-to: var(--palette-17-to); }
+body.palette-18 { --a-now: var(--palette-18-mid); --a-now-from: var(--palette-18-from); --a-now-to: var(--palette-18-to); }
+body.palette-19 { --a-now: var(--palette-19-mid); --a-now-from: var(--palette-19-from); --a-now-to: var(--palette-19-to); }
+body.palette-20 { --a-now: var(--palette-20-mid); --a-now-from: var(--palette-20-from); --a-now-to: var(--palette-20-to); }
+body.palette-21 { --a-now: var(--palette-21-mid); --a-now-from: var(--palette-21-from); --a-now-to: var(--palette-21-to); }
+body.palette-22 { --a-now: var(--palette-22-mid); --a-now-from: var(--palette-22-from); --a-now-to: var(--palette-22-to); }
+body.palette-23 { --a-now: var(--palette-23-mid); --a-now-from: var(--palette-23-from); --a-now-to: var(--palette-23-to); }
+body.palette-24 { --a-now: var(--palette-24-mid); --a-now-from: var(--palette-24-from); --a-now-to: var(--palette-24-to); }
+body.palette-25 { --a-now: var(--palette-25-mid); --a-now-from: var(--palette-25-from); --a-now-to: var(--palette-25-to); }
+body.palette-26 { --a-now: var(--palette-26-mid); --a-now-from: var(--palette-26-from); --a-now-to: var(--palette-26-to); }
+body.palette-27 { --a-now: var(--palette-27-mid); --a-now-from: var(--palette-27-from); --a-now-to: var(--palette-27-to); }
+body.palette-28 { --a-now: var(--palette-28-mid); --a-now-from: var(--palette-28-from); --a-now-to: var(--palette-28-to); }
+body.palette-29 { --a-now: var(--palette-29-mid); --a-now-from: var(--palette-29-from); --a-now-to: var(--palette-29-to); }
+body.palette-30 { --a-now: var(--palette-30-mid); --a-now-from: var(--palette-30-from); --a-now-to: var(--palette-30-to); }
+body.palette-31 { --a-now: var(--palette-31-mid); --a-now-from: var(--palette-31-from); --a-now-to: var(--palette-31-to); }
+body.palette-32 { --a-now: var(--palette-32-mid); --a-now-from: var(--palette-32-from); --a-now-to: var(--palette-32-to); }
+body.palette-33 { --a-now: var(--palette-33-mid); --a-now-from: var(--palette-33-from); --a-now-to: var(--palette-33-to); }
+body.palette-34 { --a-now: var(--palette-34-mid); --a-now-from: var(--palette-34-from); --a-now-to: var(--palette-34-to); }
+body.palette-35 { --a-now: var(--palette-35-mid); --a-now-from: var(--palette-35-from); --a-now-to: var(--palette-35-to); }
+body.palette-36 { --a-now: var(--palette-36-mid); --a-now-from: var(--palette-36-from); --a-now-to: var(--palette-36-to); }
+body.palette-37 { --a-now: var(--palette-37-mid); --a-now-from: var(--palette-37-from); --a-now-to: var(--palette-37-to); }
+body.palette-38 { --a-now: var(--palette-38-mid); --a-now-from: var(--palette-38-from); --a-now-to: var(--palette-38-to); }
+body.palette-39 { --a-now: var(--palette-39-mid); --a-now-from: var(--palette-39-from); --a-now-to: var(--palette-39-to); }

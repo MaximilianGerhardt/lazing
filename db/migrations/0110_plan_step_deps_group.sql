@@ -1,0 +1,42 @@
+-- 0110_plan_step_deps_group.sql
+-- Datum: 2026-05-26
+-- Beschreibung: Subplan-Gruppierung + Dependency-Graph für workstream_plan_steps.
+--
+-- EXEC + UX-3 (docs/plans/2026-05-26_bottom-action-ux.md, Aufgabe B):
+--   Fügt zwei nullable TEXT-Spalten zu workstream_plan_steps hinzu, damit der
+--   parallele Plan-Executor einen Dependency-Graphen + Gruppierung aufbauen kann.
+--
+--   `depends_on TEXT`  — JSON-Array von Step-IDs, von denen dieser Step abhängt.
+--                        Leer/null → keine offenen Abhängigkeiten → sofort ready.
+--                        Beispiel: '["STEP-A","STEP-B"]'
+--                        Der Parallel-Executor startet Steps ohne offene
+--                        depends_on parallel (N11-budgetiert), abhängige Steps
+--                        werden ready, sobald alle Vorgänger 'done' sind.
+--                        Cycle-safe: ein Zyklus → sequenzieller Fallback (warn).
+--
+--   `group_id TEXT`    — Zugehörigkeit / Subplan-Gruppe. Konservativer Default:
+--                        parent_step_id (subplan-Steps gehören zu ihrem Parent),
+--                        sonst null (root-Steps = eigene/keine Gruppe).
+--                        "Nach Fertigstellung aller Subpläne nach Zugehörigkeit
+--                        sortieren" = nach group_id gruppiert; unabhängige Gruppen
+--                        laufen parallel.
+--
+-- N6 (Deterministische Validatoren vor symbolischem Reasoning):
+--   Der Parallel-Executor liest depends_on deterministisch und baut die
+--   Ready-Queue ohne LLM. Cycle-Erkennung ist ein reiner Graph-Walk.
+-- N1 (Detail-Preservation): beide Felder tragen den vollen Wert verbatim.
+-- N10 (Tamper-Evidence): depends_on + group_id sind NICHT Teil des content_hash
+--   (Runtime-/Orchestrierungs-Metadaten, wie status + allowed_tools).
+-- N11 (Resource-Budget): Parallelität wird durch den resource-pool (heavyTotal=2)
+--   gebunden — die Spalten beschreiben nur den Graph, nicht das Budget.
+--
+-- Idempotent: SQLite ALTER TABLE ADD COLUMN hat KEIN IF NOT EXISTS. Die lazyos
+-- db/client.ts (applyMigrationStatement) toleriert "duplicate column name" per
+-- try/catch als idempotent — exakt wie bei 0107_plan_step_allowed_tools.sql.
+--
+-- HINWEIS: Diese Migration ist (noch) NICHT in db/client.ts:MIGRATIONS
+-- registriert — die Registrierung ist ein separater, bewusster Schritt
+-- (Nummer 0110 wird im Handoff gemeldet).
+
+ALTER TABLE workstream_plan_steps ADD COLUMN depends_on TEXT;
+ALTER TABLE workstream_plan_steps ADD COLUMN group_id TEXT;

@@ -1,0 +1,16 @@
+[Unit]
+Description=laz.ing sessions cleanup (~/.claude/projects/*.jsonl garbage collection)
+After=network.target
+
+[Service]
+Type=oneshot
+# Adjust User and WorkingDirectory to your install. Use the directory where you
+# cloned the repo, e.g. /opt/lazyos or ${HOME}/lazyos.
+User=lazyos
+WorkingDirectory=/opt/lazyos
+ExecStart=/usr/bin/pnpm tsx scripts/sessions-cleanup.ts --apply --days=14 --keep=20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

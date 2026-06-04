@@ -1,0 +1,27 @@
+[Unit]
+Description=lazyOS Routines Tick (one-shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Single-user VPS. Root so the agent-backend can be reached on loopback.
+User=root
+# EnvironmentFile exposes LAZYOS_CRON_KEY (shared with heartbeat timer).
+EnvironmentFile=/etc/lazyos/lazyos.env
+# Hard timeout: 30s per tick. Individual commands inside the runner are
+# also timeboxed (30s) — a backlog of 10 routines could take up to 10*30s
+# but the tick endpoint caps at 10 routines/invocation and the runner
+# fires them sequentially; 300s realistic max. Setting 120 s matches the
+# expected steady-state (each routine ~1-5 s).
+ExecStart=/usr/bin/curl -fsS \
+  --max-time 120 \
+  -X POST \
+  -H "Authorization: Bearer ${LAZYOS_CRON_KEY}" \
+  http://127.0.0.1:4200/api/routines/tick
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

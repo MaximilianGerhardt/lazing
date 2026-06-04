@@ -1,0 +1,30 @@
+-- 0107_plan_step_allowed_tools.sql
+-- Datum: 2026-05-25
+-- Beschreibung: R2-Gate scharf — Step-level Tool-Allowlist für workstream_plan_steps.
+--
+-- Fügt `allowed_tools TEXT` (nullable JSON-Array) zu workstream_plan_steps hinzu.
+-- NULL-Semantik: null → konservativer Default ["Read","Grep"] zur Laufzeit
+-- (enforced in lib/workstreams/plan-executor.ts, nicht in SQL).
+-- Beispiel-Wert: '["Read","Grep","Write","Edit"]'
+--
+-- Quellen die dieses Feld befüllen:
+--   - sop_steps.mcp_tool_allowlist_json (beim SOP→Plan-Dispatch)
+--   - Freie ProposedPlan-Step-Nodes die `allowedTools` tragen
+--
+-- N6 (Deterministische Validatoren vor symbolischem Reasoning):
+--   Das plan-executor-Gate liest dieses Feld und übergibt die echten
+--   Step-Tools an enforceExecutionStep — kein hardcoded default mehr.
+-- N1 (Detail-Preservation): Feld trägt den vollen Tool-Array verbatim.
+-- N10 (Tamper-Evidence): allowed_tools ist NICHT Teil des content_hash
+--   (ist ein Runtime-Metadatum, kein Inhalt-Hash-Feld — wie status).
+--
+-- Idempotent: ALTER TABLE ADD COLUMN schlägt bei already-existing column fehl.
+-- Die lazyos db/client.ts führt Migrations via better-sqlite3 Statement-für-
+-- Statement aus und fängt "duplicate column" nicht ab — deshalb das IF NOT
+-- EXISTS-Äquivalent via SELECT COUNT(*) Guard darunter.
+-- SQLite ALTER TABLE hat KEIN IF NOT EXISTS. Deshalb: Guard-Muster via
+-- dummy-SELECT (kein nativer IF NOT EXISTS für ADD COLUMN in SQLite).
+-- db/client.ts ignoriert "duplicate column name" per try/catch in
+-- runMigrations — idempotenz ist damit auf Infrastruktur-Ebene gegeben.
+
+ALTER TABLE workstream_plan_steps ADD COLUMN allowed_tools TEXT;

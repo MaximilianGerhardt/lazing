@@ -1,0 +1,12 @@
+[Unit]
+Description=laz.ing audit cleanup — weekly reasoning-audit pruning
+Documentation=scripts/cleanup-reasoning-audit.ts
+
+[Service]
+Type=oneshot
+# <INSTALL_DIR> is where you cloned the repo, e.g. /opt/lazyos or ${HOME}/lazyos.
+WorkingDirectory=/opt/lazyos
+ExecStart=/usr/bin/pnpm tsx /opt/lazyos/scripts/cleanup-reasoning-audit.ts --max-age-days=90 --keep-flagged
+StandardOutput=journal
+StandardError=journal
+Nice=10

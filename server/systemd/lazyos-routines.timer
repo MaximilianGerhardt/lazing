@@ -1,0 +1,16 @@
+[Unit]
+Description=lazyOS Routines Tick Timer (every 30s)
+Requires=lazyos-routines.service
+
+[Timer]
+# First fire: 60s after boot (let heartbeat stabilise first).
+OnBootSec=60s
+# Then every 30s. Routines-Tick ist 30s statt 60s (Heartbeat), damit
+# */15-min-Cron-Routinen spätestens nach 30s fällig schlagen.
+OnUnitActiveSec=30s
+AccuracySec=5s
+Persistent=false
+Unit=lazyos-routines.service
+
+[Install]
+WantedBy=timers.target

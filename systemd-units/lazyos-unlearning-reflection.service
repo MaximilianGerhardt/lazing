@@ -1,0 +1,13 @@
+[Unit]
+Description=laz.ing unlearning reflection — weekly reflection push
+Documentation=scripts/weekly-reflection-sniper.ts
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lazyos
+# Optional env file with secrets (e.g. push credentials). Leading "-" = optional.
+EnvironmentFile=-/opt/lazyos/.env.local
+ExecStart=/usr/bin/pnpm tsx /opt/lazyos/scripts/weekly-reflection-sniper.ts --apply
+StandardOutput=journal
+StandardError=journal
+Nice=10

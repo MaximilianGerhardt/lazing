@@ -1,0 +1,153 @@
+/**
+ * /lab Kinds-Catalog (MVP, 2026-05-01).
+ *
+ * Metadata-Liste der MVP-Showcase-Surfaces. Wird sowohl von der Landing
+ * (`app/lab/page.tsx`) als auch von der Detail-Page (`app/lab/[kind]/page.tsx`)
+ * gelesen, um Routing, Sidebar und Pattern-Archetyp-Cards konsistent zu
+ * halten.
+ *
+ * Strikt typisiert — kein dynamisches Lookup auf String-Keys, alle Konsumenten
+ * iterieren MVP_KINDS oder benutzen findKindById().
+ */
+
+export type Archetype = "coding" | "planning" | "bug-fix";
+
+export interface KindMeta {
+  /** Stable ID, identisch mit dem `kind`-Wert in event-payloads. */
+  id: string;
+  /** Human-readable Label für Sidebar/Cards. */
+  label: string;
+  /** Pattern-Archetyp für die Landing-Gruppierung. */
+  archetype: Archetype;
+  /** Workspace-ID, in dem dieses Pattern primär eingesetzt wird. */
+  primaryWorkspace: string;
+  /** Pfad zur Card-Component (relativ Repo-Root). */
+  componentPath: string;
+  /** Kurz-Beschreibung für Card-Subline. */
+  description: string;
+}
+
+export const MVP_KINDS: ReadonlyArray<KindMeta> = [
+  {
+    id: "auto-dispatch-stage",
+    label: "Auto-Dispatch (3-Tier-Loop)",
+    archetype: "coding",
+    primaryWorkspace: "demo-fitness",
+    componentPath: "lib/chat/LoopPhaseCard.tsx",
+    description: "Senior-Dev → Code-Reviewer → Critic Loop (LoopPhaseCard)",
+  },
+  {
+    id: "iterate-roast",
+    label: "Iterate Roast",
+    archetype: "coding",
+    primaryWorkspace: "demo-fitness",
+    componentPath: "lib/chat/IterateRoastCard.tsx",
+    description:
+      "4-5 Roaster-Perspektiven (Performance, Hacker, Pragmatist, User-Anwalt)",
+  },
+  {
+    id: "sub-workstream",
+    label: "Sub-Workstream",
+    archetype: "planning",
+    primaryWorkspace: "demo-client",
+    componentPath: "lib/chat/SubWorkstreamsCard.tsx",
+    description: "Sniper-Mode Sub-Plan-Delegation",
+  },
+  {
+    id: "bug-fix-swarm",
+    label: "Bug-Fix-Swarm",
+    archetype: "bug-fix",
+    primaryWorkspace: "lazyos",
+    componentPath: "lib/chat/BugFixSwarmCard.tsx",
+    description: "3 parallele Diagnose-Spawns",
+  },
+  {
+    id: "synthesis",
+    label: "Synthesis",
+    archetype: "coding",
+    primaryWorkspace: "lazyos",
+    componentPath: "lib/chat/MilestoneCard.tsx",
+    description: "Lead-Synthesizer Multi-Tier-Konsolidierung",
+  },
+  // Welle 7 (2026-05-01) — Loop-Phase-Coverage. 5 neue Kinds, je eine Card.
+  {
+    id: "iterate-version",
+    label: "Iterate Version",
+    archetype: "coding",
+    primaryWorkspace: "demo-fitness",
+    componentPath: "lib/chat/IterateVersionCard.tsx",
+    description: "V1→V2→V3 Version-Anker pro Iterate-Welle",
+  },
+  {
+    id: "sniper-pause-start",
+    label: "Sniper-Pause",
+    archetype: "coding",
+    primaryWorkspace: "demo-fitness",
+    componentPath: "lib/chat/LoopPhaseCard.tsx",
+    description: "Pause vor V_n+1 für User-Inject (LoopPhaseCard)",
+  },
+  {
+    id: "plan-open-questions",
+    label: "Plan-Fragen (Card)",
+    archetype: "planning",
+    primaryWorkspace: "lazyos",
+    componentPath: "lib/chat/PlanOpenQuestionsCard.tsx",
+    description: "Offene Plan-Fragen mit QuickChoice-Buttons",
+  },
+  // Welle 1 · 2026-05-03 · Sub-Plan dazzling-quilt
+  // Single-Source-of-Truth-Showcase fuer den "Agent arbeitet"-Indikator.
+  {
+    id: "streaming-bubble",
+    label: "Streaming-Bubble",
+    archetype: "coding",
+    primaryWorkspace: "lazyos",
+    componentPath: "lib/chat/ChatShell.tsx",
+    description:
+      "Live-Streaming-Indikator (Bubble + Phase-Text + Floating-Stop)",
+  },
+] as const;
+
+export function findKindById(id: string): KindMeta | null {
+  return MVP_KINDS.find((k) => k.id === id) ?? null;
+}
+
+export interface ArchetypeMeta {
+  id: Archetype;
+  label: string;
+  primaryWorkspace: string;
+  primaryWorkspaceLabel: string;
+  primaryKindId: string;
+  description: string;
+}
+
+export const ARCHETYPES: ReadonlyArray<ArchetypeMeta> = [
+  {
+    id: "coding",
+    label: "Coding",
+    primaryWorkspace: "demo-fitness",
+    primaryWorkspaceLabel: "Demo Fitness Fitness",
+    primaryKindId: "auto-dispatch-stage",
+    description: "Auto-Dispatch 3-Tier-Loop für Code-Surfaces",
+  },
+  {
+    id: "planning",
+    label: "Planning",
+    primaryWorkspace: "demo-client",
+    primaryWorkspaceLabel: "Demo PV",
+    primaryKindId: "sub-workstream",
+    description: "Sniper-Mode Sub-Workstream-Delegation",
+  },
+  {
+    id: "bug-fix",
+    label: "Bug-Fix",
+    primaryWorkspace: "lazyos",
+    primaryWorkspaceLabel: "lazyOS",
+    primaryKindId: "bug-fix-swarm",
+    description: "3 parallele Diagnose-Spawns",
+  },
+] as const;
+
+/** Kind-IDs gruppiert nach Archetyp (für Counts auf der Landing-Page). */
+export function kindsByArchetype(archetype: Archetype): ReadonlyArray<KindMeta> {
+  return MVP_KINDS.filter((k) => k.archetype === archetype);
+}

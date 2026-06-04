@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/lazyos/lazyos/security/advisories/new
+    about: Use the private security advisory channel for vulnerability reports — see SECURITY.md.
+  - name: Discussion / question
+    url: https://github.com/lazyos/lazyos/discussions
+    about: General questions, ideas, "is this how laz.ing thinks about X" — open a discussion.

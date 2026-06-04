@@ -1,0 +1,18 @@
+{
+  "iso": "2026-05-03T11:48:55.274Z",
+  "note": "Synthetic LLM-latency 800ms/spawn — measures architecture cost only, not LLM cost.",
+  "lazing": {
+    "latencyMsMedian": 4006,
+    "tokenSavingPct": 0.667,
+    "consensusJaccardMedian": 0.571,
+    "driftRecall": 1,
+    "planQualityScore": 0.733
+  },
+  "claudeCodeSolo": {
+    "latencyMsMedian": 801,
+    "tokenSavingPct": 0,
+    "consensusJaccardMedian": null,
+    "driftRecall": null,
+    "planQualityScore": null
+  }
+}

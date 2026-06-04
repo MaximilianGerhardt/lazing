@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing audit cleanup timer — weekly, Sunday 04:00 UTC
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=lazyos-audit-cleanup.service
+
+[Install]
+WantedBy=timers.target

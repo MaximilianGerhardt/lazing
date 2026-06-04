@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing stale-detection timer — weekly dry run (file cleanup)
+
+[Timer]
+OnCalendar=Sun 22:00:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=lazyos-stale-detection.service
+
+[Install]
+WantedBy=timers.target

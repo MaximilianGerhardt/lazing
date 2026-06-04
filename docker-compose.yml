@@ -1,0 +1,52 @@
+# lazyOS · docker-compose
+# Quickstart:
+#   1. cp .env.example .env.local
+#   2. fill in: LAZYOS_AUTH_SECRET, LAZYOS_ACCESS_CODE, LAZYOS_CREDENTIAL_KEY,
+#              LAZYOS_OWNER_EMAIL, LAZYOS_OWNER_DISPLAY_NAME
+#   3. docker compose up --build
+#
+# After ~3 min: http://localhost:4200/login
+#
+# Agent-Server (port 4201) is OFF by default in the image — needs claude-code
+# CLI which isn't bundled. Self-Host with own claude-CLI: build a derived
+# image that installs claude-code, or mount /root/.claude as volume.
+
+services:
+  lazyos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lazyos:local
+    container_name: lazyos
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+      - "4201:4201"
+    env_file:
+      - .env.local
+    volumes:
+      - lazyos_data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4200/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Optional Cloudflare-Tunnel (uncomment + set CLOUDFLARE_TUNNEL_TOKEN in
+  # .env.local to expose lazyos publicly without opening ports):
+  #
+  # tunnel:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: lazyos-tunnel
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+  #   depends_on:
+  #     lazyos:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env.local
+
+volumes:
+  lazyos_data:
+    driver: local

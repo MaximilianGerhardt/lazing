@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#FF9F0A" stop-opacity="0.55"/>
+      <stop offset="45%" stop-color="#FF9F0A" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#070707" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E8E8E8"/>
+    </linearGradient>
+  </defs>
+  <!-- Full-bleed dark canvas (maskable icons need content inside 80% safe zone) -->
+  <rect x="0" y="0" width="512" height="512" fill="#070707"/>
+  <rect x="0" y="0" width="512" height="512" fill="url(#glow)"/>
+  <!-- L in safe zone (center 80%: 51..461) -->
+  <path d="M 204 160 L 204 352 L 340 352" stroke="url(#ink)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="340" cy="352" r="12" fill="#FF9F0A"/>
+</svg>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.lazyos.routines-tick — macOS launchd backstop for /api/routines/tick.
+  This is the macOS counterpart to the Linux systemd routines timer.
+
+  Replace <INSTALL_DIR> below with the absolute path to your repo checkout
+  (e.g. /opt/lazyos or ${HOME}/lazyos) before installing.
+
+  NOTE (macOS TCC): background LaunchAgents cannot access TCC-protected folders
+  such as ~/Documents or ~/Desktop. If your checkout lives under one of those,
+  the direct call to scripts/routines-tick.sh fails with "Operation not
+  permitted", and sourcing .env.local is blocked too. The in-process tick
+  (instrumentation.ts setInterval, every 60s) already runs the routines while the
+  app is up on :4200 — this launchd backstop is only redundancy.
+
+  To run the backstop under launchd, pick ONE of these options:
+
+  A) Grant Full Disk Access (GUI, one-time):
+     System Settings -> Privacy & Security -> Full Disk Access -> "+" -> add
+     /bin/bash and enable it. Then install (script variant):
+       cp launchd/com.lazyos.routines-tick.plist ~/Library/LaunchAgents/
+       launchctl load ~/Library/LaunchAgents/com.lazyos.routines-tick.plist
+
+  B) Put the key + tick outside TCC-protected folders (no Documents access):
+     mkdir -p ~/.lazyos && chmod 700 ~/.lazyos
+     printf 'LAZYOS_CRON_KEY=%s\n' "$LAZYOS_CRON_KEY" > ~/.lazyos/cron.env  # from .env.local
+     chmod 600 ~/.lazyos/cron.env
+     cp scripts/routines-tick.sh ~/.lazyos/routines-tick.sh   # adapt the script so it
+       # sources ~/.lazyos/cron.env instead of REPO/.env.local
+     # then point the plist ProgramArguments at ~/.lazyos/routines-tick.sh.
+
+  Remove:
+    launchctl unload ~/Library/LaunchAgents/com.lazyos.routines-tick.plist
+    rm ~/Library/LaunchAgents/com.lazyos.routines-tick.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lazyos.routines-tick</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string><INSTALL_DIR>/scripts/routines-tick.sh</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>60</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/lazyos-routines-tick.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/lazyos-routines-tick.err</string>
+</dict>
+</plist>

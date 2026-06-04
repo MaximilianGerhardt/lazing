@@ -1,0 +1,11 @@
+[Unit]
+Description=laz.ing unlearning timer — weekly dry run
+
+[Timer]
+OnCalendar=Sun 22:00:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=lazyos-unlearning.service
+
+[Install]
+WantedBy=timers.target
