@@ -144,4 +144,27 @@ describe("PII vault — cloud-egress source guard (N6)", () => {
         "add a documented allow-list entry (pre-tokenized / no-PII).",
     ).toEqual([]);
   });
+
+  it("chatWithFallback() has no unprotected call site", () => {
+    // chatWithFallback (lib/llm/engines/index.ts) fans out to claude-cli (cloud)
+    // and tokenizes nothing — and it slips past the other three checks (it uses
+    // pickEngine(selection, skip), not the ['codex-cli'] literal, and is neither a
+    // getEngine('claude-cli').chat nor an orchestrate() call). It has ZERO callers
+    // today; this guard keeps it that way unless a future caller routes its
+    // request through the vault first (tokenize the messages) or is allow-listed.
+    const offenders = sourceFiles()
+      .filter((f) => rel(f) !== "lib/llm/engines/index.ts") // the definition itself
+      .filter((f) => {
+        const src = readFileSync(f, "utf8").replace(/\/\/[^\n]*/g, "");
+        return /\bchatWithFallback\s*\(/.test(src) && !src.includes("tokeniz");
+      })
+      .map(rel);
+
+    expect(
+      offenders,
+      "These files call chatWithFallback() — an unwrapped cloud-egress helper — " +
+        "without tokenizing first. Tokenize the request messages (tokenizeMessages) " +
+        "before the call, or route through protectEngine/orchestrate instead.",
+    ).toEqual([]);
+  });
 });

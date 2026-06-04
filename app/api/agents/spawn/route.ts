@@ -40,6 +40,7 @@ import {
   type SubagentRole,
 } from '@/lib/agents';
 import { ingestLaneEvent } from '@/lib/agents/fleet-registry';
+import { piiVaultEnabled } from '@/lib/privacy/protect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -111,6 +112,24 @@ export async function POST(req: Request): Promise<Response> {
         { status: 400 },
       );
     }
+  }
+
+  // PII vault: fail CLOSED. The operator intent (N1, verbatim) may carry customer
+  // PII, and a cloud engine (claude-cli / codex) would receive it. When the vault
+  // is on, refuse to spawn a CLOUD agent without a workspace scope — otherwise the
+  // default factory would call protectEngine('', …), which is a pass-through, and
+  // the raw intent would leak. Local (ollama-heavy) spawns and vault-off are
+  // unaffected.
+  const usesCloudEngine = engines.some((e) => e === 'claude-cli' || e === 'codex');
+  if (piiVaultEnabled() && usesCloudEngine && !workspaceId) {
+    return NextResponse.json(
+      {
+        error: 'validation-failed',
+        message:
+          'workspaceId is required when the PII vault is enabled and spawning a cloud engine (claude-cli/codex) — the operator intent must be tokenized before egress.',
+      },
+      { status: 400 },
+    );
   }
 
   // N11 pre-check — heavyTotal cap. Refusing here before invoking the

@@ -115,10 +115,16 @@ The vault is wired into the **default chat paths**, verified by review:
 - ✅ **Regression guard (N6):** a deterministic source test
   (`lib/privacy/__tests__/egress-guard.test.ts`) fails the build if a new file
   (a) uses the codex-excluded `pickEngine` pattern, (b) calls the cloud engine
-  directly, or (c) calls `orchestrate({…})` without a `workspaceId` — without
-  routing through `protectEngine` / the orchestrate chokepoint. Four successive
-  reviews each found a fresh variant of this one leak class; the guard is what
-  stops a fifth from silently returning.
+  directly, (c) calls `orchestrate({…})` without a `workspaceId`, or (d) calls the
+  unwrapped `chatWithFallback` helper — without routing through `protectEngine` /
+  the orchestrate chokepoint / a tokenize step. Six successive reviews each found a
+  fresh variant of this one leak class; the guard is what stops a seventh from
+  silently returning.
+- ✅ **Fail-closed on missing scope:** the two scope-optional dev/operator
+  endpoints (`/api/agents/spawn`, `/api/llm/orchestrate`) now **refuse** (HTTP 400)
+  to reach a cloud engine without a `workspaceId` while the vault is on, rather
+  than silently passing raw content through. Local (ollama) and vault-off paths are
+  unaffected.
 
 Still tracked:
 

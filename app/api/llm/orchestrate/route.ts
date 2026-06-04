@@ -33,6 +33,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
 import { orchestrate, type EngineMode } from '@/lib/llm/orchestrator';
+import { piiVaultEnabled } from '@/lib/privacy/protect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,6 +94,21 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const body = parsed.data;
   const mode = body.mode as EngineMode;
+
+  // PII vault: fail CLOSED. Any mode other than the local 'ollama' can reach a
+  // cloud engine. When the vault is on, refuse to race raw client messages
+  // without a workspace scope (orchestrate() would otherwise pass them through
+  // untokenized). 'ollama' is local → no scope needed; vault-off → unaffected.
+  if (piiVaultEnabled() && mode !== 'ollama' && !body.workspaceId) {
+    return NextResponse.json(
+      {
+        error: 'workspace-scope-required',
+        message:
+          'workspaceId is required when the PII vault is enabled and the mode can reach a cloud engine — messages must be tokenized before egress.',
+      },
+      { status: 400 },
+    );
+  }
 
   try {
     const result = await orchestrate({
