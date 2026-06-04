@@ -84,10 +84,14 @@ The vault is wired into the **default chat paths**, verified by review:
 - ✅ Structured PII (email/IBAN/card/phone/IP) everywhere; **names** on the new
   user message when the NER option is on.
 
-- ✅ **Multi-agent swarm / workstream runs** (tier-orchestrator, ultracoding,
-  bug-swarm, auto-dispatch): all flow through `spawnInTmux`, which now tokenizes
-  the system + user prompt at that single CLI-spawn chokepoint and rehydrates the
-  result. One choke point covers every swarm path.
+- ✅ **Multi-agent swarm / workstream runs** (tier-orchestrator, bug-swarm,
+  auto-dispatch): flow through `spawnInTmux`, which tokenizes the system + user
+  prompt at that single CLI-spawn chokepoint and rehydrates the result.
+- ✅ **Ultracoding orchestrator**: in addition to its `spawnInTmux` spawns it makes
+  two *direct* cloud calls that do **not** pass through that chokepoint — task
+  synthesis and the diff-review pass — so each is tokenized at its own call site
+  (`server/agents/ultracoding-orchestrator.ts`). A review caught these bypassing the
+  chokepoint; they are now covered explicitly rather than by assumption.
 - ✅ **Names across turns**: a known-value sweep re-tokenizes a name in later
   turns once any turn's NER has stored it (no repeated model calls).
 

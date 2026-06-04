@@ -625,20 +625,29 @@ async function runSlice(args: {
 
 async function reviewDiffs(args: {
   collected: CollectedSlice[];
+  workspaceId: string;
   signal: AbortSignal | undefined;
 }): Promise<string> {
-  const { collected, signal } = args;
+  const { collected, workspaceId, signal } = args;
   const withDiffs = collected.filter((c) => c.diffText.length > 0);
   if (withDiffs.length === 0) {
     return 'Review übersprungen — keine Diffs produziert.';
   }
 
-  const concatenated = withDiffs
+  let concatenated = withDiffs
     .map(
       (c) =>
         `### Slice ${c.index + 1}: ${c.slice.title}\nDateien: ${c.slice.files.join(', ') || '(keine)'}\n\n${c.diffText.slice(0, 6000)}`,
     )
     .join('\n\n');
+  // PII vault: the diffs are raw repo content (emails / names in code or
+  // comments) — tokenize before the cloud reviewer sees them. Fail-soft.
+  try {
+    const { tokenizeStringForExternal } = await import('../../lib/privacy/protect');
+    concatenated = tokenizeStringForExternal(workspaceId, concatenated);
+  } catch {
+    /* keep raw on error */
+  }
 
   const reviewPrompt = [
     'Du bist der Ultracoding-Reviewer. Die folgenden Diffs stammen aus',
@@ -739,7 +748,17 @@ export async function runUltracoding(
   const signal = totalCtl.signal;
 
   const runId = sanitizeId(`${Date.now().toString(36)}`);
-  const task = extractTask(opts.messages);
+  // PII vault: ultracoding builds its own prompts (planner + coder spawns) from
+  // the task, bypassing the chat seam — tokenize the task here so the cloud sees
+  // placeholders. Fail-soft (keep raw task on error). The coder spawns re-tokenize
+  // idempotently via spawnInTmux; results are rehydrated there.
+  let task = extractTask(opts.messages);
+  try {
+    const { tokenizeStringForExternal } = await import('../../lib/privacy/protect');
+    task = tokenizeStringForExternal(opts.workspaceId, task);
+  } catch {
+    /* keep the raw task */
+  }
 
   try {
     // Resolve the repo path (primary FS-root) unless overridden.
@@ -792,7 +811,11 @@ export async function runUltracoding(
     });
 
     // ── Phase 4: Review ──
-    const reviewVerdict = await reviewDiffs({ collected, signal });
+    const reviewVerdict = await reviewDiffs({
+      collected,
+      workspaceId: opts.workspaceId,
+      signal,
+    });
 
     // ── Phase 5: Aggregate ──
     const text = buildSummary(collected, reviewVerdict);

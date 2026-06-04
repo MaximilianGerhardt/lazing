@@ -35,23 +35,46 @@ function escapeRegExp(s: string): string {
  * "names in re-sent history" gap. Scoped to NER types + length >= 4 + word
  * boundaries to avoid false matches on short/common strings.
  */
-export function knownValueSpans(
-  raw: import("better-sqlite3").Database,
-  workspaceId: string,
-  text: string,
-): PiiSpan[] {
-  if (!workspaceId || !text) return [];
+interface KnownEntry {
+  type: PiiType;
+  value: string;
+  re: RegExp;
+}
+// Per-DB-handle cache of decrypted known names, keyed by workspace. WeakMap keyed
+// by the DB object → per-connection: tests with fresh in-memory DBs never share a
+// stale cache, while the long-lived app/agent connections do cache. Avoids
+// decrypting every PERSON/ORG/LOCATION row + recompiling regexes on every call.
+const knownCacheByDb = new WeakMap<
+  object,
+  Map<string, { at: number; entries: KnownEntry[] }>
+>();
+const KNOWN_TTL_MS = 30_000;
+const KNOWN_MAX_ROWS = 2000;
+
+function invalidateKnownCache(raw: RawDb, workspaceId: string): void {
+  knownCacheByDb.get(raw as object)?.delete(workspaceId);
+}
+
+function loadKnownEntries(raw: RawDb, workspaceId: string): KnownEntry[] {
+  let perWs = knownCacheByDb.get(raw as object);
+  if (!perWs) {
+    perWs = new Map();
+    knownCacheByDb.set(raw as object, perWs);
+  }
+  const cached = perWs.get(workspaceId);
+  if (cached && Date.now() - cached.at < KNOWN_TTL_MS) return cached.entries;
+
   let rows: Array<{ entity_type: string; value_enc: string }>;
   try {
     rows = raw
       .prepare(
-        "SELECT entity_type, value_enc FROM pii_vault WHERE workspace_id = ? AND entity_type IN ('PERSON','ORG','LOCATION')",
+        "SELECT entity_type, value_enc FROM pii_vault WHERE workspace_id = ? AND entity_type IN ('PERSON','ORG','LOCATION') LIMIT ?",
       )
-      .all(workspaceId) as Array<{ entity_type: string; value_enc: string }>;
+      .all(workspaceId, KNOWN_MAX_ROWS) as Array<{ entity_type: string; value_enc: string }>;
   } catch {
     return [];
   }
-  const spans: PiiSpan[] = [];
+  const entries: KnownEntry[] = [];
   for (const row of rows) {
     let value: string;
     try {
@@ -60,15 +83,26 @@ export function knownValueSpans(
       continue;
     }
     if (value.length < 4) continue;
-    const re = new RegExp(`(?<!\\w)${escapeRegExp(value)}(?!\\w)`, "g");
+    entries.push({
+      type: row.entity_type as PiiType,
+      value,
+      // Unicode-aware boundaries so umlaut names (e.g. "Müller") match cleanly.
+      re: new RegExp(`(?<!\\p{L})${escapeRegExp(value)}(?!\\p{L})`, "gu"),
+    });
+  }
+  perWs.set(workspaceId, { at: Date.now(), entries });
+  return entries;
+}
+
+export function knownValueSpans(raw: RawDb, workspaceId: string, text: string): PiiSpan[] {
+  if (!workspaceId || !text) return [];
+  const spans: PiiSpan[] = [];
+  for (const e of loadKnownEntries(raw, workspaceId)) {
+    e.re.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(text)) !== null) {
-      spans.push({
-        type: row.entity_type as PiiType,
-        start: m.index,
-        end: m.index + value.length,
-        value,
-      });
+    while ((m = e.re.exec(text)) !== null) {
+      spans.push({ type: e.type, start: m.index, end: m.index + e.value.length, value: e.value });
+      if (m.index === e.re.lastIndex) e.re.lastIndex += 1;
     }
   }
   return spans;
@@ -131,6 +165,12 @@ function lookupOrCreateToken(
     const token = `[[${type}_${(cnt?.c ?? 0) + 1}]]`;
     try {
       insert.run(`pii_${ulid()}`, workspaceId, token, type, enc, h, Date.now());
+      // A new name landed → the cross-turn known-value cache for this workspace is
+      // stale; drop it so the next tokenizeText picks the name up immediately
+      // instead of waiting out the TTL.
+      if (type === "PERSON" || type === "ORG" || type === "LOCATION") {
+        invalidateKnownCache(raw, workspaceId);
+      }
       return token;
     } catch {
       const again = findByHash();
