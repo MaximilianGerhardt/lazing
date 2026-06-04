@@ -1,29 +1,29 @@
 /**
- * POST /api/chat/open-questions/dismiss — 2026-05-28 (Workstream Open-Questions-
- * Lifecycle, Owner-Spec D „manueller Dismiss pro Frage").
+ * POST /api/chat/open-questions/dismiss — 2026-05-28 (workstream open-questions
+ * lifecycle, owner spec D „manueller Dismiss pro Frage").
  *
- * Wird vom Client-seitigen Pill-Dismiss aufgerufen (ChatShell → onDismiss).
- * Schreibt eine `workstream_decisions`-Row, damit der Lifetime-Verlauf der
- * gepinnten Pill nicht silent ist (N8 — Trace ist Evidence, nicht Telemetry).
+ * Called by the client-side pill dismiss (ChatShell → onDismiss).
+ * Writes a `workstream_decisions` row so the lifetime history of the
+ * pinned pill is not silent (N8 — trace is evidence, not telemetry).
  *
- * KEIN destruktiver Side-Effect: kein DB-Update an `events`, kein chat-message-
- * Edit. Die offene Frage steht weiter in der assistant-Message; nur die
- * Pill-Anzeige im aktuellen Tab ist weg. Beim Reload würde sie ohne den
- * Lifecycle-Reducer (stale-resolve / answered / dismissed) wieder erscheinen —
- * der Reducer entfernt sie aber sofort wieder, sobald der Population-Effect
- * sie aus der History rezykliert. Dieser Endpoint ist die N8-Spur DAVOR.
+ * NO destructive side effect: no DB update to `events`, no chat-message
+ * edit. The open question still stands in the assistant message; only the
+ * pill display in the current tab is gone. On reload it would reappear without the
+ * lifecycle reducer (stale-resolve / answered / dismissed) —
+ * but the reducer removes it again immediately as soon as the population effect
+ * recycles it out of the history. This endpoint is the N8 trace BEFORE that.
  *
- * DECISION-KIND-WAHL:
- *   - Das aus Migration 0071 zulässige Enum (siehe DecisionKind in
- *     `lib/workstreams/trace-repo.ts`) enthält KEINEN dedizierten
- *     `question-dismissed`-Wert. Wir wählen `override` — die semantisch
- *     nächstliegende Variante („User hat eine Empfehlung/Frage des Agents
- *     überstimmt"). Begründung steht im rationale-Text verbatim drin (N1).
+ * DECISION-KIND CHOICE:
+ *   - The enum allowed by migration 0071 (see DecisionKind in
+ *     `lib/workstreams/trace-repo.ts`) contains NO dedicated
+ *     `question-dismissed` value. We choose `override` — the semantically
+ *     closest variant ("the user overruled a recommendation/question from the
+ *     agent"). The reasoning is in the rationale text verbatim (N1).
  *
- * FAIL-SOFT: jede Fehlerbedingung (kein workstreamId, falsche Permission,
- * writeDecision wirft) wird zu einer 200 OK mit `{ ok: false, reason: ... }`.
- * Der Client soll nie scheitern, weil die N8-Spur nicht schreibbar war —
- * die Pill verschwindet UI-seitig auch ohne Audit.
+ * FAIL-SOFT: every error condition (no workstreamId, wrong permission,
+ * writeDecision throws) becomes a 200 OK with `{ ok: false, reason: ... }`.
+ * The client should never fail because the N8 trace was not writable —
+ * the pill disappears on the UI side even without the audit.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -54,7 +54,7 @@ function asNonEmptyString(v: unknown): string | null {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
-  // Auth-Gate. Ohne user keine Audit-Spur sinnvoll.
+  // Auth gate. Without a user there is no point in an audit trace.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required' }, { status: 401 });
@@ -71,10 +71,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   const questionId = asNonEmptyString(body.questionId);
   const questionText = asNonEmptyString(body.questionText);
 
-  // Pflicht-Felder. Wenn der Client kein workstreamId hat (Free-Chat ohne
-  // aktiven Workstream), darf er den Endpoint trotzdem treffen — Antwort
-  // ist dann „ok=false, no-workstream", der Pill-Dismiss läuft trotzdem
-  // UI-seitig durch (fail-soft).
+  // Required fields. If the client has no workstreamId (free-chat without
+  // an active workstream), it may still hit the endpoint — the response
+  // is then „ok=false, no-workstream", the pill dismiss still goes
+  // through on the UI side (fail-soft).
   if (!questionId) {
     return NextResponse.json(
       { ok: false, reason: 'missing-questionId' },
@@ -100,16 +100,16 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, ws.workspace_id))) {
-    // Auch hier: nicht 403. Der Pill-Dismiss ist eine UI-Aktion, der Audit-
-    // Write ist ein Bonus. Wir signalisieren ehrlich, aber blockieren nicht.
+    // Here too: not 403. The pill dismiss is a UI action, the audit
+    // write is a bonus. We signal honestly, but do not block.
     return NextResponse.json(
       { ok: false, reason: 'forbidden' },
       { status: 200 },
     );
   }
 
-  // Rationale verbatim (N1) — die Frage-ID + getrimmter Frage-Text + Owner-
-  // Aktion. Kein .slice/.substring (N1-Lint).
+  // Rationale verbatim (N1) — the question ID + trimmed question text + owner
+  // action. No .slice/.substring (N1 lint).
   const rationaleParts: string[] = [
     `User hat die offene Frage „${questionId}" via Pill-Dismiss entfernt.`,
   ];
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       note: id === null ? 'writeDecision returned null (best-effort)' : undefined,
     });
   } catch (err) {
-    // Fail-soft — niemals den User-Flow blockieren wegen eines Audit-Fehlers.
+    // Fail-soft — never block the user flow because of an audit error.
     console.warn(
       '[open-questions/dismiss] writeDecision threw (non-fatal):',
       err,

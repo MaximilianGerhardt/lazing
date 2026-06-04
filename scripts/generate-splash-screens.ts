@@ -1,15 +1,15 @@
 /**
- * generate-splash-screens.ts — iOS PWA Splash-Screen-Generator (Welle 5).
+ * generate-splash-screens.ts — iOS PWA splash-screen generator (wave 5).
  *
- * iOS-PWAs (`apple-mobile-web-app-capable`) zeigen beim Launch einen
- * Splash-Screen, der mit `<link rel="apple-touch-startup-image">` pro
- * Device-Resolution registriert wird. Next.js macht das via
+ * iOS PWAs (`apple-mobile-web-app-capable`) show a splash screen on launch
+ * that is registered per device resolution with
+ * `<link rel="apple-touch-startup-image">`. Next.js does that via
  * `Metadata.appleStartupImage`.
  *
- * Dieses Skript rendert drei Splash-PNGs aus `public/icon-512.svg`
- * (oder `icon-512.png` als Fallback) — pitch-black background mit
- * zentriertem Logo. Die Auflösungen sind die drei wichtigsten 2024+
- * iPhone-Klassen.
+ * This script renders three splash PNGs from `public/icon-512.svg`
+ * (or `icon-512.png` as a fallback) — pitch-black background with a
+ * centered logo. The resolutions are the three most important 2024+
+ * iPhone classes.
  *
  * Run:
  *   npx tsx scripts/generate-splash-screens.ts
@@ -19,10 +19,9 @@
  *   public/apple-touch-startup-image-2778x1284.png  (iPhone 14/15/16 Pro Max)
  *   public/apple-touch-startup-image-2208x1242.png  (iPhone 8 Plus)
  *
- * Hinweis: Wenn sharp / Logo nicht verfügbar ist, schreibt das Skript
- * 1px schwarze Placeholder-PNGs damit die Datei-Referenzen in
- * layout.tsx nicht 404en. Der User darf diese durch echte Designs
- * ersetzen.
+ * Note: if sharp / the logo is unavailable, the script writes
+ * 1px black placeholder PNGs so the file references in
+ * layout.tsx do not 404. The user may replace these with real designs.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -56,7 +55,7 @@ const SIZES: SplashSize[] = [
   },
 ];
 
-// 1×1 black PNG — fallback wenn sharp/logo nicht verfügbar.
+// 1×1 black PNG — fallback when sharp/logo is unavailable.
 const PLACEHOLDER_BLACK_1PX_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNg+A8AAQEBAJDuTukAAAAASUVORK5CYII=',
   'base64',
@@ -69,8 +68,8 @@ async function main(): Promise<void> {
     mkdirSync(outDir, { recursive: true });
   }
 
-  // Versuche sharp zu laden. Nicht zwingend (deps sind manchmal weg
-  // auf VPS-Builds), Fallback auf Placeholder.
+  // Try to load sharp. Not mandatory (deps are sometimes gone
+  // on VPS builds), fall back to placeholders.
   let sharp: typeof import('sharp') | null = null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -91,8 +90,8 @@ async function main(): Promise<void> {
     const outFile = resolve(outDir, sz.filename);
     if (sharp && logoPath) {
       try {
-        // Logo zentriert auf Sheet-Schwarz. Logo nimmt ~25 % der
-        // kürzeren Seite ein (iOS-Splash-Konvention).
+        // Logo centered on a black sheet. The logo takes up ~25% of the
+        // shorter side (iOS splash convention).
         const minSide = Math.min(sz.width, sz.height);
         const logoSize = Math.round(minSide * 0.25);
         const resized = await sharp(logoPath)
@@ -115,8 +114,8 @@ async function main(): Promise<void> {
         console.warn(`[splash] sharp-render fehlgeschlagen für ${sz.filename}:`, err);
       }
     }
-    // Fallback: 1px schwarze PNG. Datei existiert, layout.tsx läuft
-    // nicht in 404, aber visuelles Splash ist leer schwarz.
+    // Fallback: 1px black PNG. The file exists, layout.tsx does not
+    // run into a 404, but the visual splash is blank black.
     writeFileSync(outFile, PLACEHOLDER_BLACK_1PX_PNG);
     console.log(`[splash] ${sz.filename} — placeholder (1px black)`);
   }

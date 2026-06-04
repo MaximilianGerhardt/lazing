@@ -1,14 +1,14 @@
 /**
  * GET /api/bugs/swarm/[id]
  * ------------------------
- * Sprint H · 2026-04-30 — Polling-Endpoint für die BugFixSwarmCard.
+ * Sprint H · 2026-04-30 — polling endpoint for the BugFixSwarmCard.
  *
- * Lookup: Workstream wo `iterate_config_json.bug_swarm.swarmId == [id]`.
- * Liefert den State-Snapshot direkt aus der DB (= aus runBugSwarm-writeState).
+ * Lookup: the workstream where `iterate_config_json.bug_swarm.swarmId == [id]`.
+ * Returns the state snapshot directly from the DB (= from runBugSwarm-writeState).
  *
- * Antwort = der `BugSwarmState`-Shape (siehe server/agents/bug-swarm.ts) bzw.
- * `{ phase: 'diagnose', diagnoses: [pending, pending, pending], ... }` als
- * Initial-Stub falls der Run noch nicht begonnen hat zu schreiben.
+ * Response = the `BugSwarmState` shape (see server/agents/bug-swarm.ts), or
+ * `{ phase: 'diagnose', diagnoses: [pending, pending, pending], ... }` as an
+ * initial stub if the run has not yet begun to write.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

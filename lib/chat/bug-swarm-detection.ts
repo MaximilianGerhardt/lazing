@@ -123,8 +123,8 @@ function normalize(input: string): {
 }
 
 /**
- * Heuristik: ist diese Message ein Bug-/Error-Report der einen 3-Modell-
- * Diagnose-Swarm rechtfertigt?
+ * Heuristic: is this message a bug/error report that justifies a 3-model
+ * diagnosis swarm?
  *
  * Trigger logic:
  *   - bypass via /no-swarm        -> isBug=false (user wish)

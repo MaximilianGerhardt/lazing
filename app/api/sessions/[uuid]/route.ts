@@ -1,10 +1,10 @@
 /**
- * DELETE /api/sessions/[uuid] — archiviert (nicht löscht) eine Claude-Session.
+ * DELETE /api/sessions/[uuid] — archives (does not delete) a Claude session.
  *
- * Wir löschen NIE die JSONL-Datei (Audit-Trail / Replay). Stattdessen:
- *   - move nach ~/.claude/projects/<slug>/archived/<uuid>.jsonl
- *   - wenn die Session die aktive des Workspaces war → claude_sessions-
- *     Eintrag wird auf NULL gesetzt (nächster Chat spawnt frische UUID).
+ * We NEVER delete the JSONL file (audit trail / replay). Instead:
+ *   - move to ~/.claude/projects/<slug>/archived/<uuid>.jsonl
+ *   - if the session was the active one of the workspace → the claude_sessions
+ *     entry is set to NULL (next chat spawns a fresh UUID).
  */
 
 import fs from 'node:fs';

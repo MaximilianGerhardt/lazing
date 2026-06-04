@@ -1,22 +1,22 @@
 /**
- * Phase OS.4 / AU.0 — Workspace→Org Auto-Suggest.
+ * Phase OS.4 / AU.0 — workspace→org auto-suggest.
  *
- * Liefert für eine Workspace-ID einen Org-Vorschlag plus Begründung. Der
- * Vorschlag ist NICHT autoritativ — er wird im WorkspaceEditor als sanfter
- * Hint angezeigt und vom User bestätigt (oder ignoriert).
+ * Returns an org suggestion plus rationale for a workspace ID. The
+ * suggestion is NOT authoritative — it is shown in the WorkspaceEditor as a gentle
+ * hint and confirmed (or ignored) by the user.
  *
- * Quelle der Mappings:
- *   - Default-Set ist leer (Open-Source-default).
- *   - Optional: `data/org-suggestions.json` (gitignored). Wird beim ersten
- *     Aufruf geladen + gecacht. Format:
+ * Source of the mappings:
+ *   - The default set is empty (open-source default).
+ *   - Optional: `data/org-suggestions.json` (gitignored). Loaded + cached on the
+ *     first call. Format:
  *       {
  *         "exact": { "demo-client": { "orgId": "demo-pv", "reason": "..." } },
  *         "prefixes": [{ "prefix": "example-app-", "orgId": "example-app-org",
  *                        "reason": "..." }]
  *       }
  *
- * Wir filtern später clientseitig auf Orgs in denen der User Mitglied ist —
- * Vorschläge die der User nicht zuordnen darf werden ausgeblendet.
+ * Later we filter client-side to orgs the user is a member of —
+ * suggestions the user may not assign are hidden.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -84,7 +84,7 @@ export function suggestOrgForWorkspace(
   return null;
 }
 
-/** Test-Helper: leere den Cache, damit Tests neue Configs laden können. */
+/** Test helper: clear the cache so tests can load new configs. */
 export function _resetSuggestCache(): void {
   cached = null;
 }

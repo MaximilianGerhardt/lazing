@@ -3,19 +3,19 @@
 /**
  * ReasoningTrailCard — Pattern 5 Welle 4 (2026-05-01).
  *
- * Zeigt die letzten Reasoning-Audit-Rows eines Workstreams als Liste.
- * Pro Row: Phase, Role, claim_text-Preview, Status-Badge, Cost, Timestamp.
+ * Shows the most recent reasoning-audit rows of a workstream as a list.
+ * Per row: phase, role, claim_text preview, status badge, cost, timestamp.
  *
- * Verified-Status-Badges:
- *   NULL          → grau   "unverified"
- *   'ok'          → grün   "verifiziert"
- *   'drift'       → gelb   "drift"
- *   'fabricated'  → rot    "halluziniert"
+ * Verified status badges:
+ *   NULL          → gray   "unverified"
+ *   'ok'          → green  "verifiziert"
+ *   'drift'       → yellow "drift"
+ *   'fabricated'  → red    "halluziniert"
  *
- * Click auf Row öffnet /reasoning-audit/[id] (Detail-Page, Server-Component).
+ * Clicking a row opens /reasoning-audit/[id] (detail page, server component).
  *
- * Surface-Library-konform: keine Overlays/Modals, inline-style nach lazyOS-
- * Konvention (SniperInjectCard als Vorlage).
+ * Surface-library-conformant: no overlays/modals, inline style per the lazyOS
+ * convention (SniperInjectCard as a template).
  */
 
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -36,7 +36,7 @@ interface AuditRow {
 
 interface Props {
   workstreamId: string;
-  /** Optional: Limit der angezeigten Rows. Default 10. */
+  /** Optional: limit of the displayed rows. Default 10. */
   limit?: number;
 }
 

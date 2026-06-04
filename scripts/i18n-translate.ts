@@ -1,20 +1,20 @@
 /**
  * scripts/i18n-translate.ts — Phase OSS.3.
  *
- * Maschinenübersetzung der DE-Source-Strings in `lib/i18n/dictionary.ts`
- * via DeepL-API. Output ist ein JSON-Patch der manuell ins Dictionary
- * übernommen wird (mit `// TODO: review`-Markern).
+ * Machine translation of the DE source strings in `lib/i18n/dictionary.ts`
+ * via the DeepL API. Output is a JSON patch that is merged manually into the
+ * dictionary (with `// TODO: review` markers).
  *
- * Pflicht-ENV: DEEPL_API_KEY (auf https://www.deepl.com/pro-api kostenfrei
- * mit 500.000 Zeichen/Monat im Free-Tier).
+ * Mandatory ENV: DEEPL_API_KEY (free at https://www.deepl.com/pro-api
+ * with 500,000 characters/month on the free tier).
  *
  * Usage:
- *   pnpm tsx scripts/i18n-translate.ts            # alle Sprachen
- *   pnpm tsx scripts/i18n-translate.ts fr es      # nur Französisch + Spanisch
+ *   pnpm tsx scripts/i18n-translate.ts            # all languages
+ *   pnpm tsx scripts/i18n-translate.ts fr es      # only French + Spanish
  *
  * Output:
- *   /tmp/i18n-translations-<lang>.json mit { key: value }
- *   Manuell in lib/i18n/dictionary.ts mergen.
+ *   /tmp/i18n-translations-<lang>.json with { key: value }
+ *   Merge manually into lib/i18n/dictionary.ts.
  */
 
 const DEEPL_LANG_MAP: Record<string, string> = {
@@ -71,10 +71,10 @@ async function main(): Promise<void> {
   const targets = process.argv.slice(2).filter((a) => a in DEEPL_LANG_MAP);
   const finalTargets = targets.length > 0 ? targets : ['fr', 'es', 'zh', 'ja'];
 
-  // Dictionary-Source dynamisch importieren um Side-Effects zu vermeiden.
+  // Import the dictionary source dynamically to avoid side effects.
   const dict = await import('../lib/i18n/dictionary');
-  // Wir brauchen den DE-Dict — der ist nicht direkt exportiert, also
-  // resolven wir die Keys via t() für alle bekannten Top-10-Keys.
+  // We need the DE dict — it is not exported directly, so we
+  // resolve the keys via t() for all known top-10 keys.
 
   const KEYS_TO_TRANSLATE = [
     'nav.chat',

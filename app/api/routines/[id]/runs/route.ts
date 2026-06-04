@@ -1,11 +1,11 @@
 /**
  * GET /api/routines/[id]/runs
  *
- * Letzte N (max 100) Run-Records für eine Routine. Default-Limit: 20.
+ * Last N (max 100) run records for a routine. Default limit: 20.
  *
- * Payload-Output wird NICHT mitgeliefert (potentiell groß). Die Detail-
- * Seite kann für einzelne Runs einen separaten Endpoint aufrufen — für
- * jetzt reicht die History-Liste.
+ * Payload output is NOT included (potentially large). The detail
+ * page can call a separate endpoint for individual runs — for
+ * now the history list is enough.
  *
  * Proxied to the VPS when the bridge is configured, otherwise served
  * from the local run-history store.

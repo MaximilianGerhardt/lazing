@@ -1,21 +1,21 @@
 /**
  * GET /api/activity/live
  *
- * Sub-Plan 4 (TopNav-Pulse) — Aggregat-Endpoint für den Background-
- * Activity-Indicator. Vereint vier Quellen zu einem schlanken Polling-
- * Payload, der ~alle 30s vom TopNav abgerufen wird:
+ * Sub-Plan 4 (TopNav pulse) — aggregate endpoint for the background
+ * activity indicator. Combines four sources into a lean polling
+ * payload that is fetched by the TopNav roughly every 30s:
  *
  *   1. workstreams         — status IN (active, paused, stuck)
  *   2. workflow_runs       — status = 'running'
  *   3. routines            — active=1 AND nextRunAt < now+15min
- *   4. sub_workstreams     — workstreams mit parent_workstream_id != NULL
- *                            UND status='active' (Sub-Spawns laufen)
+ *   4. sub_workstreams     — workstreams with parent_workstream_id != NULL
+ *                            AND status='active' (sub-spawns running)
  *
- * Privacy: requireSession + Org-Cookie-Scope. Listet nur Items aus
- * Workspaces, die der User über Memberships sehen darf — analog
+ * Privacy: requireSession + org-cookie scope. Only lists items from
+ * workspaces the user is allowed to see via memberships — analogous to
  * `/api/inbox/count`.
  *
- * Read-only. Kein Spawn, keine Mutationen.
+ * Read-only. No spawn, no mutations.
  *
  * Response-Shape:
  *   {
@@ -35,9 +35,9 @@
  *     }>
  *   }
  *
- * Items sind nach `lastTickMs DESC` sortiert und auf 32 gekappt — die
- * UI zeigt höchstens 10 davon, aber der Endpoint liefert leichte
- * Reserve für zukünftige Drawer-Pagination.
+ * Items are sorted by `lastTickMs DESC` and capped at 32 — the
+ * UI shows at most 10 of them, but the endpoint provides a slight
+ * reserve for future drawer pagination.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -54,29 +54,29 @@ import { currentUserIdResolved } from '@/lib/security/subject-server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const CRON_SOON_WINDOW_MS = 15 * 60 * 1000; // 15min Vorschau
+const CRON_SOON_WINDOW_MS = 15 * 60 * 1000; // 15min preview
 const ITEMS_LIMIT = 32;
 
 /**
- * Stuck-Aging-Default (Owner-Fix 2026-05-28):
+ * Stuck-aging default (owner fix 2026-05-28):
  *
- * Ein vor 18h stuck-markierter Workstream zaehlte VORHER ewig im
- * Live-Counter (`status IN (active, paused, stuck)` ohne Aging). Folge:
- * die InlineWorkerStatus-Pill blieb dauerhaft an („aktiv · 18h 5m"),
- * und der Owner-Befund war: „bringt mir also nicht wirklich was".
+ * A workstream marked stuck 18h ago previously counted forever in the
+ * live counter (`status IN (active, paused, stuck)` without aging). Result:
+ * the InlineWorkerStatus pill stayed on permanently („aktiv · 18h 5m"),
+ * and the owner's verdict was: „bringt mir also nicht wirklich was".
  *
- * Wurzelfix: stuck-Workstreams, deren letzter `updatedAt` aelter ist
- * als dieser Schwellwert, werden im Live-Counter NICHT mehr gezeigt.
+ * Root fix: stuck workstreams whose last `updatedAt` is older
+ * than this threshold are NO longer shown in the live counter.
  *
- * **Reversibel — Filter-only**, kein DB-Mutate. DB-Zeile bleibt
- * `status='stuck'`, sichtbar in /lanes etc. (no destructive change).
- * Owner kann sie via `markAbandonedStuckWorkstreams()` (lib/workstreams/
- * stuck-detector.ts) explizit auf `abandoned` setzen, wenn er aufraeumen
- * will. Trade-off Filter-only vs. status-Update siehe Doc-Kommentar
- * dort.
+ * **Reversible — filter-only**, no DB mutate. The DB row stays
+ * `status='stuck'`, visible in /lanes etc. (no destructive change).
+ * The owner can explicitly set it to `abandoned` via
+ * `markAbandonedStuckWorkstreams()` (lib/workstreams/
+ * stuck-detector.ts) when they want to clean up. Trade-off filter-only
+ * vs. status update see the doc comment there.
  *
- * Konfigurierbar via ENV `LAZYOS_STUCK_AGING_MS` (Default 6h).
- * Test-Hook: `__testing.STUCK_AGING_DEFAULT_MS`.
+ * Configurable via ENV `LAZYOS_STUCK_AGING_MS` (default 6h).
+ * Test hook: `__testing.STUCK_AGING_DEFAULT_MS`.
  */
 const STUCK_AGING_DEFAULT_MS = 6 * 60 * 60 * 1000; // 6h
 
@@ -95,7 +95,7 @@ interface ActivityItem {
   phase: string | null;
   lastTickMs: number | null;
   workspaceId: string;
-  /** Detail-Felder (nur wenn `?detail=1`). Backwards-compatible: optional. */
+  /** Detail fields (only when `?detail=1`). Backwards-compatible: optional. */
   status?: 'active' | 'paused' | 'stuck' | null;
   stuckSinceMs?: number | null;
   stuckReason?: string | null;
@@ -116,10 +116,10 @@ function emptyResponse(now: number, ok = true): ActivityResponse {
 }
 
 /**
- * Resolved Workspace-IDs that the User may see. Vereinfacht (analog
- * inbox-aggregate): wenn keine Org-Cookie → alle Workspaces der
- * primären Org; sonst Org-spezifisch. Memberships werden via
- * Workspace.organizationId gegen User-Org-Set geprüft.
+ * Resolved workspace IDs that the user may see. Simplified (analogous to
+ * inbox-aggregate): if no org cookie → all workspaces of the
+ * primary org; otherwise org-specific. Memberships are checked via
+ * Workspace.organizationId against the user's org set.
  */
 async function resolveScopedWorkspaceIds(
   userId: string,
@@ -163,14 +163,14 @@ export async function GET(req: NextRequest): Promise<Response> {
       req.cookies.get('lazyos_org')?.value ??
       null;
 
-    // Welle 1 · 2026-05-03 · Single-Source-of-Truth-Filter
+    // Wave 1 · 2026-05-03 · single-source-of-truth filter
     // ----------------------------------------------------
-    // Wenn der ChatShell aktuell einen Workstream streamt, soll dieser
-    // NICHT im Background-Pulse-Pill mitzaehlen — sonst sieht der User
-    // 2× "läuft" (Bubble + TopNav-Pill). Client uebergibt die ID via
-    // Query-Param `?excludeWorkstream=<id>`. Filter greift sowohl auf
-    // workstreams.id als auch workflow_runs.id (workflows haben ihren
-    // eigenen ID-Namespace, aber wir sind defensive).
+    // If the ChatShell is currently streaming a workstream, it should
+    // NOT also count in the background pulse pill — otherwise the user sees
+    // "läuft" twice (bubble + TopNav pill). The client passes the ID via
+    // the query param `?excludeWorkstream=<id>`. The filter applies to both
+    // workstreams.id and workflow_runs.id (workflows have their
+    // own ID namespace, but we are defensive).
     const excludeRaw =
       req.nextUrl?.searchParams.get('excludeWorkstream') ?? null;
     const excludeWorkstreamId =
@@ -178,16 +178,16 @@ export async function GET(req: NextRequest): Promise<Response> {
         ? excludeRaw
         : null;
 
-    // Owner-Fix 2026-05-28: `?detail=1` aktiviert die zusaetzlichen
-    // Detail-Felder (status, stuckSinceMs, stuckReason) im Payload.
-    // Default off → bestehende Konsumenten (TopNav, Drawer) sind
-    // backwards-compatible und sehen unveraenderte Counts.
+    // Owner fix 2026-05-28: `?detail=1` enables the additional
+    // detail fields (status, stuckSinceMs, stuckReason) in the payload.
+    // Default off → existing consumers (TopNav, drawer) are
+    // backwards-compatible and see unchanged counts.
     const detailMode =
       req.nextUrl?.searchParams.get('detail') === '1';
 
-    // Owner-Fix 2026-05-28: stuck-Aging-Schwellwert (Default 6h).
-    // Stuck-Workstreams aelter als dieser Wert zaehlen NICHT mehr im
-    // Live-Counter (Filter-only — DB-Zeile bleibt unveraendert).
+    // Owner fix 2026-05-28: stuck-aging threshold (default 6h).
+    // Stuck workstreams older than this value NO longer count in the
+    // live counter (filter-only — the DB row stays unchanged).
     const stuckAgingMs = readStuckAgingMs();
     const stuckAgingCutoff = now - stuckAgingMs;
 
@@ -200,7 +200,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     const db = getDb();
 
-    // ----- 1+4) Workstreams (incl. Sub-Workstreams) -------------------
+    // ----- 1+4) Workstreams (incl. sub-workstreams) -------------------
     const wsRows = db
       .select({
         id: workstreams.id,
@@ -229,14 +229,14 @@ export async function GET(req: NextRequest): Promise<Response> {
     const items: ActivityItem[] = [];
 
     for (const r of wsRows) {
-      // excludeWorkstream-Filter: aktiver Stream im ChatShell soll nicht
-      // doppelt gezaehlt werden (User-Frust 2026-05-03 Redundanz-Kill).
+      // excludeWorkstream filter: the active stream in the ChatShell should
+      // not be counted twice (user frustration 2026-05-03 redundancy kill).
       if (excludeWorkstreamId && r.id === excludeWorkstreamId) continue;
 
-      // Owner-Fix 2026-05-28: stuck-Aging.
-      // Stuck-WS, deren updatedAt aelter ist als der Aging-Cutoff,
-      // zaehlen NICHT mehr im Live-Counter und werden nicht emittiert.
-      // Filter-only — DB-Zeile bleibt erhalten.
+      // Owner fix 2026-05-28: stuck-aging.
+      // Stuck workstreams whose updatedAt is older than the aging cutoff
+      // NO longer count in the live counter and are not emitted.
+      // Filter-only — the DB row is preserved.
       if (
         r.status === 'stuck' &&
         (r.updatedAt ?? 0) < stuckAgingCutoff
@@ -261,8 +261,8 @@ export async function GET(req: NextRequest): Promise<Response> {
       };
 
       if (detailMode) {
-        // Status fuer Detail-Surface. Andere Status werden im Live-
-        // Filter bereits ausgeschlossen, daher sicher auf den 3 Werten.
+        // Status for the detail surface. Other statuses are already
+        // excluded in the live filter, so safe on the 3 values.
         if (r.status === 'active' || r.status === 'paused' || r.status === 'stuck') {
           item.status = r.status;
         } else {
@@ -291,7 +291,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       items.push(item);
     }
 
-    // ----- 2) Workflow-Runs (status=running) --------------------------
+    // ----- 2) Workflow runs (status=running) --------------------------
     const wfRows = db
       .select({
         id: workflowRuns.id,
@@ -306,8 +306,8 @@ export async function GET(req: NextRequest): Promise<Response> {
           eq(workflowRuns.status, 'running'),
           isNotNull(workflowRuns.workspaceId),
           inArray(
-            // SQLite + drizzle: cast NOT NULL über Filter — wir trusten den
-            // Filter und nehmen workspaceId direkt in inArray.
+            // SQLite + drizzle: cast NOT NULL via filter — we trust the
+            // filter and take workspaceId directly into inArray.
             workflowRuns.workspaceId,
             wsIds,
           ),
@@ -371,7 +371,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       });
     }
 
-    // Sortiere nach lastTickMs DESC und kappe auf ITEMS_LIMIT.
+    // Sort by lastTickMs DESC and cap at ITEMS_LIMIT.
     items.sort((a, b) => (b.lastTickMs ?? 0) - (a.lastTickMs ?? 0));
     const trimmed = items.slice(0, ITEMS_LIMIT);
 
@@ -400,7 +400,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 }
 
-// Test-Hook: explizit re-exportiert für Synthetik-Tests.
+// Test hook: explicitly re-exported for synthetic tests.
 export const __testing = {
   CRON_SOON_WINDOW_MS,
   ITEMS_LIMIT,
@@ -408,8 +408,8 @@ export const __testing = {
   readStuckAgingMs,
 };
 
-// Suppress unused warnings — `or`, `gt`, `sql` sind für künftige
-// Erweiterung des Aggregats reserviert.
+// Suppress unused warnings — `or`, `gt`, `sql` are reserved for future
+// extension of the aggregate.
 void or;
 void gt;
 void sql;

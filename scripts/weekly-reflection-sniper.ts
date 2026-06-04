@@ -1,23 +1,23 @@
 #!/usr/bin/env tsx
 /**
- * Weekly Reflection Sniper — Echter Pattern 9 "Unlearning" (P14, 2026-05-01).
+ * Weekly Reflection Sniper — the real Pattern 9 "Unlearning" (P14, 2026-05-01).
  *
- * Sonntags 22:30 (NACH retry-sniper 21:00, VOR stale-detection 22:00 — wait
- * der stale-detection ist auf Sonntag 22:00. 22:30 ist nach stale-detection
- * und vor retry-sniper-Hard-Cutoff der nächsten Woche). Sendet einen
- * Reflexions-Push an die PWA mit drei rotierenden Frage-Sets, damit der
- * User wöchentlich genau eine Frage beantwortet.
+ * Sundays 22:30 (AFTER retry-sniper 21:00, BEFORE stale-detection 22:00 — wait,
+ * stale-detection is at Sunday 22:00. 22:30 is after stale-detection and
+ * before the retry-sniper hard cutoff of the next week). Sends a
+ * reflection push to the PWA with three rotating question sets, so the
+ * user answers exactly one question weekly.
  *
- * Antwort landet via existierendem Chat-Flow als Event mit eventType
- * 'weekly_reflection_response' (siehe Spec) → wir routen über payload.kind
- * weil Enum-Eintrag fehlt.
+ * The answer lands via the existing chat flow as an event with eventType
+ * 'weekly_reflection_response' (see spec) → we route via payload.kind
+ * because the enum entry is missing.
  *
- * Default DRY-RUN. `--apply` sendet echte Push.
+ * Default DRY-RUN. `--apply` sends a real push.
  *
- * Hard-Cap: maximal 1 Push pro Woche. Im Apply-Mode wird das durch die
- * systemd-Timer-Frequenz (OnCalendar=Sun 22:30:00) erzwungen — der Sniper
- * hat keine eigene De-Dupe-Logik. Wenn der Timer öfter feuert, ist das ein
- * systemd-Bug, kein Sniper-Bug.
+ * Hard cap: at most 1 push per week. In apply mode that is enforced by the
+ * systemd timer frequency (OnCalendar=Sun 22:30:00) — the sniper
+ * has no de-dupe logic of its own. If the timer fires more often, that is a
+ * systemd bug, not a sniper bug.
  */
 
 import { ulid } from "@/lib/ulid";
@@ -25,7 +25,7 @@ import { ulid } from "@/lib/ulid";
 const ENDPOINT_PATH = "/api/push/notify-review";
 
 const QUESTION_SETS: ReadonlyArray<ReadonlyArray<string>> = [
-  // Set A — These / Stack
+  // Set A — thesis / stack
   [
     "Welche These dachtest du letzte Woche, die heute nicht mehr stimmt?",
     "Welcher Stack/Lib war state-of-the-art und ist es nicht mehr?",
@@ -46,7 +46,7 @@ const QUESTION_SETS: ReadonlyArray<ReadonlyArray<string>> = [
 ];
 
 function selectSet(now: Date = new Date()): ReadonlyArray<string> {
-  // Woche-Modulo-3 ausgewählt. ISO-Week = robust gegenüber Jahreswechsel.
+  // Selected by week modulo 3. ISO week = robust across year boundaries.
   const isoWeek = getIsoWeek(now);
   const idx = isoWeek % QUESTION_SETS.length;
   return QUESTION_SETS[idx];
@@ -72,9 +72,9 @@ function buildBody(
 } {
   const iso = now.toISOString().slice(0, 10);
   const ticketId = `TCK-WEEKLY-REFLECTION-${iso}`;
-  // Wir wählen pro Run EINE Frage aus dem Set (rotation: ulid-suffix
-  // determiniert welche). So bekommt der User über mehrere Wochen alle
-  // Fragen aus allen Sets.
+  // We pick ONE question from the set per run (rotation: the ulid suffix
+  // determines which). So over several weeks the user gets all
+  // questions from all sets.
   const dayHash = (now.getUTCDate() + now.getUTCMonth()) % set.length;
   const question = set[dayHash];
   return {

@@ -1,20 +1,20 @@
 /**
  * POST /api/chat/history/[workspaceId]/import
  *
- * Phase MS · MS.6 · 2026-04-26. One-shot-Migration der bestehenden
- * localStorage-History in chat_message-Events. Idempotent: pro
- * `payload.legacyId === item.id` wird hoechstens EIN Event geschrieben.
+ * Phase MS · MS.6 · 2026-04-26. One-shot migration of the existing
+ * localStorage history into chat_message events. Idempotent: at most ONE
+ * event is written per `payload.legacyId === item.id`.
  *
- * Auth: Cookie-basiert.
+ * Auth: cookie-based.
  *
  * Body:
  *   { items: HistoryItem[] }
  *
- * Verhalten:
- *   - Pro Item wird ein chat_message_sent ODER chat_message_completed
- *     Event geschrieben (je nach role), backdated mit ts aus item.ts.
- *   - Bestehende Events mit dem gleichen legacyId werden uebersprungen.
- *   - Antwort: { imported: N, skipped: M }
+ * Behavior:
+ *   - Per item a chat_message_sent OR chat_message_completed
+ *     event is written (depending on role), backdated with ts from item.ts.
+ *   - Existing events with the same legacyId are skipped.
+ *   - Response: { imported: N, skipped: M }
  */
 
 import { NextResponse } from "next/server";
@@ -38,8 +38,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Org-Root-Scope `__org_root__:<orgId>` (Phase IA.1) muss durchgehen — der
-// optionale Prefix war bisher nicht erlaubt, der `:` wurde verworfen → 400.
+// The org-root scope `__org_root__:<orgId>` (Phase IA.1) must pass — the
+// optional prefix was previously not allowed, the `:` was rejected → 400.
 const WORKSPACE_ID_REGEX = /^(?:__org_root__:)?[a-z0-9_()][a-z0-9_()-]{0,63}$/i;
 
 const HistoryItemSchema = z.object({
@@ -100,12 +100,12 @@ export async function POST(
   const { items } = parsed.data;
 
   // ---- B2-fix 2026-04-26: Server-side already-migrated check.
-  // localStorage-Marker per Browser/Device taugt nicht als
-  // Source-of-Truth — cross-device + cross-browser triggert sonst
-  // jeder Mount neu (UNIQUE-Index fängt's, aber 60 Roundtrips pro Mount
-  // ist Performance-Killer). Wenn bereits ein chat_history_migrated-
-  // Event existiert: kurzzirkuit zurück, Client setzt seinen lokalen
-  // Marker und ist fertig.
+  // A localStorage marker per browser/device is no good as a
+  // source-of-truth — cross-device + cross-browser otherwise triggers
+  // every mount anew (the UNIQUE index catches it, but 60 roundtrips per mount
+  // is a performance killer). If a chat_history_migrated
+  // event already exists: short-circuit back, the client sets its local
+  // marker and is done.
   const db = getDb();
   let alreadyMigrated = false;
   try {
@@ -127,8 +127,8 @@ export async function POST(
       "[chat/history/import] migration-marker check failed:",
       err instanceof Error ? err.message : String(err),
     );
-    // Fall through — bei DB-Fehler doch importieren (Idempotency
-    // ueber legacyId-Pre-Check unten greift trotzdem).
+    // Fall through — on DB error, import anyway (idempotency
+    // via the legacyId pre-check below still applies).
   }
   if (alreadyMigrated) {
     return NextResponse.json({
@@ -139,8 +139,8 @@ export async function POST(
   }
 
   if (items.length === 0) {
-    // Kein Item => trotzdem Marker setzen damit zukuenftige Mounts
-    // diese leere Migration nicht erneut versuchen.
+    // No item => still set the marker so future mounts
+    // do not retry this empty migration.
     try {
       await emitEvent({
         segmentId: workspaceId,
@@ -160,13 +160,13 @@ export async function POST(
     return NextResponse.json({ imported: 0, skipped: 0 });
   }
 
-  // ---- Pre-check: welche legacyIds sind schon importiert?
+  // ---- Pre-check: which legacyIds are already imported?
   const knownLegacyIds = new Set<string>();
   try {
-    // Wir suchen events fuer diesen Workspace, entityType chat_message,
-    // deren payload-JSON den legacyId enthaelt. SQLite-LIKE auf TEXT-payload
-    // ist O(n) aber bei <1000 chat_message-Events fuer einen Workspace OK
-    // — und das laeuft genau einmal pro Workspace pro Browser.
+    // We search events for this workspace, entityType chat_message,
+    // whose payload JSON contains the legacyId. SQLite LIKE on a TEXT payload
+    // is O(n) but OK for <1000 chat_message events for one workspace
+    // — and this runs exactly once per workspace per browser.
     const candidateRows = db
       .select({ payload: events.payload })
       .from(events)
@@ -195,8 +195,8 @@ export async function POST(
       "[chat/history/import] pre-check query failed:",
       err instanceof Error ? err.message : String(err),
     );
-    // Best-effort: bei DB-Fehler im Idempotency-Check doch importieren —
-    // duplicate ist weniger schlimm als gar nicht importieren.
+    // Best-effort: on a DB error in the idempotency check, import anyway —
+    // a duplicate is less bad than not importing at all.
   }
 
   // ---- Import
@@ -216,9 +216,9 @@ export async function POST(
         await emitChatMessageSent({
           workspaceId,
           content: item.content,
-          // pendingPromptId ist hier nur formal — Migration emittiert
-          // ein "syntactic sent" ohne dass jemals ein echter Stream
-          // dahinter lief.
+          // pendingPromptId is only formal here — the migration emits
+          // a "syntactic sent" without a real stream ever having run
+          // behind it.
           pendingPromptId: `legacy-${item.id}`,
           ...(item.intent !== undefined ? { intent: item.intent } : {}),
           legacyId: item.id,
@@ -243,9 +243,9 @@ export async function POST(
       }
       imported += 1;
     } catch (err) {
-      // P0-5: SQLITE_CONSTRAINT (insbesondere Unique-Index auf legacyId)
-      // ist erwartet bei Race zwischen 2 Tabs — silent skippen, NICHT als
-      // Error werten. Andere Errors weiterhin loggen.
+      // P0-5: SQLITE_CONSTRAINT (in particular the unique index on legacyId)
+      // is expected on a race between 2 tabs — skip silently, do NOT treat as
+      // an error. Keep logging other errors.
       const msg = err instanceof Error ? err.message : String(err);
       const isConstraint =
         /UNIQUE constraint failed/i.test(msg) ||
@@ -261,9 +261,9 @@ export async function POST(
     }
   }
 
-  // ---- B2-fix 2026-04-26: Migration-Marker-Event nach erfolgreichem Import.
-  // Cross-Device Source-of-Truth — naechster Browser sieht das Event und
-  // ueberspringt den Import (Pre-Check oben).
+  // ---- B2-fix 2026-04-26: migration-marker event after a successful import.
+  // Cross-device source-of-truth — the next browser sees the event and
+  // skips the import (pre-check above).
   try {
     await emitEvent({
       segmentId: workspaceId,

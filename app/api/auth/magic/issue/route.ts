@@ -2,15 +2,15 @@
  * POST /api/auth/magic/issue
  * Body: { email, intent?: "login"|"invite-org"|"invite-workspace", orgId?, workspaceId?, role? }
  *
- * Issued einen Magic-Link-Token + sendet Email via Email-Adapter (SP-4).
+ * Issues a magic-link token + sends an email via the email adapter (SP-4).
  *
- * Privacy: returnt IMMER `{ sent: true }` — kein Hint ob Email existiert
- * oder ob ein User-Account dahinter ist (Enumerations-Schutz).
+ * Privacy: ALWAYS returns `{ sent: true }` — no hint whether the email exists
+ * or whether there is a user account behind it (enumeration protection).
  *
- * Rate-Limit: max 5 Tokens / Stunde / Email.
+ * Rate limit: max 5 tokens / hour / email.
  *
- * Auth: Public-Pfad für intent='login'. Für invite-* muss der Caller
- * authenticated sein (Middleware-gated; wir checken `currentSubject`).
+ * Auth: public path for intent='login'. For invite-* the caller must be
+ * authenticated (middleware-gated; we check `currentSubject`).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -58,8 +58,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "missing-email" }, { status: 400 });
   }
-  // Single-User-Pin (2026-05-01): nur whitelisted Email darf magic-login.
-  // Privacy: bei block trotzdem {sent:true} zurueck (kein Enumeration-Hint).
+  // Single-user pin (2026-05-01): only a whitelisted email may magic-login.
+  // Privacy: on block still return {sent:true} (no enumeration hint).
   const allowedEmails = (process.env.LAZYOS_ALLOWED_EMAILS ?? "")
     .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (allowedEmails.length > 0 && !allowedEmails.includes(email)) {
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Auth-Check für invite-Intents.
+  // Auth check for invite intents.
   const issuerId = currentUserId(req);
   if (intent !== "login" && !issuerId) {
     return NextResponse.json(
@@ -88,10 +88,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // DEV AUTO-LOGIN (2026-05-23): wenn LAZYOS_DEV_AUTO_LOGIN=1 UND login-intent
-  // UND email in Allow-List → SOFORT session-cookie setzen + autoLoginUsed=true
-  // im Response, KEIN Mail-Versand, KEIN Token-DB-Write. Nur für lokale
-  // Dev-Umgebung. Production darf das ENV nicht setzen.
+  // DEV AUTO-LOGIN (2026-05-23): if LAZYOS_DEV_AUTO_LOGIN=1 AND login intent
+  // AND email is in the allow-list → IMMEDIATELY set the session cookie +
+  // autoLoginUsed=true in the response, NO mail send, NO token DB write. Only
+  // for the local dev environment. Production must not set this ENV.
   if (
     intent === "login" &&
     process.env.LAZYOS_DEV_AUTO_LOGIN === "1"
@@ -103,12 +103,12 @@ export async function POST(req: NextRequest): Promise<Response> {
         { status: 503 },
       );
     }
-    // User-Row anlegen oder finden (idempotent — derselbe Pfad wie verify).
+    // Create or find the user row (idempotent — same path as verify).
     const user = ensureUserFromEmail({
       email,
       displayName: body.displayName ?? email.split("@")[0] ?? "User",
     });
-    // Garantiere viewer-Membership in Default-Org (gleicher Pfad wie verify).
+    // Guarantee viewer membership in the default org (same path as verify).
     try {
       const { DEFAULT_ORG_ID } = await import("@/lib/orgs/constants");
       const { findOrgById } = await import("@/lib/orgs/repo");
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
       }
     } catch {
-      /* nicht-fatal — Solo-Mode reicht */
+      /* non-fatal — solo mode is enough */
     }
     const cookieValue = await issueSessionCookieValue(cfg, {
       userId: user.id,
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return res;
   }
 
-  // Rate-Limit-Check.
+  // Rate-limit check.
   const rateOk = canIssueTokenForEmail(email);
   if (!rateOk.ok) {
     writeAudit({
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       ip: req.headers.get("x-forwarded-for"),
       userAgent: req.headers.get("user-agent"),
     });
-    // Privacy: trotzdem `sent:true` returnen (kein Enumerations-Hint).
+    // Privacy: still return `sent:true` (no enumeration hint).
     return NextResponse.json({ sent: true, rateLimited: true });
   }
 
@@ -211,9 +211,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Verify-URL bauen — Public-URL aus ENV bevorzugen (Cloudflare-Tunnel hides
-  // den echten Origin hinter 127.0.0.1:4204). Fallback: X-Forwarded-Host/Proto,
-  // dann nextUrl.origin als letzte Reserve.
+  // Build the verify URL — prefer the public URL from ENV (the Cloudflare
+  // tunnel hides the real origin behind 127.0.0.1:4204). Fallback:
+  // X-Forwarded-Host/Proto, then nextUrl.origin as a last resort.
   const publicUrlEnv = process.env.LAZYOS_PUBLIC_URL?.trim().replace(/\/$/, "");
   const fwdHost = req.headers.get("x-forwarded-host");
   const fwdProto = req.headers.get("x-forwarded-proto") ?? "https";
@@ -227,8 +227,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   const expiresInMin = Math.round(MAGIC_TOKEN_TTL_MS / 60_000);
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
 
-  // Email versenden.
-  // Inviter-Name aus issuerId resolven (für Invite-Mails, kein Hardcode mehr).
+  // Send the email.
+  // Resolve the inviter name from issuerId (for invite mails, no more hardcode).
   let inviterName = BRAND_NAME;
   if (issuerId) {
     try {
@@ -298,7 +298,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     userAgent: req.headers.get("user-agent"),
   });
 
-  // Privacy: sent:true zurück, egal ob Email existiert oder nicht.
+  // Privacy: return sent:true regardless of whether the email exists or not.
   return NextResponse.json({
     sent: true,
     expiresInMin,

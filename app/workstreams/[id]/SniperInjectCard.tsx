@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * SniperInjectCard — Mid-Course-Correction-UI im Workstream-Detail.
+ * SniperInjectCard — mid-course-correction UI in the workstream detail.
  *
- * Sichtbar während Workstream `status='active'`. User schreibt eine
- * Korrektur, klickt Senden, lazyOS hängt sie als `user-correction`-
- * Comment ans Master-Ticket. Lead-V2/V3 lesen den Thread und integrieren
- * die Korrektur in die nächste Iteration.
+ * Visible while the workstream is `status='active'`. The user writes a
+ * correction, clicks send, lazyOS appends it as a `user-correction`
+ * comment to the master ticket. Lead-V2/V3 read the thread and integrate
+ * the correction into the next iteration.
  *
- * Visual: bewusst klar als "Sniper" gelabelt — Power-Aktion, nicht
- * normaler Comment.
+ * Visual: deliberately clearly labeled as "Sniper" — power action, not
+ * a normal comment.
  */
 
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
@@ -42,12 +42,12 @@ export function SniperInjectCard({ workstreamId, status }: Props): React.JSX.Ele
     after: null,
   });
 
-  // P11 (2026-05-01): letzte Reasoning-Audit-ID für SourceChipRow.
-  // Lädt 1× nach Mount + bei Phase-Change. Fail-soft.
+  // P11 (2026-05-01): last reasoning-audit ID for SourceChipRow.
+  // Loads once after mount + on phase change. Fail-soft.
   const [lastAuditId, setLastAuditId] = useState<string | null>(null);
 
-  // Sub-Plan 03 — Pattern 4c: useRef-Cleanup gegen Interval-Leak.
-  // Live-Pause-Polling alle 1s während Workstream aktiv ist.
+  // Sub-Plan 03 — Pattern 4c: useRef cleanup against interval leak.
+  // Live pause polling every 1s while the workstream is active.
   const intervalRef = useRef<number | null>(null);
   useEffect(() => {
     if (status !== 'active') return;
@@ -76,8 +76,8 @@ export function SniperInjectCard({ workstreamId, status }: Props): React.JSX.Ele
     };
   }, [workstreamId, status]);
 
-  // P11 — letzte Audit-Row holen für Source-Chips. Re-fetch bei Phase-Change
-  // (also wenn nächste V_n läuft) und einmal beim Mount.
+  // P11 — fetch the last audit row for source chips. Re-fetch on phase change
+  // (i.e. when the next V_n runs) and once on mount.
   useEffect(() => {
     if (status !== 'active') return;
     let cancelled = false;
@@ -103,9 +103,9 @@ export function SniperInjectCard({ workstreamId, status }: Props): React.JSX.Ele
     };
   }, [workstreamId, status, pause.after, pause.phase]);
 
-  // Sub-Plan 03 — Pattern 4c: Sniper-Progress-Pill v_n / 5.
-  // Ableiten der aktuellen Iteration aus pause.after (v2/v3/v4) +
-  // pause.phase (lead-v1/roast). Wenn nichts greift: aktuell V1.
+  // Sub-Plan 03 — Pattern 4c: sniper progress pill v_n / 5.
+  // Derive the current iteration from pause.after (v2/v3/v4) +
+  // pause.phase (lead-v1/roast). If nothing matches: currently V1.
   const currentIteration = ((): number => {
     if (pause.after === 'v4') return 5;
     if (pause.after === 'v3') return 4;
@@ -151,7 +151,7 @@ export function SniperInjectCard({ workstreamId, status }: Props): React.JSX.Ele
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    // Cmd/Ctrl + Enter sendet
+    // Cmd/Ctrl + Enter sends
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       void send();

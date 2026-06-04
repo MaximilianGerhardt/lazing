@@ -26,7 +26,7 @@ const RANGE_LABEL: Record<Range, string> = {
 
 export interface DecisionsFilterProps {
   decisions: DecisionProjection[];
-  /** Echte Workspace-Liste (aus listWorkspaces) für Label/Accent-Auflösung. */
+  /** Real workspace list (from listWorkspaces) for label/accent resolution. */
   workspaces: WorkspaceLite[];
 }
 
@@ -93,9 +93,9 @@ export function DecisionsFilter({ decisions, workspaces }: DecisionsFilterProps)
     });
   };
 
-  // Datengetriebene Workspace-Filter: nur Workspaces, die TATSÄCHLICH
-  // Decisions haben — nie leere Pills, nie Phantasie-Kunden. Legacy-`@`-
-  // segmentIds werden migriert + dedupliziert.
+  // Data-driven workspace filter: only workspaces that ACTUALLY
+  // have decisions — never empty pills, never fantasy customers. Legacy `@`
+  // segmentIds are migrated + deduplicated.
   const availableWorkspaces = useMemo(() => {
     const seen = new Map<string, string>();
     for (const d of decisions) {
@@ -109,9 +109,9 @@ export function DecisionsFilter({ decisions, workspaces }: DecisionsFilterProps)
       .sort((a, b) => a.label.localeCompare(b.label, 'de'));
   }, [decisions, workspaces]);
 
-  // Stale-Filter-Schutz: ändern sich die Decisions und ein aktiver Workspace-
-  // Filter kommt nicht mehr vor, den orphan'd Filter entfernen — sonst
-  // versteckt er stumm ALLE Einträge ohne sichtbare aktive Pille.
+  // Stale-filter protection: if the decisions change and an active workspace
+  // filter no longer occurs, remove the orphaned filter — otherwise
+  // it silently hides ALL entries without a visible active pill.
   useEffect(() => {
     setActiveSegments((prev) => {
       if (prev.size === 0) return prev;

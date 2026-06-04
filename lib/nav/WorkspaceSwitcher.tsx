@@ -19,7 +19,7 @@ import {
   useWorkspaces,
 } from './hooks';
 import { NewWorkspaceForm } from './NewWorkspaceForm';
-// SECTION_DEFS removed — Sub-Org-Hierarchie statt Type-Sections (2026-04-29).
+// SECTION_DEFS removed — sub-org hierarchy instead of type sections (2026-04-29).
 
 import type { Workspace } from './types';
 
@@ -48,8 +48,8 @@ export function WorkspaceSwitcher(): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
-  // 2026-05-03 — Inline-Create-Mode innerhalb des Popovers (kein Modal,
-  // siehe Memory-Pin „ KEINE Overlays"). Toggle via Footer-Row.
+  // 2026-05-03 — inline create mode inside the popover (no modal,
+  // see memory pin „ KEINE Overlays"). Toggle via the footer row.
   const [mode, setMode] = useState<'list' | 'create'>('list');
 
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -57,8 +57,8 @@ export function WorkspaceSwitcher(): React.JSX.Element {
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Phase IA.1 — Workspace-Switcher zeigt nur Workspaces der aktiven Org.
-  // ORG_ALL_ID ist Legacy → fallback zur ersten User-Org.
+  // Phase IA.1 — the workspace switcher shows only workspaces of the active org.
+  // ORG_ALL_ID is legacy → fall back to the first user org.
   const currentOrgIdRaw = useCurrentOrgId();
   const { orgs: userOrgs } = useUserOrgs();
   const effectiveOrgId =
@@ -66,9 +66,9 @@ export function WorkspaceSwitcher(): React.JSX.Element {
       ? currentOrgIdRaw
       : userOrgs[0]?.id ?? ORG_ALL_ID;
 
-  // Phase IA-Konsolidierung-Re-Fix (2026-04-29): Sub-Org-Hierarchie.
-  // Sichtbar: alle Workspaces deren Org direkt currentOrg ist ODER
-  // deren Org Sub-Org von currentOrg (parent_id === currentOrg).
+  // Phase IA consolidation re-fix (2026-04-29): sub-org hierarchy.
+  // Visible: all workspaces whose org is directly currentOrg OR
+  // whose org is a sub-org of currentOrg (parent_id === currentOrg).
   const visibleRows = useMemo<Workspace[]>(() => {
     const q = query.trim().toLowerCase();
     const matches = (w: Workspace): boolean => {
@@ -89,14 +89,14 @@ export function WorkspaceSwitcher(): React.JSX.Element {
     return workspaces.filter(matches);
   }, [workspaces, query, current.id, effectiveOrgId]);
 
-  // Sektionen: pro Sub-Org eine Section (Sub-Org-Name als Header),
-  // direkte Workspaces unter der aktiven Org bekommen eine eigene
-  // „Direkt"-Section. Reihenfolge: Type-priorisiert (product → client → tool → private),
-  // dann alphabetisch.
+  // Sections: one section per sub-org (sub-org name as header),
+  // direct workspaces under the active org get their own
+  // „Direkt" section. Order: type-prioritized (product → client → tool → private),
+  // then alphabetical.
   //
-  // 2026-05-03 Erweiterung: innerhalb jeder Section gruppieren wir die Rows
-  // zusätzlich nach `contextGroup`. Sub-Header zeigen wir NUR wenn ≥2
-  // unterschiedliche Group-Werte in der Section existieren — sonst visual noise.
+  // 2026-05-03 extension: within each section we additionally group the rows
+  // by `contextGroup`. We show sub-headers ONLY when ≥2
+  // different group values exist in the section — otherwise visual noise.
   const sections = useMemo(() => {
     const groupsByOrg = new Map<
       string,
@@ -135,7 +135,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
       return a.name.localeCompare(b.name, 'de');
     });
 
-    /** Sub-Group-Aufbau pro Section: nur Sub-Header rendern wenn ≥2 distinct. */
+    /** Sub-group build per section: only render sub-headers when ≥2 distinct. */
     const buildSubGroups = (
       rows: readonly Workspace[],
     ): Array<{ groupLabel: string | null; rows: Workspace[] }> => {
@@ -146,13 +146,13 @@ export function WorkspaceSwitcher(): React.JSX.Element {
         if (arr) arr.push(w);
         else buckets.set(key, [w]);
       }
-      // Wenn nur eine Gruppe (egal ob NULL oder ein einzelner Wert) → keine
-      // Sub-Header. Caller rendert die Rows flat.
+      // If only one group (whether NULL or a single value) → no
+      // sub-headers. The caller renders the rows flat.
       if (buckets.size <= 1) {
         return [{ groupLabel: null, rows: [...rows] }];
       }
-      // ≥2 distinct Group-Werte → Sub-Header sichtbar machen. NULL-Bucket
-      // landet zuletzt unter „Allgemein".
+      // ≥2 distinct group values → make sub-headers visible. The NULL bucket
+      // ends up last under „Allgemein".
       const named = Array.from(buckets.entries())
         .filter(([k]) => k !== '__nogrp__')
         .sort(([a], [b]) => a.localeCompare(b, 'de'));
@@ -185,7 +185,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
     return result;
   }, [visibleRows, effectiveOrgId]);
 
-  // Flat list für Keyboard-Nav — gleiche Reihenfolge wie sections rendern.
+  // Flat list for keyboard nav — same order as the sections render.
   const flatVisible = useMemo<Workspace[]>(
     () => sections.flatMap((s) => s.subGroups.flatMap((g) => g.rows)),
     [sections],
@@ -219,7 +219,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
   useEffect(() => {
     if (!open) {
       setActiveIndex(-1);
-      // 2026-05-03: Mode auch zurück auf 'list' wenn Popover schließt.
+      // 2026-05-03: reset mode back to 'list' when the popover closes.
       setMode('list');
       return;
     }
@@ -322,8 +322,8 @@ export function WorkspaceSwitcher(): React.JSX.Element {
           className={`topnav-ws-dot topnav-ws-dot--${current.accent}`}
           aria-hidden="true"
         />
-        {/* Apple-UX (2026-05-30): Volles Workspace-Label mit Ellipsis statt
-            3-Buchstaben-Stummel — auch auf Mobile. Hierarchie statt Abkürzung. */}
+        {/* Apple UX (2026-05-30): full workspace label with ellipsis instead of
+            a 3-letter stub — on mobile too. Hierarchy instead of abbreviation. */}
         <span className="topnav-ws-trigger-label">{current.label}</span>
         <IconChevronDown className="topnav-ws-caret" size={12} />
       </button>
@@ -458,9 +458,9 @@ export function WorkspaceSwitcher(): React.JSX.Element {
               </li>
             ) : null}
           </ul>
-          {/* 2026-05-03 — Footer-Row "+ Neuer Workspace" innerhalb derselben
-              aktiven Org. Nur sichtbar wenn der User eine echte Org-Section
-              hat (nicht im ORG_ALL-Modus). */}
+          {/* 2026-05-03 — footer row "+ Neuer Workspace" within the same
+              active org. Only visible when the user has a real org section
+              (not in ORG_ALL mode). */}
           {effectiveOrgId !== ORG_ALL_ID || userOrgs[0] ? (
             <button
               type="button"
@@ -486,8 +486,8 @@ export function WorkspaceSwitcher(): React.JSX.Element {
               Neuer Workspace …
             </button>
           ) : null}
-          {/* Edit-Link auf den aktuellen Workspace. Nicht der Root, weil dort
-              kein klassisches Editieren Sinn macht. */}
+          {/* Edit link to the current workspace. Not the root, because there
+              classic editing makes no sense. */}
           {current.id !== '__root__' ? (
             <a
               href={`/workspaces/${encodeURIComponent(current.id)}`}

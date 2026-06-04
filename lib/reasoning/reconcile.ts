@@ -1,38 +1,38 @@
 /**
- * A5 + A4 — Post-Prozess-IST/SOLL-Reconciliation + optionales WARUM-Nachfragen.
- * Self-Learning / WARUM-Engine · Stream A · 2026-05-27.
+ * A5 + A4 — post-process IS/OUGHT reconciliation + optional WHY follow-up.
+ * Self-learning / WHY engine · Stream A · 2026-05-27.
  *
- * Quelle: GOAL-lazyos-self-learning-why-engine (Punkt 5 + 4) +
+ * Source: GOAL-lazyos-self-learning-why-engine (points 5 + 4) +
  *         docs/plans/2026-05-27_self-learning-and-flow-completion-plan.md (A5/A4).
  *
- * WARUM dieses Modul (PA-Chat-Befund, verbatim):
- *   Das heygen-Dead-End wurde NUR als orphan aufgeräumt — es entstand KEIN
- *   Lern-Eintrag. Niemand verglich die ursprüngliche Vision/Erwartung (die
- *   rationales des Runs) gegen das tatsächliche Ergebnis; das System konnte
- *   denselben Connector-Drift beim nächsten Mal wieder wählen. A5 schließt
- *   diese Lücke: NACH Workstream-Abschluss ein Reconciliation-Schritt, der das
- *   Gesamt-Outcome bestimmt, es per recordOutcome festhält und — bei Drift
- *   zwischen einer getroffenen Entscheidung und einer aktiven Überzeugung —
- *   einen BEGRÜNDETEN Belief-Update schreibt (upsertBelief mit supersedesId →
- *   die alte Belief bleibt als Historie, „nicht vergessen", N1-Geist).
+ * WHY this module (PA-chat finding, verbatim):
+ *   The heygen dead-end was ONLY cleaned up as an orphan — NO
+ *   learning entry was created. Nobody compared the original vision/expectation (the
+ *   run's rationales) against the actual result; the system could
+ *   choose the same connector drift again next time. A5 closes
+ *   this gap: AFTER workstream completion, a reconciliation step that determines the
+ *   overall outcome, records it via recordOutcome and — on drift
+ *   between a made decision and an active belief —
+ *   writes a JUSTIFIED belief update (upsertBelief with supersedesId →
+ *   the old belief remains as history, „do not forget", N1 spirit).
  *
- *   A4 ergänzt die OPTIONALE WARUM-Frage: wurde eine Entscheidung ohne klare
- *   Begründung getroffen ODER weicht sie von einer früheren Überzeugung ab, so
- *   wird eine open-question im Format erzeugt, das der bestehende
- *   Open-Questions-Pill liest (`extractOpenQuestionsFromContent` →
- *   `<surface:open-questions>{json}</surface:open-questions>`). Wir EMITTIEREN
- *   diese Frage nur — wir blockieren NIE den Run-Abschluss.
+ *   A4 adds the OPTIONAL WHY question: if a decision was made without a clear
+ *   rationale OR deviates from an earlier belief, an
+ *   open-question is produced in the format the existing
+ *   open-questions pill reads (`extractOpenQuestionsFromContent` →
+ *   `<surface:open-questions>{json}</surface:open-questions>`). We only EMIT
+ *   this question — we NEVER block the run completion.
  *
- * Arbeitsweise (analog lib/reasoning/beliefs-repo.ts + decisions-read.ts):
- *   - Nimmt ein ROHES better-sqlite3-Handle entgegen — kein getDb()-Singleton,
- *     direkt in-memory testbar. Der Caller (plan-executor) löst das Handle via
- *     `(await import('@/db/client')).getDb().$raw` auf (wie an plan-executor.ts
- *     L461/L943 belegt) und ruft das hier fail-soft (try/catch).
- *   - PURE/IO-arm: nur DB-Read/Write über die A1/A2-Repos, KEIN LLM, KEINE
- *     Netz-I/O. `buildWhyQuestion` ist eine REINE Funktion (kein DB).
- *   - N1:  rationale / note / belief werden VERBATIM weitergereicht (kein .slice).
- *   - Idempotent: ein Run wird nur EINMAL reconciled (Marker im outcome.note,
- *     siehe RECONCILE_MARKER — kein Migrations-Eingriff nötig, N4 additiv).
+ * Approach (analogous to lib/reasoning/beliefs-repo.ts + decisions-read.ts):
+ *   - Takes a RAW better-sqlite3 handle — no getDb() singleton,
+ *     directly in-memory testable. The caller (plan-executor) resolves the handle via
+ *     `(await import('@/db/client')).getDb().$raw` (as documented at plan-executor.ts
+ *     L461/L943) and calls this fail-soft (try/catch).
+ *   - PURE/IO-light: only DB read/write via the A1/A2 repos, NO LLM, NO
+ *     network I/O. `buildWhyQuestion` is a PURE function (no DB).
+ *   - N1:  rationale / note / belief are passed on VERBATIM (no .slice).
+ *   - Idempotent: a run is reconciled only ONCE (marker in outcome.note,
+ *     see RECONCILE_MARKER — no migration change needed, N4 additive).
  */
 
 import {
@@ -50,15 +50,15 @@ import { listDecisions, type DecisionRow } from "@/lib/reasoning/decisions-read"
 type RawDb = import("better-sqlite3").Database;
 
 // ---------------------------------------------------------------------------
-// Idempotenz-Marker
+// Idempotency marker
 // ---------------------------------------------------------------------------
 
 /**
- * Deterministischer Marker, der in den note-Text der Workstream-Outcome-Row
- * eingebettet wird. `decision_outcomes` (0113) hat keine eigene unique/hash-
- * Spalte; der Marker macht den Workstream-Reconcile dennoch idempotent ohne
- * Schema-Eingriff (N4). reconcileWorkstream prüft per listOutcomes(workstreamId),
- * ob bereits eine Row mit diesem Marker existiert → zweiter Aufruf ist No-Op.
+ * Deterministic marker embedded in the note text of the workstream outcome row.
+ * `decision_outcomes` (0113) has no own unique/hash
+ * column; the marker still makes the workstream reconcile idempotent without
+ * a schema change (N4). reconcileWorkstream checks via listOutcomes(workstreamId)
+ * whether a row with this marker already exists → a second call is a no-op.
  */
 export const RECONCILE_MARKER_PREFIX = "[reconcile-v1";
 
@@ -67,20 +67,20 @@ function reconcileMarker(workstreamId: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Outcome-Bestimmung
+// Outcome determination
 // ---------------------------------------------------------------------------
 
 /**
- * Leitet das Gesamt-Outcome eines Runs aus den finalen Step-Status ab:
- *   - alle done                         → 'success'
- *   - alle failed                       → 'failure'
- *   - mind. ein done UND mind. ein failed (oder gemischt mit non-terminal)
+ * Derives the overall outcome of a run from the final step statuses:
+ *   - all done                          → 'success'
+ *   - all failed                        → 'failure'
+ *   - at least one done AND at least one failed (or mixed with non-terminal)
  *                                       → 'partial'
- *   - keine Steps / nur unbekannte Status → 'unknown'
+ *   - no steps / only unknown statuses  → 'unknown'
  *
- * Non-terminal-Status (pending/active) sollten am Reconcile-Punkt nicht mehr
- * vorkommen (der Executor markiert blockierte Steps vorher als failed); falls
- * doch, zählen sie als „nicht erfolgreich" → drücken success Richtung partial.
+ * Non-terminal statuses (pending/active) should no longer occur at the reconcile
+ * point (the executor marks blocked steps as failed beforehand); if they do,
+ * they count as „not successful" → pushing success toward partial.
  */
 export function determineOutcome(
   stepStatuses: Record<string, string>,
@@ -94,36 +94,36 @@ export function determineOutcome(
   for (const v of values) {
     if (v === "done") done += 1;
     else if (v === "failed") failed += 1;
-    else other += 1; // pending/active/unbekannt
+    else other += 1; // pending/active/unknown
   }
 
   if (done === values.length) return "success";
   if (failed === values.length) return "failure";
   if (done === 0 && failed === 0) return "unknown";
-  // Gemischt: irgendwas ging, irgendwas nicht.
+  // Mixed: something worked, something did not.
   return "partial";
 }
 
 // ---------------------------------------------------------------------------
-// Drift-Erkennung Decision ↔ Belief
+// Drift detection decision ↔ belief
 // ---------------------------------------------------------------------------
 
 /**
- * Ein einzelner erkannter Drift: eine getroffene Entscheidung weicht von einer
- * aktiven Überzeugung desselben Workspace zum selben Topic ab.
+ * A single detected drift: a made decision deviates from an
+ * active belief of the same workspace for the same topic.
  */
 export interface BeliefDrift {
   readonly topic: string;
   readonly decision: DecisionRow;
-  /** Die abzulösende aktive Belief (deren WARUM jetzt überholt scheint). */
+  /** The active belief to supersede (whose WHY now appears outdated). */
   readonly priorBelief: Belief;
 }
 
 /**
- * Reine Topic-Heuristik: der decision_kind ist der Topic-Schlüssel, unter dem
- * Beliefs für diese Art Entscheidung in der ReasoningBank liegen. (Start-
- * Heuristik analog recallRelevant — bewusst lexikalisch/deterministisch, N6/N7.
- * Embedding-basiertes Topic-Matching ist der dokumentierte Follow-up in
+ * Pure topic heuristic: the decision_kind is the topic key under which
+ * beliefs for this kind of decision live in the ReasoningBank. (Initial
+ * heuristic analogous to recallRelevant — deliberately lexical/deterministic, N6/N7.
+ * Embedding-based topic matching is the documented follow-up in
  * beliefs-repo.ts.)
  */
 function topicForDecision(d: DecisionRow): string {
@@ -131,12 +131,12 @@ function topicForDecision(d: DecisionRow): string {
 }
 
 /**
- * Heuristik „Entscheidung weicht von Belief ab": die rationale der Entscheidung
- * enthält den Belief-Text NICHT als Substring (case-insensitiv). Das ist eine
- * bewusst KONSERVATIVE, deterministische Annäherung — sie erkennt den klaren
- * Fall „Run hat etwas anderes getan als die aktive Überzeugung besagt" und
- * vermeidet LLM-Abhängigkeit am fail-soft Abschluss-Pfad. Verfeinerung
- * (semantischer Abgleich) ist Follow-up.
+ * Heuristic „decision deviates from belief": the decision's rationale
+ * does NOT contain the belief text as a substring (case-insensitive). This is a
+ * deliberately CONSERVATIVE, deterministic approximation — it detects the clear
+ * case „the run did something other than what the active belief says" and
+ * avoids LLM dependence on the fail-soft completion path. Refinement
+ * (semantic comparison) is a follow-up.
  */
 function decisionContradictsBelief(d: DecisionRow, b: Belief): boolean {
   const rationale = d.rationale.toLowerCase();
@@ -146,9 +146,9 @@ function decisionContradictsBelief(d: DecisionRow, b: Belief): boolean {
 }
 
 /**
- * Findet alle Drifts zwischen den Decisions eines Runs und den aktiven Beliefs
- * desselben Workspace. Pro (Decision × passende aktive Belief) ein Drift, wenn
- * `decisionContradictsBelief`. Pure-Read (recallRelevant + listDecisions sind
+ * Finds all drifts between a run's decisions and the active beliefs
+ * of the same workspace. One drift per (decision × matching active belief) when
+ * `decisionContradictsBelief`. Pure-read (recallRelevant + listDecisions are
  * read-only).
  */
 export function detectBeliefDrift(
@@ -170,17 +170,17 @@ export function detectBeliefDrift(
 }
 
 // ---------------------------------------------------------------------------
-// P0.1 — Outcome-getriebenes Lernen (ReasoningBank-Kernidee)
+// P0.1 — outcome-driven learning (ReasoningBank core idea)
 // ---------------------------------------------------------------------------
 
 /**
- * Deterministischer Marker-Präfix im belief-Text einer P0.1-Lehr-Belief. Macht
- * Lehr-Beliefs (a) idempotent pro Run identifizierbar und (b) für P0.2 deterministisch
- * gruppierbar OHNE Schema-Eingriff — beliefHistory(topic) filtert auf diesen Präfix.
+ * Deterministic marker prefix in the belief text of a P0.1 teach belief. Makes
+ * teach beliefs (a) idempotently identifiable per run and (b) deterministically
+ * groupable for P0.2 WITHOUT a schema change — beliefHistory(topic) filters on this prefix.
  *
  * Format:  `[teach-v1:<workstreamId>:<outcome>]`
- * Der workstreamId-Teil garantiert: derselbe Run schreibt pro (topic) GENAU eine
- * Lehr-Belief (Idempotenz, RECONCILE_MARKER-Geist auf belief-Ebene).
+ * The workstreamId part guarantees: the same run writes EXACTLY one
+ * teach belief per (topic) (idempotency, RECONCILE_MARKER spirit at the belief level).
  */
 export const TEACH_MARKER_PREFIX = "[teach-v1";
 
@@ -188,29 +188,29 @@ function teachMarker(workstreamId: string, outcome: OutcomeKind): string {
   return `${TEACH_MARKER_PREFIX}:${workstreamId}:${outcome}]`;
 }
 
-/** Erkennt eine P0.1-Lehr-Belief am Marker-Präfix (für P0.2-Gruppierung). */
+/** Detects a P0.1 teach belief by its marker prefix (for P0.2 grouping). */
 function isTeachBelief(b: Belief): boolean {
   return b.belief.startsWith(TEACH_MARKER_PREFIX);
 }
 
 /**
- * Leitet die Topics ab, unter denen für diesen Run Lehr-Beliefs entstehen
- * sollen — deterministisch aus den failure-relevanten Decisions. Heuristik
- * (N6, lexikalisch, KEINE Schema-Änderung): pro Decision der Topic = decisionKind
- * (gleicher Schlüssel wie Drift-Erkennung + recallRelevant). Gibt EINEN Eintrag
- * je distinct topic zurück, mit den VERBATIM zusammengefügten rationales +
- * Step-Reason-Kontext für genau diesen topic.
+ * Derives the topics under which teach beliefs should be created for this
+ * run — deterministically from the failure-relevant decisions. Heuristic
+ * (N6, lexical, NO schema change): per decision the topic = decisionKind
+ * (the same key as drift detection + recallRelevant). Returns ONE entry
+ * per distinct topic, with the VERBATIM joined rationales +
+ * step-reason context for exactly this topic.
  *
- * Wenn der Run KEINE Decisions hat (z.B. reiner Step-Fehler ohne Decision-Row —
- * der PA-Chat-heygen-Fall, bei dem nur ein Connector-Step scheiterte), fällt der
- * topic auf einen synthetischen Step-basierten Schlüssel zurück, damit dennoch
- * gelernt wird: `step:<sortierte-failed-step-keys>`.
+ * If the run has NO decisions (e.g. a pure step error without a decision row —
+ * the PA-chat heygen case, where only a connector step failed), the
+ * topic falls back to a synthetic step-based key so that learning still
+ * happens: `step:<sorted-failed-step-keys>`.
  */
 interface TeachTopic {
   readonly topic: string;
-  /** VERBATIM zusammengefügte Begründungen (N1, kein .slice). */
+  /** VERBATIM joined rationales (N1, no .slice). */
   readonly rationale: string;
-  /** Menschenlesbarer Kurz-Bezeichner des gescheiterten Ansatzes (topic). */
+  /** Human-readable short label of the failed approach (topic). */
   readonly subject: string;
 }
 
@@ -228,7 +228,7 @@ function deriveTeachTopics(
       : "Kein einzelner failed-Step markiert.";
 
   if (decisions.length === 0) {
-    // Keine Decision-Row — lerne trotzdem aus den Step-Status (heygen-Fall).
+    // No decision row — learn from the step statuses anyway (heygen case).
     const topic =
       failedSteps.length > 0 ? `step:${failedSteps.join("+")}` : "run";
     return [
@@ -240,12 +240,12 @@ function deriveTeachTopics(
     ];
   }
 
-  // Pro distinct decisionKind die rationales VERBATIM zusammenfassen.
+  // Join the rationales VERBATIM per distinct decisionKind.
   const byTopic = new Map<string, string[]>();
   for (const d of decisions) {
     const topic = topicForDecision(d);
     const arr = byTopic.get(topic) ?? [];
-    // Auch leere rationales mitnehmen (Marker statt verbatim-Lücke) — N1: nicht kürzen.
+    // Include empty rationales too (a marker instead of a verbatim gap) — N1: do not truncate.
     arr.push(
       d.rationale.trim().length === 0
         ? `(Decision ${d.id}: ohne Begründung)`
@@ -266,19 +266,19 @@ function deriveTeachTopics(
 }
 
 /**
- * P0.1 — schreibt bei outcome 'failure'|'partial' eine VERALLGEMEINERTE
- * Lehr-Belief pro betroffenem topic, AUCH wenn keine vorbestehende Belief
- * existiert (der entscheidende Unterschied zum Drift-Zweig: detectBeliefDrift
- * braucht eine Vor-Belief; P0.1 nicht). Das schließt die PA-Chat-Lücke: ein
- * Run, der einen Connector/Step erstmals scheitern sieht, erzeugt jetzt einen
- * Lern-Eintrag statt NULL.
+ * P0.1 — on outcome 'failure'|'partial', writes a GENERALIZED
+ * teach belief per affected topic, EVEN when no pre-existing belief
+ * exists (the key difference from the drift branch: detectBeliefDrift
+ * needs a prior belief; P0.1 does not). This closes the PA-chat gap: a
+ * run that sees a connector/step fail for the first time now produces a
+ * learning entry instead of NULL.
  *
- * Idempotent pro Run: der teachMarker(workstreamId, outcome) im belief-Text
- * verhindert Doppel-Writes bei Re-Trigger — ist bereits eine Lehr-Belief mit
- * exakt diesem Marker für den topic da, wird übersprungen. source='ai'.
+ * Idempotent per run: the teachMarker(workstreamId, outcome) in the belief text
+ * prevents double writes on re-trigger — if a teach belief with
+ * exactly this marker already exists for the topic, it is skipped. source='ai'.
  *
- * Gibt die Anzahl NEU geschriebener Lehr-Beliefs zurück (für ReconcileResult).
- * Fail-soft beim Caller; hier kein eigenes try/catch (deterministisch).
+ * Returns the number of NEWLY written teach beliefs (for ReconcileResult).
+ * Fail-soft at the caller; no own try/catch here (deterministic).
  */
 function learnFromOutcome(
   raw: RawDb,
@@ -295,25 +295,25 @@ function learnFromOutcome(
   let written = 0;
 
   for (const t of topics) {
-    // Idempotenz: existiert für (topic) bereits eine Lehr-Belief mit DIESEM
-    // Run-Marker? Dann nicht erneut schreiben. beliefHistory liefert aktiv+abgelöst.
+    // Idempotency: does a teach belief with THIS run marker already exist for
+    // (topic)? Then do not write again. beliefHistory returns active+superseded.
     const existing = beliefHistory(raw, workspaceId, t.topic);
     if (existing.some((b) => b.belief.includes(marker))) continue;
 
     upsertBelief(raw, {
       workspaceId,
       topic: t.topic,
-      // belief beginnt mit dem Marker (P0.2-gruppierbar) + verallgemeinerter Lehre.
+      // belief starts with the marker (P0.2-groupable) + generalized lesson.
       belief:
         `${marker} „${t.subject}" führte zu outcome=${outcome} ` +
         `(Run ${workstreamId}).`,
-      // rationale = VERBATIM die failure-bezogenen Decision-rationales + Step-Reason (N1).
+      // rationale = VERBATIM the failure-related decision rationales + step reason (N1).
       rationale:
         `Outcome-getriebenes Lernen (P0.1, outcome=${outcome}). ` +
         `WARUM (verbatim zusammengefügt): ${t.rationale}`,
       source: "ai",
-      // bewusst KEIN supersedesId: eine Lehr-Belief löst NICHTS ab — sie ergänzt.
-      // Start-confidence moderat; P0.2 hebt sie bei Wiederholung an.
+      // deliberately NO supersedesId: a teach belief supersedes NOTHING — it complements.
+      // Start confidence moderate; P0.2 raises it on repetition.
       confidence: outcome === "failure" ? 0.5 : 0.4,
     });
     written += 1;
@@ -322,36 +322,36 @@ function learnFromOutcome(
 }
 
 // ---------------------------------------------------------------------------
-// P0.2 — Reflexion bei WIEDERHOLTEN Fehlern (Reflexion + ExpeL)
+// P0.2 — reflection on REPEATED failures (reflection + ExpeL)
 // ---------------------------------------------------------------------------
 
 /**
- * Schwelle: ab so vielen gleichartigen Fehler-Signalen zum selben topic entsteht
- * eine verbal-self-feedback-Meta-Belief (Reflexion + ExpeL). N6: deterministisch.
+ * Threshold: from this many similar failure signals for the same topic on, a
+ * verbal-self-feedback meta-belief is created (reflection + ExpeL). N6: deterministic.
  */
 export const REFLECTION_THRESHOLD = 3;
 
-/** Marker-Präfix einer Meta-Reflexions-Belief (damit sie nicht selbst wieder als
- * Fehler-Signal mitgezählt wird und idempotent erkennbar ist). */
+/** Marker prefix of a meta-reflection belief (so it is not itself counted again as
+ * a failure signal and is idempotently recognizable). */
 export const REFLECTION_MARKER_PREFIX = "[reflect-v1";
 
 /**
- * P0.2 — zählt gleichartige Fehler-Signale zu einem topic (über die
- * P0.1-Lehr-Beliefs desselben topics) und schreibt ab REFLECTION_THRESHOLD eine
- * verbal-self-feedback-Meta-Belief mit HOHER confidence. Vorbild-GEIST (nicht
- * der Cron): scripts/weekly-reflection-sniper.ts — eine reflektierende Frage,
- * hier als Lehr-Satz formuliert („Nach N Fehlversuchen mit X: bevorzuge/prüfe …").
+ * P0.2 — counts similar failure signals for a topic (via the
+ * P0.1 teach beliefs of the same topic) and, from REFLECTION_THRESHOLD on, writes a
+ * verbal-self-feedback meta-belief with HIGH confidence. Model SPIRIT (not
+ * the cron): scripts/weekly-reflection-sniper.ts — a reflective question,
+ * here phrased as a teaching sentence („After N failed attempts with X: prefer/check …").
  *
- * Gruppierung (Research-Entscheidung): die saubere deterministische Quelle OHNE
- * Schema-Änderung sind die P0.1-Lehr-Beliefs (TEACH_MARKER_PREFIX) zum topic —
- * decision_outcomes trägt KEINEN topic und keine decision_id-Verknüpfung im
- * Workstream-Reconcile, ein Outcome→Decision→Kind-Join wäre also nicht
- * deterministisch auflösbar. beliefHistory(topic) liefert alle (aktiven +
- * abgelösten) Lehr-Beliefs des topics → ihre Anzahl IST der Fehler-Zähler.
+ * Grouping (research decision): the clean deterministic source WITHOUT
+ * a schema change is the P0.1 teach beliefs (TEACH_MARKER_PREFIX) for the topic —
+ * decision_outcomes carries NO topic and no decision_id link in the
+ * workstream reconcile, so an outcome→decision→kind join would not be
+ * deterministically resolvable. beliefHistory(topic) returns all (active +
+ * superseded) teach beliefs of the topic → their count IS the failure counter.
  *
- * Idempotent: existiert bereits eine Reflexions-Meta-Belief für genau diesen
- * Schwellen-Stand (Count im Marker kodiert), wird sie nicht doppelt geschrieben.
- * Fail-soft beim Caller. Gibt true zurück, wenn eine Meta-Belief geschrieben wurde.
+ * Idempotent: if a reflection meta-belief for exactly this
+ * threshold state (count encoded in the marker) already exists, it is not written twice.
+ * Fail-soft at the caller. Returns true if a meta-belief was written.
  */
 export function reflectOnRepeatedFailures(
   raw: RawDb,
@@ -366,11 +366,11 @@ export function reflectOnRepeatedFailures(
   const count = failureSignals.length;
   if (count < REFLECTION_THRESHOLD) return false;
 
-  // Idempotenz: Marker kodiert den Schwellen-Count → pro Count nur einmal.
+  // Idempotency: the marker encodes the threshold count → only once per count.
   const marker = `${REFLECTION_MARKER_PREFIX}:${topic}:${count}]`;
   if (history.some((b) => b.belief.includes(marker))) return false;
 
-  // VERBATIM die WARUMs der gezählten Fehlversuche zusammenfügen (N1, kein .slice).
+  // Join the WHYs of the counted failed attempts VERBATIM (N1, no .slice).
   const joinedWhy = failureSignals.map((b) => b.rationale).join(" || ");
 
   upsertBelief(raw, {
@@ -384,43 +384,43 @@ export function reflectOnRepeatedFailures(
       `Reflexion (P0.2, ${count} ≥ Schwelle ${REFLECTION_THRESHOLD}). ` +
       `Verbal self-feedback über die gesammelten Fehlversuche (verbatim): ${joinedWhy}`,
     source: "ai",
-    confidence: 0.85, // HOHE confidence — Meta-Lehre aus wiederholter Evidenz.
+    confidence: 0.85, // HIGH confidence — meta-lesson from repeated evidence.
   });
   return true;
 }
 
 // ---------------------------------------------------------------------------
-// A4 — optionale WARUM-Frage (REINE Funktion, pill-lesbares Format)
+// A4 — optional WHY question (PURE function, pill-readable format)
 // ---------------------------------------------------------------------------
 
 export interface WhyQuestionInput {
   readonly workstreamId: string;
-  /** Begründungslose Entscheidungen (rationale leer/whitespace). */
+  /** Decisions without a rationale (rationale empty/whitespace). */
   readonly unjustified: readonly DecisionRow[];
-  /** Decisions, die von einer aktiven Belief abweichen. */
+  /** Decisions that deviate from an active belief. */
   readonly drifts: readonly BeliefDrift[];
 }
 
 /**
- * Erkennt, ob eine Entscheidung „ohne klare Begründung" getroffen wurde: leere
- * oder rein-whitespace rationale. (Verbatim-Erhalt N1 sonst — wir lesen nur,
- * wir kürzen nichts.)
+ * Detects whether a decision was made „without a clear rationale": empty
+ * or pure-whitespace rationale. (Verbatim preservation N1 otherwise — we only read,
+ * we truncate nothing.)
  */
 export function isUnjustified(d: DecisionRow): boolean {
   return d.rationale.trim().length === 0;
 }
 
 /**
- * Baut den optionalen WARUM-Frage-Text im Format, das der bestehende
- * Open-Questions-Pill liest:
+ * Builds the optional WHY-question text in the format the existing
+ * open-questions pill reads:
  *   `<surface:open-questions>{ "questions": [ { "id", "q" }, ... ] }</surface:open-questions>`
- * (Feld-Shape exakt wie `parseSurfaceQuestions` in
+ * (field shape exactly like `parseSurfaceQuestions` in
  * lib/chat/open-questions-lifecycle.ts: `q.q ?? q.text`, `id`+`q` non-empty.)
  *
- * Gibt `null` zurück, wenn es nichts zu fragen gibt (keine begründungslose und
- * keine abweichende Entscheidung) — der Caller hängt dann NICHTS an die
- * Abschluss-Card. REIN: kein DB, kein Seiteneffekt. Idempotente, stabile IDs
- * (workstreamId-präfixiert) damit der Pill dasselbe Set nicht doppelt pinnt.
+ * Returns `null` when there is nothing to ask (no decision without a rationale and
+ * no deviating decision) — the caller then appends NOTHING to the
+ * completion card. PURE: no DB, no side effect. Idempotent, stable IDs
+ * (workstreamId-prefixed) so the pill does not pin the same set twice.
  */
 export function buildWhyQuestion(input: WhyQuestionInput): string | null {
   const questions: Array<{ id: string; q: string }> = [];
@@ -446,8 +446,8 @@ export function buildWhyQuestion(input: WhyQuestionInput): string | null {
 
   if (questions.length === 0) return null;
 
-  // De-Dup über die ID (eine Decision kann theoretisch zugleich unjustified UND
-  // drift sein → erstes Vorkommen gewinnt, wie collectOpenQuestionsFromHistory).
+  // De-dup by ID (a decision can theoretically be both unjustified AND
+  // drift → the first occurrence wins, like collectOpenQuestionsFromHistory).
   const seen = new Set<string>();
   const dedupedById = questions.filter((q) => {
     if (seen.has(q.id)) return false;
@@ -455,11 +455,11 @@ export function buildWhyQuestion(input: WhyQuestionInput): string | null {
     return true;
   });
 
-  // 2026-05-29 (Opus 4.8) — Owner-Befund: 5× DERSELBE Drift-Satz (nur andere
-  // Decision-ID) = Lärm. Zusätzlich nach KERN-TEXT kollabieren (Suffix
-  // „(Decision …)" abstreifen): identische Reflexionen → EIN Eintrag, mit
-  // „(×N Entscheidungen)" wenn mehrfach. So bleibt die Erkenntnis sichtbar,
-  // ohne dieselbe Aussage zu wiederholen.
+  // 2026-05-29 (Opus 4.8) — owner finding: 5× the SAME drift sentence (only a different
+  // decision ID) = noise. Additionally collapse by CORE TEXT (strip the suffix
+  // „(Decision …)"): identical reflections → ONE entry, with
+  // „(×N Entscheidungen)" when repeated. This keeps the insight visible
+  // without repeating the same statement.
   const coreOf = (q: string): string => q.replace(/\s*\(Decision [^)]+\)\s*$/, '').trim();
   const byCore = new Map<string, { core: string; count: number }>();
   for (const q of dedupedById) {
@@ -472,16 +472,16 @@ export function buildWhyQuestion(input: WhyQuestionInput): string | null {
     q: e.count > 1 ? `${e.core} (×${e.count} Entscheidungen)` : e.core,
   }));
 
-  // 2026-05-29 (Opus 4.8) — Owner-Befund: diese Selbst-Reflexionen des Systems
-  // (Decision weicht von Belief ab / Decision ohne Begründung) wurden bis hier
-  // als `<surface:open-questions>` ausgegeben → sie landeten in der
-  // user-sichtbaren „Offene Fragen"-Pille und verlangten eine ANTWORT. Das ist
-  // falsch (R3: prompts only for DECISIONS; R4: evidence ≠ decision): es sind
-  // KEINE Entscheidungen, die der User treffen muss, sondern interne
-  // Drift-/Begründungs-Reflexionen der WARUM-Engine. Sie gehören in den
-  // Counter-Evidence-Kanal (E4 Devil's-Advocate, R5: visuell getrennt, kein
-  // Antwort-Zwang) — die eigentliche Lern-Wirkung (Drift-Beliefs) schreibt
-  // reconcile ohnehin bereits in den Trace. Hier nur noch sichtbar machen.
+  // 2026-05-29 (Opus 4.8) — owner finding: these self-reflections of the system
+  // (decision deviates from belief / decision without rationale) were output up to here
+  // as `<surface:open-questions>` → they landed in the
+  // user-visible „Offene Fragen" pill and demanded an ANSWER. That is
+  // wrong (R3: prompts only for DECISIONS; R4: evidence ≠ decision): these are
+  // NOT decisions the user must make, but internal
+  // drift/rationale reflections of the WHY engine. They belong in the
+  // counter-evidence channel (E4 Devil's-Advocate, R5: visually separate, no
+  // answer obligation) — the actual learning effect (drift beliefs) is written
+  // by reconcile into the trace anyway. Here just make them visible.
   const text = deduped.map((q) => `• ${q.q}`).join('\n');
   const json = JSON.stringify({
     text,
@@ -498,32 +498,32 @@ export function buildWhyQuestion(input: WhyQuestionInput): string | null {
 export interface ReconcileArgs {
   readonly workspaceId: string;
   readonly workstreamId: string;
-  /** ManifestCoord-Key (N9), Format `<workspaceId>/<workstreamId>`. */
+  /** ManifestCoord key (N9), format `<workspaceId>/<workstreamId>`. */
   readonly coordKey: string;
-  /** Finale Step-Status-Map des Runs (pending/active/done/failed). */
+  /** Final step-status map of the run (pending/active/done/failed). */
   readonly stepStatuses: Record<string, string>;
 }
 
 export interface ReconcileResult {
-  /** Wurde der Run bereits zuvor reconciled? Dann No-Op (alle Felder „leer"). */
+  /** Was the run already reconciled before? Then no-op (all fields „empty"). */
   readonly alreadyReconciled: boolean;
-  /** Bestimmtes Gesamt-Outcome (auch bei alreadyReconciled: das frische Urteil). */
+  /** The determined overall outcome (also on alreadyReconciled: the fresh verdict). */
   readonly outcome: OutcomeKind;
-  /** Anzahl geschriebener Belief-Updates (supersede, Drift-Zweig). */
+  /** Number of written belief updates (supersede, drift branch). */
   readonly beliefUpdates: number;
-  /** P0.1: Anzahl NEU geschriebener Outcome-Lehr-Beliefs (failure/partial). */
+  /** P0.1: number of NEWLY written outcome teach beliefs (failure/partial). */
   readonly outcomeLessons: number;
-  /** P0.2: Anzahl geschriebener Reflexions-Meta-Beliefs (≥ Schwelle). */
+  /** P0.2: number of written reflection meta-beliefs (≥ threshold). */
   readonly reflections: number;
-  /** P1.1: Anzahl durch Erfolg verstärkter Beliefs (reinforce/supersede). */
+  /** P1.1: number of beliefs reinforced by success (reinforce/supersede). */
   readonly reinforcements: number;
-  /** Erkannte Drifts (Decision ↔ Belief). */
+  /** Detected drifts (decision ↔ belief). */
   readonly drifts: readonly BeliefDrift[];
-  /** Decisions ohne erkennbare Begründung. */
+  /** Decisions without a recognizable rationale. */
   readonly unjustified: readonly DecisionRow[];
   /**
-   * Optionaler WARUM-Frage-Text im pill-lesbaren Format (oder null). Der Caller
-   * hängt ihn an die Abschluss-Card an — er blockiert NIE.
+   * Optional WHY-question text in the pill-readable format (or null). The caller
+   * appends it to the completion card — it NEVER blocks.
    */
   readonly whyQuestion: string | null;
 }
@@ -541,22 +541,22 @@ const EMPTY_RESULT = (outcome: OutcomeKind): ReconcileResult => ({
 });
 
 /**
- * Der Post-Prozess-IST/SOLL-Abgleich nach Workstream-Abschluss (A5 + A4).
+ * The post-process IS/OUGHT reconciliation after workstream completion (A5 + A4).
  *
- * Ablauf:
- *  1. Idempotenz-Guard: existiert bereits ein Workstream-Outcome mit dem
- *     Reconcile-Marker → No-Op (verhindert Doppel-Schreiben bei Re-Trigger).
- *  2. Gesamt-Outcome bestimmen (determineOutcome) + recordOutcome (workstream-
- *     weit, mit Marker im note für Idempotenz).
- *  3. Decisions des Runs lesen (listDecisions, coordKey-scoped) → Drift gegen
- *     aktive Beliefs (detectBeliefDrift). Pro Drift ein BEGRÜNDETER Belief-
- *     Update via upsertBelief(supersedesId) — die alte Belief bleibt Historie.
- *  4. A4: begründungslose + abweichende Decisions → optionale WARUM-Frage
- *     (buildWhyQuestion). Nur erzeugen, NICHT blockieren.
+ * Flow:
+ *  1. Idempotency guard: if a workstream outcome with the
+ *     reconcile marker already exists → no-op (prevents double writes on re-trigger).
+ *  2. Determine the overall outcome (determineOutcome) + recordOutcome (workstream-
+ *     wide, with a marker in the note for idempotency).
+ *  3. Read the run's decisions (listDecisions, coordKey-scoped) → drift against
+ *     active beliefs (detectBeliefDrift). Per drift a JUSTIFIED belief
+ *     update via upsertBelief(supersedesId) — the old belief stays as history.
+ *  4. A4: decisions without a rationale + deviating ones → optional WHY question
+ *     (buildWhyQuestion). Only produce, do NOT block.
  *
- * Wirft NICHT bei „nichts zu tun" (leere Steps → outcome 'unknown', schreibt
- * trotzdem die Marker-Row, damit der Run als reconciled gilt). Der Caller ruft
- * das fail-soft (try/catch) — ein Fehler hier darf den Run-Abschluss NIE kippen.
+ * Does NOT throw on „nothing to do" (empty steps → outcome 'unknown', still
+ * writes the marker row so the run counts as reconciled). The caller invokes
+ * this fail-soft (try/catch) — an error here must NEVER tip over the run completion.
  */
 export function reconcileWorkstream(
   raw: RawDb,
@@ -572,7 +572,7 @@ export function reconcileWorkstream(
   const outcome = determineOutcome(args.stepStatuses);
   const marker = reconcileMarker(args.workstreamId);
 
-  // 1. Idempotenz-Guard — bereits reconciled?
+  // 1. Idempotency guard — already reconciled?
   const prior = listOutcomes(raw, {
     workspaceId: args.workspaceId,
     workstreamId: args.workstreamId,
@@ -581,8 +581,8 @@ export function reconcileWorkstream(
     return EMPTY_RESULT(outcome);
   }
 
-  // 2. Gesamt-Outcome festhalten (workstream-weit). Marker im note für Idempotenz;
-  //    danach folgt das menschenlesbare IST/SOLL-Urteil (N1 verbatim Detail).
+  // 2. Record the overall outcome (workstream-wide). Marker in the note for idempotency;
+  //    then follows the human-readable IS/OUGHT verdict (N1 verbatim detail).
   const doneCount = Object.values(args.stepStatuses).filter(
     (v) => v === "done",
   ).length;
@@ -598,7 +598,7 @@ export function reconcileWorkstream(
       `Ergebnis (IST) = finale Step-Status.`,
   });
 
-  // 3. Drift Decision ↔ aktive Belief → begründeter Belief-Update.
+  // 3. Drift decision ↔ active belief → justified belief update.
   const decisions = listDecisions(raw, {
     workspaceId: args.workspaceId,
     coordKey: args.coordKey,
@@ -607,10 +607,10 @@ export function reconcileWorkstream(
 
   let beliefUpdates = 0;
   for (const drift of drifts) {
-    // Begründeter Lern-Eintrag: die NEUE Überzeugung übernimmt verbatim das, was
-    // der Run tatsächlich entschieden hat; das WARUM (rationale) zitiert die
-    // Decision-rationale VERBATIM (N1) + den Outcome-Kontext. supersedesId hält
-    // die alte Belief als Historie (nie vergessen).
+    // Justified learning entry: the NEW belief takes over verbatim what
+    // the run actually decided; the WHY (rationale) quotes the
+    // decision rationale VERBATIM (N1) + the outcome context. supersedesId keeps
+    // the old belief as history (never forget).
     upsertBelief(raw, {
       workspaceId: args.workspaceId,
       topic: drift.topic,
@@ -628,10 +628,10 @@ export function reconcileWorkstream(
     beliefUpdates += 1;
   }
 
-  // 3b. P0.1 — Outcome-getriebenes Lernen (ReasoningBank-Kernidee): bei
-  //     failure/partial eine VERALLGEMEINERTE Lehr-Belief schreiben, AUCH ohne
-  //     vorbestehende Belief (schließt die PA-Chat-heygen-Lücke). Deterministisch,
-  //     idempotent pro Run (teachMarker im belief-Text).
+  // 3b. P0.1 — outcome-driven learning (ReasoningBank core idea): on
+  //     failure/partial write a GENERALIZED teach belief, EVEN without a
+  //     pre-existing belief (closes the PA-chat heygen gap). Deterministic,
+  //     idempotent per run (teachMarker in the belief text).
   const outcomeLessons = learnFromOutcome(
     raw,
     args.workspaceId,
@@ -641,10 +641,10 @@ export function reconcileWorkstream(
     args.stepStatuses,
   );
 
-  // 3c. P0.2 — Reflexion bei WIEDERHOLTEN Fehlern: pro betroffenem topic prüfen,
-  //     ob ≥ Schwelle gleichartige Fehler-Signale vorliegen → Meta-Reflexions-
-  //     Belief mit hoher confidence. Nur bei failure/partial relevant; bei success
-  //     wird hier nichts neu gezählt. Fail-soft je topic.
+  // 3c. P0.2 — reflection on REPEATED failures: for each affected topic, check
+  //     whether ≥ threshold similar failure signals are present → meta-reflection
+  //     belief with high confidence. Only relevant on failure/partial; on success
+  //     nothing is newly counted here. Fail-soft per topic.
   let reflections = 0;
   if (outcome === "failure" || outcome === "partial") {
     const reflectedTopics = new Set<string>();
@@ -656,16 +656,16 @@ export function reconcileWorkstream(
           reflections += 1;
         }
       } catch {
-        // fail-soft: Reflexion darf den Reconcile nie kippen.
+        // fail-soft: reflection must never tip over the reconcile.
       }
     }
   }
 
-  // 3d. P1.1 — Erfolg verstärkt: bei outcome 'success' jede Decision, deren
-  //     rationale eine AKTIVE Belief BESTÄTIGT (Belief-Text als Substring der
-  //     rationale enthalten = das Gegenteil von decisionContradictsBelief),
-  //     deren confidence anheben (reinforceBelief → supersede, Historie bleibt).
-  //     Pro (beliefId) nur EINMAL verstärken, auch wenn mehrere Decisions passen.
+  // 3d. P1.1 — success reinforces: on outcome 'success', for each decision whose
+  //     rationale CONFIRMS an ACTIVE belief (belief text contained as a substring of the
+  //     rationale = the opposite of decisionContradictsBelief),
+  //     raise its confidence (reinforceBelief → supersede, history stays).
+  //     Reinforce per (beliefId) only ONCE, even if multiple decisions match.
   let reinforcements = 0;
   if (outcome === "success") {
     const reinforced = new Set<string>();
@@ -673,14 +673,14 @@ export function reconcileWorkstream(
       const topic = topicForDecision(d);
       const beliefs = recallRelevant(raw, args.workspaceId, topic);
       for (const b of beliefs) {
-        // Bestätigung = NICHT-Widerspruch + nicht-leere Belief + noch nicht verstärkt
-        // + keine system-generierte Lehr-/Reflexions-Meta-Belief (die verstärken wir
-        // nicht über Decision-Match — sie haben keinen Decision-Bezug).
+        // Confirmation = NON-contradiction + non-empty belief + not yet reinforced
+        // + no system-generated teach/reflection meta-belief (those we do not reinforce
+        // via decision match — they have no decision reference).
         if (reinforced.has(b.id)) continue;
         if (isTeachBelief(b) || b.belief.startsWith(REFLECTION_MARKER_PREFIX)) {
           continue;
         }
-        if (decisionContradictsBelief(d, b)) continue; // widerspricht → kein Reinforce
+        if (decisionContradictsBelief(d, b)) continue; // contradicts → no reinforce
         try {
           const r = reinforceBelief(raw, {
             workspaceId: args.workspaceId,
@@ -694,13 +694,13 @@ export function reconcileWorkstream(
             reinforcements += 1;
           }
         } catch {
-          // fail-soft: Reinforcement darf den Reconcile nie kippen.
+          // fail-soft: reinforcement must never tip over the reconcile.
         }
       }
     }
   }
 
-  // 4. A4 — optionale WARUM-Frage (begründungslos ODER abweichend).
+  // 4. A4 — optional WHY question (no rationale OR deviating).
   const unjustified = decisions.filter(isUnjustified);
   const whyQuestion = buildWhyQuestion({
     workstreamId: args.workstreamId,

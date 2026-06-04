@@ -1,22 +1,22 @@
 /**
  * audit-wording.ts
  *
- * Glossar-Lint — sucht inkonsistente Wordings in User-Facing TSX-Strings:
+ * Glossary lint — looks for inconsistent wordings in user-facing TSX strings:
  *
- *   - "Uneinigung"             → Vorschlag "Modelle widersprechen"
- *   - "Drift" (Code-Strings)   → Vorschlag "Quellen-Abweichung"
- *                                (außerhalb audit-Bucket = Skript-Namen
- *                                + Kommentare bleiben unangetastet)
- *   - "Sniper" (User-facing)   → Vorschlag "Direkt-Eingriff"
+ *   - "Uneinigung"             → suggestion "Modelle widersprechen"
+ *   - "Drift" (code strings)   → suggestion "Quellen-Abweichung"
+ *                                (outside the audit bucket = script names
+ *                                + comments stay untouched)
+ *   - "Sniper" (user-facing)   → suggestion "Direkt-Eingriff"
  *
- * Heuristik:
- *   - Sucht in lib/ + app/ TSX-Files
- *   - String-Literale (single/double/template) + JSX-Text
- *   - Skip-Kommentare (// + /* ... *\/)
- *   - Skip Datei-Pfade in import-Strings
+ * Heuristic:
+ *   - Searches in lib/ + app/ TSX files
+ *   - String literals (single/double/template) + JSX text
+ *   - Skip comments (// + /* ... *\/)
+ *   - Skip file paths in import strings
  *
- * Output: Liste mit Vorschlag.
- * Exit: 0, informativ.
+ * Output: a list with suggestions.
+ * Exit: 0, informational.
  *
  * Run:  tsx scripts/audit-wording.ts
  */
@@ -32,7 +32,7 @@ interface Rule {
   regex: RegExp;
   suggest: string;
   scope: 'all' | 'user-facing';
-  // Wenn 'user-facing': nur JSX-Text/-Attribut + 'use'/`use`-Strings.
+  // When 'user-facing': only JSX text/attribute + 'use'/`use` strings.
 }
 
 const RULES: Rule[] = [
@@ -104,7 +104,7 @@ function scan(files: string[]): Hit[] {
       const line = lines[i];
       const prev = i > 0 ? lines[i - 1] : '';
 
-      // Block-Comment-Tracking (vereinfacht: keine Mid-Line-Toggles)
+      // Block-comment tracking (simplified: no mid-line toggles)
       if (inBlockComment) {
         if (line.includes('*/')) inBlockComment = false;
         continue;
@@ -123,7 +123,7 @@ function scan(files: string[]): Hit[] {
         let m: RegExpExecArray | null;
         while ((m = rule.regex.exec(line)) !== null) {
           if (rule.scope === 'user-facing') {
-            // Heuristik: muss in ' " ` stehen oder nach > vor < (JSX-Text)
+            // Heuristic: must be inside ' " ` or after > before < (JSX text)
             const before = line.slice(0, m.index);
             const after = line.slice(m.index + m[0].length);
             const inString =

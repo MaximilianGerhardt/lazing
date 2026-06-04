@@ -1,9 +1,9 @@
 /**
- * /workspaces — Listen-Page aller Workspaces, gruppiert nach Org.
+ * /workspaces — list page of all workspaces, grouped by org.
  *
- * Server-Component. Nutzt das gleiche Permissions-Model wie der TopNav-
- * Switcher (Org-Membership → sichtbare Workspaces) plus Solo-Mode-
- * Fallback für Single-User-Setups.
+ * Server component. Uses the same permissions model as the TopNav
+ * switcher (org membership → visible workspaces) plus solo-mode
+ * fallback for single-user setups.
  */
 
 import Link from "next/link";
@@ -67,7 +67,7 @@ export default async function WorkspacesListPage(): Promise<React.JSX.Element> {
     }
   }
 
-  // Sortiere Orgs: company first, dann clients, products, tools, archived
+  // Sort orgs: company first, then clients, products, tools, archived
   const TYPE_RANK: Record<string, number> = {
     company: 0,
     client: 1,

@@ -44,9 +44,9 @@ function formatBytes(b: number): string {
 }
 
 /**
- * Robuster Download-Trigger. iOS Safari ignoriert das `download`-Attribut
- * bei `<a>`-Tags und navigiert stattdessen zur Datei. Wir holen sie als
- * Blob, packen sie in eine ObjectURL und triggern den Save-Dialog künstlich.
+ * Robust download trigger. iOS Safari ignores the `download` attribute
+ * on `<a>` tags and navigates to the file instead. We fetch it as a
+ * Blob, wrap it in an ObjectURL and trigger the save dialog artificially.
  */
 async function triggerDownload(url: string, filename: string): Promise<void> {
   try {

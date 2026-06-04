@@ -1,13 +1,13 @@
 /**
  * POST /api/workstreams/[id]/finalize — Sub-Plan 04 (2026-04-29).
  *
- * Pragmatischer Helper: für einen iterate-fertig-Workstream eine
- * ConsensusActionCard im Chat erscheinen lassen. Setzt Master-Ticket
- * workflowState=`review`, aggregiert Outliers aus Roaster-Events und
- * emit ein chat_message_completed mit `<surface:consensus-action>`-Tag
- * (incl. outliers-Inline-Daten).
+ * Pragmatic helper: make a ConsensusActionCard appear in the chat for an
+ * iterate-finished workstream. Sets the master ticket's
+ * workflowState=`review`, aggregates outliers from roaster events and
+ * emits a chat_message_completed with a `<surface:consensus-action>` tag
+ * (incl. outliers inline data).
  *
- * Auth: Cookie-Session ODER Bearer LAZYOS_CHAT_KEY.
+ * Auth: cookie session OR Bearer LAZYOS_CHAT_KEY.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -95,16 +95,16 @@ export async function POST(
     );
   }
 
-  // Idempotenz-Check (mit ?force=1 deaktivierbar — z.B. wenn neuer
-  // Card-Payload mit subTickets/planText emittiert werden soll).
+  // Idempotency check (disableable with ?force=1 — e.g. when a new
+  // card payload with subTickets/planText should be emitted).
   const url = new URL(req.url);
-  // Sub-Plan C (2026-04-30): Card-Dedup wird zentral in emitOrUpdateCard
-  // erledigt. Wir behalten den `force=1`-Modus als Force-Insert: in dem Fall
-  // umgehen wir den Helper und feuern emitChatMessageCompleted direkt, sodass
-  // ein neuer Event-Row entsteht (z.B. nach „Plan komplett verworfen").
+  // Sub-Plan C (2026-04-30): card dedup is handled centrally in emitOrUpdateCard.
+  // We keep the `force=1` mode as a force-insert: in that case
+  // we bypass the helper and fire emitChatMessageCompleted directly, so that
+  // a new event row is created (e.g. after "plan completely discarded").
   const force = url.searchParams.get('force') === '1';
 
-  // Outlier-Aggregation aus Roaster-Events der letzten Welle.
+  // Outlier aggregation from the roaster events of the last wave.
   const sinceMs = planRow.created_at - 60_000;
   const roastRows = db.$raw
     .prepare(
@@ -128,7 +128,7 @@ export async function POST(
     }))
     .slice(0, 4);
 
-  // workflowState='review' Update-Event
+  // workflowState='review' update event
   await emitEvent({
     segmentId: ws.workspace_id,
     entityType: 'ticket',
@@ -143,19 +143,19 @@ export async function POST(
     sensitivity: 'low',
   }).catch(() => undefined);
 
-  // tickets-Tabelle workflow_state spalte aktualisieren falls existent
+  // update the tickets table workflow_state column if it exists
   try {
     db.$raw
       .prepare("UPDATE tickets SET workflow_state='review' WHERE id=?")
       .run(ws.primary_ticket_id);
   } catch {
-    /* event-sourced — egal */
+    /* event-sourced — doesn't matter */
   }
 
-  // Sub-Plan 04 Welle 1 Fix (2026-04-29) — Sub-Tickets aus Plan-YAML
-  // extrahieren und als ticket-created-Events emittieren. Auto-Dispatch
-  // braucht das (lib/tickets/auto-dispatch.ts maybeAutoDispatch sucht
-  // Sub-Tickets via parent_ticket_id).
+  // Sub-Plan 04 wave 1 fix (2026-04-29) — extract sub-tickets from the
+  // plan YAML and emit them as ticket-created events. Auto-dispatch
+  // needs this (lib/tickets/auto-dispatch.ts maybeAutoDispatch looks for
+  // sub-tickets via parent_ticket_id).
   let subTicketsCreated = 0;
   let subTicketsSkipped = 0;
   const existingSubsRow = db.$raw
@@ -183,7 +183,7 @@ export async function POST(
     }
   }
 
-  // Sub-Plan 05 (2026-04-29) — Sub-Tickets-Liste für Inline-Section
+  // Sub-Plan 05 (2026-04-29) — sub-tickets list for the inline section
   const subRows = db.$raw
     .prepare(
       `SELECT json_extract(payload,'$.title') as title,
@@ -201,7 +201,7 @@ export async function POST(
     .filter((s) => s.title)
     .map((s) => ({ title: s.title!, prio: s.prio ?? 'P2' }));
 
-  // chat_message_completed mit ConsensusActionCard-Surface-Tag
+  // chat_message_completed with a ConsensusActionCard surface tag
   const consensusJson = JSON.stringify({
     workstreamId: ws.id,
     consensusLevel: 'majority',

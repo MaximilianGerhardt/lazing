@@ -1,28 +1,28 @@
 'use client';
 
 /**
- * PushAutoPrompt — Erst-Open-Inline-Card.
+ * PushAutoPrompt — first-open inline card.
  *
- * User-Wunsch 2026-05-01: „Push-Popup muss IMMER beim ersten PWA-Öffnen
- * kommen." — Re-Aktivierung nach 2026-04-29-Veto. Diesmal NICHT als Overlay
- * (no `position: fixed`), sondern als Inline-Surface-Card die im Chat-Stream
- * als erste System-Message landet (oder oben am Page-Top auf
- * Non-Chat-Routes). Das respektiert die Surface-Library-Regel und ist
- * gleichzeitig sichtbar, weil sie die Page-Topline einnimmt.
+ * User request 2026-05-01: „Push-Popup muss IMMER beim ersten PWA-Öffnen
+ * kommen." — re-activated after the 2026-04-29 veto. This time NOT as an overlay
+ * (no `position: fixed`), but as an inline surface card that lands in the chat stream
+ * as the first system message (or at the page top on
+ * non-chat routes). This respects the surface-library rule and is
+ * visible at the same time, because it occupies the page top line.
  *
- * Trigger-Bedingungen (alle müssen zutreffen):
- *   1. PWA-Standalone-Mode ODER Desktop (auf iOS-Tab kein Push möglich)
- *   2. localStorage `lazyos.push.prompted !== '1'` (User hat noch nicht
- *      aktiv "Später" oder "Aktivieren" geklickt — UNABHÄNGIG vom Datum,
- *      User-Befund "muss IMMER kommen wenn man das erste Mal öffnet")
- *   3. Notification.permission === 'default' (noch nicht entschieden —
- *      bei 'granted' ist's schon aktiv, bei 'denied' bringt Re-Prompt nichts)
+ * Trigger conditions (all must apply):
+ *   1. PWA standalone mode OR desktop (no push possible on an iOS tab)
+ *   2. localStorage `lazyos.push.prompted !== '1'` (the user has not yet
+ *      actively clicked "Später" or "Aktivieren" — INDEPENDENT of the date,
+ *      user finding "must ALWAYS come when you open it for the first time")
+ *   3. Notification.permission === 'default' (not yet decided —
+ *      with 'granted' it is already active, with 'denied' a re-prompt does nothing)
  *
- * Click „Aktivieren": komplette Subscribe-Pipeline via usePushSubscription.
- * Click „Später": setzt nur das Prompted-Flag und blendet die Card.
+ * Click „Aktivieren": full subscribe pipeline via usePushSubscription.
+ * Click „Später": only sets the prompted flag and hides the card.
  *
- * iOS Safari < 16.4 ist via usePushSubscription state='unsupported' bereits
- * gecovert — die Card zeigt sich dann nicht.
+ * iOS Safari < 16.4 is already covered via usePushSubscription state='unsupported'
+ * — the card then does not show.
  */
 
 import { useCallback, useState } from 'react';
@@ -34,20 +34,20 @@ const PROMPTED_KEY = 'lazyos.push.prompted';
 interface Props {
   vapidPublicKey: string;
   /**
-   * Optional: Custom-ClassName für Surface-Container — Chat-Mount-Point
-   * setzt z.B. 'push-prompt-card--chat-system' damit die Card sich
-   * visuell mit den anderen System-Messages versöhnt.
+   * Optional: custom className for the surface container — the chat mount point
+   * sets e.g. 'push-prompt-card--chat-system' so the card
+   * visually reconciles with the other system messages.
    */
   className?: string;
 }
 
 /**
- * Lazy-Init: Lese den Prompt-Lock direkt im useState-Initialiser, statt
- * im useEffect zu setzten — vermeidet `react-hooks/set-state-in-effect`
- * Lint und die initiale Flicker-Frame.
+ * Lazy init: read the prompt lock directly in the useState initialiser, instead
+ * of setting it in useEffect — avoids the `react-hooks/set-state-in-effect`
+ * lint and the initial flicker frame.
  */
 function readPromptLock(): boolean {
-  if (typeof window === 'undefined') return true; // SSR: nicht zeigen
+  if (typeof window === 'undefined') return true; // SSR: do not show
   try {
     return window.localStorage.getItem(PROMPTED_KEY) === '1';
   } catch {
@@ -56,18 +56,18 @@ function readPromptLock(): boolean {
 }
 
 /**
- * Doc-Trigger #3: nur prompten, wenn die OS-Permission noch NICHT entschieden
- * ist (`default`). Bei `granted` ist Push schon erlaubt (Re-Prompt sinnlos —
- * eine fehlende lokale Subscription ist Sache von SubscribeButton/Resubscribe,
- * nicht dieser Erst-Open-Card), bei `denied` bringt ein Re-Prompt nichts.
+ * Doc-trigger #3: only prompt when the OS permission is NOT yet decided
+ * (`default`). With `granted`, push is already allowed (re-prompt pointless —
+ * a missing local subscription is the job of SubscribeButton/Resubscribe,
+ * not this first-open card), with `denied` a re-prompt does nothing.
  *
- * Bug-Fix 2026-05-23: vorher hing `shouldShow` nur an `sub.state === 'idle'`.
- * `idle` tritt aber AUCH bei `granted`-ohne-aktive-Subscription ein → die Card
- * kam bei JEDEM Reload wieder, obwohl der User Push längst aktiviert hatte.
+ * Bug fix 2026-05-23: previously `shouldShow` depended only on `sub.state === 'idle'`.
+ * But `idle` ALSO occurs with `granted`-without-active-subscription → the card
+ * came back on EVERY reload even though the user had long since activated push.
  */
 function permissionUndecided(): boolean {
   if (typeof window === 'undefined' || typeof Notification === 'undefined') {
-    return false; // SSR / kein Notification-API: nicht zeigen
+    return false; // SSR / no Notification API: do not show
   }
   return Notification.permission === 'default';
 }
@@ -75,15 +75,15 @@ function permissionUndecided(): boolean {
 export function PushAutoPrompt({ vapidPublicKey, className }: Props): React.JSX.Element | null {
   const sub = usePushSubscription({ vapidPublicKey });
   const [archived, setArchived] = useState<boolean>(false);
-  // Lock wird nur 1× beim Mount gelesen — wenn der User später "Aktivieren"
-  // klickt, setzen wir das Lock-Flag im handler + setArchived(true), die
-  // Card verschwindet ohne dass wir hier nochmal lesen müssen.
+  // The lock is read only once on mount — when the user later clicks "Aktivieren",
+  // we set the lock flag in the handler + setArchived(true), and the
+  // card disappears without us having to read again here.
   const [locked] = useState<boolean>(readPromptLock);
-  // OS-Permission-Status 1× beim Mount (gleiche Lazy-Init-Begründung wie locked).
+  // OS permission status once on mount (same lazy-init reasoning as locked).
   const [undecided] = useState<boolean>(permissionUndecided);
 
-  // shouldShow ableiten aus sub.state + locked + permission (kein useEffect →
-  // kein set-state-in-effect-Issue). `undecided` erzwingt Doc-Trigger #3.
+  // Derive shouldShow from sub.state + locked + permission (no useEffect →
+  // no set-state-in-effect issue). `undecided` enforces doc-trigger #3.
   const shouldShow = !locked && undecided && sub.state === 'idle';
 
   const dismissForever = useCallback(() => {
@@ -97,14 +97,14 @@ export function PushAutoPrompt({ vapidPublicKey, className }: Props): React.JSX.
 
   const onActivate = useCallback(async () => {
     await sub.subscribe();
-    // Lock immer setzen — egal ob granted oder denied. User hat
-    // entschieden, soll bei jedem Re-Open nicht wieder gefragt werden.
+    // Always set the lock — regardless of granted or denied. The user has
+    // decided and should not be asked again on every re-open.
     try {
       window.localStorage.setItem(PROMPTED_KEY, '1');
     } catch {
       /* non-fatal */
     }
-    // Nach success: Card 4 s zeigen (mit Erfolgsmeldung), dann archivieren.
+    // After success: show the card for 4 s (with a success message), then archive.
     if (sub.state === 'subscribed' || sub.state === 'working') {
       window.setTimeout(() => setArchived(true), 4000);
     }

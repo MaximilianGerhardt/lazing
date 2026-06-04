@@ -1,9 +1,9 @@
 /**
- * GET  /api/agents/profiles?workspaceId=...  — Mitarbeiter-Profile listen.
- * POST /api/agents/profiles                  — ein Profil anlegen.
+ * GET  /api/agents/profiles?workspaceId=...  — list employee profiles.
+ * POST /api/agents/profiles                  — create a profile.
  *
- * „Mitarbeiter"-Profile Slice 1 (2026-06-03). Auth: eingeloggt; bei Workspace-
- * Scope zusätzlich Membership (für POST).
+ * "Employee" profiles slice 1 (2026-06-03). Auth: logged in; for workspace
+ * scope additionally membership (for POST).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'invalid-json' }, { status: 400 });
   }
 
-  // Workspace-Scope → Membership-Pflicht.
+  // Workspace scope → membership required.
   if (body.workspaceId) {
     const role = getEffectiveWorkspaceRole(userId, body.workspaceId);
     if (!canEditWorkspaceContent(role) || !hasRealWorkspaceMembership(userId, body.workspaceId)) {

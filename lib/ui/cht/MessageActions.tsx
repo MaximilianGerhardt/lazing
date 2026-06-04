@@ -1,24 +1,24 @@
 'use client';
 
 /**
- * MessageActions — Codex-artige Hover-Aktionen unter einer fertigen
- * Assistant-Antwort (Goal 2026-06-02). Codex zeigt unter jeder Antwort eine
- * dezente Reihe: Kopieren + Neu generieren. Bisher hatten nur transiente
- * Reload-Snapshots (`StreamingBubble`) solche Controls — normale persistierte
- * Antworten hatten keine.
+ * MessageActions — Codex-style hover actions below a finished
+ * assistant answer (Goal 2026-06-02). Codex shows a
+ * subtle row below every answer: copy + regenerate. Until now, only transient
+ * reload snapshots (`StreamingBubble`) had such controls — normal persisted
+ * answers had none.
  *
- * Sichtbarkeit per CSS: faint/zu, auf `.msg-a:hover` / `:focus-within`
- * enthüllt (Desktop) bzw. dauerhaft leicht sichtbar auf Touch-Geräten
- * (`@media (hover: none)`). Styles leben in app/components.css unter
+ * Visibility via CSS: faint/closed, revealed on `.msg-a:hover` / `:focus-within`
+ * (desktop), or permanently slightly visible on touch devices
+ * (`@media (hover: none)`). Styles live in app/components.css under
  * `.msg-actions`.
  */
 
 import { useCallback, useState, type ReactElement } from 'react';
 
 export interface MessageActionsProps {
-  /** Reiner Prosa-Text zum Kopieren (Surface-Tags vom Caller bereits entfernt). */
+  /** Pure prose text to copy (surface tags already removed by the caller). */
   copyText: string;
-  /** Vorherigen User-Prompt neu ausführen. Weglassen blendet den Button aus. */
+  /** Re-run the previous user prompt. Omitting hides the button. */
   onRegenerate?: () => void;
 }
 
@@ -30,7 +30,7 @@ export function MessageActions({ copyText, onRegenerate }: MessageActionsProps):
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
     } catch {
-      /* clipboard in unsicheren Kontexten nicht verfügbar — still ignorieren */
+      /* clipboard not available in insecure contexts — silently ignore */
     }
   }, [copyText]);
 

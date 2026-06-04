@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * SubchatsClient — Liste + Anlegen + Verwaltung der Sub-Chats eines Workspace
- * (interne Sicht). Beim Anlegen eines externen Sub-Chats wird der teilbare
- * Kunden-Link EINMALIG gezeigt (Copy). Pro Zeile: Umbenennen · Löschen · Link
- * verwalten (Widerrufen/Erneuern + Copy) via die verifizierten API-Routen.
+ * SubchatsClient — list + create + management of the sub-chats of a workspace
+ * (internal view). When creating an external sub-chat, the shareable
+ * customer link is shown ONCE (copy). Per row: rename · delete · manage link
+ * (revoke/renew + copy) via the verified API routes.
  * Gathering-Intelligence-Goal P2 (2026-06-02). Mobile-first, Apple-quiet.
  *
- * HINWEIS (Flag an Parent): die List-GET-Route liefert KEIN shareExpiresAt /
- * shareRevokedAt an den Client — daher zeigen wir Link-Status nur als
- * „Link aktiv" / „Kein aktiver Link", kein präzises Ablaufdatum. Ebenso gibt es
- * (noch) KEINE /archive-Route → „Archivieren" ist bewusst ausgelassen, bis
- * POST /api/subchats/[subchatId]/archive existiert (ruft archiveSubchat).
+ * NOTE (flag to parent): the list-GET route does NOT return shareExpiresAt /
+ * shareRevokedAt to the client — so we show link status only as
+ * „Link aktiv" / „Kein aktiver Link", no precise expiry date. Likewise there is
+ * (yet) NO /archive route → „Archivieren" is deliberately omitted until
+ * POST /api/subchats/[subchatId]/archive exists (calls archiveSubchat).
  */
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
@@ -31,15 +31,15 @@ interface SubchatItem {
 type CreateKind = 'external' | 'internal';
 
 /**
- * „Allgemein" ist der Workspace-Default (ensureGeneralSubchat) — wird gepinnt.
- * ensureGeneralSubchat legt den Default als kind:'external' an (Kunden-
- * Hauptkonversation), daher NUR auf den Titel matchen, nicht auf kind.
+ * „Allgemein" is the workspace default (ensureGeneralSubchat) — gets pinned.
+ * ensureGeneralSubchat creates the default as kind:'external' (customer main
+ * conversation), so match ONLY on the title, not on kind.
  */
 function isGeneral(it: SubchatItem): boolean {
   return it.title.trim() === 'Allgemein';
 }
 
-/** Stabiler Sort: Default („Allgemein") zuerst, dann updatedAt absteigend. */
+/** Stable sort: default („Allgemein") first, then updatedAt descending. */
 function sortItems(rows: SubchatItem[]): SubchatItem[] {
   return [...rows].sort((a, b) => {
     const ga = isGeneral(a) ? 0 : 1;
@@ -59,13 +59,13 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
   const [lastLink, setLastLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Pro-Zeilen-Verwaltung
-  const [menuFor, setMenuFor] = useState<string | null>(null); // subchatId mit offenem Action-Sheet
+  // Per-row management
+  const [menuFor, setMenuFor] = useState<string | null>(null); // subchatId with open action sheet
   const [renameFor, setRenameFor] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
   const [renameBusy, setRenameBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
-  const [rowBusy, setRowBusy] = useState<string | null>(null); // subchatId mit laufender Share-/Delete-Mutation
+  const [rowBusy, setRowBusy] = useState<string | null>(null); // subchatId with an in-flight share/delete mutation
 
   const load = useCallback(async () => {
     try {
@@ -95,10 +95,10 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
       });
       if (res.ok) {
         const data = (await res.json()) as { externalUrl?: string | null };
-        // Interne Sub-Chats liefern keinen externalUrl → kein Link-Reveal.
+        // Internal sub-chats return no externalUrl → no link reveal.
         if (data.externalUrl) {
-          // Server liefert die volle öffentliche URL (Tunnel/Domain). Nur falls
-          // ausnahmsweise relativ, mit der aktuellen Origin auffüllen.
+          // Server returns the full public URL (tunnel/domain). Only if
+          // exceptionally relative, fill in with the current origin.
           setLastLink(
             /^https?:\/\//.test(data.externalUrl)
               ? data.externalUrl
@@ -130,7 +130,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
     setConfirmDel(null);
   }, []);
 
-  // --- Umbenennen ---
+  // --- Rename ---
   const startRename = useCallback((it: SubchatItem) => {
     setRenameFor(it.id);
     setRenameText(it.title);
@@ -159,7 +159,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
     }
   }, [renameText, renameBusy, load, closeMenu]);
 
-  // --- Löschen ---
+  // --- Delete ---
   const doDelete = useCallback(async (id: string) => {
     if (rowBusy) return;
     setRowBusy(id);
@@ -175,7 +175,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
     }
   }, [rowBusy, load, closeMenu]);
 
-  // --- Link verwalten ---
+  // --- Manage link ---
   const revokeLink = useCallback(async (id: string) => {
     if (rowBusy) return;
     setRowBusy(id);
@@ -259,9 +259,9 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
       </header>
 
       <div style={body}>
-        {/* Messenger-Standard: Suche über das Sub-Chat-Wissen, oben gepinnt
-            (wie WhatsApp/iMessage). Sucht inhaltlich (RAG) über alle Chats und
-            springt per Deep-Link zum Treffer. */}
+        {/* Messenger standard: search across the sub-chat knowledge, pinned at the top
+            (like WhatsApp/iMessage). Searches by content (RAG) across all chats and
+            jumps to the hit via deep link. */}
         <div style={{ marginBottom: 14 }}>
           <SubchatSearch placeholder="Sub-Chat-Wissen durchsuchen" />
         </div>
@@ -359,7 +359,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
                   >
                     <DotsIcon />
                   </button>
-                  {/* Inline-Rename direkt unter der Zeile (mobil ergonomisch) */}
+                  {/* Inline rename directly below the row (ergonomic on mobile) */}
                   {renaming && (
                     <div style={inlineEdit}>
                       <input
@@ -390,7 +390,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
         )}
       </div>
 
-      {/* Bottom Action-Sheet — Apple-quiet, ≤180ms slide-up */}
+      {/* Bottom action sheet — Apple-quiet, ≤180ms slide-up */}
       {menuItem && !renameFor && (
         <div style={sheetBackdrop} onClick={closeMenu}>
           <style>{'@keyframes subchatSheetUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}'}</style>
@@ -402,7 +402,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
               Umbenennen
             </button>
 
-            {/* Link verwalten — nur für externe Sub-Chats */}
+            {/* Manage link — only for external sub-chats */}
             {menuItem.kind === 'external' && (
               <div style={sheetSection}>
                 <div style={sheetSectionLabel}>
@@ -439,7 +439,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
               </div>
             )}
 
-            {/* Löschen — für „Allgemein" (Default) ausgeblendet, kein versehentliches Löschen */}
+            {/* Delete — hidden for „Allgemein" (default), no accidental deletion */}
             {!isGeneral(menuItem) && (
               confirmDel === menuItem.id ? (
                 <div style={sheetSection}>
@@ -471,7 +471,7 @@ export function SubchatsClient({ workspaceId }: { workspaceId: string }): React.
   );
 }
 
-/** Inline 3-Punkt-Menü-Glyph (currentColor, kein Emoji, kein Icon-Import). */
+/** Inline 3-dot menu glyph (currentColor, no emoji, no icon import). */
 function DotsIcon(): React.ReactElement {
   return (
     <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
@@ -482,7 +482,7 @@ function DotsIcon(): React.ReactElement {
   );
 }
 
-/** Kompakte Relativzeit „gerade eben / vor 2 Min / vor 2 Std / vor 3 Tg" aus updatedAt (ms). */
+/** Compact relative time „gerade eben / vor 2 Min / vor 2 Std / vor 3 Tg" from updatedAt (ms). */
 function relativeTime(updatedAt: number): string {
   const ms = Date.now() - updatedAt;
   if (!Number.isFinite(ms) || ms < 0) return 'gerade eben';
@@ -498,17 +498,17 @@ function relativeTime(updatedAt: number): string {
 }
 
 /**
- * Zeilen-Metazeile mit „Duft": primär die letzte Aktivität (Relativzeit), Art
- * nur wenn nicht der Default („Kunde" für externe, sonst weggelassen). Link-Status
- * erscheint NUR als Ausnahme (inaktiver/widerrufener Link eines externen Chats) —
- * der Normalfall „Link aktiv" wird bewusst nicht wiederholt.
+ * Row meta line with „scent": primarily the last activity (relative time), kind
+ * only when not the default („Kunde" for external, otherwise omitted). Link status
+ * appears ONLY as an exception (inactive/revoked link of an external chat) —
+ * the normal case „Link aktiv" is deliberately not repeated.
  */
 function rowMetaParts(it: SubchatItem, general: boolean): { text: string; flag: string | null } {
   const parts: string[] = [relativeTime(it.updatedAt)];
-  // Art nur, wenn sie vom Default abweicht (extern = Kunde). Der Default „Allgemein"
-  // und interne Team-Chats brauchen kein redundantes Label.
+  // Kind only when it differs from the default (external = customer). The default
+  // „Allgemein" and internal team chats need no redundant label.
   if (!general && it.kind === 'external') parts.push('Kunde');
-  // Ausnahme-Token: externer Chat ohne aktiven Link.
+  // Exception token: external chat without an active link.
   const flag = it.kind === 'external' && !it.hasExternalAccess ? 'Link inaktiv' : null;
   return { text: parts.join(' · '), flag };
 }

@@ -1,75 +1,75 @@
 /**
  * lib/workstreams/plan-executor.ts
  * ---------------------------------
- * Slice 3 · Phase 1 → EXEC (2026-05-26, laz.ing Swarm Runtime V1.1).
+ * Slice 3 · phase 1 → EXEC (2026-05-26, laz.ing Swarm Runtime V1.1).
  *
- * ZWEI-MODI-EXECUTOR (konsent-gated, R1-isoliert, parallel):
+ * TWO-MODE EXECUTOR (consent-gated, R1-isolated, parallel):
  *
- *   A) Default / sicher (mode unset / 'ask'):
- *      Pro Step NUR `engine.chat({messages})` — reine, tool-lose Text-Completion.
- *      KEINE Dateien geschrieben, KEINE Shell ausgeführt. Das ist BIT-IDENTISCH
- *      zum Vor-EXEC-Verhalten. Echte Tool-Ausführung gibt es NUR, wenn der
- *      Workspace explizit auf FreeRein/Lane gesetzt wurde (User-Einwilligung).
+ *   A) Default / safe (mode unset / 'ask'):
+ *      Per step ONLY `engine.chat({messages})` — pure, tool-less text completion.
+ *      NO files written, NO shell executed. This is BIT-IDENTICAL
+ *      to the pre-EXEC behavior. Real tool execution happens ONLY when the
+ *      workspace was explicitly set to FreeRein/Lane (user consent).
  *
- *   B) Konsentiert (mode = 'freerein' / 'freerein-with-audit' / 'lane'):
- *      Wenn der aufgelöste Modus Tools gewährt (allowedTools nicht leer) UND
- *      die R2-Entscheidung allow ist, läuft der Step als ECHTER Tool-Spawn über
+ *   B) Consented (mode = 'freerein' / 'freerein-with-audit' / 'lane'):
+ *      When the resolved mode grants tools (allowedTools non-empty) AND
+ *      the R2 decision is allow, the step runs as a REAL tool spawn via
  *      `spawnInTmux` (--allowedTools <mode-tools> + --permission-mode acceptEdits,
- *      inkl. Bash bei FreeRein). Das passiert ZWINGEND in R1-Worktree-Isolation:
- *      createRunWorktree → Spawn im isolierten Worktree → discardRunWorktree im
- *      finally. Der Live-Checkout wird NIE berührt; Merge bleibt gated (R3).
- *      ENV `env -i`-gescrubbt + K1 `--disallowedTools` (hart) sind in tmux-spawn.
+ *      incl. Bash under FreeRein). This happens MANDATORILY in R1 worktree isolation:
+ *      createRunWorktree → spawn in the isolated worktree → discardRunWorktree in
+ *      the finally. The live checkout is NEVER touched; merge stays gated (R3).
+ *      ENV `env -i`-scrubbed + K1 `--disallowedTools` (hard) are in tmux-spawn.
  *
- * PARALLELITÄT (Aufgabe B):
- *   Der frühere sequenzielle Loop ist durch einen Dependency-Graph +
- *   Ready-Queue ersetzt. Steps ohne offene `depends_on` starten parallel,
- *   gebunden durch den resource-pool (N11 heavyTotal=2). Bei Step-Done werden
- *   abhängige Steps ready. Cycle-safe (Cycle → sequenzieller Fallback + warn).
- *   Fehler-isoliert pro Step. Die Status-Card zeigt laufend/wartend/fertig.
+ * PARALLELISM (task B):
+ *   The former sequential loop is replaced by a dependency graph +
+ *   ready queue. Steps without open `depends_on` start in parallel,
+ *   bounded by the resource pool (N11 heavyTotal=2). On step-done,
+ *   dependent steps become ready. Cycle-safe (cycle → sequential fallback + warn).
+ *   Error-isolated per step. The status card shows running/waiting/done.
  *
- * Sicherheits-Constraints (kritisch):
- *   - Default (unset/ask) = exakt heutiges sicheres Verhalten (text-only).
- *   - Bash/Writes IMMER in R1-Worktree-Isolation, Merge bleibt gated.
- *   - codex bleibt ausgeschlossen (Code-Mode-Agent, schreibt Files/Shell).
- *   - N8-Audit pro echtem Tool-Lauf: tamper-evidente `workstream_decisions`-Row
- *     (writeDecision, content_hash-gekettet, N10) VOR dem Spawn + stdout-Audit.
+ * Safety constraints (critical):
+ *   - Default (unset/ask) = exactly today's safe behavior (text-only).
+ *   - Bash/writes ALWAYS in R1 worktree isolation, merge stays gated.
+ *   - codex stays excluded (code-mode agent, writes files/shell).
+ *   - N8 audit per real tool run: a tamper-evident `workstream_decisions` row
+ *     (writeDecision, content_hash-chained, N10) BEFORE the spawn + stdout audit.
  *
- * RESIDUAL (by design — ehrlich abgegrenzt): FreeRein-Bash = System-Zugriff
- *   durch beliebige Shell. Das ist die explizite, vom User über den
- *   Permission-Modus gegebene Einwilligung. Die R1-Worktree-Isolation begrenzt
- *   NUR git-Operationen (Writes/Commits/Merge passieren im throwaway-Branch, nie
- *   im Live-Checkout; Merge ist zusätzlich gated). Sie begrenzt NICHT die
- *   Datei-Reichweite des Prozesses: ein FreeRein-Bash-Lauf läuft mit der
- *   Prozess-uid und kann per ABSOLUTEM Pfad lesen, was diese uid lesen darf —
- *   u.a. $HOME (in der env-Allowlist, damit MAX-Auth greift), die Live-DB unter
- *   dem well-known Pfad ($HOME/.lazyos/lazyos.db, vgl. db/client.ts), eine
- *   `.env.local` im Live-Repo-Root und andere Projekte im Home-Verzeichnis. `env -i`
- *   scrubbt nur ENV-Secrets, K1 sperrt MCP-RAG-Tools — beides verhindert KEINEN
- *   absoluten Datei-Read. Die ECHTE Mehrmandanten-Härtung wäre eine OS-Sandbox
- *   (sandbox-exec / read-only-bind nur des Worktrees + Deny des restlichen FS);
- *   die ist BEWUSST noch NICHT aktiv. FreeRein bleibt deshalb explizite,
- *   vertrauensvolle User-Einwilligung, kein Mehrmandanten-Sandbox-Versprechen.
+ * RESIDUAL (by design — honestly delimited): FreeRein-Bash = system access
+ *   via an arbitrary shell. This is the explicit consent given by the user via
+ *   the permission mode. R1 worktree isolation limits
+ *   ONLY git operations (writes/commits/merge happen in the throwaway branch, never
+ *   in the live checkout; merge is additionally gated). It does NOT limit the
+ *   file reach of the process: a FreeRein-Bash run runs with the
+ *   process uid and can read by ABSOLUTE path whatever that uid may read —
+ *   incl. $HOME (in the env allowlist so MAX auth works), the live DB at
+ *   the well-known path ($HOME/.lazyos/lazyos.db, cf. db/client.ts), a
+ *   `.env.local` in the live repo root, and other projects in the home directory. `env -i`
+ *   only scrubs ENV secrets, K1 locks MCP-RAG tools — neither prevents an
+ *   absolute file read. The REAL multi-tenant hardening would be an OS sandbox
+ *   (sandbox-exec / read-only bind of just the worktree + deny of the rest of the FS);
+ *   that is DELIBERATELY NOT active yet. FreeRein therefore remains explicit,
+ *   trusting user consent, not a multi-tenant sandbox promise.
  *
- * N1 (Detail): Step-Titles + Rationales VERBATIM aus der DB. N6: deterministisches
- *   R2-Gate + Graph-Walk vor jeder Ausführung. N8: Audit pro Step. N9: coordKey
- *   auf allen Card-Emits. N10: content_hash bleibt unangetastet (plan-repo).
- *   N11: Parallelität an die JEWEILS richtige Ressource gebunden (siehe unten).
+ * N1 (detail): step titles + rationales VERBATIM from the DB. N6: deterministic
+ *   R2 gate + graph walk before every execution. N8: audit per step. N9: coordKey
+ *   on all card emits. N10: content_hash stays untouched (plan-repo).
+ *   N11: parallelism bound to the RESPECTIVELY correct resource (see below).
  *
- * PARALLELITÄTS-BREITE (SLOT-DECOUPLING 2026-05-26):
- *   Die frühere `maxParallel = heavyTotal(=2)` war eine künstliche 2er-Kappung
- *   für ALLE Plan-Steps — sie vermischte die echte N11-Grenze ("max 2 schwere
- *   lokale Ollama-Jobs") mit "max parallele Plan-Steps / claude-cli-Spawns".
- *   Jetzt ist die Breite PLAN-ABGELEITET (= Anzahl unabhängiger ready-Steps),
- *   gebunden durch die JEWEILS richtige Ressource:
- *     - text-only/read-Steps  → textConcurrency (Cores-abgeleitet, ~6),
- *                               KEIN heavy-Ollama-Slot, KEIN Worktree.
- *     - claude-cli-Spawn-Steps → spawnConcurrency (== Worktree-Cap 5),
- *                               echte Isolations-Grenze.
- *     - heavy-Ollama-Nutzung INNERHALB eines Steps → zusätzlich der
- *                               ollama-heavy-Slot (heavyOllama=2), orthogonal.
- *   Cycle-Fallback bleibt Breite 1 (sequenziell). N11 bleibt eingehalten:
- *   Worktrees ≤ 5 (createRunWorktree-Cap unangetastet), schwere Ollama-Jobs ≤ 2
- *   (ollama-heavy-Slot). NUR die 2er-Kappung auf claude-cli/text-Steps fällt weg.
+ * PARALLELISM WIDTH (SLOT DECOUPLING 2026-05-26):
+ *   The former `maxParallel = heavyTotal(=2)` was an artificial cap of 2
+ *   for ALL plan steps — it conflated the real N11 limit ("max 2 heavy
+ *   local Ollama jobs") with "max parallel plan steps / claude-cli spawns".
+ *   Now the width is PLAN-DERIVED (= number of independent ready steps),
+ *   bound by the RESPECTIVELY correct resource:
+ *     - text-only/read steps  → textConcurrency (core-derived, ~6),
+ *                               NO heavy-Ollama slot, NO worktree.
+ *     - claude-cli spawn steps → spawnConcurrency (== worktree cap 5),
+ *                               the real isolation limit.
+ *     - heavy-Ollama use WITHIN a step → additionally the
+ *                               ollama-heavy slot (heavyOllama=2), orthogonal.
+ *   The cycle fallback stays width 1 (sequential). N11 stays honored:
+ *   worktrees ≤ 5 (createRunWorktree cap untouched), heavy Ollama jobs ≤ 2
+ *   (ollama-heavy slot). ONLY the cap of 2 on claude-cli/text steps falls away.
  */
 
 import { listRootPlanSteps, setPlanStepStatus } from '@/lib/workstreams/plan-repo';
@@ -122,24 +122,24 @@ import { promisify as _promisify } from 'node:util';
 const execFileAsync = _promisify(_execFile);
 
 /**
- * 2026-05-29 (Opus 4.8) — Verlustfreie Persistenz VOR dem Worktree-discard
- * (Cross-Roast: kleinster sicherer Schritt gegen Arbeitsverlust). Erfasst den
- * vollständigen Delta des Step-Worktrees (committed + uncommitted) gegen den
- * Basis-SHA und gibt ein Stat + den verbatim-Diff zurück (N1: kein Kürzen).
- * Strikt fail-soft: wirft NIE — Capture-Fehler darf den finally/discard nie
- * stören. Liefert null, wenn nichts erfasst werden konnte.
+ * 2026-05-29 (Opus 4.8) — lossless persistence BEFORE the worktree discard
+ * (cross-roast: the smallest safe step against work loss). Captures the
+ * full delta of the step worktree (committed + uncommitted) against the
+ * base SHA and returns a stat + the verbatim diff (N1: no truncation).
+ * Strictly fail-soft: NEVER throws — a capture error must never disturb the
+ * finally/discard. Returns null when nothing could be captured.
  *
- * NOTE: Dies ist Schritt 1 des Akkumulations-Plans — es STOPPT den Verlust
- * (Arbeit landet als Patch im Trace, recoverbar), löst aber noch NICHT die
- * Komposition (Steps bauen weiter NICHT aufeinander auf). Schritt 2-4
- * (akkumulierender Run-Branch + serieller Merge + gated Operator-Merge) folgt.
+ * NOTE: This is step 1 of the accumulation plan — it STOPS the loss
+ * (work lands as a patch in the trace, recoverable), but does NOT yet solve
+ * composition (steps still do NOT build on each other). Steps 2-4
+ * (accumulating run branch + serial merge + gated operator merge) follow.
  */
 async function captureWorktreeDiff(
   worktreePath: string,
   baseSha: string | null,
 ): Promise<{ stat: string; diff: string } | null> {
   try {
-    // Uncommitted Änderungen stagen, damit der Diff committed+uncommitted erfasst.
+    // Stage uncommitted changes so the diff captures committed+uncommitted.
     await execFileAsync('git', ['-C', worktreePath, 'add', '-A']).catch(() => {});
     const base = baseSha && /^[0-9a-f]{7,40}$/.test(baseSha) ? baseSha : 'HEAD';
     const [statRes, diffRes] = await Promise.all([
@@ -155,12 +155,12 @@ async function captureWorktreeDiff(
     if (stat.length === 0 && diff.length === 0) return null;
     return { stat, diff };
   } catch {
-    return null; // niemals werfen
+    return null; // never throw
   }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Typen
+// Types
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ExecutePlanArgs {
@@ -172,22 +172,22 @@ export interface ExecutePlanArgs {
 }
 
 /**
- * Harte Gesamt-Deadline für den Background-Run (Critic-Fix M2). Ohne Cap
- * könnte ein mehrstufiger Plan minutenlang Slots belegen, ohne Abbruch-Pfad
- * (die Route gibt sofort 202 zurück, es gibt keinen Request-Lifecycle mehr).
- * Nach der Deadline brechen acquireSlot/engine.chat ab → restliche Steps
- * fallen schnell auf 'failed'.
+ * Hard total deadline for the background run (critic fix M2). Without a cap,
+ * a multi-stage plan could hold slots for minutes with no abort path
+ * (the route returns 202 immediately, there is no request lifecycle anymore).
+ * After the deadline, acquireSlot/engine.chat abort → remaining steps
+ * quickly fall to 'failed'.
  */
 const EXEC_TOTAL_DEADLINE_MS = 240_000;
 
-/** Status-Werte, die die Status-Card anzeigt (laufend/wartend/fertig). */
+/** Status values the status card shows (running/waiting/done). */
 type StepStatus = 'pending' | 'active' | 'done' | 'failed';
 
 /**
- * W2.1 (2026-05-30): erkennt website-artige Intents (gleiche Keywords wie der
- * Assembly-Step-Append in compose.ts). Nur dann wird das verbindliche
- * Design-System + die Artefakt-Verkettung vorwärts gereicht — sonst bleibt der
- * Prompt bit-identisch zum Vor-W2.1-Verhalten (rückwärtskompatibel). N6.
+ * W2.1 (2026-05-30): detects website-like intents (same keywords as the
+ * assembly-step append in compose.ts). Only then are the mandatory
+ * design system + the artifact chaining forwarded — otherwise the
+ * prompt stays bit-identical to the pre-W2.1 behavior (backwards-compatible). N6.
  */
 export function isWebsiteIntent(intent: string): boolean {
   return /\b(website|webseite|web-?site|landing|landingpage|landing-page|homepage|home-?page|page|site)\b/i.test(
@@ -196,28 +196,28 @@ export function isWebsiteIntent(intent: string): boolean {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Flow-Graph Struktur-Hash-Cache (Flow Studio Stream C · C1, 2026-05-27)
+// Flow-graph structure-hash cache (Flow Studio stream C · C1, 2026-05-27)
 // ────────────────────────────────────────────────────────────────────────────
 //
-// BEFUND (Stream C): die <surface:flow-graph>-Emission feuerte bislang bei JEDEM
-// updateCard-Aufruf — d.h. nur an Step-STATUS-Übergänge gekoppelt. Owner-SOLL:
-// "immer auch visualisieren wenn sich was ändert/erweitert" — also AUCH bei
-// STRUKTUR-Änderungen (neue Steps, geänderte depends_on/Edges, geänderte Tools).
+// FINDING (stream C): the <surface:flow-graph> emission so far fired on EVERY
+// updateCard call — i.e. coupled only to step STATUS transitions. Owner SHOULD:
+// "always visualize too when something changes/extends" — so ALSO on
+// STRUCTURE changes (new steps, changed depends_on/edges, changed tools).
 //
-// Lösung (additiv, N6 deterministisch): wir berechnen pro Emit einen STRUKTUR-
-// Hash über die Knoten (id+label+skill+tool) + Kanten (from→to) — bewusst OHNE
-// die laufenden Status (die sind separat als runStatus erfasst). Wir cachen pro
-// (workspaceId, workstreamId) den zuletzt emittierten Struktur-Hash UND
-// run-Status. Ein erneuter Emit ist nur nötig, wenn sich Struktur ODER runStatus
-// geändert haben. So entsteht bei reiner Status-Wiederholung KEIN redundanter
-// Emit, eine Struktur-Erweiterung löst aber ZWINGEND eine neue Visualisierung
-// aus (auch wenn der runStatus gleich bleibt).
+// Solution (additive, N6 deterministic): we compute per emit a STRUCTURE
+// hash over the nodes (id+label+skill+tool) + edges (from→to) — deliberately WITHOUT
+// the running statuses (those are captured separately as runStatus). We cache per
+// (workspaceId, workstreamId) the last emitted structure hash AND
+// run status. A re-emit is only needed when structure OR runStatus
+// changed. So a pure status repetition produces NO redundant
+// emit, while a structure extension MANDATORILY triggers a new visualization
+// (even when runStatus stays the same).
 //
-// Map statt Memory-Leak-Risiko: die Keys sind pro Run kurzlebig; ein Run räumt
-// seinen Eintrag im Abschluss NICHT explizit (best-effort), aber die Map wächst
-// nur um die Zahl gleichzeitig laufender Runs — vernachlässigbar (N11: max 5
-// Worktrees, Plan-Runs sind seltener). Falls gewünscht kann der Executor den
-// Eintrag am Ende löschen; wir halten es minimal-invasiv.
+// A Map instead of a memory-leak risk: the keys are short-lived per run; a run does NOT
+// explicitly clear its entry on completion (best-effort), but the map grows
+// only by the number of concurrently running runs — negligible (N11: max 5
+// worktrees, plan runs are rarer). If desired the executor can delete the
+// entry at the end; we keep it minimally invasive.
 interface FlowGraphEmitState {
   structureHash: string;
   runStatus: string;
@@ -225,23 +225,23 @@ interface FlowGraphEmitState {
 const flowGraphEmitCache = new Map<string, FlowGraphEmitState>();
 
 /**
- * Testbar exportiert (Stream C · C1): leert den Struktur-Hash-Cache. Wird vom
- * C1-Test zwischen Cases gerufen, damit ein Case nicht den nächsten verklemmt.
- * Produktiv NICHT nötig (Keys sind run-scoped) — rein für deterministische Tests.
+ * Exported for testability (stream C · C1): clears the structure-hash cache. Called by
+ * the C1 test between cases so one case doesn't clog the next.
+ * NOT needed in production (keys are run-scoped) — purely for deterministic tests.
  */
 export function __resetFlowGraphEmitCacheForTests(): void {
   flowGraphEmitCache.clear();
 }
 
-/** Deterministischer Struktur-Hash über Nodes (ohne Status) + Edges. N6. */
+/** Deterministic structure hash over nodes (without status) + edges. N6. */
 export function computeFlowStructureHash(
   nodes: ReadonlyArray<{ id: string; label: string; skill?: string; tool?: string }>,
   edges: ReadonlyArray<{ from: string; to: string }>,
 ): string {
-  // Stabile, status-freie Serialisierung. Nodes nach id sortiert (reihenfolge-
-  // unabhängig), Edges als sortierte from>to-Paare. Reiner String-Vergleich
-  // genügt — wir brauchen keine kryptografische Stärke (kein Tamper-Schutz hier,
-  // das ist content_hash auf den Plan-Step-Rows; N10 bleibt unberührt).
+  // Stable, status-free serialization. Nodes sorted by id (order-
+  // independent), edges as sorted from>to pairs. A plain string comparison
+  // suffices — we need no cryptographic strength (no tamper protection here,
+  // that's content_hash on the plan-step rows; N10 stays untouched).
   const nodePart = [...nodes]
     .map((n) => `${n.id}${n.label}${n.skill ?? ''}${n.tool ?? ''}`)
     .sort()
@@ -254,10 +254,10 @@ export function computeFlowStructureHash(
 }
 
 /**
- * C1-Kern (testbar): entscheidet, ob die flow-graph-Surface (re-)emittiert
- * werden muss, und aktualisiert den Cache. True = emittieren. Side-effect auf
- * den Cache ist gewollt (last-emitted-State). Reine Status-Wiederholung →
- * false; Struktur-Änderung ODER runStatus-Wechsel → true.
+ * C1 core (testable): decides whether the flow-graph surface must be
+ * (re-)emitted, and updates the cache. True = emit. The side effect on
+ * the cache is intentional (last-emitted state). Pure status repetition →
+ * false; structure change OR runStatus change → true.
  */
 export function shouldEmitFlowGraph(
   cacheKey: string,
@@ -274,16 +274,16 @@ export function shouldEmitFlowGraph(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Workspace-FS-Pfad-Auflösung (für R1-Worktree-Isolation)
+// Workspace FS path resolution (for R1 worktree isolation)
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Löst den FS-Pfad eines Workspaces auf (= repoPath für createRunWorktree).
- * Mirror der privaten Helfer in app/api/bugs/swarm/route.ts +
- * lib/tickets/auto-dispatch.ts (workspaces.path → Fallback projects/<id>).
+ * Resolves the FS path of a workspace (= repoPath for createRunWorktree).
+ * Mirror of the private helpers in app/api/bugs/swarm/route.ts +
+ * lib/tickets/auto-dispatch.ts (workspaces.path → fallback projects/<id>).
  *
- * Lazy import, damit der text-only-Pfad (Default) keinen DB/Workspace-Service
- * berührt — er wird NUR aufgerufen, wenn echte Tool-Spawns laufen sollen.
+ * Lazy import so the text-only path (default) touches no DB/workspace service
+ * — it is called ONLY when real tool spawns should run.
  */
 async function resolveWorkspacePath(workspaceId: string): Promise<string> {
   try {
@@ -291,17 +291,17 @@ async function resolveWorkspacePath(workspaceId: string): Promise<string> {
     const ws = await getWorkspace(workspaceId);
     if (ws?.path) return ws.path;
   } catch {
-    /* ignore — Fallback unten */
+    /* ignore — fallback below */
   }
   const { defaultWorkspacePath } = await import('@/lib/workspaces/projects-root');
   return defaultWorkspacePath(workspaceId);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Dependency-Graph-Helfer (Aufgabe B)
+// Dependency-graph helpers (task B)
 // ────────────────────────────────────────────────────────────────────────────
 
-/** Parst das `depends_on`-JSON-Feld einer Step-Row defensiv zu Step-IDs. */
+/** Defensively parses the `depends_on` JSON field of a step row into step IDs. */
 function parseDependsOn(row: WorkstreamPlanStepRow): string[] {
   const raw = (row as { dependsOn?: string | null }).dependsOn;
   if (!raw) return [];
@@ -311,12 +311,12 @@ function parseDependsOn(row: WorkstreamPlanStepRow): string[] {
       return parsed.filter((x): x is string => typeof x === 'string' && x.length > 0);
     }
   } catch {
-    /* malformed → behandeln wie keine Dependency (konservativ ready) */
+    /* malformed → treat like no dependency (conservatively ready) */
   }
   return [];
 }
 
-/** Liest das `group_id`-Feld (Default: parentStepId, sonst null). */
+/** Reads the `group_id` field (default: parentStepId, otherwise null). */
 function readGroupId(row: WorkstreamPlanStepRow): string | null {
   const g = (row as { groupId?: string | null }).groupId;
   if (typeof g === 'string' && g.length > 0) return g;
@@ -324,12 +324,12 @@ function readGroupId(row: WorkstreamPlanStepRow): string | null {
 }
 
 /**
- * Cycle-Detektion über den depends_on-Graphen (Kahn-Topo-Walk).
- * Gibt true zurück, wenn ein Zyklus existiert ODER eine Dependency auf eine
- * unbekannte Step-ID zeigt, die die Ready-Queue verklemmen würde.
+ * Cycle detection over the depends_on graph (Kahn topo walk).
+ * Returns true when a cycle exists OR a dependency points to an
+ * unknown step ID that would clog the ready queue.
  *
- * Bei true → der Caller fällt auf sequenzielle Ausführung zurück (warn).
- * N6: rein deterministischer Graph-Walk, kein LLM.
+ * On true → the caller falls back to sequential execution (warn).
+ * N6: a purely deterministic graph walk, no LLM.
  */
 function hasCycleOrDanglingDep(
   steps: readonly WorkstreamPlanStepRow[],
@@ -337,15 +337,15 @@ function hasCycleOrDanglingDep(
 ): boolean {
   const ids = new Set(steps.map((s) => s.id));
 
-  // Dangling: eine Dependency zeigt auf eine Step-ID, die nicht im Plan ist.
-  // Das würde die Ready-Queue für immer blockieren → wie ein Cycle behandeln.
+  // Dangling: a dependency points to a step ID that isn't in the plan.
+  // That would block the ready queue forever → treat like a cycle.
   for (const deps of depsById.values()) {
     for (const d of deps) {
       if (!ids.has(d)) return true;
     }
   }
 
-  // Kahn: wiederholt Steps mit 0 verbleibenden offenen Deps entfernen.
+  // Kahn: repeatedly remove steps with 0 remaining open deps.
   const remaining = new Map<string, Set<string>>();
   for (const s of steps) {
     remaining.set(s.id, new Set(depsById.get(s.id) ?? []));
@@ -361,17 +361,17 @@ function hasCycleOrDanglingDep(
       }
     }
   }
-  // Was übrig bleibt, sitzt in einem Zyklus.
+  // Whatever remains sits in a cycle.
   return remaining.size > 0;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Card-Live-Update-Helper
+// Card live-update helper
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Emittiert (oder aktualisiert) die `subplan`-Card im Chat-Stream.
- * stepStatuses = aktueller Stand aller Step-IDs (pending/active/done/failed).
+ * Emits (or updates) the `subplan` card in the chat stream.
+ * stepStatuses = current state of all step IDs (pending/active/done/failed).
  */
 async function updateCard(opts: {
   workspaceId: string;
@@ -382,16 +382,16 @@ async function updateCard(opts: {
   stepStatuses: Record<string, string>;
   originalIntent: string;
   /**
-   * W2.2 (2026-05-30): Step-IDs, die JETZT auf ein blockierendes Gate warten
-   * (z.B. das Experten-Review-Gate). Diese Steps bleiben in der DB 'active',
-   * tragen aber im Flow-Graph den `needs-input`-Status (→ aktionierbarer Node).
-   * Optional — fehlt das Set, ist das Rendering identisch zum Vor-Stand.
+   * W2.2 (2026-05-30): step IDs that are NOW waiting on a blocking gate
+   * (e.g. the expert-review gate). These steps stay 'active' in the DB,
+   * but carry the `needs-input` status in the flow graph (→ an actionable node).
+   * Optional — if the set is missing, the rendering is identical to before.
    */
   gateWaitingStepIds?: ReadonlySet<string>;
   /**
-   * W2.2: pro gate-wartendem Step der Gate-Kind, auf den der Node tappt
-   * (DASSELBE Gate wie der ActionDeck-Pin → ein executeGateAction-Pfad, kein
-   * Doppel-Routing). Default 'human-decision' (Experten-Gate).
+   * W2.2: per gate-waiting step, the gate kind the node taps on
+   * (the SAME gate as the ActionDeck pin → one executeGateAction path, no
+   * double routing). Default 'human-decision' (expert gate).
    */
   gateKindByStep?: ReadonlyMap<string, string>;
 }): Promise<void> {
@@ -432,19 +432,19 @@ async function updateCard(opts: {
       actor: 'system',
     });
   } catch (err) {
-    // Card-Update ist best-effort — darf den Step-Loop nicht killen.
+    // The card update is best-effort — must not kill the step loop.
     console.warn('[plan-executor] emitOrUpdateCard failed (non-fatal):', err);
   }
 
-  // Flow Studio (2026-05-27): ADDITIV denselben Run als <surface:flow-graph>
-  // emittieren (n8n-Stil-Visualisierung; die subplan-Card bleibt unberührt).
-  // Eigener best-effort try — darf den Step-Loop NIE killen.
+  // Flow Studio (2026-05-27): ADDITIVELY emit the same run as <surface:flow-graph>
+  // (n8n-style visualization; the subplan card stays untouched).
+  // Its own best-effort try — must NEVER kill the step loop.
   try {
-    // W2.2 (2026-05-30): `needs-input` ergänzt. Ein Step ist `needs-input`, wenn
-    // er auf ein blockierendes Gate wartet (gateWaitingStepIds) — er bleibt in
-    // der DB 'active', wird im Graph aber aktionierbar (Detail-Panel → der EINE
-    // executeGateAction-Pfad). Der explizite 'needs-input'-Roh-Status wird
-    // ebenfalls durchgereicht (Vorwärts-Kompatibilität), falls je persistiert.
+    // W2.2 (2026-05-30): `needs-input` added. A step is `needs-input` when
+    // it is waiting on a blocking gate (gateWaitingStepIds) — it stays
+    // 'active' in the DB but becomes actionable in the graph (detail panel → the ONE
+    // executeGateAction path). The explicit 'needs-input' raw status is
+    // also passed through (forward compatibility), in case it's ever persisted.
     const mapFlowStatus = (stepId: string, s: string | undefined): string => {
       if (gateWaitingStepIds && gateWaitingStepIds.has(stepId)) return 'needs-input';
       return s === 'active'
@@ -467,9 +467,9 @@ async function updateCard(opts: {
         } catch { /* ignore */ }
       }
       const status = mapFlowStatus(s.id, stepStatuses[s.id]);
-      // W2.2: ein needs-input-Node trägt den Gate-Kind, auf den er tappt — der
-      // Node-Tap zielt auf DIESELBE Stream-Card wie der ActionDeck-Pin
-      // (executeGateAction(gate.kind) → ein POST-Pfad, kein Drift).
+      // W2.2: a needs-input node carries the gate kind it taps on — the
+      // node tap targets the SAME stream card as the ActionDeck pin
+      // (executeGateAction(gate.kind) → one POST path, no drift).
       const gateKind =
         status === 'needs-input'
           ? (gateKindByStep?.get(s.id) ?? 'human-decision')
@@ -504,19 +504,19 @@ async function updateCard(opts: {
           ? 'done'
           : 'idle';
 
-    // C1: nur (re-)emittieren, wenn sich STRUKTUR (Knoten/Kanten/Tools) ODER
-    // runStatus seit dem letzten Emit geändert haben. Eine reine Status-
-    // Wiederholung (z.B. zweiter updateCard-Aufruf im finally) erzeugt KEINEN
-    // redundanten Emit; eine Struktur-Erweiterung (neue Steps / geänderte
-    // depends_on / geänderte Tools) löst dagegen IMMER eine neue Visualisierung
-    // aus — auch wenn der runStatus gleich bleibt. Owner-SOLL: "immer auch
-    // visualisieren wenn sich was ändert/erweitert".
+    // C1: only (re-)emit when STRUCTURE (nodes/edges/tools) OR
+    // runStatus changed since the last emit. A pure status
+    // repetition (e.g. a second updateCard call in the finally) produces NO
+    // redundant emit; a structure extension (new steps / changed
+    // depends_on / changed tools), by contrast, ALWAYS triggers a new visualization
+    // — even when runStatus stays the same. Owner SHOULD: "always
+    // visualize too when something changes/extends".
     const structureHash = computeFlowStructureHash(nodes, edges);
     const cacheKey = `${workspaceId}/${workstreamId}`;
-    // W2.2: ein Wechsel in/aus `needs-input` ändert den FlowRunStatus NICHT
-    // (Run läuft weiter), muss aber re-emittieren — sonst sieht der Owner den
-    // gerade aufgegangenen, aktionierbaren Gate-Node nicht. Die needs-input-
-    // Signatur (sortierte IDs) wird deshalb in den Emit-Schlüssel gefaltet.
+    // W2.2: a switch into/out of `needs-input` does NOT change the FlowRunStatus
+    // (the run continues), but must re-emit — otherwise the owner won't see the
+    // just-opened, actionable gate node. The needs-input
+    // signature (sorted IDs) is therefore folded into the emit key.
     const needsInputSig = nodes
       .filter((n) => n.status === 'needs-input')
       .map((n) => n.id)
@@ -530,9 +530,9 @@ async function updateCard(opts: {
           '<surface:flow-graph>' +
           JSON.stringify({
             workstreamId,
-            // C3: workspaceId in der Payload → die FlowGraphCard kann
-            // "Als Prozess speichern" (POST /api/flow/from-workstream) auslösen,
-            // ohne den Workspace aus dem URL/Context raten zu müssen.
+            // C3: workspaceId in the payload → the FlowGraphCard can
+            // trigger "save as process" (POST /api/flow/from-workstream)
+            // without having to guess the workspace from the URL/context.
             workspaceId,
             title: originalIntent,
             runStatus,
@@ -549,13 +549,13 @@ async function updateCard(opts: {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Kern-Executor
+// Core executor
 // ────────────────────────────────────────────────────────────────────────────
 
 export async function executePlan(args: ExecutePlanArgs): Promise<void> {
   const { workstreamId, workspaceId, planId, coordKey } = args;
 
-  // 1. Steps lesen — geordnet nach stepIndex (plan-repo: listRootPlanSteps).
+  // 1. Read steps — ordered by stepIndex (plan-repo: listRootPlanSteps).
   const allRootSteps = listRootPlanSteps(workstreamId);
   const filtered = allRootSteps.filter((s) => s.planId === planId);
   const steps = filtered.length > 0 ? filtered : allRootSteps;
@@ -571,7 +571,7 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     return;
   }
 
-  // originalIntent — Workstream-Description verbatim (N1) oder Fallback-Label.
+  // originalIntent — workstream description verbatim (N1) or fallback label.
   let originalIntent = `Plan ${planId}`;
   try {
     const { getWorkstream } = await import('@/lib/workstreams/service');
@@ -579,12 +579,12 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     if (ws?.description) originalIntent = ws.description;
     else if (ws?.name) originalIntent = ws.name;
   } catch {
-    /* nicht-fatal — Fallback-Label greift */
+    /* non-fatal — the fallback label applies */
   }
 
-  // 1b. Workspace-Permission-Mode lesen (A2 / A·EXEC).
-  //     Default (kein Row) → null → resolveAllowedToolsForMode(null) → plan-only.
-  //     Echte Tool-Ausführung NUR bei explizit gesetztem FreeRein/Lane.
+  // 1b. Read the workspace permission mode (A2 / A·EXEC).
+  //     Default (no row) → null → resolveAllowedToolsForMode(null) → plan-only.
+  //     Real tool execution ONLY when FreeRein/Lane is explicitly set.
   let workspaceMode: import('@/lib-v1/permission/settings/schema').PermissionMode | null = null;
   try {
     const { getDb } = await import('@/db/client');
@@ -593,12 +593,12 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
       `[plan-executor] workspace=${workspaceId} permission_mode=${workspaceMode ?? '(unset→plan-only)'}`,
     );
   } catch (modeErr) {
-    // DB-Fehler bei Mode-Read → fail-closed: null → plan-only Default bleibt.
+    // DB error on mode read → fail-closed: null → plan-only default remains.
     console.warn('[plan-executor] permission-mode read failed — falling back to plan-only:', modeErr);
   }
 
-  // FreeRein/Lane gewähren echte Tools → wir brauchen den repoPath für die
-  // R1-Worktree-Isolation. NUR dann auflösen (text-only-Pfad bleibt DB-frei).
+  // FreeRein/Lane grant real tools → we need the repoPath for
+  // R1 worktree isolation. Resolve ONLY then (the text-only path stays DB-free).
   const modeGrantsTools =
     workspaceMode === 'freerein' ||
     workspaceMode === 'freerein-with-audit' ||
@@ -613,9 +613,9 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     }
   }
 
-  // 2. Engine wählen. codex AUSSCHLIESSEN (Code-Mode-Agent → bricht Isolation /
-  //    Nicht-Destruktiv-Gebot). Erlaubt: claude-cli (--print, tool-fähig via
-  //    tmux-spawn-flags) + ollama (reiner /api/chat-POST, text-only).
+  // 2. Pick the engine. EXCLUDE codex (code-mode agent → breaks isolation /
+  //    the non-destructive mandate). Allowed: claude-cli (--print, tool-capable via
+  //    tmux-spawn flags) + ollama (pure /api/chat POST, text-only).
   const selection = await detectEngines();
   // PII vault: wrap at the engine boundary. The text-only step branch sends the
   // step prompt (built from the verbatim user intent, N1) straight to claude-cli
@@ -634,30 +634,30 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     return;
   }
 
-  // Echte Tool-Spawns laufen über tmux (claude-CLI). Ollama kann keinen
-  // --allowedTools-Spawn → text-only. Bash/Writes brauchen claude-cli + repoPath.
+  // Real tool spawns run via tmux (claude-CLI). Ollama can't do an
+  // --allowedTools spawn → text-only. Bash/writes need claude-cli + repoPath.
   const canRealSpawn = engine.id === 'claude-cli' && repoPath !== null;
 
-  // ── AKKUMULATION (2026-05-29): stabiler runId + Run-Branch + Merge-Mutex ────
+  // ── ACCUMULATION (2026-05-29): stable runId + run branch + merge mutex ────
   //
-  // EIN runId pro PLAN-LAUF (nicht pro Step) — er anchort den akkumulierenden
-  // Run-Branch lazing/run/<runId>. Jeder Step branched VOM Run-Tip (nicht von
-  // Live-HEAD) und merged seine Arbeit seriell zurück → Step N sieht Step <N
-  // (zusammengesetzte Website). SAFE_ID_RE-konform (planId/workstreamId sind
-  // bereits ULID-artig; defensiv sanitisiert).
-  // 2026-05-29 (Opus 4.8) — workstreamId ZUERST: der Run-Branch wird per
-  // workstreamId nachgeschlagen (findRunBranchForWorkstream / merge-run-API).
-  // Bei {planId}-{workstreamId} schnitt der 56er-slice die workstreamId hinten
-  // ab → Lookup schlug fehl. workstreamId vorn ⇒ intakt; ggf. planId-Tail wird
-  // gekürzt (kein Lookup-Key).
+  // ONE runId per PLAN RUN (not per step) — it anchors the accumulating
+  // run branch lazing/run/<runId>. Every step branches FROM the run tip (not from
+  // live HEAD) and merges its work back serially → step N sees step <N
+  // (the composed website). SAFE_ID_RE-conformant (planId/workstreamId are
+  // already ULID-like; defensively sanitized).
+  // 2026-05-29 (Opus 4.8) — workstreamId FIRST: the run branch is looked up by
+  // workstreamId (findRunBranchForWorkstream / merge-run API).
+  // With {planId}-{workstreamId}, the 56-char slice cut the workstreamId off
+  // the end → lookup failed. workstreamId in front ⇒ intact; the planId tail may be
+  // truncated (not a lookup key).
   const runId = `prun-${`${workstreamId}-${planId}`
     .replace(/[^A-Za-z0-9_:.\-]/g, '-')
     .slice(0, 56)}`;
 
-  // Run-Branch EINMAL pro Lauf anlegen — VOR dem Scheduler, NUR wenn echte
-  // Spawns möglich sind (text-only-Pfad bleibt DB-/git-frei). Idempotent
-  // (createOrReuseRunWorktree): bei Retry desselben Laufs wird der Branch mit
-  // seiner akkumulierten Arbeit wiederverwendet, KEIN Reset auf HEAD.
+  // Create the run branch ONCE per run — BEFORE the scheduler, ONLY when real
+  // spawns are possible (the text-only path stays DB-/git-free). Idempotent
+  // (createOrReuseRunWorktree): on a retry of the same run, the branch is reused with
+  // its accumulated work, NO reset to HEAD.
   let runBranch: string | null = null;
   if (canRealSpawn && repoPath) {
     try {
@@ -674,11 +674,11 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
           `(Steps branchen vom Run-Tip, mergen seriell zurück; Live-Checkout unberührt)`,
       );
     } catch (e) {
-      // Run-Branch-Setup fehlgeschlagen → KEINE Akkumulation möglich. Wir
-      // degradieren NICHT auf den alten per-Step-von-HEAD-Pfad (das wäre still
-      // ein Komposition-Verlust). Statt dessen läuft der Run text-only weiter
-      // (sicher, kein Datenverlust) — die Spawns fallen auf engine.chat zurück,
-      // weil runBranch null bleibt (siehe considerRealSpawn-Guard unten).
+      // Run-branch setup failed → NO accumulation possible. We do
+      // NOT degrade to the old per-step-from-HEAD path (that would silently
+      // be a composition loss). Instead the run continues text-only
+      // (safe, no data loss) — the spawns fall back to engine.chat,
+      // because runBranch stays null (see the considerRealSpawn guard below).
       console.error(
         `[plan-executor][accumulate] Run-Branch-Setup fehlgeschlagen — ` +
           `Spawns fallen auf text-only zurück (keine Akkumulation): ` +
@@ -688,13 +688,13 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     }
   }
 
-  // Per-runId-Merge-Mutex: serialisiert mergeStepIntoRun (Git erlaubt keinen
-  // parallelen Merge in denselben Branch; serielle Merges = deterministische
-  // Komposition). Promise-Chain — jeder Merge wartet auf den vorherigen.
+  // Per-runId merge mutex: serializes mergeStepIntoRun (Git allows no
+  // parallel merge into the same branch; serial merges = deterministic
+  // composition). A promise chain — each merge waits on the previous.
   let mergeChain: Promise<void> = Promise.resolve();
   const runSerializedMerge = <T>(fn: () => Promise<T>): Promise<T> => {
     const result = mergeChain.then(fn, fn);
-    // Chain weiterführen, Fehler schlucken (der Aufrufer behandelt sie via result).
+    // Continue the chain, swallow errors (the caller handles them via result).
     mergeChain = result.then(
       () => undefined,
       () => undefined,
@@ -702,35 +702,35 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     return result;
   };
 
-  // SLOT-DECOUPLING: NUR echte heavy-Ollama-Nutzung zieht den N11-heavy-Slot
-  // (ollama-heavy, Cap 2). claude-cli-Steps (text-only --print ODER
-  // Worktree-isolierter Spawn) ziehen KEINEN heavy-Slot mehr — ihre
-  // Parallelität ist durch die Scheduler-Breite (text/spawnConcurrency) bzw.
-  // den Worktree-Cap (5) gebunden, NICHT durch die künstliche 2er-Kappung.
+  // SLOT DECOUPLING: ONLY real heavy-Ollama use draws the N11 heavy slot
+  // (ollama-heavy, cap 2). claude-cli steps (text-only --print OR
+  // worktree-isolated spawn) no longer draw a heavy slot — their
+  // parallelism is bound by the scheduler width (text/spawnConcurrency) or
+  // the worktree cap (5), NOT by the artificial cap of 2.
   const usesHeavyOllama = engine.id === 'ollama';
 
-  // M2-Fix: Gesamt-Deadline-Controller.
+  // M2 fix: total-deadline controller.
   const execCtl = new AbortController();
   const execDeadline = setTimeout(() => execCtl.abort(), EXEC_TOTAL_DEADLINE_MS);
 
-  // Status-Map: alle pending.
+  // Status map: all pending.
   const stepStatuses: Record<string, StepStatus> = {};
   for (const step of steps) {
     stepStatuses[step.id] = (step.status as StepStatus) ?? 'pending';
   }
 
-  // W2.2 (2026-05-30): Steps, die auf ein blockierendes Gate warten. Der Step
-  // bleibt in der DB 'active' (er hat seine Arbeit getan und wartet auf die
-  // menschliche Freigabe) — im Flow-Graph wird er aber `needs-input` und damit
-  // aktionierbar. gateKindByStep merkt sich, auf welche Gate-Card der Node-Tap
-  // zielt → DERSELBE executeGateAction-Pfad wie der ActionDeck-Pin.
+  // W2.2 (2026-05-30): steps waiting on a blocking gate. The step
+  // stays 'active' in the DB (it has done its work and is waiting for
+  // human approval) — but in the flow graph it becomes `needs-input` and thus
+  // actionable. gateKindByStep remembers which gate card the node tap
+  // targets → the SAME executeGateAction path as the ActionDeck pin.
   const gateWaitingStepIds = new Set<string>();
   const gateKindByStep = new Map<string, string>();
 
-  // Sammelt die Outputs pro Step für die Abschluss-Card (group-sortiert).
+  // Collects the outputs per step for the completion card (group-sorted).
   const stepOutputs: Array<{ step: WorkstreamPlanStepRow; text: string }> = [];
 
-  // ── Dependency-Graph aufbauen (Aufgabe B) ─────────────────────────────────
+  // ── Build the dependency graph (task B) ────────────────────────────────────
   const depsById = new Map<string, string[]>();
   for (const s of steps) depsById.set(s.id, parseDependsOn(s));
 
@@ -741,29 +741,29 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
         `Fallback auf sequenzielle Ausführung (alle Deps ignoriert).`,
     );
   }
-  // Im Cycle-Fallback ignorieren wir alle Deps (sequenziell in stepIndex-Order).
+  // In the cycle fallback we ignore all deps (sequentially in stepIndex order).
   const effectiveDeps = (stepId: string): string[] =>
     cycle ? [] : (depsById.get(stepId) ?? []);
 
-  // ── Step-Klasse PRO STEP bestimmen (SLOT-DECOUPLING) ───────────────────────
+  // ── Determine the step class PER STEP (SLOT DECOUPLING) ─────────────────────
   //
-  // Ein Step ist 'spawn' (claude-cli write/bash → Worktree-isoliert) wenn der
-  // Modus Tools gewährt UND ein echter Spawn-Pfad existiert UND die
-  // (deterministische, N6) Tool-Auflösung für die Step-Rolle nicht-leer ist.
-  // Sonst 'text' (text-only engine.chat — kein Worktree, kein heavy-Ollama).
-  // Das spiegelt EXAKT die `considerRealSpawn`-Logik in runStep (single source:
-  // resolveAllowedToolsForMode) — wir berechnen sie hier nur vorab, um die
-  // richtige Parallelitäts-Klasse pro Step zu wählen.
-  // AKKUMULATION: ein echter Spawn ist nur möglich, wenn der Run-Branch steht
-  // (sonst kann der Step nicht vom Run-Tip branchen) — sonst text-only.
+  // A step is 'spawn' (claude-cli write/bash → worktree-isolated) when the
+  // mode grants tools AND a real spawn path exists AND the
+  // (deterministic, N6) tool resolution for the step role is non-empty.
+  // Otherwise 'text' (text-only engine.chat — no worktree, no heavy-Ollama).
+  // This mirrors EXACTLY the `considerRealSpawn` logic in runStep (single source:
+  // resolveAllowedToolsForMode) — we just compute it ahead of time to pick the
+  // right parallelism class per step.
+  // ACCUMULATION: a real spawn is only possible when the run branch stands
+  // (otherwise the step can't branch from the run tip) — otherwise text-only.
   const canAccumulate = canRealSpawn && runBranch !== null;
 
-  // ── W2.1: Website-Run? → verbindliches Design-System vorwärts verketten ─────
-  // Nur bei website-artigem Intent. Der vom design-Step gewählte Akzent wird
-  // beim ersten erkannten design-Output geparst + danach an alle folgenden
-  // Steps vorwärts gereicht. State pro Run (kein Modul-State).
+  // ── W2.1: website run? → chain the mandatory design system forward ──────────
+  // Only on website-like intent. The accent chosen by the design step is
+  // parsed on the first detected design output + then forwarded to all following
+  // steps. State per run (no module state).
   const websiteRun = isWebsiteIntent(originalIntent);
-  let chosenAccent = 'own'; // laz.ing Default-Akzent bis der design-Step wählt.
+  let chosenAccent = 'own'; // laz.ing default accent until the design step chooses.
 
   type StepClass = 'text' | 'spawn';
   const classOf = (step: WorkstreamPlanStepRow): StepClass => {
@@ -775,26 +775,26 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
   const stepClassById = new Map<string, StepClass>();
   for (const s of steps) stepClassById.set(s.id, classOf(s));
 
-  // Getrennte Budget-Klassen lesen — NICHT mehr heavyTotal als Universal-Bremse.
-  //   - text-Steps  → textConcurrency (Cores-abgeleitet, ~6)
-  //   - spawn-Steps → spawnConcurrency (== Worktree-Cap 5)
-  // Cycle-Fallback erzwingt Breite 1 (sequenziell, alle Deps ignoriert).
+  // Read separate budget classes — no longer heavyTotal as a universal brake.
+  //   - text steps  → textConcurrency (core-derived, ~6)
+  //   - spawn steps → spawnConcurrency (== worktree cap 5)
+  // The cycle fallback forces width 1 (sequential, all deps ignored).
   const cb = resourcePool.getConcurrencyBudget();
   const textConcurrency = cycle ? 1 : Math.max(1, cb.textConcurrency);
   const spawnConcurrency = cycle ? 1 : Math.max(1, cb.spawnConcurrency);
 
-  // ── Per-Step-Runner (R2-Gate → Spawn-oder-Chat) ───────────────────────────
+  // ── Per-step runner (R2 gate → spawn-or-chat) ──────────────────────────────
   const runStep = async (step: WorkstreamPlanStepRow): Promise<void> => {
     const stepLabel = `plan-step:${step.id}`;
     let slot: Awaited<ReturnType<typeof resourcePool.acquireSlot>> | null = null;
 
     try {
-      // SLOT-DECOUPLING: Der heavy-Engine-Slot (ollama-heavy, N11-Cap 2) wird
-      // NUR für echte heavy-Ollama-Nutzung erworben. claude-cli-Steps (text
-      // oder Worktree-Spawn) erwerben hier KEINEN Slot — ihre Parallelität ist
-      // schon durch die Scheduler-Breite (text/spawnConcurrency) + den
-      // Worktree-Cap gebunden. Das war der Bug: ein text-only-Step durfte nie
-      // einen der 2 heavy-Ollama-Slots verbrauchen.
+      // SLOT DECOUPLING: the heavy engine slot (ollama-heavy, N11 cap 2) is
+      // acquired ONLY for real heavy-Ollama use. claude-cli steps (text
+      // or worktree spawn) acquire NO slot here — their parallelism is
+      // already bound by the scheduler width (text/spawnConcurrency) + the
+      // worktree cap. That was the bug: a text-only step should never
+      // consume one of the 2 heavy-Ollama slots.
       if (usesHeavyOllama) {
         slot = await resourcePool.acquireSlot({
           kind: 'ollama-heavy',
@@ -810,20 +810,20 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
       stepStatuses[step.id] = 'active';
       await updateCard({ workspaceId, workstreamId, planId, coordKey, steps, stepStatuses, originalIntent, gateWaitingStepIds, gateKindByStep });
 
-      // ── BAHN-2: DETERMINISTISCHER PV-STRINGING-STEP (VOR jedem Spawn) ───────
+      // ── TRACK 2: DETERMINISTIC PV-STRINGING STEP (BEFORE any spawn) ─────────
       //
-      // Ein pv-stringing-Step läuft NICHT als claude-cli-Worktree-Spawn. Er ruft
-      // den deterministischen Producer (N6) und legt sein PvArtifact als Step-
-      // Output ab — von dort konsumiert from-artifact.ts → evaluate.ts (G5) das
-      // elektrische Modell. Weil dieser Pfad den Spawn-Zweig GAR NICHT erreicht,
-      // kann der Step auch nicht fälschlich am W1.1-Non-empty-Diff-Gate als
-      // no_artifact failen (das Gate greift nur im Spawn-Pfad).
+      // A pv-stringing step does NOT run as a claude-cli worktree spawn. It calls
+      // the deterministic producer (N6) and stores its PvArtifact as the step
+      // output — from there from-artifact.ts → evaluate.ts (G5) consumes the
+      // electrical model. Because this path NEVER reaches the spawn branch,
+      // the step also can't wrongly fail at the W1.1 non-empty-diff gate as
+      // no_artifact (that gate only applies in the spawn path).
       if (isPvStringingStep(step)) {
         const pvOutput = runPvStringingStep(step);
         stepOutputs.push({ step, text: pvOutput });
 
-        // N8: deterministischen Producer-Lauf auditieren (durchsuchbar, hash-
-        // gekettet). actor='policy' (kein User, kein LLM). Best-effort.
+        // N8: audit the deterministic producer run (searchable, hash-
+        // chained). actor='policy' (no user, no LLM). Best-effort.
         try {
           writeDecision({
             workspaceId,
@@ -838,12 +838,12 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
           });
         } catch { /* writeDecision best-effort */ }
 
-        // ── W3.2: EXPERTEN-GATE bei install-grade ohne expertReviewed ────────
+        // ── W3.2: EXPERT GATE for install-grade without expertReviewed ───────
         //
-        // buildExpertReviewGate liefert eine HumanDecisionGatePayload, WENN ein
-        // install-grade-Approval ohne Review angefordert wird (sonst null). Wir
-        // lesen den angeforderten Grade + Review-Status aus der configJson-
-        // Annotation; fehlt sie, ist kein install-grade angefordert → kein Gate.
+        // buildExpertReviewGate returns a HumanDecisionGatePayload WHEN an
+        // install-grade approval is requested without review (otherwise null). We
+        // read the requested grade + review status from the configJson
+        // annotation; if it's missing, no install-grade is requested → no gate.
         try {
           const cfgRaw = parseFlowAnnotation(step.rationale ?? '').annotation?.configJson ?? null;
           if (cfgRaw) {
@@ -860,10 +860,10 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
                   : {}),
               });
               if (gate) {
-                // W2.2: der Step wartet jetzt auf die menschliche Freigabe →
-                // im Flow-Graph `needs-input` (aktionierbarer Node) statt
-                // unsichtbar weiterzulaufen. Der Node-Tap zielt auf DIESELBE
-                // <surface:human-decision>-Card → ein executeGateAction-Pfad.
+                // W2.2: the step now waits for human approval →
+                // in the flow graph `needs-input` (actionable node) instead of
+                // running on invisibly. The node tap targets the SAME
+                // <surface:human-decision> card → one executeGateAction path.
                 gateWaitingStepIds.add(step.id);
                 gateKindByStep.set(step.id, 'human-decision');
                 await updateCard({
@@ -878,13 +878,13 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
                   gateKindByStep,
                 }).catch(() => undefined);
 
-                // Emittiere die Gate-Payload über den bestehenden Surface-Emit-
-                // Pfad als <surface:human-decision>. Der ActionDeck/executeGate-
-                // Action-Pfad (Bahn 1) rendert + verarbeitet Approve: er wendet
-                // setsFieldOnApprove (approval.expertReviewed=true) an und
-                // erntet grantsDecisionsOnApprove in workstream_decisions —
-                // genau diese Decisions heben expert-review-optional in der Eval
-                // auf. N8: die Gate-Begründung ist verbatim Owner-lesbar.
+                // Emit the gate payload via the existing surface-emit
+                // path as <surface:human-decision>. The ActionDeck/executeGate-
+                // Action path (track 1) renders + processes approve: it applies
+                // setsFieldOnApprove (approval.expertReviewed=true) and
+                // harvests grantsDecisionsOnApprove into workstream_decisions —
+                // exactly these decisions lift expert-review-optional in the eval.
+                // N8: the gate rationale is verbatim owner-readable.
                 await emitChatMessageCompleted({
                   workspaceId,
                   entityId: ulid(),
@@ -905,11 +905,11 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
               }
             }
           }
-        } catch { /* Gate-Emit best-effort — kein Step-Fail */ }
+        } catch { /* gate emit best-effort — no step fail */ }
 
-        // W2.2: Step ist abgeschlossen → Gate-Wartemarke löschen, damit der
-        // finale Flow-Graph-Emit den Node als `done` (nicht `needs-input`)
-        // zeigt. Idempotent: delete ohne vorheriges add ist ein No-op.
+        // W2.2: the step is complete → clear the gate-waiting marker, so the
+        // final flow-graph emit shows the node as `done` (not `needs-input`).
+        // Idempotent: a delete without a prior add is a no-op.
         gateWaitingStepIds.delete(step.id);
         gateKindByStep.delete(step.id);
         setPlanStepStatus(step.id, 'done');
@@ -917,18 +917,18 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
         return;
       }
 
-      // LOW #5: Default-Rolle für die Tool-Auflösung ist 'reviewer' (read-only).
+      // LOW #5: the default role for tool resolution is 'reviewer' (read-only).
       const stepRole = step.subagentRole ?? 'reviewer';
       const modeResolution = resolveAllowedToolsForMode(workspaceMode, stepRole);
       const resolvedExecutionMode = modeResolution.executionMode;
 
-      // Soll dieser Step ÜBERHAUPT echte Tools laufen lassen? NUR wenn:
-      //   - der Modus Tools gewährt (FreeRein/Lane, NICHT unset/ask),
-      //   - die Tool-Auflösung nicht-leer ist, UND
-      //   - ein echter Spawn möglich ist (claude-cli + repoPath aufgelöst).
-      // Sonst → DEFAULT-SICHER: text-only engine.chat (heutiges Verhalten,
-      // bit-gleich). KEIN R2-Gate als Step-Blocker im Default — text-only ist
-      // tool-los (kein Write, keine Shell) und damit per se unkritisch.
+      // Should this step run real tools AT ALL? ONLY when:
+      //   - the mode grants tools (FreeRein/Lane, NOT unset/ask),
+      //   - the tool resolution is non-empty, AND
+      //   - a real spawn is possible (claude-cli + repoPath resolved).
+      // Otherwise → DEFAULT-SAFE: text-only engine.chat (today's behavior,
+      // bit-equal). NO R2 gate as a step blocker in the default — text-only is
+      // tool-less (no write, no shell) and therefore inherently uncritical.
       const considerRealSpawn =
         modeGrantsTools &&
         modeResolution.allowedTools.length > 0 &&
@@ -938,9 +938,9 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
       let gateReason = '(text-only — Modus gewährt keine Tools / kein Spawn-Pfad)';
 
       if (considerRealSpawn) {
-        // R2-Gate ist die AUTORISIERUNG für den echten Tool-Spawn (N6).
-        // R2 entscheidet über fs-Read/fs-Write; Bash wird separat als
-        // permissionMode durchgereicht (nicht in requestedTools).
+        // The R2 gate is the AUTHORIZATION for the real tool spawn (N6).
+        // R2 decides on fs read/fs write; Bash is passed through separately as
+        // permissionMode (not in requestedTools).
         const stepAllowedToolsNoShell = modeResolution.allowedTools.filter(
           (t) => t !== 'Bash' && t !== 'Shell' && t !== 'Exec',
         );
@@ -959,13 +959,13 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
           workspaceId,
           ...(gateMode ? { permissionMode: gateMode } : {}),
         });
-        // Bei R2-Deny → DEFENSE-IN-DEPTH: KEIN Crash, KEIN Tool-Spawn,
-        // sondern Rückfall auf den sicheren text-only-Pfad.
+        // On R2 deny → DEFENSE-IN-DEPTH: NO crash, NO tool spawn,
+        // but a fallback to the safe text-only path.
         wantsRealSpawn = policyDecision.allow;
         gateReason = policyDecision.reason;
       }
 
-      // N8: Entscheidung auditieren (stdout-Audit; DB-Audit = R3-Aufgabe).
+      // N8: audit the decision (stdout audit; DB audit = R3 task).
       const auditLine = `[plan-executor][security-gate] step=${step.id} ` +
         `role=${stepRole} ` +
         `workspace_mode=${modeResolution.resolvedMode} ` +
@@ -980,17 +980,17 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
       let outputText: string;
 
       if (wantsRealSpawn && repoPath && runBranch) {
-        // ── N8/N10: TAMPER-EVIDENTE DB-DECISION VOR DEM ECHTEN TOOL-LAUF ──────
+        // ── N8/N10: TAMPER-EVIDENT DB DECISION BEFORE THE REAL TOOL RUN ──────
         //
-        // Jeder echte Tool-Lauf (inkl. Bash) MUSS eine durchsuchbare, hash-
-        // gekettete Entscheidung in `workstream_decisions` hinterlassen — nicht
-        // nur flüchtigen stdout. writeDecision schreibt content_hash =
+        // Every real tool run (incl. Bash) MUST leave a searchable, hash-
+        // chained decision in `workstream_decisions` — not
+        // just ephemeral stdout. writeDecision writes content_hash =
         // sha256(canonicalJson({workstream_id, decision_kind, rationale,
-        // evidence_refs})) + eine Sentinel-Evidence-Row (N10-Kettung).
-        // decision_kind='route' (Gate-Routing/Spawn-Autorisierung, wie in
-        // plan-dispatch). actor='policy' (deterministisches R2-Gate, kein User).
-        // N1: rationale VERBATIM, KEIN .slice — die gewährten Tools (inkl. Bash)
-        // stehen vollständig drin. Best-effort: writeDecision wirft nie.
+        // evidence_refs})) + a sentinel evidence row (N10 chaining).
+        // decision_kind='route' (gate routing/spawn authorization, as in
+        // plan-dispatch). actor='policy' (deterministic R2 gate, no user).
+        // N1: rationale VERBATIM, NO .slice — the granted tools (incl. Bash)
+        // are fully in it. Best-effort: writeDecision never throws.
         const decisionRationale =
           `real_spawn=true mode=${modeResolution.resolvedMode} step=${step.id} ` +
           `role=${stepRole} coordKey=${coordKey} ` +
@@ -1010,15 +1010,15 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
           `[plan-executor][decision] step=${step.id} workstream_decisions.id=${decisionId ?? '(write-failed)'} content_hash-chained=true`,
         );
 
-        // ── ECHTER TOOL-SPAWN — ZWINGEND R1-WORKTREE-ISOLIERT ────────────────
+        // ── REAL TOOL SPAWN — MANDATORILY R1-WORKTREE-ISOLATED ───────────────
         //
-        // Bash/Writes passieren im isolierten Worktree (createRunWorktree),
-        // NIE am Live-Checkout. Merge bleibt gated (mergeRunWorktree wirft in R1).
-        // ENV `env -i`-gescrubbt + K1 `--disallowedTools` (hart) sind in
-        // tmux-spawn. Fehler-isoliert: ein Spawn-Fehler killt nur diesen Step.
-        // W2.1: bei website-Runs das verbindliche Design-System + die bisher
-        // produzierten Artefakte vorwärts reichen. Sonst undefined → bit-
-        // identischer Prompt (rückwärtskompatibel).
+        // Bash/writes happen in the isolated worktree (createRunWorktree),
+        // NEVER on the live checkout. Merge stays gated (mergeRunWorktree throws in R1).
+        // ENV `env -i`-scrubbed + K1 `--disallowedTools` (hard) are in
+        // tmux-spawn. Error-isolated: a spawn error kills only this step.
+        // W2.1: on website runs, forward the mandatory design system + the
+        // artifacts produced so far. Otherwise undefined → bit-
+        // identical prompt (backwards-compatible).
         const sharedDesignContext = websiteRun
           ? renderDesignSystemPrompt(chosenAccent)
           : undefined;
@@ -1033,9 +1033,9 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
           workspaceId,
           workstreamId,
           coordKey,
-          runBranch, // AKKUMULATION: Step branched vom Run-Tip, merged zurück
+          runBranch, // ACCUMULATION: step branches from the run tip, merges back
           serializeMerge: runSerializedMerge,
-          allowedTools: modeResolution.allowedTools, // inkl. Bash bei FreeRein
+          allowedTools: modeResolution.allowedTools, // incl. Bash under FreeRein
           originalIntent,
           stepNumber: steps.indexOf(step) + 1,
           totalSteps: steps.length,
@@ -1044,8 +1044,8 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
           ...(priorArtifacts ? { priorArtifacts } : {}),
         });
       } else {
-        // ── TEXT-ONLY (Default sicher / ollama / lane-ohne-spawn) ────────────
-        // Reine Chat-Completion, KEINE Tool-Calls, KEINE Datei-Writes.
+        // ── TEXT-ONLY (default safe / ollama / lane-without-spawn) ───────────
+        // Pure chat completion, NO tool calls, NO file writes.
         const stepPrompt = buildStepPrompt({
           role: step.subagentRole ?? 'coder',
           originalIntent,
@@ -1063,7 +1063,7 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
       }
 
       stepOutputs.push({ step, text: outputText });
-      // W2.1: vom design-Step gewählten Akzent extrahieren → vorwärts reichen.
+      // W2.1: extract the accent chosen by the design step → forward it.
       if (websiteRun) {
         const role = (step.subagentRole ?? '').toLowerCase();
         const isDesignStep =
@@ -1087,14 +1087,14 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     }
   };
 
-  // ── Parallel-Scheduler: Ready-Queue, getrennte Klassen-Budgets ─────────────
+  // ── Parallel scheduler: ready queue, separate class budgets ────────────────
   //
-  // Ein Step ist READY, wenn alle seine effektiven Deps 'done' sind. Steps,
-  // deren Dep 'failed' ist, werden NICHT gestartet (fehler-isoliert): sie
-  // bleiben 'pending' und werden am Ende als blockiert auf 'failed' gesetzt.
+  // A step is READY when all of its effective deps are 'done'. Steps
+  // whose dep is 'failed' are NOT started (error-isolated): they
+  // stay 'pending' and are set to 'failed' at the end as blocked.
   //
-  // Die Breite ist plan-abgeleitet: bis zu `textConcurrency` text-Steps UND
-  // bis zu `spawnConcurrency` spawn-Steps laufen gleichzeitig (orthogonal).
+  // The width is plan-derived: up to `textConcurrency` text steps AND
+  // up to `spawnConcurrency` spawn steps run concurrently (orthogonal).
   await runReadyQueue({
     steps,
     effectiveDeps,
@@ -1104,7 +1104,7 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     runStep,
   });
 
-  // Steps, die nie ready wurden (Dep failed) → blockiert → failed markieren.
+  // Steps that never became ready (dep failed) → blocked → mark failed.
   for (const step of steps) {
     if (stepStatuses[step.id] === 'pending') {
       const reason = '[übersprungen — eine Voraussetzung (depends_on) ist fehlgeschlagen]';
@@ -1117,18 +1117,18 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
 
   clearTimeout(execDeadline);
 
-  // ── A5 + A4: Post-Prozess-IST/SOLL-Reconciliation (additiv, fail-soft) ─────
+  // ── A5 + A4: post-process IS/OUGHT reconciliation (additive, fail-soft) ────
   //
-  // NACH Run-Abschluss (Step-Status final): das Gesamt-Outcome bestimmen +
-  // recordOutcome, Drift Decision↔aktive-Belief → begründeter Belief-Update
-  // (supersede, Historie bleibt), und — bei begründungsloser/abweichender
-  // Entscheidung — eine OPTIONALE WARUM-Frage erzeugen. Genau das fehlte im
-  // PA-Chat: das heygen-Dead-End wurde nur als orphan aufgeräumt, kein Lern-
-  // Eintrag. Die WARUM-Frage wird unten an den Abschluss-Content gehängt, damit
-  // der bestehende Open-Questions-Pill sie zeigt (extractOpenQuestionsFromContent).
+  // AFTER run completion (step status final): determine the overall outcome +
+  // recordOutcome, drift decision↔active belief → justified belief update
+  // (supersede, history kept), and — on an unjustified/diverging
+  // decision — produce an OPTIONAL WHY question. Exactly this was missing in
+  // the PA chat: the heygen dead end was only cleaned up as an orphan, no learning
+  // entry. The WHY question is appended below to the completion content so
+  // the existing open-questions pill shows it (extractOpenQuestionsFromContent).
   //
-  // NICHT-BLOCKIEREND: ein Fehler im Reconcile darf den Run-Abschluss NIE kippen
-  // (try/catch + log). Die Flow-Graph-/Parallel-Logik bleibt unberührt.
+  // NON-BLOCKING: an error in the reconcile must NEVER topple run completion
+  // (try/catch + log). The flow-graph/parallel logic stays untouched.
   let reconcileWhyQuestion: string | null = null;
   try {
     const { getDb } = await import('@/db/client');
@@ -1152,27 +1152,27 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     console.warn('[plan-executor] Reconcile fehlgeschlagen (non-fatal):', err);
   }
 
-  // ── E5.1: Auto-Workspace-Handoff persistieren (additiv, fail-soft) ─────────
+  // ── E5.1: persist the auto workspace handoff (additive, fail-soft) ─────────
   //
-  // DIREKT nach dem A5-Reconcile: den UI-sichtbaren Workspace-Handoff in
-  // `workspaces.notes` schreiben. buildWorkspaceHandoff aggregiert den read-back-
-  // Trail (recentRationales + aktive Beliefs + offene Decisions) scope-isoliert
-  // über workspaceId; persistWorkspaceHandoff schreibt ihn als notes_source=
-  // 'ai-summary'. Bisher hatte persistWorkspaceHandoff KEINEN Aufrufer → die
-  // notes-Spalte wurde nie auto-befüllt (die Start-Einspeisung in workspace-
-  // session läuft unabhängig live-aggregiert und ist NICHT betroffen).
+  // DIRECTLY after the A5 reconcile: write the UI-visible workspace handoff into
+  // `workspaces.notes`. buildWorkspaceHandoff aggregates the read-back
+  // trail (recentRationales + active beliefs + open decisions) scope-isolated
+  // over workspaceId; persistWorkspaceHandoff writes it as notes_source=
+  // 'ai-summary'. So far persistWorkspaceHandoff had NO caller → the
+  // notes column was never auto-filled (the start feed in workspace-
+  // session runs independently, live-aggregated, and is NOT affected).
   //
-  // REPLACE-Schutz (verlasse dich darauf, dokumentiert): persistWorkspaceHandoff
-  //   - schreibt NUR, wenn notes_source ∈ {NULL, 'ai-summary'} — eine vom User
-  //     gepflegte 'manual'-Note bleibt IMMER unangetastet (foreign-notes-source);
-  //   - REPLACEt die ai-summary komplett (kein Append-Wachstum, idempotent);
-  //   - schreibt bei leerem Handoff (isEmpty) GAR NICHT (kein Clobbern einer
-  //     früheren Zusammenfassung mit Leerstring).
+  // REPLACE protection (rely on it, documented): persistWorkspaceHandoff
+  //   - writes ONLY when notes_source ∈ {NULL, 'ai-summary'} — a user-maintained
+  //     'manual' note ALWAYS stays untouched (foreign notes source);
+  //   - REPLACEs the ai-summary entirely (no append growth, idempotent);
+  //   - on an empty handoff (isEmpty) writes NOTHING (no clobbering of an
+  //     earlier summary with an empty string).
   //
-  // NICHT-BLOCKIEREND: ein Fehler hier darf den Run-Abschluss NIE kippen (eigener
-  // try/catch + log). Idempotent / Last-Write-Wins ist ok (es ist ein REPLACE der
-  // ai-summary). Eigener Block (nicht im Reconcile-catch), damit ein Reconcile-
-  // Fehler den Handoff nicht verschluckt und umgekehrt.
+  // NON-BLOCKING: an error here must NEVER topple run completion (its own
+  // try/catch + log). Idempotent / last-write-wins is fine (it's a REPLACE of the
+  // ai-summary). Its own block (not in the reconcile catch), so a reconcile
+  // error doesn't swallow the handoff and vice versa.
   try {
     const { getDb } = await import('@/db/client');
     const { buildWorkspaceHandoff, persistWorkspaceHandoff } = await import(
@@ -1190,20 +1190,20 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     console.warn('[plan-executor] Handoff-Persist fehlgeschlagen (non-fatal):', err);
   }
 
-  // ── Self-Learning: Workflow-Repetition-Detektor (Slice 1, additiv, fail-soft) ─
+  // ── Self-learning: workflow-repetition detector (slice 1, additive, fail-soft) ─
   //
-  // Owner-Vision (2026-06-03): „Dieses Self Learning und Repetitors zu erkennen
-  // ist absolut wichtig." NACH Run-Abschluss berechnet detectWorkflowRepetition
-  // eine kanonische Struktur-Signatur des gelaufenen Ablaufs, zählt frühere
-  // gleiche Läufe (append-only `workflow.structure_seen`-Events, N8/N9) und
-  // entscheidet deterministisch (Score ≥ 3, frühestens 3. gleicher Lauf + komplex
-  // mehrstufig), ob die KI „Als wiederverwendbaren Workflow speichern?"
-  // vorschlagen soll. NIE Auto-Save: bei `suggest` wird genau EINE klickbare
-  // <surface:flow-recurrence>-Karte emittiert; das Speichern läuft über den
-  // bestehenden /api/flow/from-workstream-Pfad (C3), Owner-gated.
+  // Owner vision (2026-06-03): „Dieses Self Learning und Repetitors zu erkennen
+  // ist absolut wichtig." AFTER run completion, detectWorkflowRepetition computes
+  // a canonical structure signature of the run that happened, counts earlier
+  // identical runs (append-only `workflow.structure_seen` events, N8/N9) and
+  // decides deterministically (score ≥ 3, at the earliest the 3rd identical run + complex
+  // multi-stage) whether the AI should suggest „Als wiederverwendbaren Workflow speichern?".
+  // NEVER auto-save: on `suggest`, exactly ONE clickable
+  // <surface:flow-recurrence> card is emitted; saving runs through the
+  // existing /api/flow/from-workstream path (C3), owner-gated.
   //
-  // NICHT-BLOCKIEREND: eigener try/catch — ein Detektor-Fehler darf den
-  // Run-Abschluss NIE kippen (gleiches Muster wie Reconcile-/Handoff-Block).
+  // NON-BLOCKING: its own try/catch — a detector error must NEVER topple
+  // run completion (same pattern as the reconcile/handoff block).
   try {
     const { getDb } = await import('@/db/client');
     const { detectWorkflowRepetition } = await import('@/lib/flow/repetition-detect');
@@ -1237,15 +1237,15 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     console.warn('[plan-executor] Repetition-Detektor fehlgeschlagen (non-fatal):', err);
   }
 
-  // 4. Abschluss-Card — nach group_id gruppiert (Zugehörigkeit).
-  // 2026-05-29 (Opus 4.8) — Owner-Befund (2×): die WARUM-/Drift-Reflexionen des
-  // Self-Learning-Loops gehören NICHT in die Chat-UI (weder als Offene-Frage noch
-  // als Counter-Evidence-Card) — sie sind System-interne Selbst-Reflexion über
-  // Routing-Entscheidungen, kein User-Input. Das LERNEN passiert ohnehin im Trace
-  // (reconcileWorkstream schreibt die Drift-Beliefs); wir surfacen es schlicht
-  // NICHT. reconcileWhyQuestion wird daher bewusst NICHT mehr an die Summary
-  // gehängt (war Quelle der „Warum diesmal anders?"-Pollution). `void` markiert
-  // die bewusste Nicht-Nutzung (Loop-Wirkung bleibt, Surface verschwindet).
+  // 4. Completion card — grouped by group_id (membership).
+  // 2026-05-29 (Opus 4.8) — owner finding (2×): the WHY/drift reflections of the
+  // self-learning loop do NOT belong in the chat UI (neither as an open question nor
+  // as a counter-evidence card) — they are system-internal self-reflection about
+  // routing decisions, not user input. The LEARNING happens in the trace anyway
+  // (reconcileWorkstream writes the drift beliefs); we simply do NOT
+  // surface it. reconcileWhyQuestion is therefore deliberately NO LONGER appended
+  // to the summary (it was the source of the „Warum diesmal anders?" pollution). `void` marks
+  // the deliberate non-use (the loop effect stays, the surface disappears).
   void reconcileWhyQuestion;
   const summaryContent = buildSummaryContent(originalIntent, stepOutputs);
   try {
@@ -1265,16 +1265,16 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     console.warn('[plan-executor] Abschluss-Emit fehlgeschlagen (non-fatal):', err);
   }
 
-  // ── W1.3 (2026-05-30) — AUTO-MERGE (Owner-Entscheidung, flag-gated) ────────
+  // ── W1.3 (2026-05-30) — AUTO-MERGE (owner decision, flag-gated) ────────────
   //
-  // Bei `LAZYOS_AUTO_MERGE_RUN='on'` UND „alle Steps done" UND nicht-leerem
-  // Run-Diff wird der zusammengesetzte Run AUTOMATISCH in den Live-Checkout
-  // gemergt (commitGatedMerge) — kein Owner-Tap. Das W1.1-Diff-Gate hat bereits
-  // alle Leer-No-op-Steps eliminiert, sodass nur echte Arbeit ankommt. Die
-  // <surface:merge-offer>-Karte (unten) bleibt als Fallback/Audit erhalten; im
-  // Auto-Merge-Erfolgsfall wird sie übersprungen (autoMerged=true). Default
-  // (Flag off) = bisheriges member-gated Verhalten (nur Karte). N8-Decision je
-  // Auto-Merge. R1-Disziplin bewusst zugunsten Autonomie aufgeweicht (Owner-mandatiert).
+  // With `LAZYOS_AUTO_MERGE_RUN='on'` AND "all steps done" AND a non-empty
+  // run diff, the composed run is AUTOMATICALLY merged into the live checkout
+  // (commitGatedMerge) — no owner tap. The W1.1 diff gate has already
+  // eliminated all empty no-op steps, so only real work arrives. The
+  // <surface:merge-offer> card (below) is kept as a fallback/audit; on
+  // auto-merge success it is skipped (autoMerged=true). Default
+  // (flag off) = the previous member-gated behavior (card only). An N8 decision per
+  // auto-merge. R1 discipline deliberately softened in favor of autonomy (owner-mandated).
   let autoMerged = false;
   if (
     process.env.LAZYOS_AUTO_MERGE_RUN === 'on' &&
@@ -1314,7 +1314,7 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
               `[plan-executor][auto-merge] ws=${workstreamId} runBranch=${runBranch} ` +
                 `files=${diff.files.length} sha=${merge.sha ?? '?'} — automatisch in Live gemergt`,
             );
-            // W1.4: nach erfolgreichem Auto-Merge serven + Preview emittieren.
+            // W1.4: after a successful auto-merge, serve + emit a preview.
             await emitPreviewAfterMerge({
               workspaceId,
               workstreamId,
@@ -1335,14 +1335,14 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     }
   }
 
-  // A4 (2026-05-29) — Merge-Offer: wenn die Akkumulation echte Arbeit auf dem
-  // Run-Branch hinterlassen hat (≥1 Commit ahead), dem Owner sichtbar machen,
-  // dass die zusammengesetzte Arbeit zum gated Merge in den Live-Checkout bereit
-  // ist. Der Merge selbst passiert NUR per Owner-Klick (POST .../merge-run, R1).
-  // Best-effort, wirft nie. Emittiert die klickbare <surface:merge-offer>-Card
-  // (Surface-Welle 2026-05-29): [In Live mergen] POSTet /api/workstreams/[id]/
-  // merge-run — der EINZIGE gated Schreib-Pfad in den Live-Checkout (R1/R3).
-  // W1.3: bei erfolgreichem Auto-Merge wird die Karte übersprungen.
+  // A4 (2026-05-29) — merge offer: when accumulation has left real work on the
+  // run branch (≥1 commit ahead), make it visible to the owner that
+  // the composed work is ready for a gated merge into the live checkout.
+  // The merge itself happens ONLY on an owner click (POST .../merge-run, R1).
+  // Best-effort, never throws. Emits the clickable <surface:merge-offer> card
+  // (surface wave 2026-05-29): [In Live mergen] POSTs /api/workstreams/[id]/
+  // merge-run — the ONLY gated write path into the live checkout (R1/R3).
+  // W1.3: on a successful auto-merge the card is skipped.
   if (!autoMerged && canAccumulate && runBranch && repoPath) {
     try {
       const { getRunBranchDiffStat } = await import('@/lib/agents/worktree-manager');
@@ -1377,14 +1377,14 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
     }
   }
 
-  // ── RUN-ABSCHLUSS-STATUS (2026-05-30) ──────────────────────────────────────
-  // executePlan setzte den Workstream/flow_run NIE auf einen Terminal-Status →
-  // ein erfolgreicher Lauf (alle Steps done, Auto-Merge auf main, Website live)
-  // blieb 'active' und wurde vom Recovery-Sweep fälschlich als 'stuck' markiert
-  // (irreführende „unterbrochen"-Karte trotz geliefertem Ergebnis). Jetzt: alle
-  // Steps terminal → workstream 'done' (mind. 1 done) bzw. 'failed' (alle failed),
-  // + flow_runs analog. Fail-soft, idempotent; cancelled/archived/bereits-terminal
-  // werden NICHT überschrieben.
+  // ── RUN COMPLETION STATUS (2026-05-30) ─────────────────────────────────────
+  // executePlan NEVER set the workstream/flow_run to a terminal status →
+  // a successful run (all steps done, auto-merge to main, website live)
+  // stayed 'active' and was wrongly marked 'stuck' by the recovery sweep
+  // (a misleading "interrupted" card despite a delivered result). Now: all
+  // steps terminal → workstream 'done' (at least 1 done) or 'failed' (all failed),
+  // + flow_runs analogously. Fail-soft, idempotent; cancelled/archived/already-terminal
+  // are NOT overwritten.
   try {
     const { getDb } = await import('@/db/client');
     const raw = getDb().$raw;
@@ -1421,23 +1421,23 @@ export async function executePlan(args: ExecutePlanArgs): Promise<void> {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Parallel-Scheduler
+// Parallel scheduler
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Ready-Queue-Scheduler mit GETRENNTEN Klassen-Budgets (SLOT-DECOUPLING).
+ * Ready-queue scheduler with SEPARATE class budgets (SLOT DECOUPLING).
  *
- * Startet ready-Steps, sobald deren Deps 'done' sind — bis zu `limits.text`
- * text-Steps UND bis zu `limits.spawn` spawn-Steps GLEICHZEITIG (orthogonal:
- * die Klassen teilen sich KEINEN gemeinsamen Topf mehr). Mehr ready-Steps als
- * das Klassen-Budget → die übrigen warten in der Queue (NICHT droppen).
+ * Starts ready steps as soon as their deps are 'done' — up to `limits.text`
+ * text steps AND up to `limits.spawn` spawn steps CONCURRENTLY (orthogonal:
+ * the classes share NO common pool anymore). More ready steps than
+ * the class budget → the rest wait in the queue (do NOT drop).
  *
- * Deterministische Start-Reihenfolge: ready-Steps werden in stepIndex-Order
- * geprüft (stabil + reproduzierbar). Im Cycle-Fallback sind beide Limits 1 +
- * effectiveDeps=[] → reiner sequenzieller stepIndex-Loop.
+ * Deterministic start order: ready steps are checked in stepIndex order
+ * (stable + reproducible). In the cycle fallback both limits are 1 +
+ * effectiveDeps=[] → a pure sequential stepIndex loop.
  *
- * KEIN Deadlock/Race: rein synchroner launchReady-Fastpath; bei jedem
- * Step-Done (Promise.race) wird neu eingeplant.
+ * NO deadlock/race: a purely synchronous launchReady fastpath; on every
+ * step-done (Promise.race) it reschedules.
  */
 async function runReadyQueue(opts: {
   steps: readonly WorkstreamPlanStepRow[];
@@ -1451,15 +1451,15 @@ async function runReadyQueue(opts: {
   const ordered = [...steps].sort((a, b) => a.stepIndex - b.stepIndex);
   const started = new Set<string>();
   const inflight = new Set<Promise<void>>();
-  // Pro-Klasse-Zähler — die beiden Budgets sind orthogonal (kein gemeinsamer Topf).
+  // Per-class counter — the two budgets are orthogonal (no common pool).
   const running: Record<'text' | 'spawn', number> = { text: 0, spawn: 0 };
 
   const isReady = (step: WorkstreamPlanStepRow): boolean => {
     if (started.has(step.id)) return false;
     if (stepStatuses[step.id] !== 'pending') return false;
     const deps = effectiveDeps(step.id);
-    // Alle Deps müssen 'done' sein. Eine 'failed'-Dep → niemals ready
-    // (Step bleibt pending → wird am Ende als blockiert markiert).
+    // All deps must be 'done'. A 'failed' dep → never ready
+    // (the step stays pending → marked as blocked at the end).
     return deps.every((d) => stepStatuses[d] === 'done');
   };
 
@@ -1467,8 +1467,8 @@ async function runReadyQueue(opts: {
     for (const step of ordered) {
       if (!isReady(step)) continue;
       const cls = classOf(step.id);
-      // Klassen-Budget voll → diesen Step (noch) NICHT starten; ein späterer
-      // Step der anderen Klasse darf in derselben Welle trotzdem starten.
+      // Class budget full → do NOT (yet) start this step; a later
+      // step of the other class may still start in the same wave.
       if (running[cls] >= limits[cls]) continue;
       started.add(step.id);
       running[cls] += 1;
@@ -1482,40 +1482,40 @@ async function runReadyQueue(opts: {
 
   launchReady();
   while (inflight.size > 0) {
-    // Auf den nächsten fertigen Step warten, dann neu-ready-gewordene starten.
+    // Wait for the next finished step, then start the newly-ready ones.
     await Promise.race(inflight);
     launchReady();
   }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Echter Tool-Spawn (R1-isoliert)
+// Real tool spawn (R1-isolated)
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Führt einen Step als echten claude-CLI-Tool-Spawn aus — ZWINGEND in einem
- * isolierten Git-Step-Worktree. Der Live-Checkout (main) wird NIE berührt.
+ * Runs a step as a real claude-CLI tool spawn — MANDATORILY in an
+ * isolated git step worktree. The live checkout (main) is NEVER touched.
  *
- * AKKUMULATION (2026-05-29 — Owner-Kern-Feature, zusammengesetzte Website):
- *   1. createStepWorktree(baseBranch=runBranch) — throwaway Step-Worktree +
- *      lazing/step/<stepId>-Branch, gebrancht VOM RUN-TIP (nicht von Live-HEAD).
- *      Dadurch enthält der Worktree alle vorher in den Run gemergten Steps →
- *      Step N sieht Step <N (Komposition). N11-Cap (max 5) wird hier geprüft.
- *   2. spawnInTmux({ workspacePath: worktreePath, allowedTools }) — der CLI
- *      läuft im isolierten Worktree mit --allowedTools <mode-tools> (inkl. Bash
- *      bei FreeRein). ENV env -i-gescrubbt, K1 --disallowedTools hart.
- *   3. exit=0 → mergeStepIntoRun(runBranch ← stepBranch) UNTER dem Per-runId-
- *      Mutex (serialiserter --no-ff Merge). Konflikt → Step 'failed' +
- *      writeDecision(Konflikt-Diff). Der Run-Branch akkumuliert so Schritt für
- *      Schritt die gesamte Website.
- *   4. finally: captureWorktreeDiff (BLEIBT, N8-Trace) + discardStepWorktree
- *      (nur Step-Worktree+Step-Branch). Der RUN-Branch wird NIE verworfen.
+ * ACCUMULATION (2026-05-29 — owner core feature, composed website):
+ *   1. createStepWorktree(baseBranch=runBranch) — throwaway step worktree +
+ *      lazing/step/<stepId> branch, branched FROM THE RUN TIP (not from live HEAD).
+ *      Thereby the worktree contains all steps merged into the run before →
+ *      step N sees step <N (composition). The N11 cap (max 5) is checked here.
+ *   2. spawnInTmux({ workspacePath: worktreePath, allowedTools }) — the CLI
+ *      runs in the isolated worktree with --allowedTools <mode-tools> (incl. Bash
+ *      under FreeRein). ENV env -i-scrubbed, K1 --disallowedTools hard.
+ *   3. exit=0 → mergeStepIntoRun(runBranch ← stepBranch) UNDER the per-runId
+ *      mutex (serialized --no-ff merge). Conflict → step 'failed' +
+ *      writeDecision(conflict diff). The run branch thus accumulates step by
+ *      step the entire website.
+ *   4. finally: captureWorktreeDiff (STAYS, N8 trace) + discardStepWorktree
+ *      (only step worktree+step branch). The RUN branch is NEVER discarded.
  *
- * Merge in den Live-Baum (main) ist weiterhin GATED (mergeRunWorktree wirft;
- * Operator-Merge = Schritt 4, nicht hier).
+ * The merge into the live tree (main) is still GATED (mergeRunWorktree throws;
+ * operator merge = step 4, not here).
  *
- * Fehler-isoliert: wirft bei Worktree-Cap/Spawn-Fehler — der Caller (runStep)
- * fängt das und markiert NUR diesen Step 'failed'.
+ * Error-isolated: throws on worktree-cap/spawn errors — the caller (runStep)
+ * catches it and marks ONLY this step 'failed'.
  */
 async function runRealSpawnIsolated(opts: {
   step: WorkstreamPlanStepRow;
@@ -1524,18 +1524,18 @@ async function runRealSpawnIsolated(opts: {
   workspaceId: string;
   workstreamId: string;
   coordKey: string;
-  /** AKKUMULATION: der akkumulierende Run-Branch (lazing/run/<runId>). */
+  /** ACCUMULATION: the accumulating run branch (lazing/run/<runId>). */
   runBranch: string;
-  /** Per-runId-Mutex: serialisiert mergeStepIntoRun (Git-Index-Lock). */
+  /** Per-runId mutex: serializes mergeStepIntoRun (git index lock). */
   serializeMerge: <T>(fn: () => Promise<T>) => Promise<T>;
   allowedTools: readonly string[];
   originalIntent: string;
   stepNumber: number;
   totalSteps: number;
   signal: AbortSignal;
-  /** W2.1: verbindliches Design-System (gerendert) — nur bei website-Runs. */
+  /** W2.1: mandatory design system (rendered) — only on website runs. */
   sharedDesignContext?: string;
-  /** W2.1: bisherige Artefakte (Pfad-Hints) — nur bei website-Runs. */
+  /** W2.1: prior artifacts (path hints) — only on website runs. */
   priorArtifacts?: string;
 }): Promise<string> {
   const {
@@ -1545,12 +1545,12 @@ async function runRealSpawnIsolated(opts: {
     sharedDesignContext, priorArtifacts,
   } = opts;
 
-  // stepId: stabil + SAFE_ID_RE-konform (createStepWorktree validiert hart).
-  // Step-IDs haben Form 'STEP-<ulid>' → bereits [A-Za-z0-9-]; defensiv sanitisiert.
+  // stepId: stable + SAFE_ID_RE-conformant (createStepWorktree validates hard).
+  // Step IDs have the form 'STEP-<ulid>' → already [A-Za-z0-9-]; defensively sanitized.
   const stepIdSafe = step.id.replace(/[^A-Za-z0-9_:.\-]/g, '-').slice(0, 56) || 'step';
   const wsId = workspaceId.replace(/[^A-Za-z0-9_:.\-]/g, '-').slice(0, 50) || 'ws';
 
-  // 1. Step-Worktree VOM RUN-TIP erzeugen (N11-Cap hier; wirft bei Erschöpfung).
+  // 1. Create the step worktree FROM THE RUN TIP (N11 cap here; throws on exhaustion).
   const { worktreePath, stepBranch } = await createStepWorktree({
     repoPath,
     workspaceId: wsId,
@@ -1563,8 +1563,8 @@ async function runRealSpawnIsolated(opts: {
       `allowedTools=${JSON.stringify(allowedTools)} (vom Run-Tip gebrancht; Live unberührt)`,
   );
 
-  // Basis-SHA = aktueller Run-Tip (NICHT Live-HEAD). So erfasst der Diff in der
-  // verlustfreien Persistenz nur die DELTA-Arbeit dieses Steps gegen den Run.
+  // Base SHA = the current run tip (NOT live HEAD). This way the diff in the
+  // lossless persistence captures only the DELTA work of this step against the run.
   let baseSha: string | null = null;
   try {
     const r = await execFileAsync('git', ['-C', repoPath, 'rev-parse', runBranch]);
@@ -1573,7 +1573,7 @@ async function runRealSpawnIsolated(opts: {
     baseSha = null;
   }
 
-  // Wird im try gesetzt, im finally für den Merge-vor-discard-Entscheid gelesen.
+  // Set in the try, read in the finally for the merge-before-discard decision.
   let spawnSucceeded = false;
 
   try {
@@ -1590,13 +1590,13 @@ async function runRealSpawnIsolated(opts: {
       ...(priorArtifacts ? { priorArtifacts } : {}),
     });
 
-    // FS-2/FS-3 (2026-05-26): FS-Sandbox-Spec — DARK-BUT-READY. Vollständig
-    // verdrahtet, aber NUR aktiv wenn LAZYOS_FS_SANDBOX='on' explizit gesetzt
-    // ist. Ziel-Posture ist enforce-by-default (eine Sicherheits-Restriktion
-    // gehört nicht hinter ein Opt-in); dieser ERSTE Executor-Rollout ist bewusst
-    // konservativ opt-in, bis MAX-Auth-unter-Sandbox im echten claude+tmux-Pfad
-    // empirisch verifiziert ist — sonst Risiko, Live-Spawns zu brechen, während
-    // der Owner testet. Flip zu enforce-default = diese eine Bedingung lockern.
+    // FS-2/FS-3 (2026-05-26): FS sandbox spec — DARK-BUT-READY. Fully
+    // wired, but active ONLY when LAZYOS_FS_SANDBOX='on' is explicitly set.
+    // The target posture is enforce-by-default (a security restriction
+    // doesn't belong behind an opt-in); this FIRST executor rollout is deliberately
+    // conservatively opt-in until MAX-auth-under-sandbox is empirically
+    // verified in the real claude+tmux path — otherwise there's a risk of breaking
+    // live spawns while the owner tests. Flip to enforce-default = loosen this one condition.
     let sandboxSpec:
       | import('@/lib/security/fs-sandbox').FsSandboxSpec
       | undefined;
@@ -1605,72 +1605,72 @@ async function runRealSpawnIsolated(opts: {
         const { buildSandboxSpec } = await import('@/lib/security/fs-sandbox');
         const { resolveWorkspaceRoots } = await import('@/lib/workspaces/fs-roots');
         const { getDb } = await import('@/db/client');
-        // FS-2: voller Pfad-Satz des Workspace (primary + ro/rw-Roots).
+        // FS-2: the full path set of the workspace (primary + ro/rw roots).
         const resolved = resolveWorkspaceRoots(getDb().$raw, workspaceId);
         sandboxSpec = buildSandboxSpec({
-          worktreePath, // rw, isoliert — NIE der Live-Root
+          worktreePath, // rw, isolated — NEVER the live root
           roRoots: resolved.roRoots.map((r) => r.absPath),
-          liveGitDir: `${repoPath}/.git`, // sonst brechen git-Ops im Worktree
+          liveGitDir: `${repoPath}/.git`, // otherwise git ops in the worktree break
           homeDir: process.env.HOME ?? '/root',
         });
       } catch (e) {
-        // Fail-open auf das HEUTIGE Verhalten (env -i + K1, ohne FS-Grenze) —
-        // NICHT fail-closed: ein Spec-Bau-Fehler darf den Spawn nicht töten.
+        // Fail-open to TODAY's behavior (env -i + K1, without an FS boundary) —
+        // NOT fail-closed: a spec-build error must not kill the spawn.
         console.warn('[plan-executor][fs-sandbox] spec build failed — spawning WITHOUT sandbox:', e);
         sandboxSpec = undefined;
       }
     }
 
-    // 2. Tool-Spawn im ISOLIERTEN Worktree. Bash nur, wenn in allowedTools
-    //    (FreeRein). tmux-spawn sanitisiert via SAFE_TOOLS + env -i + K1.
+    // 2. Tool spawn in the ISOLATED worktree. Bash only when in allowedTools
+    //    (FreeRein). tmux-spawn sanitizes via SAFE_TOOLS + env -i + K1.
     const result = await spawnInTmux({
       workspaceId,
-      workspacePath: worktreePath, // ← Isolation: NIE der Live-repoPath
+      workspacePath: worktreePath, // ← isolation: NEVER the live repoPath
       workstreamId,
-      // Owner-Direktive (2026-05-29): ausschließlich Opus für agentische Arbeit
-      // (MAX-Plan, Qualität vor Kosten). MODEL_NAMES.opus = single source of truth.
+      // Owner directive (2026-05-29): exclusively Opus for agentic work
+      // (MAX plan, quality over cost). MODEL_NAMES.opus = single source of truth.
       tier: 'opus',
       agentIdx: 0,
       model: MODEL_NAMES.opus,
       systemPrompt,
       userPrompt,
-      // 2026-05-29 (empirisch): ein realer Coding-Step (z.B. Motion-Layer) braucht
-      // ~120s, größere Steps (Hero-Section, App-Scaffold, Multi-File-Komponenten)
-      // 5–15 min. Mit --output-format json gibt es bis zum Ende KEIN Teil-Log →
-      // ein zu kurzer Timeout killt echte, laufende Arbeit mittendrin (exit=-1,
-      // 0 Tokens) UND der Worktree wird verworfen → Arbeit verloren. Owner-Prinzip
-      // Qualität>Tempo (Wochen ok) ⇒ großzügige 20 min/Step.
+      // 2026-05-29 (empirical): a real coding step (e.g. motion layer) needs
+      // ~120s, larger steps (hero section, app scaffold, multi-file components)
+      // 5–15 min. With --output-format json there is NO partial log until the end →
+      // too short a timeout kills real, running work mid-way (exit=-1,
+      // 0 tokens) AND the worktree is discarded → work lost. Owner principle
+      // quality>speed (weeks ok) ⇒ a generous 20 min/step.
       timeoutMs: 1_200_000,
       maxTurns: 30,
-      allowedTools: [...allowedTools], // inkl. Bash bei FreeRein
-      sandboxSpec, // FS-3: undefined außer LAZYOS_FS_SANDBOX='on'
+      allowedTools: [...allowedTools], // incl. Bash under FreeRein
+      sandboxSpec, // FS-3: undefined except LAZYOS_FS_SANDBOX='on'
     });
 
-    // N8: echter Tool-Lauf auditiert.
+    // N8: real tool run audited.
     console.info(
       `[plan-executor][tool-run] step=${step.id} exit=${result.exitCode} ` +
         `tokensOut=${result.tokens.output} timedOut=${result.timedOut} rateLimited=${result.rateLimited}`,
     );
 
-    // ── AKKUMULATION: bei exit=0 die Step-Arbeit in den Run-Branch mergen ─────
+    // ── ACCUMULATION: on exit=0, merge the step work into the run branch ──────
     //
-    // Nur ein erfolgreicher Spawn (exitCode 0, kein Timeout) darf akkumulieren.
-    // Wir committen die (ggf. uncommitteten) Änderungen des Agenten auf den
-    // Step-Branch, dann mergen wir SERIELL (Per-runId-Mutex) --no-ff in den
-    // Run-Branch. Konflikt → Step failt + writeDecision(Konflikt-Diff, N8/N1).
+    // Only a successful spawn (exitCode 0, no timeout) may accumulate.
+    // We commit the agent's (possibly uncommitted) changes onto the
+    // step branch, then merge SERIALLY (per-runId mutex) --no-ff into the
+    // run branch. Conflict → step fails + writeDecision(conflict diff, N8/N1).
     if (result.exitCode === 0 && !result.timedOut) {
-      // ── W1.1 NON-EMPTY-DIFF-GATE (2026-05-30) ────────────────────────────
-      // Der schwache `exit=0`-Gate winkte bisher leere No-op-Merges durch (der
-      // Coder schrieb nur eine .md-Notiz oder gar nichts → Run-Tip blieb stehen).
-      // Jetzt: nach `git add -A` prüfen, ob der Worktree-Diff gegen den Run-Tip
-      // (baseSha) NICHT-LEER ist. Leerer Diff → Step `failed` (no_artifact),
-      // KEIN stiller Merge. Reuse captureWorktreeDiff (fail-soft, wirft nie).
+      // ── W1.1 NON-EMPTY-DIFF GATE (2026-05-30) ────────────────────────────
+      // The weak `exit=0` gate so far waved through empty no-op merges (the
+      // coder wrote only a .md note or nothing → the run tip stayed put).
+      // Now: after `git add -A`, check whether the worktree diff against the run tip
+      // (baseSha) is NON-EMPTY. Empty diff → step `failed` (no_artifact),
+      // NO silent merge. Reuse captureWorktreeDiff (fail-soft, never throws).
       await execFileAsync('git', ['-C', worktreePath, 'add', '-A']).catch(() => {});
       const artifactDiff = await captureWorktreeDiff(worktreePath, baseSha);
-      // ROLLEN-AUSNAHME (Critic 2026-05-30): das Gate gilt NUR für Rollen, von
-      // denen ein Datei-Artefakt erwartet wird (describeArtifactContract != null —
-      // coder/architect/copy/design/assembly). reviewer/tester/analyst schreiben
-      // bewusst nichts → kein no_artifact-Fail (sonst blockieren sie die Kette).
+      // ROLE EXCEPTION (critic 2026-05-30): the gate applies ONLY to roles from
+      // which a file artifact is expected (describeArtifactContract != null —
+      // coder/architect/copy/design/assembly). reviewer/tester/analyst deliberately
+      // write nothing → no no_artifact fail (otherwise they block the chain).
       const expectsArtifact =
         describeArtifactContract(step.subagentRole ?? '', step.title) !== null;
       if (expectsArtifact && !artifactDiff) {
@@ -1701,15 +1701,15 @@ async function runRealSpawnIsolated(opts: {
 
       spawnSucceeded = true;
 
-      // 1. Step-Arbeit committen, damit der Merge sie trägt (der Agent committet
-      //    nicht zwingend selbst). add -A schon oben erledigt. Der Diff ist
-      //    garantiert nicht-leer (Gate oben), commit kann also nur durch echte
-      //    Konflikte/Lock fehlschlagen — dann fail-soft (Merge-Gate fängt's).
+      // 1. Commit the step work so the merge carries it (the agent does not
+      //    necessarily commit itself). add -A already done above. The diff is
+      //    guaranteed non-empty (gate above), so a commit can only fail through real
+      //    conflicts/lock — then fail-soft (the merge gate catches it).
       try {
         await execFileAsync('git', [
           '-C', worktreePath, '-c', 'user.name=lazing', '-c', 'user.email=lazing@local',
           'commit', '-m', `step ${step.id}: ${step.title}`,
-        ]).catch(() => { /* defensiv: ggf. schon committet → Merge trägt es */ });
+        ]).catch(() => { /* defensive: maybe already committed → the merge carries it */ });
       } catch (e) {
         console.warn(
           `[plan-executor][accumulate] step=${step.id} commit-staging failed (non-fatal): ` +
@@ -1717,15 +1717,15 @@ async function runRealSpawnIsolated(opts: {
         );
       }
 
-      // 2. SERIELLER Merge in den Run-Branch (Mutex hält Git-Index-Lock fern).
+      // 2. SERIAL merge into the run branch (the mutex keeps the git index lock away).
       const merge = await serializeMerge(() =>
         mergeStepIntoRun({ repoPath, runBranch, stepBranch }),
       );
 
       if (!merge.merged) {
-        // Konflikt: NICHT akkumuliert. Tamper-evidente Decision (N8/N10) mit
-        // verbatim Konflikt-Diff (N1), dann Step als failed signalisieren
-        // (throw → runStep-catch setzt 'failed').
+        // Conflict: NOT accumulated. Tamper-evident decision (N8/N10) with
+        // verbatim conflict diff (N1), then signal the step as failed
+        // (throw → runStep catch sets 'failed').
         const conflictDetail = merge.conflict ?? '(kein Detail)';
         try {
           writeDecision({
@@ -1761,12 +1761,12 @@ async function runRealSpawnIsolated(opts: {
       : `[ausgeführt im Step-Worktree ${stepBranch} (exit=${result.exitCode}) — NICHT akkumuliert]\n`;
     return head + (result.text || '(kein Output)');
   } finally {
-    // 2b. VERLUSTFREIE PERSISTENZ vor dem discard (Schritt 1 Akkumulations-Plan,
-    //     BLEIBT): die Delta-Arbeit des Step-Worktrees (gegen den Run-Tip) als
-    //     Patch in den Trace (workstream_evidence, N8) sichern, BEVOR der
-    //     Step-Worktree verworfen wird. Bei erfolgreichem Merge ist die Arbeit
-    //     ohnehin im Run-Branch (recoverbar); bei Konflikt/Fehler ist DAS hier
-    //     die Recovery-Quelle. Strikt fail-soft (captureWorktreeDiff wirft nie).
+    // 2b. LOSSLESS PERSISTENCE before the discard (step 1 of the accumulation plan,
+    //     STAYS): save the delta work of the step worktree (against the run tip) as a
+    //     patch into the trace (workstream_evidence, N8) BEFORE the
+    //     step worktree is discarded. On a successful merge the work is
+    //     in the run branch anyway (recoverable); on conflict/error THIS is
+    //     the recovery source. Strictly fail-soft (captureWorktreeDiff never throws).
     try {
       const captured = await captureWorktreeDiff(worktreePath, baseSha);
       if (captured) {
@@ -1779,7 +1779,7 @@ async function runRealSpawnIsolated(opts: {
           coordKey: `${workspaceId}/${workstreamId}`,
           sourceKind: 'spawn',
           sourceId: step.id,
-          snippet, // N1: verbatim, kein slice
+          snippet, // N1: verbatim, no slice
           actor: 'agent',
         });
         console.info(
@@ -1794,8 +1794,8 @@ async function runRealSpawnIsolated(opts: {
       );
     }
 
-    // 3. NUR den Step-Worktree + Step-Branch verwerfen. Der RUN-Branch (mit der
-    //    akkumulierten Arbeit) BLEIBT — er ist das Kompositions-Ziel. Best-effort.
+    // 3. Discard ONLY the step worktree + step branch. The RUN branch (with the
+    //    accumulated work) STAYS — it is the composition target. Best-effort.
     await discardStepWorktree({ repoPath, stepBranch, deleteBranch: true }).catch(
       (err: unknown) => {
         console.warn(
@@ -1813,14 +1813,14 @@ async function runRealSpawnIsolated(opts: {
 // ────────────────────────────────────────────────────────────────────────────
 
 // ────────────────────────────────────────────────────────────────────────────
-// W1.4 — Serve + Preview-Emit nach (Auto-)Merge (2026-05-30)
+// W1.4 — serve + preview emit after (auto-)merge (2026-05-30)
 // ────────────────────────────────────────────────────────────────────────────
 //
-// NACH erfolgreichem Merge die zusammengesetzte Website statisch serven (lokal +
-// optional Tailscale via LAZYOS_SERVE_LOCAL) und eine tappbare <surface:preview>-
-// Karte emittieren (reuse renderPreview, SurfaceRenderer NICHT editiert). Strikt
-// best-effort/fail-soft: ein Serve-/Emit-Fehler darf den Merge-Pfad nie kippen.
-// Gemeinsamer Einhängepunkt für den Auto-Merge-Pfad (W1.3) UND die merge-run-API.
+// AFTER a successful merge, statically serve the composed website (locally +
+// optionally Tailscale via LAZYOS_SERVE_LOCAL) and emit a tappable <surface:preview>
+// card (reuse renderPreview, SurfaceRenderer NOT edited). Strictly
+// best-effort/fail-soft: a serve/emit error must never topple the merge path.
+// A shared hook point for the auto-merge path (W1.3) AND the merge-run API.
 export async function emitPreviewAfterMerge(opts: {
   workspaceId: string;
   workstreamId: string;
@@ -1832,15 +1832,15 @@ export async function emitPreviewAfterMerge(opts: {
   try {
     const { serveWorkspaceStatic } = await import('@/lib/deploy/serve-local');
     const serve = await serveWorkspaceStatic({ repoPath, workspaceId });
-    // Preview-URL-Priorität:
-    //  1. LAZYOS_PREVIEW_BASE_URL (expliziter Reverse-Proxy/Tunnel-Base, z.B. eine
-    //     Cloudflare-/ngrok-URL die den Workspace-Serve am Handy erreichbar macht —
-    //     umgeht CGNAT/IPv6, wo tailnet/funnel scheitern). Mappt den ganzen Serve
-    //     auf die Tunnel-Wurzel (kein :port). Trailing-Slash getrimmt.
-    //  2. publicUrl (Tailscale, mobil nur im Tailnet),
-    //  3. localUrl (nur lokal).
-    // ENV → Laufzeit-Datei `data/public-url` (vom Tunnel-Manager live aktualisiert)
-    // → Tailscale-publicUrl → localUrl.
+    // Preview-URL priority:
+    //  1. LAZYOS_PREVIEW_BASE_URL (an explicit reverse-proxy/tunnel base, e.g. a
+    //     Cloudflare/ngrok URL that makes the workspace serve reachable on mobile —
+    //     bypasses CGNAT/IPv6 where tailnet/funnel fail). Maps the whole serve
+    //     to the tunnel root (no :port). Trailing slash trimmed.
+    //  2. publicUrl (Tailscale, mobile only within the tailnet),
+    //  3. localUrl (local only).
+    // ENV → runtime file `data/public-url` (updated live by the tunnel manager)
+    // → Tailscale publicUrl → localUrl.
     const previewBase = readPublicBaseOverride();
     const url = previewBase ?? serve.publicUrl ?? serve.localUrl;
     const payload: Record<string, unknown> = {
@@ -1871,49 +1871,49 @@ export async function emitPreviewAfterMerge(opts: {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// W1.1 — Artefakt-Vertrag pro Skill/Rolle (2026-05-30)
+// W1.1 — artifact contract per skill/role (2026-05-30)
 // ────────────────────────────────────────────────────────────────────────────
 //
-// Jeder Step bekommt einen verbindlichen Ziel-Pfad + Artefakt-Format. Der
-// schwache `exit=0`-Gate winkte bisher .md-Notizen als „Erfolg" durch. Mit dem
-// Vertrag + dem Non-empty-Diff-Gate (Spawn-Erfolgs-Prüfung) wird ein Step ohne
-// echtes Datei-Artefakt als `no_artifact` failed markiert.
+// Every step gets a mandatory target path + artifact format. The
+// weak `exit=0` gate so far waved .md notes through as "success". With the
+// contract + the non-empty-diff gate (spawn success check), a step without
+// a real file artifact is marked `no_artifact` failed.
 //
-// Die Skill/Rolle wird heuristisch aus role + title abgeleitet (DE+EN, gegen die
-// compose.ts-assignSkill-Keys). N6 deterministisch.
+// The skill/role is derived heuristically from role + title (DE+EN, against the
+// compose.ts assignSkill keys). N6 deterministic.
 
 // ───────────────────────────────────────────────────────────────────────────
-// BAHN-2 (2026-05-30): PV-Stringing-Step-Erkennung + deterministische Ausführung
+// TRACK 2 (2026-05-30): PV-stringing step detection + deterministic execution
 // ════════════════════════════════════════════════════════════════════════════
 //
-// Ein pv-stringing-Step trägt in der DB NUR `subagentRole='coder'` (closed enum,
-// db/schema/workstream_plan_steps.ts) — der ORIGINAL-Skill 'pv-stringing' lebt in
-// der `| flow:{...}`-Annotation der rationale (lib/flow/execute.ts::annotateRationale).
-// Wir erkennen den Step robust über parseFlowAnnotation; ein Titel-Pattern-Fallback
-// fängt freie Decompose-Pläne ohne Flow-Annotation (gegen die compose.ts-Keys).
+// A pv-stringing step carries in the DB ONLY `subagentRole='coder'` (closed enum,
+// db/schema/workstream_plan_steps.ts) — the ORIGINAL skill 'pv-stringing' lives in
+// the `| flow:{...}` annotation of the rationale (lib/flow/execute.ts::annotateRationale).
+// We detect the step robustly via parseFlowAnnotation; a title-pattern fallback
+// catches free decompose plans without a flow annotation (against the compose.ts keys).
 //
-// Der Producer (lib/eval/demo-pv/producer.ts) ist DETERMINISTISCH (N6, kein
-// LLM/I/O). Er läuft DESHALB im plan-executor VOR dem claude-cli-Spawn-Zweig — er
-// schreibt KEINE Datei in den Worktree, sondern erzeugt sein PvArtifact und legt
-// es serialisiert als Step-Output ab. Damit umgeht er auch das W1.1-Non-empty-Diff-
-// Gate (das nur für echte Spawn-Steps greift); ein deterministischer Producer-Step
-// erreicht den Spawn-Pfad gar nicht und kann folglich nicht als no_artifact failen.
+// The producer (lib/eval/demo-pv/producer.ts) is DETERMINISTIC (N6, no
+// LLM/I/O). It THEREFORE runs in the plan-executor BEFORE the claude-cli spawn branch — it
+// writes NO file into the worktree but produces its PvArtifact and stores
+// it serialized as the step output. This also bypasses the W1.1 non-empty-diff
+// gate (which only applies to real spawn steps); a deterministic producer step
+// never reaches the spawn path and consequently cannot fail as no_artifact.
 
-/** Marker, mit dem ein deterministisch produziertes PV-Artefakt im Step-Output-Text
- *  serialisiert wird. from-artifact.ts → evaluate.ts liest das geparste Objekt
- *  (surfacePayload.strings[]/inverters[]) als elektrisches Modell. */
+/** Marker with which a deterministically produced PV artifact is serialized in the
+ *  step output text. from-artifact.ts → evaluate.ts reads the parsed object
+ *  (surfacePayload.strings[]/inverters[]) as the electrical model. */
 export const PV_STRINGING_OUTPUT_MARKER = '<pv-stringing-artifact>';
 const PV_STRINGING_OUTPUT_MARKER_END = '</pv-stringing-artifact>';
 
-// Dasselbe Pattern wie die compose.ts-SKILL_RULE für 'pv-stringing' — als Titel-
-// Fallback, wenn keine Flow-Annotation vorliegt (freier Decompose-Plan).
+// The same pattern as the compose.ts SKILL_RULE for 'pv-stringing' — as a title
+// fallback when no flow annotation is present (a free decompose plan).
 const PV_STRINGING_TITLE_RE =
   /\b(string|stringing|wechselrichter|inverter|pv-?auslegung|modulbelegung|photovoltaik|dachbelegung)\b/i;
 
 /**
- * Erkennt deterministisch, ob ein Step der PV-Stringing-Producer-Step ist.
- * Primär über die `| flow:{...}`-Annotation (skill==='pv-stringing'), Fallback
- * über das Titel-Pattern. Exportiert für den Wiring-Test.
+ * Deterministically detects whether a step is the PV-stringing producer step.
+ * Primarily via the `| flow:{...}` annotation (skill==='pv-stringing'), fallback
+ * via the title pattern. Exported for the wiring test.
  */
 export function isPvStringingStep(step: WorkstreamPlanStepRow): boolean {
   try {
@@ -1922,41 +1922,41 @@ export function isPvStringingStep(step: WorkstreamPlanStepRow): boolean {
       return true;
     }
   } catch {
-    /* defensiv: kaputte rationale → Titel-Fallback */
+    /* defensive: broken rationale → title fallback */
   }
   return PV_STRINGING_TITLE_RE.test(step.title ?? '');
 }
 
 /**
- * Extrahiert die Producer-Inputs (RoofPlane[]/Modul/Inverter) aus dem Step-
- * Kontext. Quelle: die `configJson` der `| flow:{...}`-Annotation (Owner-/Flow-
- * gegebene Hardware). §15.6-EHRLICH: fehlt configJson oder eine Eingabe, geben
- * wir KEINE erfundene Default-Hardware zurück — der Producer läuft dann mit
- * leeren/fehlenden Eingaben und erzeugt (gewollt) 0 Strings + verbatim-Grund.
- * Deterministisch (N6), wirft nie.
+ * Extracts the producer inputs (RoofPlane[]/module/inverter) from the step
+ * context. Source: the `configJson` of the `| flow:{...}` annotation (owner-/flow-
+ * given hardware). §15.6-HONEST: if configJson or an input is missing, we return
+ * NO invented default hardware — the producer then runs with
+ * empty/missing inputs and produces (intentionally) 0 strings + a verbatim reason.
+ * Deterministic (N6), never throws.
  *
- * Exportiert für den Wiring-Test.
+ * Exported for the wiring test.
  */
 export function extractStringingInput(
   step: WorkstreamPlanStepRow,
 ): StringingProducerInput {
-  // Default: leere Eingaben → Producer meldet ehrlich „kein Inverter/Modul/Dach".
+  // Default: empty inputs → the producer honestly reports "no inverter/module/roof".
   const empty: StringingProducerInput = {
     roofPlanes: [],
     module: undefined as unknown as StringingProducerInput['module'],
     inverter: undefined as unknown as StringingProducerInput['inverter'],
   };
 
-  // DEMO-FALLBACK (2026-05-30): Weist der Intent SICH SELBST explizit als
-  // Beispiel/Demo/Muster-PV-Lauf aus (Keyword „beispiel"/„demo"/„muster" + PV)
-  // UND liegt KEINE owner-gegebene Hardware vor, verwenden wir ein klar
-  // ausgewiesenes Demo-Hardware-Set (RoofPlane/Modul/Inverter). §15.6: das ist
-  // KEIN heimliches Raten — jede Demo-Größe erscheint als sichtbare
-  // `assumptions:[…DEMO-Annahme…]` im Producer-Output. So liefert ein
-  // „Erstelle ein Beispiel-PV-Projekt" ein demonstrierbares, G5-PASSendes Paket;
-  // für echte Projekte bleibt die Hardware owner-input-abhängig (fehlt sie →
-  // ehrlich leer → G5 BLOCKt). Die Demo greift NUR als letzter Ausweg, NIE wenn
-  // echte Hardware in der configJson steht.
+  // DEMO FALLBACK (2026-05-30): if the intent ITSELF explicitly marks itself as
+  // an example/demo/sample PV run (keyword „beispiel"/„demo"/„muster" + PV)
+  // AND NO owner-given hardware is present, we use a clearly
+  // marked demo hardware set (RoofPlane/module/inverter). §15.6: this is
+  // NO secret guessing — every demo value appears as a visible
+  // `assumptions:[…DEMO assumption…]` in the producer output. So an
+  // „Erstelle ein Beispiel-PV-Projekt" delivers a demonstrable, G5-PASSing package;
+  // for real projects the hardware stays owner-input-dependent (if it's missing →
+  // honestly empty → G5 BLOCKs). The demo applies ONLY as a last resort, NEVER when
+  // real hardware is in the configJson.
   const intentText = step.title ?? '';
   const demoFallback = (): StringingProducerInput =>
     isDemoPvIntent(intentText) ? buildDemoStringingInput() : empty;
@@ -1972,16 +1972,16 @@ export function extractStringingInput(
     const parsed: unknown = JSON.parse(configJson);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return demoFallback();
     const o = parsed as Record<string, unknown>;
-    // Echte Hardware gegeben? Nur dann reichen wir die configJson durch. Fehlt
-    // sowohl Modul als auch Inverter (kein echter Hardware-Input), fällt ein
-    // Demo-PV-Intent auf das Demo-Set zurück (echter Intent ohne Hardware bleibt
-    // ehrlich leer).
+    // Real hardware given? Only then do we pass the configJson through. If
+    // both module and inverter are missing (no real hardware input), a
+    // demo-PV intent falls back to the demo set (a real intent without hardware stays
+    // honestly empty).
     const hasRealHardware =
       (o.module && typeof o.module === 'object') ||
       (o.inverter && typeof o.inverter === 'object');
     if (!hasRealHardware) return demoFallback();
-    // Wir reichen die gegebenen Felder 1:1 DURCH (der Producer ist defensiv und
-    // lässt fehlende/kaputte Eingaben ehrlich leer; KEIN Auffüllen hier).
+    // We pass the given fields through 1:1 (the producer is defensive and
+    // leaves missing/broken inputs honestly empty; NO filling in here).
     return {
       roofPlanes: Array.isArray(o.roofPlanes)
         ? (o.roofPlanes as StringingProducerInput['roofPlanes'])
@@ -2006,15 +2006,15 @@ export function extractStringingInput(
 }
 
 /**
- * Führt den deterministischen PV-Stringing-Producer für einen Step aus und
- * serialisiert das Ergebnis als Step-Output-Text. Der Text enthält:
- *   • einen menschen-lesbaren Kopf (Strings/Annahmen/Auslassungen, N1 verbatim),
- *   • einen maschinen-lesbaren `<pv-stringing-artifact>{...}</…>`-Block, dessen
- *     JSON exakt der GenericBuildArtifact-Form entspricht, die from-artifact.ts
- *     konsumiert (surfacePayload.strings[]/inverters[]).
+ * Runs the deterministic PV-stringing producer for a step and
+ * serializes the result as step output text. The text contains:
+ *   • a human-readable header (strings/assumptions/omissions, N1 verbatim),
+ *   • a machine-readable `<pv-stringing-artifact>{...}</…>` block, whose
+ *     JSON matches exactly the GenericBuildArtifact shape that from-artifact.ts
+ *     consumes (surfacePayload.strings[]/inverters[]).
  *
- * Reine Funktion (N6) — kein I/O, kein Spawn, kein Worktree. Exportiert für den
- * Wiring-Test.
+ * Pure function (N6) — no I/O, no spawn, no worktree. Exported for the
+ * wiring test.
  */
 export function runPvStringingStep(step: WorkstreamPlanStepRow): string {
   const input = extractStringingInput(step);
@@ -2056,11 +2056,11 @@ export function runPvStringingStep(step: WorkstreamPlanStepRow): string {
 }
 
 /**
- * Liest ein zuvor von runPvStringingStep serialisiertes PvArtifact-JSON wieder
- * aus dem Step-Output-Text. Gibt das geparste GenericBuildArtifact-kompatible
- * Objekt zurück oder null (kein Marker / kaputtes JSON). Deterministisch, wirft
- * nie. Exportiert für den Wiring-Test (der die G5-Eval über genau diesen Output
- * laufen lässt).
+ * Reads a PvArtifact JSON previously serialized by runPvStringingStep back out
+ * of the step output text. Returns the parsed GenericBuildArtifact-compatible
+ * object or null (no marker / broken JSON). Deterministic, never
+ * throws. Exported for the wiring test (which runs the G5 eval over exactly this
+ * output).
  */
 export function parsePvStringingOutput(text: string): unknown | null {
   if (typeof text !== 'string') return null;
@@ -2077,9 +2077,9 @@ export function parsePvStringingOutput(text: string): unknown | null {
 }
 
 /**
- * W2.1 (2026-05-30): fasst die bisher produzierten Step-Outputs als kompakte
- * „bisherige Artefakte"-Liste zusammen (Titel + erwarteter Ziel-Pfad), damit der
- * nächste Step weiß, worauf er aufbaut. N1: Titel verbatim (kein .slice).
+ * W2.1 (2026-05-30): summarizes the step outputs produced so far as a compact
+ * "prior artifacts" list (title + expected target path), so the
+ * next step knows what it builds on. N1: titles verbatim (no .slice).
  */
 function summarizePriorArtifacts(
   outputs: ReadonlyArray<{ step: WorkstreamPlanStepRow; text: string }>,
@@ -2094,14 +2094,14 @@ function summarizePriorArtifacts(
 }
 
 /**
- * Liefert den verbindlichen Artefakt-Vertrag (Pfad + Format) für einen Step.
- * Exportiert für den W1.1-Test (Artefakt-Vertrag ist Teil des Gates).
+ * Returns the mandatory artifact contract (path + format) for a step.
+ * Exported for the W1.1 test (the artifact contract is part of the gate).
  */
 export function describeArtifactContract(role: string, title: string): string | null {
   const r = (role || '').toLowerCase();
   const t = (title || '').toLowerCase();
 
-  // assembly — der finale Zusammenbau (eigener Skill, höchste Priorität).
+  // assembly — the final assembly (own skill, highest priority).
   if (r === 'assembly' || /\b(assembl|zusammenbau|zusammensetz|finale.+seite|index\.html)\b/.test(t)) {
     return [
       `Ziel-Datei: \`index.html\` im Workspace-Root.`,
@@ -2113,7 +2113,7 @@ export function describeArtifactContract(role: string, title: string): string | 
       `CSS-Gradient oder inline-SVG (KEINE externen/Connector-Assets).`,
     ].join('\n');
   }
-  // design → CSS-Custom-Properties.
+  // design → CSS custom properties.
   if (r === 'design' || /\b(design|style|styling|visual|theme|farb|gestalt|branding|mockup)\b/.test(t)) {
     return [
       `Ziel-Datei: \`design/tokens.css\` (CSS-Custom-Properties unter \`:root\`).`,
@@ -2132,7 +2132,7 @@ export function describeArtifactContract(role: string, title: string): string | 
       `KEIN Markdown — striktes JSON, das der Assembly-Step parsen kann.`,
     ].join('\n');
   }
-  // architecture/aufbau → index.html-Gerüst.
+  // architecture/structure → index.html skeleton.
   if (r === 'architect' || r === 'architecture' || /\b(aufbau|struktur|architektur|architecture|setup|layout|gerüst|scaffold)\b/.test(t)) {
     return [
       `Ziel-Datei: \`index.html\` im Workspace-Root — das STRUKTUR-Gerüst.`,
@@ -2142,7 +2142,7 @@ export function describeArtifactContract(role: string, title: string): string | 
       `aber valide, im Browser ladbare HTML-Datei. KEINE Markdown-Notiz.`,
     ].join('\n');
   }
-  // coder / generischer Worker → konkrete Datei im Workspace-Root.
+  // coder / generic worker → a concrete file in the workspace root.
   if (r === 'coder' || r === 'build') {
     return [
       `Ziel: eine konkrete, ladbare Datei im Workspace-Root (z.B. ein HTML/CSS/JS-`,
@@ -2150,18 +2150,18 @@ export function describeArtifactContract(role: string, title: string): string | 
       `schreibe das Artefakt als echte Datei mit dem \`Write\`-Tool.`,
     ].join('\n');
   }
-  // reviewer/tester u.a. — kein Datei-Artefakt erzwungen (Default-Verhalten).
+  // reviewer/tester etc. — no file artifact enforced (default behavior).
   return null;
 }
 
 /**
- * Baut den Prompt für einen einzelnen Plan-Step.
+ * Builds the prompt for a single plan step.
  *
- * `execute: false` (Default / text-only): das Prompt verbietet explizit
- *   Code-Ausführung, Datei-Writes oder Shell-Calls — rein textueller Vorschlag.
- * `execute: true` (echter Tool-Spawn im isolierten Worktree): das Prompt
- *   erlaubt die Umsetzung mit den gewährten Tools, weist aber darauf hin, dass
- *   alles im isolierten Worktree passiert (kein Merge ohne Operator-Gate).
+ * `execute: false` (default / text-only): the prompt explicitly forbids
+ *   code execution, file writes, or shell calls — a purely textual proposal.
+ * `execute: true` (real tool spawn in the isolated worktree): the prompt
+ *   allows the implementation with the granted tools but notes that
+ *   everything happens in the isolated worktree (no merge without an operator gate).
  */
 function buildStepPrompt(opts: {
   role: string;
@@ -2172,23 +2172,23 @@ function buildStepPrompt(opts: {
   rationale: string;
   execute?: boolean;
   /**
-   * W2.1 (2026-05-30): das verbindliche Website-Design-System +
-   * der vom design-Step gewählte Akzent — vorwärts gereicht an JEDEN
-   * nachfolgenden coder/copy/assembly-Step. Nur gesetzt für website-artige
-   * Runs (sonst undefined → bit-identisch zum Vor-W2.1-Verhalten).
+   * W2.1 (2026-05-30): the mandatory website design system +
+   * the accent chosen by the design step — forwarded to EVERY
+   * subsequent coder/copy/assembly step. Set only for website-like
+   * runs (otherwise undefined → bit-identical to the pre-W2.1 behavior).
    */
   sharedDesignContext?: string;
   /**
-   * W2.1 (2026-05-30): die bisher produzierten Artefakte (Pfad → kurze
-   * Beschreibung), die der Step lesen/respektieren soll. Vorwärts-Verkettung
-   * der schon gesammelten stepOutputs. Nur gesetzt für website-artige Runs.
+   * W2.1 (2026-05-30): the artifacts produced so far (path → short
+   * description) that the step should read/respect. Forward chaining
+   * of the already-collected stepOutputs. Set only for website-like runs.
    */
   priorArtifacts?: string;
 }): string {
-  // W1.1 (2026-05-30): pro Skill ein verbindlicher Artefakt-Vertrag. Der Step
-  // MUSS eine konkrete Datei schreiben — keine .md-Erklärung. Das Artefakt IST
-  // das Ergebnis. Leerer Worktree-Diff → der Spawn-Gate failt den Step
-  // (no_artifact) statt eines stillen No-op-Merge.
+  // W1.1 (2026-05-30): a mandatory artifact contract per skill. The step
+  // MUST write a concrete file — not a .md explanation. The artifact IS
+  // the result. An empty worktree diff → the spawn gate fails the step
+  // (no_artifact) instead of a silent no-op merge.
   const artifactContract = describeArtifactContract(opts.role, opts.title);
 
   if (opts.execute) {
@@ -2250,7 +2250,7 @@ function buildStepPrompt(opts: {
   ].join('\n');
 }
 
-/** System-Prompt für den echten Tool-Spawn (knapp, rollen-spezifisch). */
+/** System prompt for the real tool spawn (terse, role-specific). */
 function buildExecSystemPrompt(opts: { role: string }): string {
   return [
     `Du bist ein ${opts.role}-Subagent im laz.ing Swarm Runtime.`,
@@ -2260,19 +2260,19 @@ function buildExecSystemPrompt(opts: { role: string }): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Summary-Builder (nach group_id gruppiert)
+// Summary builder (grouped by group_id)
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut den Content für die abschließende Assistant-Nachricht.
- * "Nach Fertigstellung aller Subpläne nach Zugehörigkeit sortieren" =
- * gruppiert nach group_id; Steps ohne Gruppe landen unter "(ungruppiert)".
+ * Builds the content for the final assistant message.
+ * "Sort all subplans by membership after completion" =
+ * grouped by group_id; steps without a group land under "(ungruppiert)".
  */
 function buildSummaryContent(
   originalIntent: string,
   outputs: Array<{ step: WorkstreamPlanStepRow; text: string }>,
 ): string {
-  // Nach group_id bucketieren — Reihenfolge der Gruppen = erstes Auftreten.
+  // Bucket by group_id — group order = first occurrence.
   const groupOrder: string[] = [];
   const buckets = new Map<string, Array<{ step: WorkstreamPlanStepRow; text: string }>>();
   for (const o of outputs) {
@@ -2296,7 +2296,7 @@ function buildSummaryContent(
       lines.push(`### Gruppe: ${groupKey}`, ``);
     }
     const bucket = buckets.get(groupKey)!;
-    // Innerhalb der Gruppe nach stepIndex stabil sortieren.
+    // Within the group, sort stably by stepIndex.
     bucket.sort((a, b) => a.step.stepIndex - b.step.stepIndex);
     for (const { step, text } of bucket) {
       lines.push(

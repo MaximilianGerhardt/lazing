@@ -1,28 +1,28 @@
 /**
- * RAG-Index-Run → StageDescriptor[]-Adapter (Sub-Plan 5 Welle 2, 2026-05-01).
+ * RAG index-run → StageDescriptor[] adapter (Sub-Plan 5 wave 2, 2026-05-01).
  *
  * Stages:
- *   1. discover-sources — Files/Chats sammeln
- *   2. chunk            — Text in Chunks splitten
- *   3. embed            — Embeddings rechnen (lokal, Xenova)
- *   4. persist          — Chunks in rag_chunks INSERTen
- *   5. cleanup          — IndexerState aktualisieren, Circuit-Breaker checken
+ *   1. discover-sources — collect files/chats
+ *   2. chunk            — split text into chunks
+ *   3. embed            — compute embeddings (local, Xenova)
+ *   4. persist          — INSERT chunks into rag_chunks
+ *   5. cleanup          — update IndexerState, check the circuit breaker
  *
- * Input ist `RagRunStatus` — wird von `/api/rag/index/[runId]/status`
- * geliefert. Da der Indexer nicht run-basiert ist (sondern stateful per
- * workspace+sourceType), simulieren wir "Runs" als Pseudo-IDs:
- * `runId = ${workspaceId}::${sourceType}` oder `${workspaceId}::all`.
+ * Input is `RagRunStatus` — provided by `/api/rag/index/[runId]/status`.
+ * Since the indexer is not run-based (but stateful per
+ * workspace+sourceType), we simulate "runs" as pseudo IDs:
+ * `runId = ${workspaceId}::${sourceType}` or `${workspaceId}::all`.
  *
  * Mapping:
- *   - phase: discover/chunk/embed/persist/cleanup → entsprechende Stage running
- *   - phase=done → alle done
- *   - phase=failed → aktuelle Stage failed, vorherige done, nachfolgende skipped
- *   - phase=circuit-open → cleanup skipped, Hauptstage failed mit Subtitle
+ *   - phase: discover/chunk/embed/persist/cleanup → the corresponding stage running
+ *   - phase=done → all done
+ *   - phase=failed → current stage failed, earlier ones done, later ones skipped
+ *   - phase=circuit-open → cleanup skipped, main stage failed with subtitle
  *
  * Progress:
- *   - embed-Stage bekommt progressPct = (embedded / totalChunks) * 100
- *     (nur wenn totalChunks > 0)
- *   - persist-Stage bekommt progressPct = (persisted / totalChunks) * 100
+ *   - the embed stage gets progressPct = (embedded / totalChunks) * 100
+ *     (only when totalChunks > 0)
+ *   - the persist stage gets progressPct = (persisted / totalChunks) * 100
  */
 
 import type { StageDescriptor, EtaBucket } from '@/lib/ui/pip';
@@ -40,20 +40,20 @@ export type RagPhase =
 
 export interface RagRunStatus {
   workspaceId: string;
-  /** Pseudo-Run-Identifikator für UI-Routing. */
+  /** Pseudo-run identifier for UI routing. */
   runId: string;
   phase: RagPhase;
-  /** Geschätzte Gesamt-Chunk-Anzahl (nach discover). */
+  /** Estimated total chunk count (after discover). */
   totalChunks?: number;
-  /** Bisher embedded. */
+  /** Embedded so far. */
   embeddedCount?: number;
-  /** Bisher persisted. */
+  /** Persisted so far. */
   persistedCount?: number;
-  /** Letzte Aktivität als ms-epoch — für eta-Bucket der active Stage. */
+  /** Last activity as ms-epoch — for the eta bucket of the active stage. */
   lastUpdateMs?: number;
-  /** Now-override für tests. */
+  /** Now-override for tests. */
   nowMs?: number;
-  /** Optional: Fehler-Message wenn phase='failed' oder 'circuit-open'. */
+  /** Optional: error message when phase='failed' or 'circuit-open'. */
   errorMessage?: string;
 }
 
@@ -87,7 +87,7 @@ export function ragRunToStages(status: RagRunStatus): StageDescriptor[] {
   const now = status.nowMs ?? Date.now();
   const elapsed = status.lastUpdateMs ? Math.max(0, now - status.lastUpdateMs) : undefined;
 
-  // Idx der aktiven Stage in STAGE_ORDER
+  // Index of the active stage in STAGE_ORDER
   const activeIdx = STAGE_ORDER.findIndex((s) => s.phase === phase);
   const isDone = phase === 'done';
   const isFailed = phase === 'failed';
@@ -105,12 +105,12 @@ export function ragRunToStages(status: RagRunStatus): StageDescriptor[] {
     } else if (isIdle) {
       s = 'pending';
     } else if (isFailed && activeIdx < 0) {
-      // Generischer Fail ohne Phase — letzte Stage failed, Rest skipped
+      // Generic fail without a phase — last stage failed, rest skipped
       s = idx === STAGE_ORDER.length - 1 ? 'failed' : 'skipped';
       if (idx === STAGE_ORDER.length - 1) subtitle = status.errorMessage ?? 'fehlgeschlagen';
     } else if (isCircuitOpen) {
-      // Circuit-Open: Run pausiert. Stages bis activeIdx done, active failed,
-      // Rest skipped. Wenn activeIdx<0 → cleanup failed.
+      // Circuit-open: run paused. Stages up to activeIdx done, active failed,
+      // rest skipped. If activeIdx<0 → cleanup failed.
       const fallbackIdx = activeIdx < 0 ? STAGE_ORDER.length - 1 : activeIdx;
       if (idx < fallbackIdx) s = 'done';
       else if (idx === fallbackIdx) {
@@ -118,7 +118,7 @@ export function ragRunToStages(status: RagRunStatus): StageDescriptor[] {
         subtitle = status.errorMessage ?? 'Circuit-Breaker offen';
       } else s = 'skipped';
     } else if (activeIdx < 0) {
-      // Phase unbekannt → alles pending
+      // Phase unknown → everything pending
       s = 'pending';
     } else if (idx < activeIdx) {
       s = 'done';
@@ -129,7 +129,7 @@ export function ragRunToStages(status: RagRunStatus): StageDescriptor[] {
       } else {
         s = 'running';
         if (elapsed !== undefined) etaBucket = bucketForElapsed(elapsed);
-        // Per-Stage progressPct
+        // Per-stage progressPct
         if (stage.phase === 'embed') {
           progressPct = pct(embeddedCount, totalChunks);
           if (progressPct !== undefined && totalChunks) {

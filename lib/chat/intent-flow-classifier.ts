@@ -499,16 +499,16 @@ export function classifyFlowIntent(
 }
 
 // ---------------------------------------------------------------------------
-// Komfort: Slash-Synthese
+// Convenience: slash synthesis
 // ---------------------------------------------------------------------------
 
 /**
- * Baut aus einer als 'flow' klassifizierten Eingabe den synthetischen
- * Slash-Command-String, den ChatShell stattdessen an `parseSlashCommand`
- * weiterreichen kann.
+ * Builds, from an input classified as 'flow', the synthetic
+ * slash-command string that ChatShell can instead forward to
+ * `parseSlashCommand`.
  *
- * N1 verbatim: der Original-Text bleibt unangetastet — nur ein `/flow `
- * davor. `extractSlashArgs` liefert dann den Originaltext als args.
+ * N1 verbatim: the original text stays untouched — only a `/flow `
+ * in front. `extractSlashArgs` then returns the original text as args.
  */
 export function buildSyntheticFlowCommand(originalText: string): string {
   return `/flow ${originalText}`;

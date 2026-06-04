@@ -1,18 +1,18 @@
 /**
  * GET /api/chat/usage?workspaceId=X
  *
- * Liefert Metadaten des letzten Chat-Turns im Workspace:
- *   - model               (aus agent-server /health)
- *   - sessionId           (aktive UUID)
+ * Returns metadata of the last chat turn in the workspace:
+ *   - model               (from agent-server /health)
+ *   - sessionId           (active UUID)
  *   - turnCount
- *   - lastInputTokens     (aus JSONL "usage.input_tokens" im letzten result-frame)
+ *   - lastInputTokens     (from JSONL "usage.input_tokens" in the last result frame)
  *   - lastOutputTokens    (usage.output_tokens)
  *   - lastCacheReadTokens (usage.cache_read_input_tokens)
- *   - contextTotal        (Summe aller input-related Tokens im letzten Turn)
- *   - contextWindow       (200_000 für Opus 4.7 1M-Context ist 1_000_000)
+ *   - contextTotal        (sum of all input-related tokens in the last turn)
+ *   - contextWindow       (200_000 for Opus 4.7; 1M-context is 1_000_000)
  *   - contextFillPct      (0..100)
  *
- * Read-only. Greift auf ~/.claude/projects/<slug>/<uuid>.jsonl zu.
+ * Read-only. Accesses ~/.claude/projects/<slug>/<uuid>.jsonl.
  */
 
 import fs from 'node:fs';
@@ -32,8 +32,8 @@ const CLAUDE_PROJECTS_DIR = path.join(HOME, '.claude', 'projects');
 const PROJECTS_DIR_PREFIX =
   projectsRoot().replace(/\/+$/, '').replace(/\//g, '-') + '-';
 
-// Opus 4.7 läuft standardmäßig mit 1M-Context in lazyOS (siehe CLAUDE.md —
-// "Default-Modell: Opus 4.7 mit 1M Context"). Für andere Modelle 200k.
+// Opus 4.7 runs with 1M context by default in lazyOS (see CLAUDE.md —
+// "Default-Modell: Opus 4.7 mit 1M Context"). For other models 200k.
 function contextWindowFor(model: string): number {
   if (model.includes('opus-4-8') || model.includes('opus-4-7') || model.includes('1m') || model.includes('[1m]')) {
     return 1_000_000;

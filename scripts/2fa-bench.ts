@@ -1,10 +1,10 @@
 /**
- * 2FA-Smoke-Test (kein DB-Touch).
- *   1. Secret generieren
- *   2. Code für aktuelle Zeit "berechnen" (otplib generate)
- *   3. Über verifyTotp prüfen
- *   4. Recovery-Codes erzeugen + hash + verify
- *   5. QR-Data-URL erzeugen (länge prüfen)
+ * 2FA smoke test (no DB touch).
+ *   1. Generate a secret
+ *   2. "Compute" the code for the current time (otplib generate)
+ *   3. Verify via verifyTotp
+ *   4. Generate recovery codes + hash + verify
+ *   5. Generate the QR data URL (check the length)
  */
 
 import { generateSync as otpGenerate } from 'otplib';

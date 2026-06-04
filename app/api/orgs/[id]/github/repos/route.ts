@@ -1,16 +1,16 @@
 /**
- * GET /api/orgs/[id]/github/repos — Live-Repo-Liste der Org-GitHub-Verbindung (member+)
+ * GET /api/orgs/[id]/github/repos — live repo list of the org GitHub connection (member+)
  *
  * Flow:
  *   1. assertOrgRole(req, orgId, 'member') — fail-closed.
- *   2. decryptOrgToken(orgId) — Token holen + entschlüsseln.
- *   3. listUserRepos(token) — live GitHub-API-Call.
- *   4. Response: Repo-Liste (name, full_name, private, default_branch, url).
+ *   2. decryptOrgToken(orgId) — fetch + decrypt the token.
+ *   3. listUserRepos(token) — live GitHub API call.
+ *   4. Response: repo list (name, full_name, private, default_branch, url).
  *
- * Sicherheits-Gebot:
- *   - Token wird NIEMALS in Response oder Log zurückgegeben.
- *   - Kein Credential → 404 { error: 'github-not-connected' }.
- *   - SQL immer WHERE org_id = ? (via decryptOrgToken → getOrgCredential).
+ * Security mandate:
+ *   - The token is NEVER returned in a response or log.
+ *   - No credential → 404 { error: 'github-not-connected' }.
+ *   - SQL always WHERE org_id = ? (via decryptOrgToken → getOrgCredential).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/orgs/[id]/github/repos
- * Mindestrolle: member
+ * Minimum role: member
  *
  * Response:
  *   200 { repos: Array<{ name, fullName, isPrivate, defaultBranch, url }> }
@@ -47,8 +47,8 @@ export async function GET(
     throw err;
   }
 
-  // WHERE org_id = ? ist in decryptOrgToken → getOrgCredential eingebaut.
-  // "list-repos" als N8-Zweck für die Audit-Row.
+  // WHERE org_id = ? is built into decryptOrgToken → getOrgCredential.
+  // "list-repos" as the N8 purpose for the audit row.
   const plainToken = decryptOrgToken(orgId, "list-repos");
   if (!plainToken) {
     return NextResponse.json(
@@ -73,7 +73,7 @@ export async function GET(
     );
   }
 
-  // Token NIEMALS in der Response — wir projizieren nur die nötigen Felder.
+  // NEVER the token in the response — we project only the necessary fields.
   const repoList = repos.map((r) => ({
     name: r.name,
     fullName: r.fullName,

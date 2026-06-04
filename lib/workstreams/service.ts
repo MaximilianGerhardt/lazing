@@ -1,13 +1,13 @@
 /**
- * Workstream-Service (Phase W).
+ * Workstream service (phase W).
  *
- * Workstream = Container für eine User-Anfrage. Enthält Master-Plan-Ticket,
- * Sub-Tickets (über Event-Sourced parent_ticket_id), eine primäre Claude-
- * Session und einen Tier-Mix für Multi-Agent-Spawn (Phase A folgt).
+ * Workstream = container for a user request. Contains the master plan ticket,
+ * sub-tickets (via event-sourced parent_ticket_id), a primary Claude
+ * session, and a tier mix for multi-agent spawn (phase A follows).
  *
- * Schreibzugriff geht durch diesen Service. Tickets werden NICHT direkt
- * geupdated — wir emittieren `workstream_attached`-Events am Ticket damit
- * die Projection sauber bleibt (event-sourced wie alles andere).
+ * Write access goes through this service. Tickets are NOT updated
+ * directly — we emit `workstream_attached` events on the ticket so
+ * the projection stays clean (event-sourced like everything else).
  */
 
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -55,7 +55,7 @@ export interface Workstream {
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
-  // Phase Sub-WS (Sprint C, 2026-04-29) — first-class Sub-Workstream-Felder.
+  // Phase Sub-WS (sprint C, 2026-04-29) — first-class sub-workstream fields.
   parentWorkstreamId: string | null;
   role: string | null;
   tmuxSessionId: string | null;
@@ -63,15 +63,15 @@ export interface Workstream {
   tokensOut: number;
   costCentsAggregated: number;
   /**
-   * 2026-05-01 — Intent-Marker (idea | implementation | bug-fix | question
-   * | discussion). NULL in der DB → 'discussion' beim Read.
+   * 2026-05-01 — intent marker (idea | implementation | bug-fix | question
+   * | discussion). NULL in the DB → 'discussion' on read.
    */
   intent: WorkstreamIntent;
 }
 
 /**
- * Sub-Workstream-Rolle. Enum-Hint, aber String-typed weil neue Rollen
- * jederzeit dazukommen koennen ohne Migration.
+ * Sub-workstream role. An enum hint, but string-typed because new roles
+ * can be added at any time without a migration.
  */
 export type SubWorkstreamRole =
   | 'iterate-lead'
@@ -92,7 +92,7 @@ export type SubWorkstreamRole =
   | 'sub-plan-sniper'
   | (string & {});
 
-/** Sub-Workstream-Status. Eigenes Enum weil sub-spezifische States. */
+/** Sub-workstream status. Its own enum because of sub-specific states. */
 export type SubWorkstreamStatus =
   | 'pending'
   | 'running'
@@ -108,11 +108,11 @@ export interface CreateWorkstreamInput {
   primarySessionId?: string;
   primaryTicketId?: string;
   tierMix?: TierMix;
-  /** Default-Actor `user:max`. */
+  /** Default actor `user:max`. */
   actor?: ActorType;
   /**
-   * Optionaler expliziter Intent. Wenn nicht gesetzt, klassifizieren wir
-   * automatisch aus name+description via intent-classifier (sync, Heuristik).
+   * Optional explicit intent. When not set, we classify it
+   * automatically from name+description via the intent classifier (sync, heuristic).
    */
   intent?: WorkstreamIntent;
 }
@@ -127,9 +127,9 @@ export interface UpdateWorkstreamInput {
   costCents?: number;
   qualityScore?: number | null;
   /**
-   * 2026-05-01 — User kann den Intent nachträglich korrigieren wenn die
-   * Auto-Klassifikation daneben lag (z.B. "schreib mir die Idee als bug-fix
-   * auf" — Heuristik klassifiziert idea, User sagt no, das ist bug-fix).
+   * 2026-05-01 — the user can correct the intent after the fact when the
+   * auto-classification was off (e.g. "schreib mir die Idee als bug-fix
+   * auf" — the heuristic classifies idea, the user says no, this is bug-fix).
    */
   intent?: WorkstreamIntent;
 }
@@ -138,7 +138,7 @@ export interface UpdateWorkstreamInput {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// Phase ORG (2026-04-27): Default `system` statt `user:max`-Fake.
+// Phase ORG (2026-04-27): default `system` instead of a `user:max` fake.
 const DEFAULT_ACTOR: ActorType = 'system';
 
 export function newWorkstreamId(now: number = Date.now()): string {
@@ -196,11 +196,11 @@ export async function createWorkstream(
   const now = Date.now();
   const id = newWorkstreamId(now);
 
-  // 2026-05-01 — Intent-Klassifikation. Explizite Wahl via input.intent
-  // gewinnt; ansonsten Sync-Heuristik aus name + description. Sync ist
-  // ausreichend, weil im Hot-Path keine LLM-Latenz akzeptabel ist; der
-  // Fallback-Pfad würde einen Tier-Spawn triggern und ist für später
-  // (separater Reclassify-Hook).
+  // 2026-05-01 — intent classification. An explicit choice via input.intent
+  // wins; otherwise the sync heuristic from name + description. Sync is
+  // sufficient because no LLM latency is acceptable in the hot path; the
+  // fallback path would trigger a tier spawn and is for later
+  // (a separate reclassify hook).
   const explicitIntent =
     input.intent && isValidIntent(input.intent) ? input.intent : null;
   const classified = explicitIntent
@@ -227,8 +227,8 @@ export async function createWorkstream(
     })
     .run();
 
-  // Audit-Event — workstream_created (custom event-type, wir lehnen uns an
-  // generic 'created' an, um keine neue EventType-Whitelist zu brechen).
+  // Audit event — workstream_created (custom event type; we lean on
+  // generic 'created' to not break any new EventType whitelist).
   await emitEvent({
     segmentId: input.workspaceId,
     entityType: 'workspace', // closest passing existing type
@@ -274,16 +274,16 @@ export async function getWorkstream(id: string): Promise<Workstream | null> {
 export interface ListOptions {
   workspaceId?: WorkspaceId;
   /**
-   * Phase IA.5 — Org-Filter. Wenn gesetzt UND keine workspaceId: nur
-   * Workstreams aus Workspaces dieser Org.
+   * Phase IA.5 — org filter. When set AND no workspaceId: only
+   * workstreams from workspaces of this org.
    */
   orgId?: string;
   status?: WorkstreamStatus | 'all';
   limit?: number;
   /**
-   * Sprint C (P0-1, 2026-04-29) — Default `true`: nur Master-Workstreams
-   * (parent_workstream_id IS NULL). Auf `false` setzen fuer Tree-Views.
-   * Verhindert das Leak von Sub-Workstreams in /workstreams Kanban.
+   * Sprint C (P0-1, 2026-04-29) — default `true`: only master workstreams
+   * (parent_workstream_id IS NULL). Set to `false` for tree views.
+   * Prevents the leak of sub-workstreams into the /workstreams kanban.
    */
   rootOnly?: boolean;
 }
@@ -298,14 +298,14 @@ export async function listWorkstreams(
   if (opts.workspaceId) {
     filters.push(eq(workstreams.workspaceId, opts.workspaceId));
   } else if (opts.orgId) {
-    // Resolve Org → Workspace-IDs, dann IN-Filter.
+    // Resolve org → workspace IDs, then an IN filter.
     const wsRows = db.$raw
       .prepare(
         `SELECT id FROM workspaces WHERE organization_id = ? AND archived = 0`,
       )
       .all(opts.orgId) as Array<{ id: string }>;
     if (wsRows.length === 0) {
-      // Keine Workspaces in dieser Org → leere Workstream-Liste.
+      // No workspaces in this org → empty workstream list.
       return [];
     }
     const wsIds = wsRows.map((r) => r.id);
@@ -314,13 +314,13 @@ export async function listWorkstreams(
   if (opts.status && opts.status !== 'all') {
     filters.push(eq(workstreams.status, opts.status));
   } else if (!opts.status) {
-    // P0-4 Fix: archivedAt ist nullable — eq(0) matcht NULL nicht und
-    // alle nicht-archivierten Rows haben dort NULL. Mit isNull() filtern.
+    // P0-4 fix: archivedAt is nullable — eq(0) doesn't match NULL and
+    // all non-archived rows have NULL there. Filter with isNull().
     filters.push(isNull(workstreams.archivedAt));
   }
 
-  // P0-1 Fix: Standardmaessig nur Master-Workstreams. Sub-WS koennen
-  // sich nicht ueber listWorkstreams im Kanban materialisieren.
+  // P0-1 fix: by default only master workstreams. Sub-WS cannot
+  // materialize themselves in the kanban via listWorkstreams.
   const rootOnly = opts.rootOnly !== false;
   if (rootOnly) {
     filters.push(isNull(workstreams.parentWorkstreamId));
@@ -385,12 +385,12 @@ export async function updateWorkstream(
 // ---------------------------------------------------------------------------
 
 /**
- * Verlinkt ein bestehendes Ticket mit einem Workstream. Emittiert ein
- * `updated`-Event am Ticket mit `payload.workstreamId`, damit die
- * TicketProjection-Logik die Verbindung aufnimmt (siehe lib/events/project).
+ * Links an existing ticket with a workstream. Emits an
+ * `updated` event on the ticket with `payload.workstreamId` so the
+ * TicketProjection logic picks up the connection (see lib/events/project).
  *
- * Wenn das Workstream noch keinen primary_ticket_id hat, wird das Ticket
- * automatisch als Master-Plan-Ticket gesetzt.
+ * When the workstream has no primary_ticket_id yet, the ticket is
+ * automatically set as the master plan ticket.
  */
 export async function attachTicketToWorkstream(opts: {
   workstreamId: string;
@@ -419,27 +419,27 @@ export async function attachTicketToWorkstream(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-Workstreams (Sprint C, 2026-04-29) — first-class entity.
+// Sub-workstreams (sprint C, 2026-04-29) — first-class entity.
 //
-// Jeder Tier-Spawn / Auto-Dispatch-Stage / Iterate-Lead-Roaster wird als
-// EIGENER Workstream-Eintrag mit `parent_workstream_id = master.id` angelegt.
-// Status startet 'pending', wird beim Spawn-Start auf 'running' gesetzt,
-// nach Spawn-Result auf 'done' / 'failed' / 'rate_limited'. Token-/Cost-
-// Updates per UPSERT auf der existing Row.
+// Every tier spawn / auto-dispatch stage / iterate-lead-roaster is created as
+// its OWN workstream entry with `parent_workstream_id = master.id`.
+// Status starts 'pending', is set to 'running' at spawn start,
+// then to 'done' / 'failed' / 'rate_limited' after the spawn result. Token/cost
+// updates via UPSERT on the existing row.
 // ---------------------------------------------------------------------------
 
 export interface CreateSubWorkstreamInput {
-  /** Master-Workstream zu dem dieser Sub-WS gehört. */
+  /** Master workstream this sub-WS belongs to. */
   parentId: string;
-  /** Rolle (siehe SubWorkstreamRole). */
+  /** Role (see SubWorkstreamRole). */
   role: SubWorkstreamRole;
-  /** Lesbarer Name; default `${role} (sub of <parent>)`. */
+  /** Readable name; default `${role} (sub of <parent>)`. */
   name?: string;
-  /** Beschreibung (optional, für UI-Tooltip). */
+  /** Description (optional, for a UI tooltip). */
   description?: string;
-  /** Anthropic-Modell-Name oder Tier-Label fürs UI. */
+  /** Anthropic model name or tier label for the UI. */
   model?: string;
-  /** tmux-Session-Name — wenn schon vorab bekannt, sonst per setTmuxSessionId. */
+  /** tmux session name — if already known in advance, otherwise via setTmuxSessionId. */
   tmuxSessionId?: string;
 }
 
@@ -471,10 +471,10 @@ export async function createSubWorkstream(
       primarySessionId: null,
       primaryTicketId: parent.primaryTicketId,
       tierMix: null,
-      // 'pending' bis spawn startet — mappen wir auf 'active' für die
-      // Top-Level-Status-Spalte (die enum-restringiert ist), und tracken
-      // den Sub-Status implizit ueber tokensIn>0 / cost>0 / archivedAt.
-      // Konsumenten lesen Sub-Status aus Audit-Events, nicht aus Spalte.
+      // 'pending' until the spawn starts — we map it to 'active' for the
+      // top-level status column (which is enum-restricted), and track
+      // the sub-status implicitly via tokensIn>0 / cost>0 / archivedAt.
+      // Consumers read the sub-status from audit events, not from the column.
       status: 'active',
       costCents: 0,
       qualityScore: null,
@@ -488,14 +488,14 @@ export async function createSubWorkstream(
       tokensIn: 0,
       tokensOut: 0,
       costCentsAggregated: 0,
-      // Sub-Workstream erbt den Parent-Intent (gleiches Vorhaben, andere
-      // Rolle). Bleibt NULL falls Parent-Row noch keinen Intent hatte
-      // (Pre-0051-Legacy) — Read normalisiert dann auf 'discussion'.
+      // The sub-workstream inherits the parent intent (same goal, different
+      // role). Stays NULL if the parent row had no intent yet
+      // (pre-0051 legacy) — the read then normalizes to 'discussion'.
       intent: parent.intent ?? null,
     })
     .run();
 
-  // Audit-Event — workstream.created mit kind=sub-workstream.
+  // Audit event — workstream.created with kind=sub-workstream.
   await emitEvent({
     segmentId: parent.workspaceId,
     entityType: 'workspace',
@@ -522,7 +522,7 @@ export async function createSubWorkstream(
   return rowToWorkstream(row);
 }
 
-/** Sub-Workstreams direkt unter `parentId`. Tiefe = 1. */
+/** Sub-workstreams directly under `parentId`. Depth = 1. */
 export async function listSubWorkstreams(
   parentId: string,
 ): Promise<Workstream[]> {
@@ -537,8 +537,8 @@ export async function listSubWorkstreams(
 }
 
 /**
- * Liefert Master + alle Descendants (rekursiv via parent_workstream_id).
- * Begrenzt auf `maxDepth` Iterationen damit Zykel keine Endlosschleife geben.
+ * Returns the master + all descendants (recursively via parent_workstream_id).
+ * Limited to `maxDepth` iterations so cycles don't cause an infinite loop.
  */
 export async function getWorkstreamWithDescendants(
   id: string,
@@ -547,9 +547,9 @@ export async function getWorkstreamWithDescendants(
   const root = await getWorkstream(id);
   if (!root) return [];
   const result: Workstream[] = [root];
-  // P1-5 Fix: seen-Set + Frontier-Filter verhindern Endlosschleife bei
-  // korrupten parent-cycles in der DB. Plus warn-Log wenn maxDepth
-  // erreicht — frueher Hinweis auf orphaned/zu-tiefe Sub-Trees.
+  // P1-5 fix: the seen set + frontier filter prevent an infinite loop on
+  // corrupt parent cycles in the DB. Plus a warn log when maxDepth is
+  // reached — an early hint of orphaned/too-deep sub-trees.
   const seen = new Set<string>([id]);
   let frontier: string[] = [id];
   for (let depth = 0; depth < maxDepth; depth++) {
@@ -580,17 +580,17 @@ export async function getWorkstreamWithDescendants(
 export interface UpdateTokenUsageInput {
   tokensIn?: number;
   tokensOut?: number;
-  /** Fügt sich (additiv) zum bisherigen `cost_cents_aggregated` dazu. */
+  /** Adds (additively) to the existing `cost_cents_aggregated`. */
   costCents?: number;
-  /** Wenn gesetzt: tmux_session_id ueberschreiben (Late-Binding). */
+  /** If set: overwrite tmux_session_id (late binding). */
   tmuxSessionId?: string;
 }
 
 /**
- * UPSERT-artiger Token-Update fuer Sub-Workstreams. Additiv — Aufrufer
- * ruft mit den Tokens des aktuellen Spawn-Ergebnis, wir summieren auf
- * den existing Wert drauf. So funktioniert das auch fuer Multi-Round-
- * Spawns wo derselbe Sub mehrere Calls absetzt.
+ * UPSERT-style token update for sub-workstreams. Additive — the caller
+ * calls with the tokens of the current spawn result, we sum onto
+ * the existing value. This also works for multi-round
+ * spawns where the same sub issues several calls.
  */
 export async function updateTokenUsage(
   workstreamId: string,
@@ -598,9 +598,9 @@ export async function updateTokenUsage(
 ): Promise<void> {
   const db = getDb();
 
-  // P0-2 Fix: Atomar via SQL-Expression statt SELECT+SET. Bei parallelen
-  // Spawns desselben Sub-WS (mehrere Stages, Multi-Round) verhindert das
-  // den Race-Condition, der sonst Token-Updates ueberschreibt.
+  // P0-2 fix: atomic via a SQL expression instead of SELECT+SET. On parallel
+  // spawns of the same sub-WS (several stages, multi-round) this prevents
+  // the race condition that would otherwise overwrite token updates.
   const now = Date.now();
   const tokensIn = Math.max(0, Math.floor(input.tokensIn ?? 0));
   const tokensOut = Math.max(0, Math.floor(input.tokensOut ?? 0));
@@ -621,19 +621,19 @@ export async function updateTokenUsage(
     .where(eq(workstreams.id, workstreamId))
     .run();
 
-  // Critic-Fix #1c (2026-05-25): Master-Liveness-Bump. Wenn dieser WS ein
-  // Sub-WS ist (parent_workstream_id != NULL), bumpe auch die MASTER-Row
-  // `updated_at`. Sonst sieht der Recovery-Sweep den Master als stale obwohl
-  // seine Sub-Spawns gerade Tokens schreiben (die Welle lebt). Nur die
-  // updated_at-Spalte — keine Status-/Token-Mutation am Master.
+  // Critic fix #1c (2026-05-25): master liveness bump. When this WS is a
+  // sub-WS (parent_workstream_id != NULL), also bump the MASTER row's
+  // `updated_at`. Otherwise the recovery sweep sees the master as stale even though
+  // its sub-spawns are currently writing tokens (the wave is alive). Only the
+  // updated_at column — no status/token mutation on the master.
   bumpMasterUpdatedAt(workstreamId, now);
 }
 
 /**
- * Critic-Fix #1c — bumpt die `updated_at` der Master-Row wenn `childId` ein
- * Sub-WS ist. Ein einzelner UPDATE mit Subquery; no-op wenn childId ein
- * Master ist (parent_workstream_id IS NULL → Subquery liefert NULL → kein
- * Match). Best-effort: wirft nicht (Liveness-Bump ist additiv, nicht blocking).
+ * Critic fix #1c — bumps the `updated_at` of the master row when `childId` is a
+ * sub-WS. A single UPDATE with a subquery; no-op when childId is a
+ * master (parent_workstream_id IS NULL → the subquery returns NULL → no
+ * match). Best-effort: does not throw (the liveness bump is additive, not blocking).
  */
 function bumpMasterUpdatedAt(childId: string, now: number): void {
   try {
@@ -656,11 +656,11 @@ function bumpMasterUpdatedAt(childId: string, now: number): void {
 }
 
 /**
- * Setzt Sub-Workstream-Status — wir mappen Sub-Stati auf Top-Level-Status
- * + archivedAt fuer 'done'/'failed':
+ * Sets the sub-workstream status — we map sub-statuses to the top-level status
+ * + archivedAt for 'done'/'failed':
  *   - pending/running → status='active'
  *   - done            → status='done', archivedAt=now (graceful disappear)
- *   - failed          → status='paused' (sichtbar bleiben fuer Debug)
+ *   - failed          → status='paused' (stay visible for debugging)
  *   - rate_limited    → status='paused'
  */
 export async function setSubWorkstreamStatus(
@@ -684,16 +684,16 @@ export async function setSubWorkstreamStatus(
       break;
     case 'done':
       setClause.status = 'done';
-      // archivedAt NICHT setzen — Sub-WS soll im Tree sichtbar bleiben
-      // bis Master geschlossen wird.
+      // Do NOT set archivedAt — the sub-WS should stay visible in the tree
+      // until the master is closed.
       break;
     case 'failed':
     case 'rate_limited':
       setClause.status = 'paused';
       break;
     case 'stuck':
-      // P1-7: Sub-WS ist haengen geblieben (z.B. Resume-Spawn liefert
-      // leeren Output). UI rendert das als rote Pill.
+      // P1-7: the sub-WS got stuck (e.g. the resume spawn returns
+      // empty output). The UI renders this as a red pill.
       setClause.status = 'stuck';
       break;
   }
@@ -703,8 +703,8 @@ export async function setSubWorkstreamStatus(
     .where(eq(workstreams.id, workstreamId))
     .run();
 
-  // Critic-Fix #1c (2026-05-25): Master-Liveness-Bump auch bei Status-Wechsel
-  // eines Sub-WS (running/done/failed/...). Hält die Master-Row für den
-  // Recovery-Sweep frisch solange Sub-Spawns Fortschritt melden.
+  // Critic fix #1c (2026-05-25): master liveness bump also on a status change
+  // of a sub-WS (running/done/failed/...). Keeps the master row fresh for the
+  // recovery sweep as long as sub-spawns report progress.
   bumpMasterUpdatedAt(workstreamId, now);
 }

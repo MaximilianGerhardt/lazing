@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Maximilian Gerhardt
 //
-// /features — Feature-Übersicht aller laz.ing-Aufpfropfungen auf
-// Claude Code + Codex. Statisch SSR-rendered aus lib/features/catalog.ts.
+// /features — Feature overview of all laz.ing add-ons on top of
+// Claude Code + Codex. Statically SSR-rendered from lib/features/catalog.ts.
 //
-// Design-Disziplin (laz.ing Design Manifest v1.0):
-//   - Pitch-Black Canvas via .sheet + Tokens
-//   - SF Pro Display (var(--font-display)) für Titel
-//   - 0.5px Lines, --radius-pill, KEINE neuen Hex-Werte, KEIN shadcn
-//   - Mobile-first (375px-tauglich): Cards stapeln, Pills wrappen,
-//     Filter-Bar 1-Column auf schmal, kein horizontaler Overflow.
-//   - Touch-Targets >= 44px (Filter-Bar-Rows).
+// Design discipline (laz.ing Design Manifest v1.0):
+//   - Pitch-Black Canvas via .sheet + tokens
+//   - SF Pro Display (var(--font-display)) for titles
+//   - 0.5px lines, --radius-pill, NO new hex values, NO shadcn
+//   - Mobile-first (375px-capable): cards stack, pills wrap,
+//     filter bar 1-column on narrow, no horizontal overflow.
+//   - Touch targets >= 44px (filter bar rows).
 //
-// Filterung läuft im Client (FeatureFilterBar.tsx) durch CSS-Display-Toggle
-// auf bereits SSR-gerenderten Cards — kein Re-Fetch, kein Liste-Rebuild.
-// → Mit JS off bleibt die Seite trotzdem komplett lesbar.
+// Filtering runs on the client (FeatureFilterBar.tsx) via CSS display toggle
+// on already SSR-rendered cards — no re-fetch, no list rebuild.
+// → With JS off the page still stays fully readable.
 
 import type { CSSProperties } from 'react';
 
@@ -31,7 +31,7 @@ import {
 import { FeatureCard } from './_components/FeatureCard';
 import { FeatureFilterBar } from './_components/FeatureFilterBar';
 
-// Statische SSR — Catalog ist Build-Zeit-konstant.
+// Static SSR — catalog is build-time-constant.
 export const dynamic = 'force-static';
 
 export const metadata = {
@@ -67,7 +67,7 @@ export default function FeaturesPage(): React.ReactElement {
           </div>
         </header>
 
-        {/* ─── Filter-Bar ──────────────────────────────────────────── */}
+        {/* ─── Filter bar ──────────────────────────────────────────── */}
         <div style={{ marginTop: 18 }}>
           <FeatureFilterBar />
         </div>
@@ -97,7 +97,7 @@ export default function FeaturesPage(): React.ReactElement {
           Keine Features für diese Filter-Kombination.
         </div>
 
-        {/* ─── Category-Sections ──────────────────────────────────── */}
+        {/* ─── Category sections ──────────────────────────────────── */}
         {grouped.map(({ category, features }) => {
           const slug = categoryAnchor(category);
           return (
@@ -123,7 +123,7 @@ export default function FeaturesPage(): React.ReactElement {
           );
         })}
 
-        {/* ─── Footer-Notiz: ehrliche Recherche-Lücke ─────────────── */}
+        {/* ─── Footer note: honest research gap ─────────────── */}
         <footer style={footerStyle}>
           <div style={footerLabelStyle}>Recherche-Lücke (ehrlich)</div>
           <p style={footerProseStyle}>
@@ -148,9 +148,9 @@ export default function FeaturesPage(): React.ReactElement {
 }
 
 // ---------------------------------------------------------------------------
-// CardWrap — leichtgewichtiger Wrapper, der die data-* Attribute für den
-// Client-Filter setzt. Trennt das vom render-only FeatureCard, damit dieses
-// rein Markup bleibt.
+// CardWrap — lightweight wrapper that sets the data-* attributes for the
+// client filter. Keeps that separate from the render-only FeatureCard, so it
+// stays pure markup.
 // ---------------------------------------------------------------------------
 
 function CardWrap({ feature }: { feature: Feature }): React.ReactElement {

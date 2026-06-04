@@ -1,24 +1,24 @@
 /**
- * SandboxBadge — Pill-Marker für Workspaces im Sandbox-Mode (P16, 2026-05-01).
+ * SandboxBadge — pill marker for workspaces in sandbox mode (P16, 2026-05-01).
  *
  * Visual:
- *   - Gepunktete Border (visuell „Spielfeld klar abgesteckt")
- *   - Kein Warnung-Icon — Sandbox ist Enabler, kein Gefahren-State
- *   - Gleiche Höhe + Mono-Font wie umliegende Status-Pills
+ *   - dotted border (visually "playing field clearly staked out")
+ *   - no warning icon — sandbox is an enabler, not a danger state
+ *   - same height + mono font as surrounding status pills
  *
- * Nutzung:
+ * Usage:
  *   {workspace.sandboxMode === 1 ? <SandboxBadge /> : null}
  *
- * Surface-Library-konform: inline-style, keine Overlays, keine externen
- * CSS-Klassen.
+ * Surface-library-conformant: inline style, no overlays, no external
+ * CSS classes.
  */
 
 import type { CSSProperties, JSX } from 'react';
 
 interface Props {
-  /** Optional: kompakte Darstellung (kleiner, nur „SBX"). */
+  /** Optional: compact rendering (smaller, only "SBX"). */
   compact?: boolean;
-  /** Optional: aria-label / title-Override. */
+  /** Optional: aria-label / title override. */
   title?: string;
 }
 

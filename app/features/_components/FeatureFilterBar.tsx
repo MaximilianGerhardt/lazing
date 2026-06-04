@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Maximilian Gerhardt
 //
-// app/features/_components/FeatureFilterBar — Client-Island, browser-only.
+// app/features/_components/FeatureFilterBar — client island, browser-only.
 //
-// Aufgabe: Filter (Category, Status, On-Top) + Search. Da der Catalog statisch
-// (Build-Zeit) ist, filtert dieser Client-Component die SCHON-gerenderte DOM-
-// Liste via [data-…]-Attribute + display:none — KEIN Re-Render, kein Re-Fetch,
-// kein Hydration-Tax über die ganze Liste. Das hält die Seite SSR-friendly +
-// rendert sofort komplett, auch mit JS off (dann ohne Filter, aber lesbar).
+// Task: filter (category, status, on-top) + search. Since the catalog is static
+// (build-time), this client component filters the ALREADY-rendered DOM
+// list via [data-…] attributes + display:none — NO re-render, no re-fetch,
+// no hydration tax across the whole list. This keeps the page SSR-friendly +
+// renders fully right away, even with JS off (then without filters, but readable).
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
@@ -31,7 +31,7 @@ const STATUSES: readonly FeatureStatus[] = [
 const ONTOPS: readonly FeatureOnTop[] = ['claude-code', 'codex', 'both', 'standalone'];
 
 interface Props {
-  /** Bereitgestellte feature-Roots zum Filtern (Selector via [data-feature-id]). */
+  /** Provided feature roots to filter (selector via [data-feature-id]). */
   readonly featuresSelector?: string;
 }
 
@@ -45,7 +45,7 @@ export function FeatureFilterBar({
 
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Filter-Effekt: lese alle DOM-Cards + setze hidden-Attribut.
+  // Filter effect: read all DOM cards + set the hidden attribute.
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const cards = Array.from(
@@ -66,7 +66,7 @@ export function FeatureFilterBar({
       c.style.display = show ? '' : 'none';
       if (show) visible++;
     }
-    // Hide leere Category-Sections.
+    // Hide empty category sections.
     const sections = document.querySelectorAll<HTMLElement>('[data-category-section]');
     sections.forEach((sec) => {
       const sectCat = sec.dataset.categorySection ?? '';
@@ -74,7 +74,7 @@ export function FeatureFilterBar({
         sec.querySelectorAll<HTMLElement>(featuresSelector),
       ).some((c) => c.style.display !== 'none');
       sec.style.display = hasVisible ? '' : 'none';
-      // Auch unsere Anker-Nav-Items toggeln (data-anchor=<cat-slug>).
+      // Also toggle our anchor nav items (data-anchor=<cat-slug>).
       const anchorSlug = sec.dataset.anchorSlug ?? '';
       if (anchorSlug) {
         const navEl = document.querySelector<HTMLElement>(
@@ -84,7 +84,7 @@ export function FeatureFilterBar({
       }
       void sectCat; // dataset noise-quiet
     });
-    // Empty-State-Marker
+    // Empty-state marker
     const empty = document.querySelector<HTMLElement>('[data-empty-state]');
     if (empty) empty.style.display = visible === 0 ? '' : 'none';
   }, [category, status, onTop, search, featuresSelector]);

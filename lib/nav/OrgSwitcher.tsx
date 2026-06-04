@@ -3,12 +3,12 @@
 /**
  * OrgSwitcher — Phase A.
  *
- * Eigene Pill links vom WorkspaceSwitcher. Klick öffnet ein Popover mit
- * Orgs des Users, plus „Alle" (kein Filter). Auswahl persistiert in
- * `lazyos.org` (localStorage) und filtert den WorkspaceSwitcher.
+ * Its own pill to the left of the WorkspaceSwitcher. Clicking opens a popover
+ * with the user's orgs, plus "Alle" (no filter). The selection persists in
+ * `lazyos.org` (localStorage) and filters the WorkspaceSwitcher.
  *
- * Layout: gleiche Höhe wie WorkspaceSwitcher, aber Glyph statt Color-Dot.
- * Bei wenig Platz auf Mobile: nur 3-Letter-Slug (LLC, BUDD, …).
+ * Layout: same height as WorkspaceSwitcher, but glyph instead of color dot.
+ * When space is tight on mobile: only the 3-letter slug (LLC, BUDD, …).
  */
 
 import {
@@ -97,11 +97,11 @@ export function OrgSwitcher(): React.JSX.Element {
   const currentOrgId = useCurrentOrgId();
   const setOrg = useSetOrg();
   const pathname = usePathname() ?? '/';
-  // Nav-Fix D (2026-06-02): Auf echten Workspace-Seiten (/workspaces/[id]/*)
-  // besitzt <OrgBootstrap> den Org-Kontext. Die Auto-Normalisierung darf hier
-  // NICHT per Hard-Redirect „korrigieren" — sonst verlässt sie die Seite
-  // (der alte Blocker). Der user-initiierte pick()-Handler bleibt unberührt,
-  // der Org-Switch funktioniert also weiter.
+  // Nav-Fix D (2026-06-02): On real workspace pages (/workspaces/[id]/*)
+  // <OrgBootstrap> owns the org context. The auto-normalization must NOT
+  // "correct" via a hard redirect here — otherwise it leaves the page
+  // (the old blocker). The user-initiated pick() handler stays untouched,
+  // so the org switch keeps working.
   const isRealWorkspacePage = /^\/workspaces\/[^/]+(?:\/|$)/.test(pathname);
 
   const [open, setOpen] = useState(false);
@@ -199,14 +199,13 @@ export function OrgSwitcher(): React.JSX.Element {
   );
 
   /**
-   * Hierarchie 2-stufig aufbauen:
-   *  - `topLevel` = Orgs ohne `parentId` ODER deren parent nicht in der Liste ist
-   *    (bei eingeschränktem User-Scope kann der Parent fehlen).
-   *  - `childrenByParent` = Map parentId → Sub-Orgs.
+   * Build the hierarchy in 2 levels:
+   *  - `topLevel` = orgs without a `parentId` OR whose parent is not in the list
+   *    (with a restricted user scope the parent may be missing).
+   *  - `childrenByParent` = map parentId → sub-orgs.
    *
-   * Sortierung: stabil nach `name`. Wir respektieren die Server-Reihenfolge
-   * nicht zwingend, aber `name` ist die einzige stabile Cross-Session-
-   * Reihenfolge die der User erkennt.
+   * Sorting: stable by `name`. We don't necessarily respect the server order,
+   * but `name` is the only stable cross-session order the user recognizes.
    */
   const { topLevel, childrenByParent } = useMemo(() => {
     const ids = new Set(orgs.map((o) => o.id));
@@ -232,9 +231,9 @@ export function OrgSwitcher(): React.JSX.Element {
     return { topLevel: topsSorted, childrenByParent: childMapSorted };
   }, [orgs]);
 
-  // Phase IA.1 — wenn keine valide Org gespeichert ist (Erstlogin oder
-  // alte ORG_ALL_ID-Session) ODER User nicht mehr Mitglied der Ziel-Org
-  // ist, automatisch auf erste verfügbare User-Org schalten.
+  // Phase IA.1 — when no valid org is stored (first login or an
+  // old ORG_ALL_ID session) OR the user is no longer a member of the
+  // target org, automatically switch to the first available user org.
   useEffect(() => {
     if (isLoading) return;
     if (orgs.length === 0) return;
@@ -384,12 +383,12 @@ export function OrgSwitcher(): React.JSX.Element {
         <IconChevronDown size={12} className="topnav-org-caret" />
       </button>
 
-      {/* Apple-Reduktion (2026-05-30): das Edit-Pencil neben dem Switcher ist
-          entfernt — eines der vom Render-Critic (HOCH) gerügten überzähligen
-          Bar-Targets. Org-Bearbeitung läuft jetzt ausschließlich über den
-          Hamburger-Drawer (Organisation → „Aktive Organisation" /orgs +
-          „Organisationen verwalten" /orgs/manage) bzw. das Org-Popover unten.
-          Die Identitäts-Zeile bleibt der ruhige primäre Anker. */}
+      {/* Apple reduction (2026-05-30): the edit pencil next to the switcher is
+          removed — one of the surplus bar targets flagged by the render critic
+          (HIGH). Org editing now runs exclusively through the
+          hamburger drawer (Organisation → „Aktive Organisation" /orgs +
+          „Organisationen verwalten" /orgs/manage) or the org popover below.
+          The identity line stays the calm primary anchor. */}
 
       {open ? (
         <div
@@ -398,10 +397,10 @@ export function OrgSwitcher(): React.JSX.Element {
           role="listbox"
           aria-label="Kunden"
         >
-          {/* Phase IA.1 — kein „Alle Orgs"-Modus mehr (User-Entscheidung
-              2026-04-29). Nur die echten User-Orgs als Auswahl.
-              2026-05-01 — 2-stufige Hierarchie: Top-Level + Sub-Orgs als
-              eingerückte Items unter ihrem Parent. */}
+          {/* Phase IA.1 — no more "all orgs" mode (user decision
+              2026-04-29). Only the real user orgs as choices.
+              2026-05-01 — 2-level hierarchy: top-level + sub-orgs as
+              indented items under their parent. */}
           {topLevel.map((o) => {
             const children = childrenByParent.get(o.id);
             return (

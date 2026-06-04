@@ -1,10 +1,10 @@
 /**
- * Smoke-Test für die Ticket-Service-Schicht.
- * Ruft createTicket / updateTicket / closeTicket / listTickets / getTimeline
- * direkt auf — ohne HTTP/Middleware. Verifiziert, dass der Event-Log-
- * round-trip (append → projection) korrekt ist.
+ * Smoke test for the ticket-service layer.
+ * Calls createTicket / updateTicket / closeTicket / listTickets / getTimeline
+ * directly — without HTTP/middleware. Verifies that the event-log
+ * round-trip (append → projection) is correct.
  *
- * Lauf:  npx tsx scripts/tickets-smoke.ts   (vom Repo-Root)
+ * Run:  npx tsx scripts/tickets-smoke.ts   (from the repo root)
  */
 
 import {

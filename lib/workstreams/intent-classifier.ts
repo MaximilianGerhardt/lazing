@@ -1,23 +1,23 @@
 /**
  * lib/workstreams/intent-classifier.ts
  * -------------------------------------
- * 2026-05-01 — Workstream-Intent-Klassifikation.
+ * 2026-05-01 — workstream intent classification.
  *
- * Adressiert User-Befund "der unterschied zwischen der implementierung der
- * ideen noch immer nicht klar". Wir klassifizieren beim Workstream-Spawn
- * den Intent des User-Prompts und persistieren das Ergebnis am Workstream.
+ * Addresses the user finding "der unterschied zwischen der implementierung der
+ * ideen noch immer nicht klar". On workstream spawn we classify
+ * the intent of the user prompt and persist the result on the workstream.
  *
- * Strategie:
- *   1. Regex+Keyword-Heuristik — schnell, deterministisch, free.
- *   2. Confidence-Score: keyword-hits / weighted scoring.
- *   3. Bei low-confidence (<0.35) optional LLM-Fallback (eigener Tier-Spawn).
- *      Default: deaktiviert. Aktiviert via opts.llmFallback=true. Test-Mode
- *      (NODE_ENV=test) skippt den Fallback IMMER, damit Unit-Tests
- *      deterministisch bleiben.
+ * Strategy:
+ *   1. Regex+keyword heuristic — fast, deterministic, free.
+ *   2. Confidence score: keyword hits / weighted scoring.
+ *   3. On low confidence (<0.35), an optional LLM fallback (its own tier spawn).
+ *      Default: disabled. Enabled via opts.llmFallback=true. Test mode
+ *      (NODE_ENV=test) ALWAYS skips the fallback so unit tests
+ *      stay deterministic.
  *
- * Pure module — keine DB-Schreibzugriffe, keine fetches im Default-Pfad.
- * spawnTier wird via dependency-injection als optionaler Hook eingehängt
- * (Tests können trivial mocken).
+ * Pure module — no DB writes, no fetches in the default path.
+ * spawnTier is injected via dependency injection as an optional hook
+ * (tests can mock it trivially).
  */
 import type { ActorType } from '../events/types';
 
@@ -31,46 +31,46 @@ export type WorkstreamIntent =
   | 'discussion';
 
 /**
- * Sekundäre Intents — werden NICHT in workstream.intent persistiert (das
- * bleibt single-valued), aber als Hint im UI nutzbar (z.B. retro-Tag,
- * discussion-Kontext). Aktuell nicht im DB-Pfad, exportiert für Tests.
+ * Secondary intents — NOT persisted in workstream.intent (that
+ * stays single-valued), but usable as a hint in the UI (e.g. retro tag,
+ * discussion context). Currently not in the DB path; exported for tests.
  */
 export type SecondaryIntent = 'retro' | 'discussion';
 
 export interface ClassifyResult {
   intent: WorkstreamIntent;
   confidence: number;
-  /** Welche Regex-Familien haben gefeuert. Debug-Hilfe für UI/Tests. */
+  /** Which regex families fired. Debug aid for UI/tests. */
   matched: WorkstreamIntent[];
-  /** Wahrer Sentinel-Wert: hat der LLM-Fallback (falls erlaubt) entschieden? */
+  /** Truthy sentinel value: did the LLM fallback (if allowed) decide? */
   fallbackUsed: boolean;
 }
 
 export interface ClassifyOptions {
-  /** Schwelle, ab der NICHT mehr fallback wird. Default 0.35. */
+  /** Threshold above which there is NO more fallback. Default 0.35. */
   fallbackThreshold?: number;
-  /** Wenn true UND Confidence unter Threshold UND Hook gesetzt → LLM-Spawn. */
+  /** When true AND confidence below threshold AND hook set → LLM spawn. */
   llmFallback?: boolean;
   /**
-   * Optionaler LLM-Hook. Liefert eine kanonische Intent-String oder null.
-   * Wird in Production via spawnTier eingehängt; in Tests gemockt oder
-   * weggelassen.
+   * Optional LLM hook. Returns a canonical intent string or null.
+   * Wired in production via spawnTier; in tests it's mocked or
+   * omitted.
    */
   llmHook?: (prompt: string) => Promise<WorkstreamIntent | null>;
 }
 
-// --- Regex-Patterns --------------------------------------------------------
+// --- Regex patterns --------------------------------------------------------
 //
-// Pattern-Bibliothek: case-insensitive Wort-Boundaries. Jede Familie hat
-// ein Score-Gewicht — multi-keyword-Treffer sind stärker als ein einzelner.
-// Der Regex nutzt absichtlich Unicode-Word-Boundaries (\b) UND deutsche
-// Umlaute/Zusammensetzungen werden über Substrings statt strikter
-// Wort-Grenze gefangen (z.B. "stürzt" matcht "stürz").
+// Pattern library: case-insensitive word boundaries. Each family has
+// a score weight — multi-keyword matches are stronger than a single one.
+// The regex deliberately uses Unicode word boundaries (\b), AND German
+// umlauts/compounds are caught via substrings rather than a strict
+// word boundary (e.g. "stürzt" matches "stürz").
 
 interface PatternFamily {
   intent: WorkstreamIntent;
   patterns: RegExp[];
-  /** Pro-Treffer-Score-Gewicht. */
+  /** Per-match score weight. */
   weight: number;
 }
 
@@ -106,11 +106,11 @@ const PATTERNS: PatternFamily[] = [
     weight: 1.0,
     patterns: [
       /\bimplementier/i,
-      // bau / baue / baust / bauen — auch "Bau mir die API"
+      // bau / baue / baust / bauen — also "Bau mir die API"
       /\bbau(e|en|st|t)?\b/i,
-      // build / builde / building / built / Build (Substantiv) — vermeidet
-      // false-positive bei "Build ist langsam" über Wort-Boundary "Build"
-      // (nur als Verb/Imperativ akzeptieren)
+      // build / builde / building / built / Build (noun) — avoids a
+      // false positive on "Build ist langsam" via the word boundary "Build"
+      // (only accept as verb/imperative)
       /\b(builde|building|built)\b/i,
       /\bbuild\b\s+(mir|den|die|das|me|the)\b/i,
       // "setze ... um" + "umsetzen"
@@ -119,7 +119,7 @@ const PATTERNS: PatternFamily[] = [
       /\bdeploy(e|t|en|ed|ing)?\b/i,
       /\brelease(n|t|s|d)?\b/i,
       /\bship(pen|t|s|ped|ping)?\b/i,
-      // Schiffe / Schiff (deutsch Imperativ)
+      // Schiffe / Schiff (German imperative)
       /\bschiff(e|t|en)?\b/i,
       /\bcommit(t|ten|en|s|ted|ting)?\b/i,
       /\brefactor(e|ing|ed|s)?\b/i,
@@ -175,9 +175,9 @@ const PATTERNS: PatternFamily[] = [
   },
 ];
 
-// Discussion ist Default (keine eigenen Trigger). Retro/discussion als
-// secondary könnten später eigene Pattern-Familien bekommen (z.B. "retro",
-// "lessons learned", "rückblick"). Vorerst nicht im DB-Schema persistiert.
+// Discussion is the default (no triggers of its own). Retro/discussion as
+// secondary could later get their own pattern families (e.g. "retro",
+// "lessons learned", "rückblick"). For now not persisted in the DB schema.
 
 // --- Internals -------------------------------------------------------------
 
@@ -209,16 +209,16 @@ function scorePrompt(prompt: string): RawScore[] {
 }
 
 /**
- * Normalisiert Score → Confidence im Bereich [0, 1]. Heuristik:
+ * Normalizes score → confidence in the range [0, 1]. Heuristic:
  *   - 0 hits   → 0.0
- *   - 1 hit    → 0.45 (knapp unter Default-Threshold 0.35 → kein Fallback bei 1 hit, aber nahe dran)
+ *   - 1 hit    → 0.45 (just above the default threshold 0.35 → no fallback at 1 hit, but close)
  *   - 2 hits   → 0.7
  *   - 3+ hits  → 0.85
  *   - 5+ hits  → 0.95
  *
- * Top-Score relativ zur Summe aller Scores fließt zusätzlich ein als
- * "Eindeutigkeit" — wenn mehrere Familien feuern (bug-fix UND
- * implementation), sinkt das Vertrauen leicht.
+ * The top score relative to the sum of all scores additionally enters as
+ * "distinctness" — when several families fire (bug-fix AND
+ * implementation), confidence drops slightly.
  */
 function computeConfidence(top: RawScore, totalScore: number): number {
   if (top.matchCount === 0) return 0;
@@ -229,9 +229,9 @@ function computeConfidence(top: RawScore, totalScore: number): number {
   else if (top.matchCount === 4) base = 0.9;
   else base = 0.95;
 
-  // Eindeutigkeit: top.score / totalScore in [topShare ∈ 0..1]. 1 = nur eine
-  // Familie hat gefeuert. <0.7 = mehrere konkurrierende Familien. Wir senken
-  // die Confidence linear bis zu max -0.15.
+  // Distinctness: top.score / totalScore in [topShare ∈ 0..1]. 1 = only one
+  // family fired. <0.7 = several competing families. We lower
+  // confidence linearly by up to -0.15.
   const topShare = totalScore > 0 ? top.score / totalScore : 1;
   const ambiguityPenalty = (1 - topShare) * 0.2;
   const adjusted = Math.max(0, Math.min(1, base - ambiguityPenalty));
@@ -241,8 +241,8 @@ function computeConfidence(top: RawScore, totalScore: number): number {
 // --- Public API ------------------------------------------------------------
 
 /**
- * Synchroner Classifier (regex-only, kein LLM-Fallback). Reine Funktion,
- * deterministisch, kein I/O.
+ * Synchronous classifier (regex-only, no LLM fallback). Pure function,
+ * deterministic, no I/O.
  */
 export function classifyIntentSync(prompt: string): ClassifyResult {
   const safe = (prompt ?? '').trim();
@@ -261,7 +261,7 @@ export function classifyIntentSync(prompt: string): ClassifyResult {
     .filter((s) => s.matchCount > 0)
     .map((s) => s.intent);
 
-  // Kein Pattern getroffen → discussion mit confidence 0 (für Fallback-Trigger).
+  // No pattern matched → discussion with confidence 0 (for fallback trigger).
   const top = scored
     .slice()
     .sort((a, b) => b.score - a.score)[0];
@@ -275,9 +275,9 @@ export function classifyIntentSync(prompt: string): ClassifyResult {
     };
   }
 
-  // Tie-Breaker: bei gleichem Score gewinnt die spezifischste Familie:
-  // bug-fix > implementation > question > idea > discussion. Hilft bei
-  // Mischsätzen wie "implementier den bugfix" — bug-fix gewinnt.
+  // Tie-breaker: on equal score the most specific family wins:
+  // bug-fix > implementation > question > idea > discussion. Helps with
+  // mixed sentences like "implementier den bugfix" — bug-fix wins.
   const tied = scored.filter((s) => s.score === top.score && s.score > 0);
   let winner = top;
   if (tied.length > 1) {
@@ -307,15 +307,15 @@ export function classifyIntentSync(prompt: string): ClassifyResult {
 }
 
 /**
- * Async Classifier mit optionalem LLM-Fallback bei low-confidence.
+ * Async classifier with an optional LLM fallback on low confidence.
  *
- * Vertragsregeln:
- *   - In Tests (NODE_ENV=test) wird der Fallback NIE getriggert, auch wenn
- *     llmHook gesetzt ist — Tests laufen dann gegen die reine Heuristik.
- *   - Wenn der Fallback einen ungültigen Wert liefert (oder null), behält
- *     der Sync-Result den Vortritt.
- *   - fallbackUsed:true wird nur gesetzt, wenn der Fallback DEN finalen
- *     Intent verändert hat.
+ * Contract rules:
+ *   - In tests (NODE_ENV=test) the fallback is NEVER triggered, even when
+ *     llmHook is set — tests then run against the pure heuristic.
+ *   - When the fallback returns an invalid value (or null), the
+ *     sync result keeps precedence.
+ *   - fallbackUsed:true is only set when the fallback actually changed
+ *     THE final intent.
  */
 export async function classifyIntent(
   prompt: string,
@@ -337,15 +337,15 @@ export async function classifyIntent(
     if (fb && isValidIntent(fb) && fb !== sync.intent) {
       return {
         intent: fb,
-        // LLM-Fallback bekommt eine Confidence von 0.5 (unterhalb des
-        // typischen Heuristik-2-Hits-Niveaus, oberhalb von Random).
+        // The LLM fallback gets a confidence of 0.5 (below the
+        // typical heuristic 2-hit level, above random).
         confidence: 0.5,
         matched: sync.matched,
         fallbackUsed: true,
       };
     }
   } catch {
-    /* Fallback fail-open — Heuristik gewinnt. */
+    /* Fallback fail-open — the heuristic wins. */
   }
   return sync;
 }
@@ -361,8 +361,8 @@ export function isValidIntent(value: unknown): value is WorkstreamIntent {
 }
 
 /**
- * Normalisiert NULL / Garbage / Legacy-Werte aus der DB auf einen gültigen
- * Intent. Wird beim Read im Service-Layer benutzt.
+ * Normalizes NULL / garbage / legacy values from the DB to a valid
+ * intent. Used on read in the service layer.
  */
 export function normalizeIntent(
   value: string | null | undefined,
@@ -373,9 +373,9 @@ export function normalizeIntent(
 }
 
 /**
- * UI-Mapping — Icon + sichtbares Label + CSS-Class-Suffix. Wird von der
- * IntentPill genutzt; isoliert hier damit Server-Side-Renderer dasselbe
- * Mapping nutzen kann.
+ * UI mapping — icon + visible label + CSS class suffix. Used by the
+ * IntentPill; isolated here so server-side renderers can use the same
+ * mapping.
  */
 export function getIntentMeta(
   intent: WorkstreamIntent,
@@ -396,15 +396,15 @@ export function getIntentMeta(
 }
 
 /**
- * Default-Strategie pro Intent. Wird vom Tier-Orchestrator als Hint genutzt:
- *   - bug-fix         → BugFixSwarm + Critic-First
- *   - implementation  → Standard senior-dev → reviewer → critic
- *   - idea            → 2-Roaster + Synthesis ohne Auto-Dispatch
- *   - question        → einfaches Q&A, kein Sniper
- *   - discussion      → Standard
+ * Default strategy per intent. Used by the tier orchestrator as a hint:
+ *   - bug-fix         → BugFixSwarm + critic-first
+ *   - implementation  → standard senior-dev → reviewer → critic
+ *   - idea            → 2 roasters + synthesis without auto-dispatch
+ *   - question        → simple Q&A, no sniper
+ *   - discussion      → standard
  *
- * Reine Mapping-Funktion. Tier-Orchestrator entscheidet selbst, ob er den
- * Hint nutzt (Override durch User-Tier-Wahl bleibt jederzeit möglich).
+ * Pure mapping function. The tier orchestrator decides itself whether to use
+ * the hint (an override via the user's tier choice remains possible at any time).
  */
 export interface IntentStrategyHint {
   preset: 'bugfix-swarm' | 'standard' | 'idea-roaster' | 'qa-light' | 'standard-discussion';
@@ -423,11 +423,11 @@ export function getIntentStrategy(intent: WorkstreamIntent): IntentStrategyHint 
         sniperLoop: true,
         criticFirst: true,
         description:
-          // Welle 2 (2026-05-03): Pipeline mit 3-Tier-Roastern in Plan/
-          // Critic/Fix. sniperLoop=true triggert NACH erfolgreicher Pipeline
-          // (phase='done') zusätzlich V1→V2 für Quality-Gate auf den
-          // finalen Fix-Output. Konsumenten: tier-orchestrator → runIterate
-          // liest die Strategy via resolveIntentStrategy() und respektiert
+          // Wave 2 (2026-05-03): pipeline with 3-tier roasters in plan/
+          // critic/fix. sniperLoop=true additionally triggers V1→V2 AFTER a
+          // successful pipeline (phase='done') for a quality gate on the
+          // final fix output. Consumers: tier-orchestrator → runIterate
+          // reads the strategy via resolveIntentStrategy() and respects
           // sniperLoop=true.
           'Bug-Fix-Pipeline: Detect → Hypothesize (3×) → Plan-Roaster (3×) → Critic-Swarm (3×) → Fix-Roaster (3× Opus) → Verify → Sniper V1→V2 für Quality-Gate.',
       };
@@ -471,9 +471,9 @@ export function getIntentStrategy(intent: WorkstreamIntent): IntentStrategyHint 
 }
 
 /**
- * Convenience für Service-Layer: aus name + description einen Intent
- * ableiten. Description hat die höhere Information, wird stärker gewichtet
- * indem wir sie zuerst stellen.
+ * Convenience for the service layer: derive an intent from name +
+ * description. The description carries more information and is weighted
+ * more heavily by placing it first.
  */
 export function classifyFromInput(input: {
   name?: string | null;
@@ -483,10 +483,10 @@ export function classifyFromInput(input: {
   return classifyIntentSync(text);
 }
 
-/** Type-Helper für andere Module. */
+/** Type helper for other modules. */
 export type WorkstreamIntentOrNull = WorkstreamIntent | null;
 
-// `_actor` ist exportiert nur damit dieser Type-Import nicht aus
-// Service-Layer entfernt wird, falls Tests nur den Classifier ziehen. Nicht
+// `_actor` is exported only so this type import isn't removed from the
+// service layer if tests pull just the classifier. Not
 // public.
 export type _internalActor = ActorType;

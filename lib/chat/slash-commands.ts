@@ -1,23 +1,23 @@
 /**
  * lib/chat/slash-commands.ts
  * --------------------------
- * Sub-Plan B (2026-04-29) — Slash-Commands /clear, /compact, /help.
+ * Sub-Plan B (2026-04-29) — Slash commands /clear, /compact, /help.
  *
- * Architektur:
- *   - REGISTRY: Map<command-name, SlashCommand>. Alle eingebauten Commands
- *     registrieren sich am Modul-Ende statisch.
- *   - parseSlashCommand(input): erkennt `/<name> [args]` am Beginn der
- *     Eingabe und liefert das passende SlashCommand-Objekt zurueck. Match
- *     ist case-insensitive (`/clear`, `/CLEAR`, `/Clear` -> selbe Command).
- *     Tail-Args werden NICHT geparst — Commands behandeln ihren eigenen
- *     Tail in der Handler-Implementierung.
- *   - SlashCommand.handler(ctx) liefert `'consumed'` (LLM-Roundtrip
- *     ueberspringen) oder `'pass-through'` (LLM weiter ausfuehren). Aktuell
- *     consumen alle eingebauten Commands.
+ * Architecture:
+ *   - REGISTRY: Map<command-name, SlashCommand>. All built-in commands
+ *     register themselves statically at the end of the module.
+ *   - parseSlashCommand(input): recognizes `/<name> [args]` at the start of the
+ *     input and returns the matching SlashCommand object. Match
+ *     is case-insensitive (`/clear`, `/CLEAR`, `/Clear` -> same command).
+ *     Tail args are NOT parsed — commands handle their own
+ *     tail in the handler implementation.
+ *   - SlashCommand.handler(ctx) returns `'consumed'` (skip the LLM
+ *     roundtrip) or `'pass-through'` (run the LLM further). Currently
+ *     all built-in commands consume.
  *
- * Pure-Logik. Kein React, kein DOM. Wird via SlashContext mit IO-Helpern
- * (setHistory, pushSystemToast, fetch, clearHistoryFor) versorgt — so
- * bleibt parseSlashCommand und die Handler-Logik unit-testbar ohne ChatShell.
+ * Pure logic. No React, no DOM. Supplied via SlashContext with IO helpers
+ * (setHistory, pushSystemToast, fetch, clearHistoryFor) — so
+ * parseSlashCommand and the handler logic stay unit-testable without ChatShell.
  */
 
 import type { Dispatch, SetStateAction } from "react";
@@ -28,11 +28,11 @@ import { extractWorkstreamCoords } from "./surface-parser";
 import type { MediaStyleChoicePayload } from "@/lib/flow/media-styles";
 
 /**
- * Lokales Spiegel-Interface fuer SystemItem (in ChatShell.tsx privat
- * deklariert). Wird in der ctx-Schnittstelle verwendet damit Slash-Commands
- * Toasts ohne Zirkular-Import generieren koennen. Felder MUESSEN identisch
- * zur ChatShell-internen `SystemItem` bleiben — wenn dort ein Feld
- * dazukommt, hier nachziehen.
+ * Local mirror interface for SystemItem (declared privately in
+ * ChatShell.tsx). Used in the ctx interface so that slash commands
+ * can generate toasts without a circular import. Fields MUST stay identical
+ * to the ChatShell-internal `SystemItem` — when a field
+ * is added there, follow up here.
  */
 export interface SystemItem {
   id: string;
@@ -45,122 +45,122 @@ export interface SystemItem {
 }
 
 export interface SlashContext {
-  /** Aktive Workspace-ID. Wird fuer /clear (localStorage-Key) + /compact
-   *  (Server-Snapshot-Endpoint) gebraucht. */
+  /** Active workspace ID. Needed for /clear (localStorage key) + /compact
+   *  (server snapshot endpoint). */
   workspaceId: string;
-  /** Aktueller History-Snapshot (read-only). */
+  /** Current history snapshot (read-only). */
   history: HistoryItem[];
-  /** Setter wie aus useState — Commands schreiben damit den neuen Verlauf. */
+  /** Setter as from useState — commands write the new history with it. */
   setHistory: Dispatch<SetStateAction<HistoryItem[]>>;
-  /** Toast-Helper. Wird fuer das User-Feedback nach jedem Command genutzt. */
+  /** Toast helper. Used for the user feedback after each command. */
   pushSystemToast: (item: SystemItem) => void;
-  /** Optional: alle SystemMessages (transient Toasts) leeren. Wird von
-   *  `/clear` benutzt, damit auch die Workstream-Toasts mit verschwinden. */
+  /** Optional: clear all SystemMessages (transient toasts). Used by
+   *  `/clear`, so that the workstream toasts disappear too. */
   clearSystemMessages?: () => void;
-  /** Fetch-Impl. Default = global fetch, Tests koennen mocken. */
+  /** Fetch impl. Default = global fetch, tests can mock. */
   fetch: typeof fetch;
   /**
-   * Track-D · 2026-05-27 (Flow Studio). Tail-Args NACH dem Command-Namen,
-   * getrimmt. Beispiel: `/flow erstelle eine webseite` -> `args` =
-   * `"erstelle eine webseite"`. Leerer String wenn kein Tail. Commands die
-   * keine Args brauchen (clear/compact/help/session) ignorieren das Feld.
-   * Optional, damit bestehende Aufrufer (und Tests) ohne Args weiterlaufen.
+   * Track-D · 2026-05-27 (Flow Studio). Tail args AFTER the command name,
+   * trimmed. Example: `/flow erstelle eine webseite` -> `args` =
+   * `"erstelle eine webseite"`. Empty string if no tail. Commands that
+   * need no args (clear/compact/help/session) ignore the field.
+   * Optional, so existing callers (and tests) keep running without args.
    */
   args?: string;
   /**
-   * Track-D · 2026-05-27 (Flow Studio). Postet eine ASSISTANT-Chat-Nachricht
-   * in den Verlauf (im Gegensatz zu `pushSystemToast`, das nur einen
-   * transienten Toast erzeugt). Nur Assistant-Items laufen in ChatShell durch
-   * den surface-aware Renderer (SurfaceRenderer), d.h. `<surface:...>`-Markup
-   * wird hier zu einer Card gerendert — bei System-Toasts NICHT (die zeigen
-   * Rohtext). `/flow` nutzt das fuer die Lauf-Bestaetigung und das
-   * `<surface:flow-coupling>`-Markup. Optional fuer Rueckwaerts-Kompatibilitaet;
-   * faellt ein Aufrufer ohne diese Methode an, degradiert `/flow` auf einen
-   * System-Toast (siehe Handler).
+   * Track-D · 2026-05-27 (Flow Studio). Posts an ASSISTANT chat message
+   * into the history (in contrast to `pushSystemToast`, which only creates a
+   * transient toast). Only assistant items run through the surface-aware
+   * renderer (SurfaceRenderer) in ChatShell, i.e. `<surface:...>` markup
+   * is rendered into a card here — with system toasts NOT (those show
+   * raw text). `/flow` uses this for the run confirmation and the
+   * `<surface:flow-coupling>` markup. Optional for backwards compatibility;
+   * if a caller without this method comes in, `/flow` degrades to a
+   * system toast (see handler).
    */
   postAssistantMessage?: (content: string) => void;
   /**
-   * Track-D · Stream-B2-Verdrahtung · 2026-05-27 (Flow Studio). Übergibt der
-   * ChatShell-Schicht eine `needs-style-choice`-Antwort: pro offenem Medien-
-   * Schritt ein quickchoice-Payload + der ursprüngliche Intent. ChatShell
-   * EMITTIERT die quickchoice-Surface(s), HÖRT auf die Owner-Wahl
-   * (`lazyos:quickchoice`-Event), bildet daraus die `styleChoices`-Map (keyed
-   * auf String(step.idx) — stabil über den deterministischen Re-Compose) und
-   * RE-POSTet `/api/flow/compose-and-run` MIT styleChoices. Der Folge-Status
-   * (running / needs-coupling / weitere needs-style-choice) wird dort wieder
-   * durch handleFlowComposeResult geschickt.
+   * Track-D · Stream-B2 wiring · 2026-05-27 (Flow Studio). Hands the
+   * ChatShell layer a `needs-style-choice` response: per open media
+   * step a quickchoice payload + the original intent. ChatShell
+   * EMITS the quickchoice surface(s), LISTENS for the owner choice
+   * (`lazyos:quickchoice` event), forms the `styleChoices` map from it (keyed
+   * on String(step.idx) — stable across the deterministic re-compose) and
+   * RE-POSTs `/api/flow/compose-and-run` WITH styleChoices. The follow-up status
+   * (running / needs-coupling / further needs-style-choice) is sent through
+   * handleFlowComposeResult there again.
    *
-   * Warum nicht im pure-Handler? Surface-Emission + globaler Window-Event-
-   * Listener brauchen React-State/DOM (ChatShell-Territorium). Der pure Handler
-   * baut nur das Markup + delegiert die Interaktion. Optional + fail-soft:
-   * fehlt der Callback, degradiert `/flow` auf einen Hinweis-Toast (die
-   * Stil-Wahl kann dann nicht interaktiv erfolgen).
+   * Why not in the pure handler? Surface emission + global window event
+   * listener need React state/DOM (ChatShell territory). The pure handler
+   * only builds the markup + delegates the interaction. Optional + fail-soft:
+   * if the callback is missing, `/flow` degrades to a hint toast (the
+   * style choice then cannot happen interactively).
    */
   onFlowStyleChoice?: (req: FlowStyleChoiceRequest) => void;
 }
 
 /**
- * Track-D · Stream-B2. Eine `needs-style-choice`-Übergabe an ChatShell: der
- * verbatim Intent + die offenen Stil-Fragen (1 pro Medien-Schritt ohne Wahl).
+ * Track-D · Stream-B2. A `needs-style-choice` handover to ChatShell: the
+ * verbatim intent + the open style questions (1 per media step without a choice).
  */
 export interface FlowStyleChoiceRequest {
-  /** Der verbatim Operator-Intent (für das Re-POST). N1. */
+  /** The verbatim operator intent (for the re-POST). N1. */
   readonly intent: string;
-  /** Workspace-Scope (für das Re-POST). N9. */
+  /** Workspace scope (for the re-POST). N9. */
   readonly workspaceId: string;
-  /** Die flowId des (ersten) Compose-Laufs — Kontext/Audit. */
+  /** The flowId of the (first) compose run — context/audit. */
   readonly flowId: string;
-  /** Pro offenem Medien-Schritt: stabiler idx-Schlüssel + quickchoice-Payload. */
+  /** Per open media step: stable idx key + quickchoice payload. */
   readonly prompts: readonly FlowStyleChoicePrompt[];
 }
 
 /**
- * Ein offener Medien-Schritt: der stabile styleChoices-Schlüssel (String(idx))
- * + der quickchoice-Payload (Renderer-Format, von media-styles.ts gebaut).
+ * An open media step: the stable styleChoices key (String(idx))
+ * + the quickchoice payload (renderer format, built by media-styles.ts).
  */
 export interface FlowStyleChoicePrompt {
   /**
-   * Der stabile styleChoices-Schlüssel. = String(step.idx) — stabil über den
-   * deterministischen Re-Compose hinweg (die ULID-stepId wäre beim zweiten
-   * Compose neu). composeAndRun::lookupStyleChoice probiert stepId ODER idx.
+   * The stable styleChoices key. = String(step.idx) — stable across the
+   * deterministic re-compose (the ULID stepId would be new on the second
+   * compose). composeAndRun::lookupStyleChoice tries stepId OR idx.
    */
   readonly choiceKey: string;
-  /** Die Option-ids dieses Schritts (zum Korrelieren der lazyos:quickchoice-id). */
+  /** The option ids of this step (to correlate the lazyos:quickchoice id). */
   readonly optionIds: readonly string[];
-  /** Der quickchoice-Surface-Payload (Renderer-Format). */
+  /** The quickchoice surface payload (renderer format). */
   readonly payload: MediaStyleChoicePayload;
 }
 
 /**
- * Track-D · Stream-B2. Eine aktive Stil-Wahl-Session in der Chat-Schicht: der
- * verbatim Intent + Scope (für das Re-POST), die noch OFFENEN Prompts und die
- * bisher GESAMMELTEN Wahlen. Mutierbar (ChatShell hält sie in einem Ref).
+ * Track-D · Stream-B2. An active style-choice session in the chat layer: the
+ * verbatim intent + scope (for the re-POST), the still OPEN prompts and the
+ * choices COLLECTED so far. Mutable (ChatShell keeps it in a ref).
  */
 export interface FlowStyleSession {
   readonly intent: string;
   readonly workspaceId: string;
-  /** Noch offene Prompts (beantwortete werden entfernt). */
+  /** Still-open prompts (answered ones are removed). */
   pending: Array<{ readonly choiceKey: string; readonly optionIds: readonly string[] }>;
-  /** Gesammelte Wahlen: choiceKey → optionId. */
+  /** Collected choices: choiceKey → optionId. */
   readonly choices: Record<string, string>;
 }
 
 /**
- * Track-D · Stream-B2. Pure Korrelation eines quickchoice-Klicks (NUR die
- * Option-id reist im `lazyos:quickchoice`-Event) zu seiner offenen Stil-Frage.
+ * Track-D · Stream-B2. Pure correlation of a quickchoice click (ONLY the
+ * option id travels in the `lazyos:quickchoice` event) to its open style question.
  *
- * Strategie: erste Session mit einem noch-offenen Prompt, dessen optionIds die
- * geklickte id enthält (Anzeige-Reihenfolge → deterministisch). Bei identischen
- * Option-Mengen (z.B. zwei Video-Steps) ordnet der Owner sie der Reihe nach zu
- * (fail-soft, kein hartes Eindeutigkeits-Constraint).
+ * Strategy: first session with a still-open prompt whose optionIds contain the
+ * clicked id (display order → deterministic). With identical
+ * option sets (e.g. two video steps), the owner assigns them in order
+ * (fail-soft, no hard uniqueness constraint).
  *
- * MUTIERT die getroffene Session (choices += , pending -=). Liefert:
- *   - matched: ob die id einer offenen Frage zugeordnet wurde,
- *   - completedSession: die Session, FALLS sie damit vollständig wurde (→ der
- *     Caller RE-POSTet + entfernt sie aus der aktiven Liste), sonst null,
- *   - sessionIndex: Index der getroffenen Session (zum Entfernen), oder -1.
+ * MUTATES the matched session (choices += , pending -=). Returns:
+ *   - matched: whether the id was assigned to an open question,
+ *   - completedSession: the session, IF it became complete with it (→ the
+ *     caller RE-POSTs + removes it from the active list), otherwise null,
+ *   - sessionIndex: index of the matched session (for removal), or -1.
  *
- * Reine Logik: KEIN fetch, KEIN DOM, KEINE Seiteneffekte außer der Session-Mutation.
+ * Pure logic: NO fetch, NO DOM, NO side effects other than the session mutation.
  */
 export function correlateQuickChoice(
   sessions: readonly FlowStyleSession[],
@@ -191,79 +191,79 @@ export function correlateQuickChoice(
 export type SlashCommandResult = "consumed" | "pass-through";
 
 export interface SlashCommand {
-  /** Inkl. fuehrendem Slash, lowercase. Beispiel: `/clear`. */
+  /** Incl. leading slash, lowercase. Example: `/clear`. */
   name: string;
-  /** Kurzbeschreibung fuer den /help-Output. */
+  /** Short description for the /help output. */
   description: string;
-  /** Handler-Implementierung. Returnt `'consumed'` -> LLM-Roundtrip
-   *  ueberspringen, `'pass-through'` -> Eingabe wie eine normale Message
-   *  weiterreichen. */
+  /** Handler implementation. Returns `'consumed'` -> skip the LLM
+   *  roundtrip, `'pass-through'` -> forward the input like a normal
+   *  message. */
   handler(ctx: SlashContext): Promise<SlashCommandResult>;
 }
 
 export const REGISTRY = new Map<string, SlashCommand>();
 
 /**
- * Erkennt einen Slash-Command-Aufruf an Beginn von `input` und liefert
- * das passende Command-Objekt zurueck. Liefert `null` wenn:
- *   - Eingabe leer / nicht mit `/` beginnt
- *   - Command-Name nicht in der REGISTRY
+ * Recognizes a slash-command invocation at the start of `input` and returns
+ * the matching command object. Returns `null` when:
+ *   - input empty / does not start with `/`
+ *   - command name not in the REGISTRY
  *
- * Case-insensitive: `/CLEAR`, `/Clear`, `/clear` matchen alle.
- * Tail-Args (`/clear extra junk`) werden ignoriert — der Match laeuft
- * nur ueber den Command-Namen.
+ * Case-insensitive: `/CLEAR`, `/Clear`, `/clear` all match.
+ * Tail args (`/clear extra junk`) are ignored — the match runs
+ * only over the command name.
  */
 export function parseSlashCommand(input: string): SlashCommand | null {
   if (typeof input !== "string") return null;
   const trimmed = input.trim();
   if (trimmed.length === 0) return null;
-  // Akzeptiere mit ODER ohne fuehrendes `/`. User-Wunsch 2026-04-30:
-  // bare-word command exact match (z.B. `clear`, `compact`, `help`)
-  // soll genauso wie `/clear` direkt ausfuehren.
+  // Accept WITH OR without a leading `/`. User request 2026-04-30:
+  // bare-word command exact match (e.g. `clear`, `compact`, `help`)
+  // should execute directly just like `/clear`.
   const firstWord = trimmed.split(/\s+/)[0].toLowerCase();
   const withSlash = firstWord.startsWith("/") ? firstWord : `/${firstWord}`;
   return REGISTRY.get(withSlash) ?? null;
 }
 
 /**
- * Track-D · 2026-05-27 (Flow Studio). Liefert den getrimmten Tail NACH dem
- * Command-Namen. `extractSlashArgs('/flow  erstelle eine webseite')` ->
- * `'erstelle eine webseite'`. Leerer String wenn kein Tail vorhanden ist
- * oder die Eingabe kein String / leer ist. Spiegelt die Match-Semantik von
- * `parseSlashCommand` (erstes Wort = Command, Rest = Args), behält im Tail
- * aber die Original-Schreibweise (N1: intent verbatim, nur außen getrimmt).
+ * Track-D · 2026-05-27 (Flow Studio). Returns the trimmed tail AFTER the
+ * command name. `extractSlashArgs('/flow  erstelle eine webseite')` ->
+ * `'erstelle eine webseite'`. Empty string if no tail is present
+ * or the input is not a string / empty. Mirrors the match semantics of
+ * `parseSlashCommand` (first word = command, rest = args), but keeps the
+ * original spelling in the tail (N1: intent verbatim, only trimmed on the outside).
  */
 export function extractSlashArgs(input: string): string {
   if (typeof input !== "string") return "";
   const trimmed = input.trim();
   if (trimmed.length === 0) return "";
-  // Schneide das erste Whitespace-getrennte Token (= Command-Name) ab.
+  // Cut off the first whitespace-separated token (= command name).
   const firstSpace = trimmed.search(/\s/);
   if (firstSpace === -1) return "";
   return trimmed.slice(firstSpace + 1).trim();
 }
 
 // ---------------------------------------------------------------------------
-// Trim-Helper fuer /compact
+// Trim helper for /compact
 // ---------------------------------------------------------------------------
 
 /**
- * Trim-Logik fuer `/compact`:
- *   1. Gruppiere Items nach `(workstreamId, surfaceKind)`-Coord.
- *      Pro Gruppe behalte nur das CHRONOLOGISCH JUENGSTE Item.
- *   2. Items ohne `workstreamId` (= freie User/Assistant-Bubbles) -> behalte
- *      die letzten `freeMessageLimit`.
+ * Trim logic for `/compact`:
+ *   1. Group items by `(workstreamId, surfaceKind)` coord.
+ *      Per group keep only the CHRONOLOGICALLY MOST RECENT item.
+ *   2. Items without `workstreamId` (= free user/assistant bubbles) -> keep
+ *      the last `freeMessageLimit`.
  *
- * Reihenfolge bleibt erhalten (Items werden nicht umsortiert). Pure —
- * kein State, kein IO.
+ * Order is preserved (items are not re-sorted). Pure —
+ * no state, no IO.
  *
- * Edge-Cases:
- *   - Items deren workstreamId-Feld fehlt aber im Content `<surface:*>`
- *     mit workstreamId vorhanden ist: ziehen wir per
- *     `extractWorkstreamCoords` nach. Damit bleibt das Verhalten konsistent
- *     mit `applyReplacePass` aus storage.ts.
- *   - Wenn zwei Items dieselbe Coord, gleichen ts haben: Tiebreaker = id-
- *     Reihenfolge im Array (das letzte gewinnt). Kein Try-zu-Parsen-Risiko.
+ * Edge cases:
+ *   - Items whose workstreamId field is missing but whose content has
+ *     `<surface:*>` with a workstreamId: we recover it via
+ *     `extractWorkstreamCoords`. This keeps the behavior consistent
+ *     with `applyReplacePass` from storage.ts.
+ *   - When two items have the same coord, the same ts: tiebreaker = id
+ *     order in the array (the last one wins). No try-to-parse risk.
  */
 export function trimByWorkstream(
   items: HistoryItem[],
@@ -271,7 +271,7 @@ export function trimByWorkstream(
 ): HistoryItem[] {
   if (items.length === 0) return items;
 
-  // Coord pro Item (nutze workstreamId+surfaceKind, mit Content-Fallback).
+  // Coord per item (uses workstreamId+surfaceKind, with content fallback).
   const coords: Array<{ key: string | null; idx: number }> = items.map(
     (it, idx) => {
       let wsId = it.workstreamId;
@@ -288,21 +288,21 @@ export function trimByWorkstream(
     },
   );
 
-  // Pro Coord-Key: Index des juengsten Items finden (groesster idx in
-  // Eingabereihenfolge — Items kommen chrono ASC an).
+  // Per coord key: find the index of the most recent item (largest idx in
+  // input order — items arrive chronologically ASC).
   const youngestPerCoord = new Map<string, number>();
   for (const c of coords) {
     if (c.key === null) continue;
     youngestPerCoord.set(c.key, c.idx);
   }
 
-  // Free-Items: alle Items ohne Coord-Key. Behalte die letzten N.
+  // Free items: all items without a coord key. Keep the last N.
   const freeIndices = coords
     .filter((c) => c.key === null)
     .map((c) => c.idx);
   const freeKeep = new Set(freeIndices.slice(-freeMessageLimit));
 
-  // Coord-Items: behalte nur das juengste pro Coord.
+  // Coord items: keep only the most recent per coord.
   const coordKeep = new Set(youngestPerCoord.values());
 
   const out: HistoryItem[] = [];
@@ -437,11 +437,11 @@ const helpCommand: SlashCommand = {
 };
 
 // ---------------------------------------------------------------------------
-// Session-Commands (2026-05-03)
-// User-Wunsch: "session als command für new session oder sonstige Möglichkeiten".
-// `/session-new`  = Verlauf leeren + alle aktiven Workstreams im Workspace canceln
-// `/session-stop` = nur aktive Workstreams canceln, Verlauf bleibt
-// `/session`      = Alias auf /session-new
+// Session commands (2026-05-03)
+// User request: "session als command für new session oder sonstige Möglichkeiten".
+// `/session-new`  = clear history + cancel all active workstreams in the workspace
+// `/session-stop` = cancel only active workstreams, history stays
+// `/session`      = alias for /session-new
 // ---------------------------------------------------------------------------
 
 async function cancelActiveWorkstreams(
@@ -529,11 +529,11 @@ const sessionNewCommand: SlashCommand = {
   async handler(ctx: SlashContext): Promise<SlashCommandResult> {
     // 1. Cancel active workstreams.
     const cancel = await cancelActiveWorkstreams(ctx);
-    // 2. Local history clear (analog /clear-Command).
+    // 2. Local history clear (analogous to the /clear command).
     ctx.setHistory([]);
     clearHistoryFor(ctx.workspaceId);
     if (ctx.clearSystemMessages) ctx.clearSystemMessages();
-    // 3. Toast mit Kombi-Status.
+    // 3. Toast with combined status.
     const cancelMsg =
       cancel.error
         ? `Stop-Fehler: ${cancel.error}`
@@ -562,29 +562,29 @@ const sessionAliasCommand: SlashCommand = {
 };
 
 // ---------------------------------------------------------------------------
-// Flow-Command (Track-D · 2026-05-27) — Flow Studio Chat-Front-Door.
+// Flow command (Track-D · 2026-05-27) — Flow Studio chat front door.
 //
-// `/flow <intent>` POSTet den Intent an POST /api/flow/compose-and-run und
-// reagiert auf die zwei Erfolgs-Status:
-//   - status:'running'        -> kurze Lauf-Bestaetigung als Assistant-Bubble.
-//                                Der Flow-Graph selbst emittiert der Orchestrator
-//                                separat (nicht hier).
-//   - status:'needs-coupling' -> Assistant-Bubble mit dem Surface-Markup
+// `/flow <intent>` POSTs the intent to POST /api/flow/compose-and-run and
+// reacts to the two success statuses:
+//   - status:'running'        -> short run confirmation as an assistant bubble.
+//                                The flow graph itself is emitted by the orchestrator
+//                                separately (not here).
+//   - status:'needs-coupling' -> assistant bubble with the surface markup
 //                                `<surface:flow-coupling>{...}</surface:flow-coupling>`.
-//                                Die Surface (flowId, workspaceId, missingTools)
-//                                rendert der parallele Coupling-Agent — hier
-//                                erzeugen wir NUR das Contract-getreue Markup.
-//   - 401 / Fehler            -> klare Fehler-Bubble bzw. -Toast.
+//                                The surface (flowId, workspaceId, missingTools)
+//                                is rendered by the parallel coupling agent — here
+//                                we only produce the contract-faithful markup.
+//   - 401 / error             -> clear error bubble or toast.
 //
-// Posting laeuft ueber ctx.postAssistantMessage (Assistant-Item -> surface-aware
-// Renderer). Faellt ein Aufrufer ohne diese Methode an, degradiert der Command
-// auf pushSystemToast (System-Toast rendert KEIN Surface, ist aber als reiner
-// Status-Fallback ok). Der Surface-Pfad braucht aber ein Assistant-Item.
+// Posting runs via ctx.postAssistantMessage (assistant item -> surface-aware
+// renderer). If a caller without this method comes in, the command degrades
+// to pushSystemToast (a system toast renders NO surface, but is ok as a pure
+// status fallback). The surface path needs an assistant item, though.
 // ---------------------------------------------------------------------------
 
-/** Felder die `/flow` aus der needs-coupling-Antwort in das Surface-Markup
- *  durchreicht. Spiegelt MissingTool aus lib/flow/compose.ts — bei Drift dort
- *  nachziehen. */
+/** Fields that `/flow` passes through from the needs-coupling response into the
+ *  surface markup. Mirrors MissingTool from lib/flow/compose.ts — follow up there
+ *  on drift. */
 interface FlowMissingTool {
   stepId: string;
   stepTitle: string;
@@ -594,10 +594,10 @@ interface FlowMissingTool {
 }
 
 /**
- * Stream B2: ein einzelner needs-style-choice-Prompt aus der Route. Spiegelt
- * lib/flow/compose-and-run.ts::MediaStyleChoicePrompt — `step` trägt den
- * stabilen `idx` (styleChoices-Schlüssel über Re-Compose), `payload` ist der
- * quickchoice-Surface-Payload (Renderer-Format).
+ * Stream B2: a single needs-style-choice prompt from the route. Mirrors
+ * lib/flow/compose-and-run.ts::MediaStyleChoicePrompt — `step` carries the
+ * stable `idx` (styleChoices key across re-compose), `payload` is the
+ * quickchoice surface payload (renderer format).
  */
 interface FlowStyleChoiceResponsePrompt {
   step?: { stepId?: string; idx?: number; stepTitle?: string; kind?: string };
@@ -610,25 +610,25 @@ interface FlowComposeResponse {
   runId?: string;
   workstreamId?: string;
   missingTools?: FlowMissingTool[];
-  /** Stream B2: pro offenem Medien-Schritt ein quickchoice-Prompt. */
+  /** Stream B2: one quickchoice prompt per open media step. */
   styleChoices?: FlowStyleChoiceResponsePrompt[];
   error?: string;
   message?: string;
 }
 
 /**
- * Track-D · Stream-B2. Pure-Übersetzung einer compose-and-run-Antwort in die
- * Chat-Aktionen — geteilt vom Erst-`/flow`-Handler UND vom ChatShell-Re-POST
- * nach der Stil-Wahl (kein dupliziertes Status-Switch). Reine Logik: KEIN fetch,
- * KEIN DOM. Die IO-Wirkungen reisen als Callbacks rein.
+ * Track-D · Stream-B2. Pure translation of a compose-and-run response into the
+ * chat actions — shared by the initial `/flow` handler AND the ChatShell re-POST
+ * after the style choice (no duplicated status switch). Pure logic: NO fetch,
+ * NO DOM. The IO effects travel in as callbacks.
  *
- *   - 'running'           → onRunning() (Lauf-Bestätigung).
- *   - 'needs-coupling'    → onCoupling(<surface:flow-coupling>-Markup).
+ *   - 'running'           → onRunning() (run confirmation).
+ *   - 'needs-coupling'    → onCoupling(<surface:flow-coupling> markup).
  *   - 'needs-style-choice'→ onStyleChoice(FlowStyleChoiceRequest) (ChatShell
- *                           emittiert die Surfaces + verdrahtet die Wahl).
- *   - sonst               → onError(detail) (unbekannter/fehlender Status).
+ *                           emits the surfaces + wires the choice).
+ *   - otherwise           → onError(detail) (unknown/missing status).
  *
- * Liefert true, wenn ein bekannter Status behandelt wurde (für den Caller).
+ * Returns true when a known status was handled (for the caller).
  */
 export function handleFlowComposeResult(
   body: FlowComposeResponse | null,
@@ -656,8 +656,8 @@ export function handleFlowComposeResult(
       (p): FlowStyleChoicePrompt[] => {
         const payload = p.payload;
         if (!payload || !Array.isArray(payload.options)) return [];
-        // Stabiler Schlüssel = String(step.idx). Fallback auf payload.stepId nur,
-        // wenn idx (unerwartet) fehlt — composeAndRun probiert ohnehin beide.
+        // Stable key = String(step.idx). Fallback to payload.stepId only
+        // if idx is (unexpectedly) missing — composeAndRun tries both anyway.
         const idx = p.step?.idx;
         const choiceKey =
           typeof idx === "number"
@@ -674,7 +674,7 @@ export function handleFlowComposeResult(
       },
     );
     if (prompts.length === 0) {
-      // needs-style-choice ohne brauchbare Prompts (defensiv) → Fehler.
+      // needs-style-choice without usable prompts (defensive) → error.
       ctx.onError("Stil-Wahl nötig, aber keine Optionen erhalten.");
       return false;
     }
@@ -701,8 +701,8 @@ export function handleFlowComposeResult(
   return false;
 }
 
-/** Baut das `<surface:flow-coupling>`-Markup mit dem Contract aus der Aufgabe:
- *  { flowId, workspaceId, missingTools }. JSON ist die einzige Nutzlast. */
+/** Builds the `<surface:flow-coupling>` markup with the contract from the task:
+ *  { flowId, workspaceId, missingTools }. JSON is the only payload. */
 function buildFlowCouplingMarkup(payload: {
   flowId: string;
   workspaceId: string;
@@ -722,8 +722,8 @@ const flowCommand: SlashCommand = {
   async handler(ctx: SlashContext): Promise<SlashCommandResult> {
     const intent = (ctx.args ?? "").trim();
 
-    // Assistant-Bubble bevorzugen (surface-aware Renderer). Ohne diese Methode
-    // auf einen System-Toast degradieren (zeigt Status, aber KEIN Surface).
+    // Prefer the assistant bubble (surface-aware renderer). Without this method
+    // degrade to a system toast (shows status, but NO surface).
     const postChat =
       ctx.postAssistantMessage ??
       ((content: string) =>
@@ -765,7 +765,7 @@ const flowCommand: SlashCommand = {
       return "consumed";
     }
 
-    // 401 + sonstige Fehler -> klarer Toast (kein Surface).
+    // 401 + other errors -> clear toast (no surface).
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
       const body = (await res.json().catch(() => null)) as FlowComposeResponse | null;
@@ -788,16 +788,16 @@ const flowCommand: SlashCommand = {
 
     const body = (await res.json().catch(() => null)) as FlowComposeResponse | null;
 
-    // Gemeinsame Status-Übersetzung (geteilt mit dem ChatShell-Re-POST nach der
-    // Stil-Wahl). Die IO-Wirkungen reisen als Callbacks rein.
+    // Shared status translation (shared with the ChatShell re-POST after the
+    // style choice). The IO effects travel in as callbacks.
     handleFlowComposeResult(body, {
       intent,
       workspaceId: ctx.workspaceId,
       onRunning: () =>
         postChat("Flow gestartet — der Graph erscheint gleich."),
       onCoupling: (markup) => {
-        // Surface MUSS in einem Assistant-Item landen (System-Toast rendert
-        // keine Surface). Direkt postAssistantMessage statt postChat-Fallback.
+        // Surface MUST land in an assistant item (a system toast renders
+        // no surface). Direct postAssistantMessage instead of the postChat fallback.
         if (ctx.postAssistantMessage) {
           ctx.postAssistantMessage(markup);
         } else {
@@ -816,10 +816,10 @@ const flowCommand: SlashCommand = {
         }
       },
       onStyleChoice: (req) => {
-        // ChatShell emittiert die quickchoice-Surface(s) + verdrahtet die
-        // Owner-Wahl → Re-POST. Ohne den Callback (Test/Headless) degradieren
-        // wir auf einen Hinweis-Toast + posten die Surfaces wenigstens (damit
-        // der Owner die Optionen sieht, auch wenn der Klick nicht greift).
+        // ChatShell emits the quickchoice surface(s) + wires the
+        // owner choice → re-POST. Without the callback (test/headless) we
+        // degrade to a hint toast + at least post the surfaces (so
+        // the owner sees the options, even if the click does not take effect).
         if (ctx.onFlowStyleChoice) {
           ctx.onFlowStyleChoice(req);
         } else if (ctx.postAssistantMessage) {
@@ -850,7 +850,7 @@ const flowCommand: SlashCommand = {
 };
 
 // ---------------------------------------------------------------------------
-// /image — Bild-Generierung über die Codex-MCP-Brücke (2026-06-03, Owner-Wahl)
+// /image — image generation via the Codex MCP bridge (2026-06-03, owner choice)
 // ---------------------------------------------------------------------------
 
 interface ImagenResponse {
@@ -878,9 +878,9 @@ const imageCommand: SlashCommand = {
       return "consumed";
     }
 
-    // SOFORT ein selbst-fahrendes, animiertes Bild-Surface posten (kein
-    // blockierender Fetch mehr — die Karte startet den async Job + pollt +
-    // swappt das Bild ein, wie Codex). Kein Proxy-Timeout, kein statischer Toast.
+    // IMMEDIATELY post a self-driving, animated image surface (no more
+    // blocking fetch — the card starts the async job + polls +
+    // swaps the image in, like Codex). No proxy timeout, no static toast.
     const token = `img-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const surface =
       "<surface:image-gen>" +
@@ -904,7 +904,7 @@ const imageCommand: SlashCommand = {
 };
 
 // ---------------------------------------------------------------------------
-// /learn — Self-Learning expliziter Trigger (2026-06-03, Owner-Vision)
+// /learn — self-learning explicit trigger (2026-06-03, owner vision)
 // ---------------------------------------------------------------------------
 
 interface LearnResponse {
@@ -912,7 +912,7 @@ interface LearnResponse {
   stepCount?: number;
   sourceTitle?: string | null;
   params?: { key: string; observed: string[] }[];
-  /** true = 1-Lauf-Heuristik-Vorschläge (2b-4), noch nicht aufs Template angewendet. */
+  /** true = 1-run heuristic suggestions (2b-4), not yet applied to the template. */
   paramsHeuristic?: boolean;
   error?: string;
   message?: string;
@@ -957,17 +957,17 @@ const learnCommand: SlashCommand = {
       return "consumed";
     }
     const label = body?.sourceTitle ? `„${body.sourceTitle}"` : "der letzte Ablauf";
-    // Auto-Param-Extraktion (2b-3): bei ≥2 erfassten Läufen erkannte Parameter
-    // verbatim auflisten (N1, kein Abschneiden der Schlüssel).
+    // Auto param extraction (2b-3): with ≥2 captured runs, list detected parameters
+    // verbatim (N1, no truncation of the keys).
     const params = body?.params ?? [];
     const paramKeys = params.map((p) => p.key).join(", ");
     const paramSuffix =
       params.length === 0
         ? ""
         : body?.paramsHeuristic
-          ? // 1-Lauf-Heuristik (2b-4): Vorschlag, noch nicht angewendet.
+          ? // 1-run heuristic (2b-4): suggestion, not yet applied.
             ` ${params.length} mögliche${params.length === 1 ? "r" : ""} Parameter aus 1 Lauf vorgeschlagen: ${paramKeys} — beim 2. Lauf bestätigt sich's automatisch.`
-          : // ≥2-Lauf-Diff: erkannt + angewendet.
+          : // ≥2-run diff: detected + applied.
             ` ${params.length} Parameter erkannt: ${paramKeys} — beim Wiederholen abfragbar.`;
     ctx.pushSystemToast(
       makeToast(
@@ -983,7 +983,7 @@ const learnCommand: SlashCommand = {
 };
 
 // ---------------------------------------------------------------------------
-// Static-Registration
+// Static registration
 // ---------------------------------------------------------------------------
 
 export function registerSlashCommand(cmd: SlashCommand): void {

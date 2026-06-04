@@ -1,23 +1,23 @@
 /**
  * POST /api/workstreams/[id]/cross-roast — Phase RA Trigger (2026-04-29).
  *
- * Manueller Trigger der Cross-Roast-Phase eines Workstreams. Sammelt die
- * V_final-Sub-Plan-Outputs aus den Sub-Tickets, ruft `runSubPlanSniper`
- * für fehlende Sub-Plans und danach `runCrossRoast` mit allen V_finals.
+ * Manual trigger of the cross-roast phase of a workstream. Collects the
+ * V_final sub-plan outputs from the sub-tickets, calls `runSubPlanSniper`
+ * for missing sub-plans and then `runCrossRoast` with all V_finals.
  *
  * Body:
  *   {
- *     subTicketIds?: string[]   // Optional. Wenn fehlt → alle Sub-Tickets
- *                                // des Workstreams werden eingesammelt.
- *     skipSubPlans?: boolean    // Wenn true: V_final aus existing
- *                                // sub-plan-v_final Events lesen, kein
+ *     subTicketIds?: string[]   // Optional. If missing → all sub-tickets
+ *                                // of the workstream are collected.
+ *     skipSubPlans?: boolean    // If true: read V_final from existing
+ *                                // sub-plan-v_final events, no
  *                                // re-spawn.
  *   }
  *
- * Auth: Cookie-Session ODER Bearer (LAZYOS_CHAT_KEY) für CLI.
+ * Auth: cookie session OR Bearer (LAZYOS_CHAT_KEY) for the CLI.
  *
- * Heute opt-in / manuell. Phase IN-Implement nach OSS-Launch verschiebt
- * den Trigger in auto-dispatch-spawner.ts.
+ * Currently opt-in / manual. Phase IN-Implement after the OSS launch moves
+ * the trigger into auto-dispatch-spawner.ts.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -111,7 +111,7 @@ export async function POST(
     : null;
   const skipSubPlans = body.skipSubPlans === true;
 
-  // Sub-Tickets ermitteln
+  // Determine sub-tickets
   const subRows = (
     explicitIds
       ? db.$raw
@@ -135,7 +135,7 @@ export async function POST(
     );
   }
 
-  // Master-Plan-Text aus dem letzten iterate-version (höchste Version) lesen
+  // Read the master plan text from the last iterate-version (highest version)
   const masterRow = db.$raw
     .prepare(
       `SELECT payload FROM events
@@ -150,13 +150,13 @@ export async function POST(
     ? (JSON.parse(masterRow.payload).text as string)
     : '(Master-Plan-Text nicht gefunden — Iterate möglicherweise nicht gelaufen.)';
 
-  // Workspace-Path für tmux
+  // Workspace path for tmux
   const wsRow = db.$raw
     .prepare('SELECT path FROM workspaces WHERE id = ?')
     .get(ws.workspace_id) as { path: string | null } | undefined;
   const workspacePath = wsRow?.path?.trim() || defaultWorkspacePath(ws.workspace_id);
 
-  // Subplan-Sniper für jeden Sub fahren (oder skippen)
+  // Run the subplan sniper for each sub (or skip it)
   const subPlans: Array<{ subTicketId: string; subBrief: string; finalText: string }> = [];
 
   for (const sub of subRows) {
@@ -196,7 +196,7 @@ export async function POST(
     });
   }
 
-  // Cross-Roast über alle V_final
+  // Cross-roast over all V_final
   let crossResult;
   try {
     crossResult = await runCrossRoast({

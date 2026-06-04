@@ -1,9 +1,9 @@
 /**
- * GET    /api/workspaces/[id]   — Workspace-Detail inkl. notes
- * PATCH  /api/workspaces/[id]   — Manuelles Update (label, description, notes,
+ * GET    /api/workspaces/[id]   — workspace detail incl. notes
+ * PATCH  /api/workspaces/[id]   — manual update (label, description, notes,
  *                                  sensitivity)
  *
- * Auth: Cookie-Session (Middleware). Single-User-PWA, kein Bearer noetig.
+ * Auth: cookie session (middleware). Single-user PWA, no Bearer needed.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -121,16 +121,16 @@ interface PatchBody {
 }
 
 /**
- * Phase OS.1 — Permission-Check für organizationId-Wechsel.
+ * Phase OS.1 — permission check for organizationId change.
  *
- * Regel:
- *   - Set: User muss in Ziel-Org Mitglied mit role ∈ {founder, admin} sein.
- *   - Unset (null): User muss in der aktuellen Org Mitglied mit role ∈
- *     {founder, admin} sein. (Wenn Workspace heute ohne Org → trivially ok.)
- *   - Move: User muss in beiden Mitglied mit founder/admin sein.
+ * Rule:
+ *   - Set: user must be a member of the target org with role ∈ {founder, admin}.
+ *   - Unset (null): user must be a member of the current org with role ∈
+ *     {founder, admin}. (If the workspace currently has no org → trivially ok.)
+ *   - Move: user must be a founder/admin member of both.
  *
- * Editor + Member dürfen Inhalte bearbeiten, aber nicht die Org-Zuordnung —
- * das ist eine Struktur-Entscheidung.
+ * Editor + member may edit content, but not the org assignment —
+ * that is a structural decision.
  */
 function canManageOrgLink(userId: string, orgId: string | null): boolean {
   if (!orgId) return true;
@@ -152,9 +152,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
 
-  // Phase MU.5 — Content-Permission-Check (≥ member).
-  // Service-Subjects (agent:cli, system:bridge) bleiben durch — die haben
-  // bereits ihre eigenen Bearer-Gates auf Middleware-Ebene.
+  // Phase MU.5 — content permission check (≥ member).
+  // Service subjects (agent:cli, system:bridge) pass through — they already
+  // have their own Bearer gates at the middleware level.
   const subj = currentSubject(req);
   if (subj.kind === 'user') {
     const resolvedUserId = currentUserIdResolved(req);
@@ -208,7 +208,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     values.push(body.accent);
   }
 
-  // Phase OS.1 — Org-Zuordnung mit Permission-Check.
+  // Phase OS.1 — org assignment with permission check.
   if (body.organizationId !== undefined) {
     const userId = currentUserIdResolved(req);
     if (!userId) {
@@ -218,9 +218,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
       );
     }
 
-    // Phase IA.6 — Orphan-Verbot: organizationId DARF NICHT mehr null sein.
-    // Wer einen WS „entkoppeln" will, archiviert ihn oder verschiebt ihn
-    // in eine andere Org. Versuche null zu setzen → 400.
+    // Phase IA.6 — orphan ban: organizationId MUST NOT be null anymore.
+    // Whoever wants to "decouple" a workspace archives it or moves it
+    // into another org. Attempts to set null → 400.
     if (body.organizationId === null || body.organizationId === '') {
       return NextResponse.json(
         {
@@ -273,7 +273,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     values.push(newOrgId);
   }
 
-  // Brand-Felder (Phase 2026-04-25, Business-Branding pro Workspace)
+  // Brand fields (Phase 2026-04-25, per-workspace business branding)
   if (body.logoUrl === null || body.logoUrl === '') {
     updates.push('logo_url = NULL');
   } else if (typeof body.logoUrl === 'string' && /^https?:\/\//.test(body.logoUrl)) {

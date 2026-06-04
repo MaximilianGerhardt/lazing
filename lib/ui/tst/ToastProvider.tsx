@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * ToastProvider — hängt im RootLayout, stellt den ToastContext bereit.
+ * ToastProvider — sits in the RootLayout, provides the ToastContext.
  *
- * Verwaltet eine Liste von ToastEntry-Items und rendert den ToastStack.
- * ID-Vergabe: monoton per counter (kein crypto.randomUUID → SSR-safe).
+ * Manages a list of ToastEntry items and renders the ToastStack.
+ * ID assignment: monotonic via counter (no crypto.randomUUID → SSR-safe).
  */
 
 import { useCallback, useRef, useState, type ReactNode } from 'react';

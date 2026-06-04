@@ -10,38 +10,38 @@
  *    keine privaten Daten · Review durch betroffene Person · Betriebsrat/
  *    Arbeitsrecht beachten"
  *
- * Diese Matrix ist die deterministische SPERRE, die JEDE andere Lane (Plan-
- * Execute, Connector-Invoke, Spawn, Persist-Belief, …) befragen MUSS, bevor
- * sie irgendetwas auto-startet. Sie ist die Stage-1-Foundation des
- * Governance Gate Contracts.
+ * This matrix is the deterministic LOCK that EVERY other lane (plan-
+ * execute, connector-invoke, spawn, persist-belief, …) MUST query before
+ * it auto-starts anything. It is the Stage-1 foundation of the
+ * Governance Gate Contract.
  *
- * Bauprinzip (analog lib/security/dataflow-policy.ts):
- *   - PURE Funktion: kein DB-Read, kein LLM, kein IO. Kann von jedem Caller
- *     ohne Setup-Aufwand befragt werden. Der HAS-CONSENT-Read (DB) wird
- *     EXPLIZIT als Eingabe übergeben — der Caller (z.B. plan-executor) muss
- *     vorher hasConsent(raw, ...) abrufen und das Ergebnis hereinreichen.
- *   - N6: deterministische Validatoren vor symbolischem Reasoning.
- *   - N1: reason verbatim — kein .slice.
+ * Design principle (analogous to lib/security/dataflow-policy.ts):
+ *   - PURE function: no DB read, no LLM, no IO. Can be queried by any caller
+ *     without setup overhead. The HAS-CONSENT read (DB) is passed in
+ *     EXPLICITLY as input — the caller (e.g. plan-executor) must
+ *     call hasConsent(raw, ...) beforehand and pass the result in.
+ *   - N6: deterministic validators before symbolic reasoning.
+ *   - N1: reason verbatim — no .slice.
  *
- * Mechanik:
+ * Mechanics:
  *   canAutoRun(args) → { ok, reason, missingGate? }
- *     - ok=true     → die Action darf OHNE weitere Approval ausgeführt werden
- *     - ok=false    → blockiert. missingGate beschreibt das fehlende Gate
+ *     - ok=true     → the action may run WITHOUT further approval
+ *     - ok=false    → blocked. missingGate describes the missing gate
  *                     ('consent:<level>' | 'human-approval' | 'audit' |
  *                      'permission-mode:freerein').
  *
- * NO_AUTO_RUN_RULES ist die Quelle der Wahrheit. Jede ActionKind hat:
- *   - allowedWithoutApproval: darf sie OHNE explizites OK laufen?
- *     (Default: false für alles Externe.)
- *   - requiresLevel:          minimaler ConsentLevel, falls dataSource
- *                             gegeben ist. 'none' = kein Consent nötig.
- *   - requiresHumanGate:      verlangt sie ein vorheriges User-Approval
+ * NO_AUTO_RUN_RULES is the source of truth. Every ActionKind has:
+ *   - allowedWithoutApproval: may it run WITHOUT an explicit OK?
+ *     (Default: false for everything external.)
+ *   - requiresLevel:          minimum ConsentLevel, if dataSource is
+ *                             given. 'none' = no consent needed.
+ *   - requiresHumanGate:      does it require a prior user approval
  *                             (Bridge / Live-Warn-Ack / Permission-Mode)?
- *   - requiresAuditRow:       MUSS ein governance_audit-Eintrag geschrieben
- *                             werden?
- *   - requiresPermissionMode: erlaubte Permission-Modes (subset von
+ *   - requiresAuditRow:       MUST a governance_audit entry be
+ *                             written?
+ *   - requiresPermissionMode: allowed permission modes (subset of
  *                             'freerein' | 'freerein-with-audit' | 'lane' |
- *                             'ask'). [] = keine Permission-Mode-Restriktion.
+ *                             'ask'). [] = no permission-mode restriction.
  */
 
 import type { ConsentLevel } from "./consent";
@@ -68,11 +68,11 @@ export interface GateRule {
   readonly requiresHumanGate: boolean;
   readonly requiresAuditRow: boolean;
   /**
-   * Wenn nicht-leer: nur in einem dieser Permission-Modes erlaubt. [] = keine
-   * Permission-Mode-Restriktion.
+   * If non-empty: only allowed in one of these permission modes. [] = no
+   * permission-mode restriction.
    */
   readonly requiresPermissionMode: readonly PermissionMode[];
-  /** VERBATIM Erklärung der Regel (N1). */
+  /** VERBATIM explanation of the rule (N1). */
   readonly rationale: string;
 }
 
@@ -80,19 +80,19 @@ export interface CanAutoRunArgs {
   readonly workspaceId: string;
   readonly userId: string;
   readonly action: ActionKind;
-  /** Nur relevant bei daten-bezogenen Actions. */
+  /** Only relevant for data-related actions. */
   readonly dataSource?: string;
   /**
-   * Der Caller hat hasConsent() bereits abgefragt und reicht das Ergebnis
-   * hier rein. canAutoRun ist eine pure Funktion und liest die DB nicht.
+   * The caller has already queried hasConsent() and passes the result
+   * in here. canAutoRun is a pure function and does not read the DB.
    */
   readonly hasConsent?: boolean;
   /**
-   * Hat der User vorher manuell zugestimmt (Bridge / Live-Warn-Ack /
-   * Permission-Mode-Toggle)?
+   * Has the user manually approved beforehand (Bridge / Live-Warn-Ack /
+   * Permission-Mode toggle)?
    */
   readonly humanApproved?: boolean;
-  /** Der aktuelle Permission-Mode des Workspace. */
+  /** The current permission mode of the workspace. */
   readonly permissionMode?: PermissionMode;
 }
 
@@ -105,30 +105,30 @@ export type MissingGate =
 
 export interface CanAutoRunResult {
   readonly ok: boolean;
-  /** VERBATIM Erklärung (N1). */
+  /** VERBATIM explanation (N1). */
   readonly reason: string;
   readonly missingGate?: MissingGate;
 }
 
 // ---------------------------------------------------------------------------
-// NO_AUTO_RUN_RULES — Owner-Direktive §7.2 + §13.2 in Code
+// NO_AUTO_RUN_RULES — owner directive §7.2 + §13.2 in code
 // ---------------------------------------------------------------------------
 
 /**
- * Default-Disziplin (Owner-Direktive §7.2 „Imported context must not auto-run"
- * + §13.2 Opt-in):
+ * Default discipline (owner directive §7.2 „Imported context must not auto-run"
+ * + §13.2 opt-in):
  *
- *   - Alles EXTERNE (connector-invoke-live, send-external-message,
- *     fetch-external-url) → braucht ConsentLevel ≥ read-derive-act,
- *     Human-Approval UND Audit-Row.
- *   - Bash + fs-write → braucht Permission-Mode ∈ {freerein,
- *     freerein-with-audit} (sonst „ask"/„lane" blockt). KEIN externer
- *     Consent nötig (kein dataSource-Bezug), aber Audit-Row Pflicht.
+ *   - Everything EXTERNAL (connector-invoke-live, send-external-message,
+ *     fetch-external-url) → needs ConsentLevel ≥ read-derive-act,
+ *     human approval AND an audit row.
+ *   - Bash + fs-write → needs permission mode ∈ {freerein,
+ *     freerein-with-audit} (otherwise „ask"/„lane" blocks). NO external
+ *     consent needed (no dataSource relation), but an audit row is mandatory.
  *   - INTERNAL-ONLY (persist-belief, spawn-subagent, plan-execute):
- *     ohne Approval erlaubt — sie lesen + schreiben innerhalb des
- *     Workspace-Scopes und können keinen externen Effekt haben.
- *     plan-execute fordert dennoch Audit (N8), weil es nachgelagerte Steps
- *     beinhalten kann.
+ *     allowed without approval — they read + write within the
+ *     workspace scope and can have no external effect.
+ *     plan-execute still requires an audit (N8), because it can
+ *     involve downstream steps.
  */
 export const NO_AUTO_RUN_RULES: Record<ActionKind, GateRule> = {
   "connector-invoke-live": {
@@ -216,22 +216,22 @@ export const NO_AUTO_RUN_RULES: Record<ActionKind, GateRule> = {
 };
 
 // ---------------------------------------------------------------------------
-// canAutoRun — pure Funktion, deterministisch (N6)
+// canAutoRun — pure function, deterministic (N6)
 // ---------------------------------------------------------------------------
 
 /**
- * Trifft die Allow/Deny-Entscheidung für eine Action. KEIN DB-Read — die
- * benötigten Read-Ergebnisse (hasConsent, humanApproved, permissionMode)
- * werden vom Caller mitgeliefert.
+ * Makes the allow/deny decision for an action. NO DB read — the
+ * required read results (hasConsent, humanApproved, permissionMode)
+ * are supplied by the caller.
  *
- * Reihenfolge der Checks (fail-closed bei jedem Fehlschlag):
- *   1. action muss bekannt sein (sonst deny: 'unknown action').
- *   2. Permission-Mode-Restriktion erfüllt?
- *   3. ConsentLevel ≥ required? (nur wenn requiresLevel !== 'none')
- *   4. Human-Approval da? (nur wenn requiresHumanGate)
- *   5. Wenn allowedWithoutApproval=false UND nichts der obigen Gates fehlt
- *      → erlaubt (Audit MUSS der Caller schreiben — der reason verweist
- *      darauf).
+ * Order of the checks (fail-closed on every failure):
+ *   1. action must be known (otherwise deny: 'unknown action').
+ *   2. permission-mode restriction satisfied?
+ *   3. ConsentLevel ≥ required? (only if requiresLevel !== 'none')
+ *   4. human approval present? (only if requiresHumanGate)
+ *   5. If allowedWithoutApproval=false AND none of the above gates is missing
+ *      → allowed (the caller MUST write the audit — the reason points
+ *      to it).
  */
 export function canAutoRun(args: CanAutoRunArgs): CanAutoRunResult {
   if (!args || typeof args.action !== "string") {
@@ -266,7 +266,7 @@ export function canAutoRun(args: CanAutoRunArgs): CanAutoRunResult {
     };
   }
 
-  // (2) Permission-Mode-Restriktion.
+  // (2) Permission-mode restriction.
   if (rule.requiresPermissionMode.length > 0) {
     if (!args.permissionMode || !rule.requiresPermissionMode.includes(args.permissionMode)) {
       const required = rule.requiresPermissionMode.join(" | ");
@@ -280,7 +280,7 @@ export function canAutoRun(args: CanAutoRunArgs): CanAutoRunResult {
     }
   }
 
-  // (3) ConsentLevel-Check (nur wenn nicht 'none').
+  // (3) ConsentLevel check (only if not 'none').
   if (rule.requiresLevel !== "none") {
     if (typeof args.dataSource !== "string" || args.dataSource.length === 0) {
       return {
@@ -302,7 +302,7 @@ export function canAutoRun(args: CanAutoRunArgs): CanAutoRunResult {
     }
   }
 
-  // (4) Human-Approval.
+  // (4) Human approval.
   if (rule.requiresHumanGate && !args.humanApproved) {
     return {
       ok: false,
@@ -313,10 +313,10 @@ export function canAutoRun(args: CanAutoRunArgs): CanAutoRunResult {
     };
   }
 
-  // (5) Allowed-without-approval? Default false; ok wenn alles vorhanden ist.
-  // requiresAuditRow signalisiert dem Caller, dass er writeGovernanceAudit
-  // schreiben MUSS — die Verantwortung liegt beim Caller, der reason erklärt
-  // es verbatim.
+  // (5) Allowed-without-approval? Default false; ok if everything is present.
+  // requiresAuditRow signals to the caller that it MUST write
+  // writeGovernanceAudit — the responsibility lies with the caller, the reason
+  // explains it verbatim.
   const auditNote = rule.requiresAuditRow
     ? " Caller MUSS writeGovernanceAudit() aufrufen (N8)."
     : "";

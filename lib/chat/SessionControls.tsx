@@ -1,26 +1,26 @@
 'use client';
 
 /**
- * SessionControls — Apple-pure Session-Action-Sheet.
+ * SessionControls — Apple-pure session action sheet.
  *
- * 2026-05-03 Welle A — Redesign nach User-Frust:
+ * 2026-05-03 Wave A — Redesign after user frustration:
  *  > „diese buttons sind eine ui design katastrophe und nicht an der
  *  > design library weiterentwickelt worden! jede einbindung benötigt
  *  > design expertise ala steve jobs und design thinking!!"
  *
- * Vorher: 4 Pill-Buttons nebeneinander mit Two-Tap-Confirm, Density-Müll,
- * mobile broken. Jetzt: 1 icon-only `•••`-Trigger + Action-Sheet.
+ * Before: 4 pill buttons side by side with two-tap confirm, density junk,
+ * mobile broken. Now: 1 icon-only `•••` trigger + action sheet.
  *
- *  - Mobile (<480px) → Bottom-Sheet (slide-up via spring-bouncy 240ms)
- *  - Desktop ≥480px  → anchored Popover unter dem Trigger
- *  - Inline-Confirm-Step für destructive Actions (Stoppen / Neue Session
- *    / Leeren) — die Row morpht 4s zu „Wirklich? — Bestätigen" und
- *    revertiert dann automatisch. Ersetzt Two-Tap-Pattern.
- *  - Backdrop-tap / ESC schließen, Focus-Trap aktiv solange offen.
+ *  - Mobile (<480px) → bottom sheet (slide-up via spring-bouncy 240ms)
+ *  - Desktop ≥480px  → anchored popover below the trigger
+ *  - Inline confirm step for destructive actions (stop / new session
+ *    / clear) — the row morphs for 4s to „Wirklich? — Bestätigen" and
+ *    then reverts automatically. Replaces the two-tap pattern.
+ *  - Backdrop tap / ESC close, focus trap active while open.
  *
- * REGISTRY-Handler bleiben unverändert (DRY mit Slash-Commands).
+ * REGISTRY handlers stay unchanged (DRY with slash commands).
  *
- * Tokens-only, keine inline-hex. Reduced-motion via globals.css.
+ * Tokens-only, no inline hex. Reduced-motion via globals.css.
  */
 
 import {
@@ -60,7 +60,7 @@ interface ActionRow {
   ariaLabel: string;
   destructive: boolean;
   icon: ReactNode;
-  /** Bei `true` rendert die Row als reine Tap-Action (Compact). Sonst Inline-Confirm-Step. */
+  /** When `true` the row renders as a pure tap action (compact). Otherwise an inline confirm step. */
   immediate?: boolean;
 }
 
@@ -84,7 +84,7 @@ export function SessionControls({
   const sheetId = useId();
 
   // ───────────────────────────────────────────────────────────────────────
-  //  Handlers (REGISTRY bleibt Single-Source — kein Logik-Dup).
+  //  Handlers (REGISTRY stays single-source — no logic dup).
   // ───────────────────────────────────────────────────────────────────────
 
   const triggerClear = useCallback(async () => {
@@ -231,9 +231,9 @@ export function SessionControls({
 
   const openSheet = useCallback(() => {
     previouslyFocused.current = document.activeElement;
-    // Anchored-Popover: berechne Position relativ zum Trigger.
-    // Top = unterhalb des Triggers (bottom + 6px Spacer).
-    // Right = vom Viewport-Rand bis zum Trigger-Rand.
+    // Anchored popover: compute position relative to the trigger.
+    // Top = below the trigger (bottom + 6px spacer).
+    // Right = from the viewport edge to the trigger edge.
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
       setAnchor({
@@ -275,10 +275,10 @@ export function SessionControls({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, closeSheet]);
 
-  // Initial-Focus auf erste Row beim Öffnen, restore beim Schließen.
+  // Initial focus on the first row when opening, restore when closing.
   useEffect(() => {
     if (open) {
-      // requestAnimationFrame damit Sheet im DOM ist.
+      // requestAnimationFrame so the sheet is in the DOM.
       const id = requestAnimationFrame(() => {
         const first =
           sheetRef.current?.querySelector<HTMLElement>('[data-sheet-row]');
@@ -303,20 +303,20 @@ export function SessionControls({
   );
 
   // ───────────────────────────────────────────────────────────────────────
-  //  Row-Click: Inline-Confirm für destructive, sofort für non-destructive.
+  //  Row click: inline confirm for destructive, immediate for non-destructive.
   // ───────────────────────────────────────────────────────────────────────
 
   const onRowActivate = useCallback(
     (action: ActionRow) => {
       if (busy) return;
       if (action.immediate || !action.destructive) {
-        // Compact = sofort, ohne Confirm. Sheet schließt nach Run.
+        // Compact = immediate, without confirm. Sheet closes after the run.
         void runAction(action.id).then(() => {
           closeSheet();
         });
         return;
       }
-      // Erste Aktivierung: Confirm-Step zeigen.
+      // First activation: show the confirm step.
       if (confirmingId !== action.id) {
         setConfirmingId(action.id);
         if (confirmRevertTimer.current !== null) {
@@ -328,7 +328,7 @@ export function SessionControls({
         }, CONFIRM_REVERT_MS);
         return;
       }
-      // Zweite Aktivierung: ausführen + sheet schließen.
+      // Second activation: execute + close the sheet.
       if (confirmRevertTimer.current !== null) {
         window.clearTimeout(confirmRevertTimer.current);
         confirmRevertTimer.current = null;
@@ -342,8 +342,8 @@ export function SessionControls({
   );
 
   // ───────────────────────────────────────────────────────────────────────
-  //  Action-Definitionen — iOS-Music-Sheet-Pattern: non-destructive oben,
-  //  Section-Trenner, destructive-Cluster unten.
+  //  Action definitions — iOS music-sheet pattern: non-destructive on top,
+  //  section divider, destructive cluster at the bottom.
   // ───────────────────────────────────────────────────────────────────────
 
   const actions: ActionRow[] = [
@@ -431,7 +431,7 @@ export function SessionControls({
                 : undefined
             }
             onKeyDown={(e: ReactKeyboardEvent<HTMLDivElement>) => {
-              // Bubble verhindern für eingefangene Keys
+              // Prevent bubble for captured keys
               if (e.key === 'Escape') e.stopPropagation();
             }}
           >
@@ -500,7 +500,7 @@ export function SessionControls({
               })}
             </ul>
 
-            {/* Cancel-Row (iOS-Pattern: full-width, separater Background). */}
+            {/* Cancel row (iOS pattern: full-width, separate background). */}
             <button
               type="button"
               data-sheet-row="true"
@@ -535,7 +535,7 @@ const ICON_PROPS = {
 } satisfies Partial<React.SVGAttributes<SVGElement>>;
 
 function IconDots(): React.JSX.Element {
-  // 16px für Toolbar-Trigger (kleinere Hit-Surface).
+  // 16px for the toolbar trigger (smaller hit surface).
   return (
     <svg
       width={16}
@@ -589,7 +589,7 @@ function IconStop(): React.JSX.Element {
   );
 }
 
-// Eslint-Pacifier — `CSSProperties` als Re-Export, falls extern nötig.
+// Eslint pacifier — `CSSProperties` as a re-export, in case needed externally.
 export type _SessionControlsCSSPlaceholder = CSSProperties;
 
 export default SessionControls;

@@ -16,13 +16,13 @@
  *   body: { op: 'revoke', workspaceId, userId, dataSource, grantId? }
  *      → { ok: true, grant: ConsentGrant } | { ok: false, error: 'not-found' }
  *
- * Subject-Gate: requireSession (currentUserIdResolved). 401 ohne Session.
+ * Subject gate: requireSession (currentUserIdResolved). 401 without a session.
  *
- * Side-Effects:
- *   - POST grant erzeugt eine consent_grants-Row UND einen governance_audit-
- *     Eintrag (decision='allowed', reason verbatim).
- *   - POST revoke setzt revoked_at + erzeugt einen governance_audit-
- *     Eintrag (decision='allowed', reason erklärt §13.2 „Pause/Stop").
+ * Side effects:
+ *   - POST grant creates a consent_grants row AND a governance_audit
+ *     entry (decision='allowed', reason verbatim).
+ *   - POST revoke sets revoked_at + creates a governance_audit
+ *     entry (decision='allowed', reason explains §13.2 „Pause/Stop").
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       writeGovernanceAudit(raw, {
         workspaceId: grantBody.workspaceId,
         userId: sessionUserId,
-        action: "persist-belief", // grant ist eine workspace-interne Persistierung
+        action: "persist-belief", // grant is a workspace-internal persistence
         dataSource: grantBody.dataSource,
         decision: "allowed",
         reason:

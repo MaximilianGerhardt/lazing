@@ -1,19 +1,19 @@
 /**
  * scripts/sessions-cleanup.ts — Phase Maintenance (2026-04-29).
  *
- * Räumt alte `.jsonl`-Files aus `~/.claude/projects/` auf. Claude-Code-CLI
- * persistiert jeden Spawn als eigene Session-Datei und macht selber kein
- * Cleanup. Bei Multi-Tier-Workstreams entstehen viele Files (auf einer
- * Dev-VM heute: 10k+ Files / 1.8 GB).
+ * Cleans up old `.jsonl` files from `~/.claude/projects/`. The Claude-Code CLI
+ * persists every spawn as its own session file and does no cleanup itself.
+ * With multi-tier workstreams many files arise (on a dev VM today: 10k+ files /
+ * 1.8 GB).
  *
- * Default-Policy:
- *   - Lösche `.jsonl`-Files älter als 30 Tage
- *   - Behalte mindestens N=50 Files pro Projekt-Folder (Audit-Floor)
- *   - Dry-Run als Default; --apply löscht
+ * Default policy:
+ *   - Delete `.jsonl` files older than 30 days
+ *   - Keep at least N=50 files per project folder (audit floor)
+ *   - Dry-run as the default; --apply deletes
  *
  * Usage:
  *   pnpm tsx scripts/sessions-cleanup.ts                # dry-run
- *   pnpm tsx scripts/sessions-cleanup.ts --apply        # echte Löschung
+ *   pnpm tsx scripts/sessions-cleanup.ts --apply        # real deletion
  *   pnpm tsx scripts/sessions-cleanup.ts --apply --days=14
  */
 
@@ -114,7 +114,7 @@ function main(): void {
     if (files.length === 0) continue;
     totalScanned += files.length;
 
-    // Sortiere nach mtime DESC — neueste zuerst.
+    // Sort by mtime DESC — newest first.
     files.sort((a, b) => b.mtime - a.mtime);
     const keep = files.slice(0, args.keepFloor);
     const candidates = files.slice(args.keepFloor);
@@ -122,7 +122,7 @@ function main(): void {
     let projDeleted = 0;
     let projBytes = 0;
     for (const f of candidates) {
-      if (f.mtime > cutoffMs) continue; // jünger als threshold → behalten
+      if (f.mtime > cutoffMs) continue; // younger than the threshold → keep
       totalCandidates += 1;
       projDeleted += 1;
       projBytes += f.sizeBytes;

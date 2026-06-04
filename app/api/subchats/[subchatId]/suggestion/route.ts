@@ -1,10 +1,10 @@
 /**
- * GET /api/subchats/[subchatId]/suggestion — liest den VOR-generierten,
- * server-seitigen proaktiven Vorschlag für EINEN Sub-Chat (Proactivity-Goal,
- * 2026-06-02). Der Watcher (lib/subchats/service.postMessage → lib/proactive/
- * generate) hat ihn beim Eintreffen der EXTERNEN Nachricht erzeugt. Diese Route
- * macht KEINE Engine-Calls — sie liest nur. Member-gated (N2/N9). NIEMALS
- * Auto-Send: liefert nur Text + id für den 1-Tap-Übernehmen-Flow.
+ * GET /api/subchats/[subchatId]/suggestion — reads the PRE-generated,
+ * server-side proactive suggestion for ONE sub-chat (Proactivity goal,
+ * 2026-06-02). The watcher (lib/subchats/service.postMessage → lib/proactive/
+ * generate) created it when the EXTERNAL message arrived. This route makes
+ * NO engine calls — it only reads. Member-gated (N2/N9). NEVER
+ * auto-sends: returns only text + id for the 1-tap accept flow.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

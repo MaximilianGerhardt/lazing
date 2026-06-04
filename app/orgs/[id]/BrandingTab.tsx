@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Org Branding Tab — Logo, Colors, Adresse, Imprint, USt-IdNr.
- * Wird von SP-7 PDF-Pipeline gelesen für branded Reports.
+ * Org Branding Tab — logo, colors, address, imprint, VAT ID.
+ * Read by the SP-7 PDF pipeline for branded reports.
  */
 
 import { useState, type CSSProperties } from "react";

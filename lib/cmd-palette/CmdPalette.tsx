@@ -81,8 +81,8 @@ export function CmdPalette(): React.JSX.Element | null {
     const q = query.trim();
     const out: PaletteItem[] = [];
 
-    // Navigation shortcuts (immer da)
-    // Cmd+K = einziges Power-User-Superset (UI/UX-Neuausrichtung 2026-06-03):
+    // Navigation shortcuts (always present)
+    // Cmd+K = the single power-user superset (UI/UX realignment 2026-06-03):
     // covers EVERY nav target so menu/drawer/bar never drift apart again.
     const navs: Array<{ label: string; detail: string; href: string; kind: CmdSuggestion['kind'] }> = [
       { label: 'Chat', detail: 'zurück zum Dialog', href: '/', kind: 'nav' },
@@ -98,7 +98,7 @@ export function CmdPalette(): React.JSX.Element | null {
       { label: 'Kalender', detail: 'Fälligkeiten', href: '/calendar', kind: 'nav' },
       { label: 'Einstellungen', detail: 'Engines · Skills · Push · Auto-Mode', href: '/settings', kind: 'nav' },
     ];
-    // Design-Library = Dev-Showcase (Fixtures) → nur in Dev sichtbar.
+    // Design library = dev showcase (fixtures) → visible only in dev.
     if (process.env.NODE_ENV === 'development') {
       navs.push({ label: 'Design', detail: 'Komponenten-Library (dev)', href: '/design', kind: 'doc' });
     }
@@ -116,7 +116,7 @@ export function CmdPalette(): React.JSX.Element | null {
       }
     }
 
-    // Workspace-Switch (fuzzy-match)
+    // Workspace switch (fuzzy match)
     for (const w of workspaces) {
       const sc = fuzzyScore(q, w.id + ' ' + w.label);
       if (sc >= 2) {
@@ -144,7 +144,7 @@ export function CmdPalette(): React.JSX.Element | null {
         kind: 'act',
         score: 9,
         action: () => {
-          // Sende via URL-param oder localStorage-signal
+          // Send via URL param or localStorage signal
           try {
             window.localStorage.setItem('lazyos.cmd.prefill', q);
           } catch {

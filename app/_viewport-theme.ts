@@ -1,27 +1,27 @@
 /**
- * Welle 5b (2026-05-01): dynamische themeColor-Auflösung für app/layout.tsx.
+ * Wave 5b (2026-05-01): dynamic themeColor resolution for app/layout.tsx.
  *
- * Separat ausgelagert, damit die Funktion in Tests importiert werden kann
- * ohne dass `app/layout.tsx` (und mit ihm `globals.css` + Tailwind) geladen
- * werden muss. CSS-Imports werfen unter `node:test` / `tsx`.
+ * Split out separately so the function can be imported in tests
+ * without `app/layout.tsx` (and with it `globals.css` + Tailwind) having to
+ * be loaded. CSS imports throw under `node:test` / `tsx`.
  */
 
 import { getDb } from "@/db/client";
 
 /**
- * Default-Theme-Color — laz.ing-Identity-Schwarz. Wird verwendet wenn:
- *  - kein lazyos.org-Cookie gesetzt ist
- *  - die Org keine Workspaces mit accent hat
- *  - DB-Lookup fehlschlägt
- *  - der gefundene accent kein gültiges Hex-Format ist
+ * Default theme color — laz.ing identity black. Used when:
+ *  - no lazyos.org cookie is set
+ *  - the org has no workspaces with an accent
+ *  - the DB lookup fails
+ *  - the accent found is not a valid hex format
  */
 export const DEFAULT_THEME_COLOR = "#070707";
 
 /**
- * Liest die Akzent-Farbe der aktiven Org. Greift auf den ersten Workspace
- * mit gesetztem accent in der Org zurück. Fail-soft: jeder DB-Fehler oder
- * fehlende Spalte fällt auf den Default zurück. Kein Throw — der Server
- * soll auch bei kaputter SQLite die Page rendern.
+ * Reads the accent color of the active org. Falls back to the first workspace
+ * with an accent set in the org. Fail-soft: any DB error or
+ * missing column falls back to the default. No throw — the server
+ * should render the page even with a broken SQLite.
  */
 export function resolveThemeColorFromOrg(orgId: string): string {
   if (!orgId || typeof orgId !== "string") return DEFAULT_THEME_COLOR;
@@ -39,9 +39,9 @@ export function resolveThemeColorFromOrg(orgId: string): string {
       .get(orgId) as { accent?: string } | undefined;
     const accent = row?.accent?.trim();
     if (!accent) return DEFAULT_THEME_COLOR;
-    // Hex-Validation (#rgb / #rrggbb) — wir wollen nichts anderes als
-    // Theme-Color in den meta-Tag rauslassen (CSS-vars wie var(--a-now)
-    // gehören hier nicht hin).
+    // Hex validation (#rgb / #rrggbb) — we only want to let theme colors
+    // through into the meta tag (CSS vars like var(--a-now)
+    // do not belong here).
     if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(accent)) return DEFAULT_THEME_COLOR;
     return accent;
   } catch {

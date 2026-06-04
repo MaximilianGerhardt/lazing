@@ -1,18 +1,18 @@
 'use client';
 
 /**
- * CredentialPromptCard — Surface-Card im Chat: KI fragt nach einem Key.
+ * CredentialPromptCard — a surface card in the chat: the AI asks for a key.
  *
- * Wird emittiert wenn der Lead-Agent feststellt, dass ein API-Key fehlt
- * (z.B. Stripe, Supabase). Statt den User zur /workspaces/[id]/?tab=credentials
- * zu schicken, kann er den Wert direkt hier eintippen — POST geht an
- * /api/workspaces/<ws>/credentials, Encrypted-Storage. Klartext landet
- * NICHT im Chat-Verlauf.
+ * Emitted when the lead agent finds that an API key is missing
+ * (e.g. Stripe, Supabase). Instead of sending the user to /workspaces/[id]/?tab=credentials,
+ * they can type the value directly here — a POST goes to
+ * /api/workspaces/<ws>/credentials, encrypted storage. The plaintext does
+ * NOT land in the chat history.
  *
  * Schema:
  *   {"workspaceId":"…","name":"STRIPE_SECRET_KEY","description":"…","docsUrl":"…"}
  *
- * Welle 4.2 (2026-05-01): Inline-Styles → CSS-Klassen `.srf-cred__*` (Token-bind).
+ * Wave 4.2 (2026-05-01): inline styles → CSS classes `.srf-cred__*` (token-bind).
  */
 
 import { useState } from 'react';
@@ -42,7 +42,7 @@ export function CredentialPromptCard({
     if (value.length === 0) return;
     setSubmitting(true);
     setError(null);
-    // iOS-Polish E.9: subtle Haptics-Hint beim Submit (PWA)
+    // iOS-Polish E.9: subtle haptics hint on submit (PWA)
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate(10);
     }
@@ -66,8 +66,8 @@ export function CredentialPromptCard({
       }
       setDone(true);
       setValue('');
-      // KI bekommt nur den Hinweis dass der Key gespeichert wurde — NICHT
-      // den Klartext. Sie kann ihn dann ueber server-side Tools auslesen.
+      // The AI only gets the hint that the key was saved — NOT
+      // the plaintext. It can then read it via server-side tools.
       reply(`Key ${name} ist im Workspace ${workspaceId} hinterlegt (verschlüsselt). Bitte hole ihn über die Server-API.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

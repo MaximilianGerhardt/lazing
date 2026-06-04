@@ -166,7 +166,7 @@ export async function verifyOne(
   const reSpawnFn = deps.reSpawn ?? defaultReSpawn;
   const embedFn = deps.embed ?? embed;
 
-  // 1. Re-Spawn mit identischem Model + Prompts + Hint.
+  // 1. Re-spawn with identical model + prompts + hint.
   let newText = "";
   try {
     const result = await reSpawnFn(

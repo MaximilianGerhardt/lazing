@@ -1,20 +1,20 @@
 'use client';
 
 /**
- * ExtraFoldersRepeater — Onboarding-Repeater für ZUSÄTZLICHE Projekt-Ordner.
+ * ExtraFoldersRepeater — onboarding repeater for ADDITIONAL project folders.
  *
- * Owner-Leitprinzip (verbatim): „Diese Ordner gehören zu diesem Projekt"
- * (Multi-Repo: ein Workspace, mehrere Ordner — z.B. CRM-Git + Website-Git = EIN
- * Projekt). Der ERSTE Pfad (Primary) bleibt der bestehende „Custom path"-Input
- * im Onboarding-Workspace-Step — dieser Repeater fügt nur WEITERE Roots hinzu,
- * je ro/rw. So bleibt das bestehende „erster Pfad = primary"-Verhalten intakt.
+ * Owner guiding principle (verbatim): „Diese Ordner gehören zu diesem Projekt"
+ * (multi-repo: one workspace, multiple folders — e.g. CRM-Git + Website-Git = ONE
+ * project). The FIRST path (primary) remains the existing „Custom path" input
+ * in the onboarding workspace step — this repeater only adds FURTHER roots,
+ * each ro/rw. This keeps the existing „first path = primary" behavior intact.
  *
- * Diese Komponente ist controlled: der Parent hält `value`/`onChange`. Beim
- * Workspace-Anlegen werden diese Extra-Roots nach der Workspace-Erstellung an
- * POST /api/workspaces/[id]/fs-roots gespiegelt (Integrator-Notiz, FS-1).
+ * This component is controlled: the parent holds `value`/`onChange`. When
+ * creating the workspace, these extra roots are mirrored after workspace
+ * creation to POST /api/workspaces/[id]/fs-roots (integrator note, FS-1).
  *
- * Stil: laz.ing Design Manifest v1.0 — Pitch-Black, brand-gradient nur auf der
- * primären Aktion, 240ms cubic-bezier. Kein Hex direkt in TSX. Keine Emojis.
+ * Style: laz.ing Design Manifest v1.0 — pitch-black, brand-gradient only on the
+ * primary action, 240ms cubic-bezier. No hex directly in TSX. No emojis.
  */
 
 import { useState, type CSSProperties } from 'react';

@@ -1,4 +1,4 @@
-// Plan-Templates library (BACKPORT-03 · 2026-05-23).
+// Plan templates library (BACKPORT-03 · 2026-05-23).
 //
 // 6 canonical plan templates keyed to common operator intents:
 //
@@ -9,22 +9,21 @@
 //   perf-investigation   — 5 steps  (profile / hypothesise / micro-bench / optimise / verify)
 //   security-audit       — 4 steps  (threat-model / static-audit / fix / re-audit)
 //
-// Der Matcher (`matchTemplate`) ist regex-basiert (N6 — deterministisch,
-// kein LLM-Roundtrip) und ist nach Spezifität geordnet. Das bug-fix-
-// Template hat höchste Priorität, weil Operatoren häufig bug-fix-Verben
-// in breitere Feature-Requests einbetten — bug-fix bevorzugen wenn beide
-// matchen vermeidet einen Hotfix versehentlich zu einem 7-Step-Feature-Plan
-// hochzustufen.
+// The matcher (`matchTemplate`) is regex-based (N6 — deterministic,
+// no LLM roundtrip) and ordered by specificity. The bug-fix
+// template has the highest priority because operators often embed bug-fix verbs
+// in broader feature requests — preferring bug-fix when both
+// match avoids accidentally promoting a hotfix to a 7-step feature plan.
 //
 // Discipline:
-//   - N1: jeder Step's `title` + `rationale` ist VERBATIM aus diesem
-//     Modul — kein slice, kein runtime reformat. Der Matcher
-//     paraphrasiert NIE das Operator-Intent; er wählt nur ein Template.
-//   - N6: deterministisch — gleicher `intentText` → matcher gibt IMMER
-//     dasselbe Template (oder null).
-//   - N4: Templates sind pure data + ein thin matcher. Keine Substrat-
-//     Mutation; der Caller entscheidet ob ein Workstream aus den
-//     Template-Steps geseeded wird.
+//   - N1: every step's `title` + `rationale` is VERBATIM from this
+//     module — no slice, no runtime reformat. The matcher
+//     NEVER paraphrases the operator intent; it only picks a template.
+//   - N6: deterministic — the same `intentText` → the matcher ALWAYS gives
+//     the same template (or null).
+//   - N4: templates are pure data + a thin matcher. No substrate
+//     mutation; the caller decides whether a workstream is seeded from the
+//     template steps.
 
 import type { PlanStep, ProposedPlan } from '../orchestrate-plan';
 
@@ -79,16 +78,15 @@ export const TEMPLATES_BY_ID: Readonly<Record<TemplateId, PlanTemplate>> = {
 };
 
 /**
- * Pure regex-based template selector (N6 deterministisch).
+ * Pure regex-based template selector (N6 deterministic).
  *
- * Gibt das höchst-priorisierte Template zurück dessen Regex matched,
- * oder `null` wenn kein Template passt. Der Caller wird in diesem Fall
- * auf den LLM `proposePlan`-Flow zurückfallen.
+ * Returns the highest-priority template whose regex matches,
+ * or `null` when no template fits. In that case the caller
+ * falls back to the LLM `proposePlan` flow.
  *
  * Priority order: bug-fix > security-audit > perf-investigation >
- * test-coverage > refactor > feature-implement. Order ist in
- * `TEMPLATE_RULES` hardcoded; nicht auf object-key iteration order
- * verlassen.
+ * test-coverage > refactor > feature-implement. The order is hardcoded in
+ * `TEMPLATE_RULES`; do not rely on object-key iteration order.
  */
 export function matchTemplate(intentText: string): PlanTemplate | null {
   if (typeof intentText !== 'string') return null;
@@ -101,12 +99,12 @@ export function matchTemplate(intentText: string): PlanTemplate | null {
 }
 
 /**
- * Projektiert ein Template in eine `ProposedPlan`-Shape damit der selbe
- * downstream code-path (`planStepsToIntents` etc.) sowohl LLM-proposed
- * als auch template-matched Pläne ohne Branching treiben kann.
+ * Projects a template into a `ProposedPlan` shape so the same
+ * downstream code path (`planStepsToIntents` etc.) can drive both LLM-proposed
+ * and template-matched plans without branching.
  *
- * Die geminteten Step-IDs werden vom Caller über `mintId` geliefert
- * damit Tests deterministische Ordering bekommen; default ist
+ * The minted step IDs are supplied by the caller via `mintId`
+ * so tests get deterministic ordering; the default is
  * `randomUUID()`.
  */
 export function templateToProposedPlan(

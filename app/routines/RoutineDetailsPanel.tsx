@@ -1,20 +1,20 @@
 "use client";
 
 /**
- * RoutineDetailsPanel — Slideout von rechts mit Routine-Details.
+ * RoutineDetailsPanel — slideout from the right with routine details.
  *
- * Zeigt:
- *   - Beschreibung (aus YAML)
- *   - Schedule — Dropdown-Selector (taeglich / intervall / wochentags / event / manuell)
- *   - Advanced-Toggle zeigt raw Cron + raw YAML fuer Power-User
- *   - Pretty-printed Pipeline-Steps (Read-only)
- *   - Run-History (letzte 20)
- *   - "Jetzt triggern"-Button prominent rechts oben
- *   - Delete-Button unten mit Confirm
+ * Shows:
+ *   - description (from YAML)
+ *   - schedule — dropdown selector (daily / interval / weekday / event / manual)
+ *   - advanced toggle shows raw cron + raw YAML for power users
+ *   - pretty-printed pipeline steps (read-only)
+ *   - run history (last 20)
+ *   - "Jetzt triggern" button prominent top right
+ *   - delete button at the bottom with confirm
  *
- * Persistiert Aenderungen an Schedule-Dropdown via `PATCH /api/routines/:id`.
+ * Persists schedule-dropdown changes via `PATCH /api/routines/:id`.
  *
- * Design: LazyOS v1.0 — Tokens aus globals.css.
+ * Design: LazyOS v1.0 — tokens from globals.css.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -35,7 +35,7 @@ import {
 
 interface Props {
   routineId: string;
-  /** Summary aus Liste — wird gemerged mit geladenem Full-Detail. */
+  /** Summary from the list — merged with the loaded full detail. */
   initial: RoutineSummary;
   onClose: () => void;
   onSaved: (next: RoutineSummary) => void;
@@ -62,9 +62,9 @@ interface ParsedPipelineStep {
 }
 
 // ---------------------------------------------------------------------------
-// Known event types — dropdown fuer Event-Trigger.
-// Das ist eine kuratierte Liste der gaengigen Event-Typen; wer eigene braucht
-// kann den Advanced-Toggle nutzen.
+// Known event types — dropdown for event triggers.
+// This is a curated list of the common event types; anyone who needs their own
+// can use the advanced toggle.
 // ---------------------------------------------------------------------------
 
 const KNOWN_EVENT_TYPES: ReadonlyArray<{
@@ -81,7 +81,7 @@ const KNOWN_EVENT_TYPES: ReadonlyArray<{
 ];
 
 // ---------------------------------------------------------------------------
-// Schedule-Form-State (wird aus Routine abgeleitet, beim Save wieder zu cron).
+// Schedule form state (derived from the routine, converted back to cron on save).
 // ---------------------------------------------------------------------------
 
 type ScheduleMode = "daily" | "interval-minutes" | "interval-hours" | "weekly";
@@ -167,14 +167,14 @@ function cronFromForm(form: CronFormState): string {
 }
 
 // ---------------------------------------------------------------------------
-// YAML-Pipeline Pretty-Printer.
+// YAML pipeline pretty-printer.
 // ---------------------------------------------------------------------------
 
 /**
- * Extract readable pipeline-steps aus YAML-Text via Regex.
- * Robust gegen unser Seed-Format (siehe scripts/seed-routines.ts).
- * Wir laden hier keine full-YAML-lib im Client — der Runner validiert
- * server-seitig, die UI zeigt nur die Struktur.
+ * Extract readable pipeline steps from YAML text via regex.
+ * Robust against our seed format (see scripts/seed-routines.ts).
+ * We do not load a full YAML lib in the client here — the runner validates
+ * server-side, the UI only shows the structure.
  */
 function parsePipelineSteps(yaml: string): ParsedPipelineStep[] {
   const steps: ParsedPipelineStep[] = [];
@@ -200,7 +200,7 @@ function parsePipelineSteps(yaml: string): ParsedPipelineStep[] {
     }
     if (!inPipeline) continue;
     if (/^\S/.test(line) && line && !line.startsWith("-")) {
-      // verlaesst pipeline-Block
+      // leaves the pipeline block
       flush();
       inPipeline = false;
       continue;
@@ -222,8 +222,8 @@ function parsePipelineSteps(yaml: string): ParsedPipelineStep[] {
 }
 
 /**
- * Gibt eine relative Zeitangabe ("in 2 Stunden", "in 3 Tagen") fuer einen
- * zukuenftigen Unix-Timestamp (ms) zurueck. Nur fuer nextRunAt gedacht.
+ * Returns a relative time string ("in 2 Stunden", "in 3 Tagen") for a
+ * future Unix timestamp (ms). Intended only for nextRunAt.
  */
 function formatRelative(tsMs: number): string {
   const diff = tsMs - Date.now();
@@ -239,10 +239,10 @@ function formatRelative(tsMs: number): string {
 }
 
 /**
- * Rendert eine JSON-Array ODER JSON-Map als read-only Pill-Reihe.
- * isMap=true: JSON ist { "<key>": "<value>" } — zeigt "key: value".
- * isMap=false: JSON ist string[] — zeigt jeden Wert als Pill.
- * Fehler beim Parsen → nichts rendern (kein leeres UI).
+ * Renders a JSON array OR JSON map as a read-only pill row.
+ * isMap=true: JSON is { "<key>": "<value>" } — shows "key: value".
+ * isMap=false: JSON is string[] — shows each value as a pill.
+ * Parse error → render nothing (no empty UI).
  */
 function BindingPills({
   label,
@@ -408,11 +408,11 @@ export function RoutineDetailsPanel(props: Props) {
     return () => {
       cancelled = true;
     };
-    // `initial` deliberately NOT in deps — nur routineId triggert reload.
+    // `initial` deliberately NOT in deps — only routineId triggers a reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routineId]);
 
-  // --------- Computed: aktueller trigger preview ---------
+  // --------- Computed: current trigger preview ---------
   const triggerPreview = useMemo(() => {
     if (triggerMode === "cron") {
       const expr = advanced ? rawCron : cronFromForm(cronForm);
@@ -1017,9 +1017,9 @@ export function RoutineDetailsPanel(props: Props) {
 
             {error && <div style={errorBannerStyle}>{error}</div>}
 
-            {/* Footer — primäre Aktion: Speichern. Danger-Zone links separiert. */}
+            {/* Footer — primary action: save. Danger zone separated on the left. */}
             <footer style={footerStyle}>
-              {/* Danger-Zone: Löschen — visuell zurückgestuft, klar separiert */}
+              {/* Danger zone: delete — visually demoted, clearly separated */}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {!confirmDelete ? (
                   <button
@@ -1050,7 +1050,7 @@ export function RoutineDetailsPanel(props: Props) {
                 )}
               </div>
 
-              {/* Primäre Aktion */}
+              {/* Primary action */}
               <button
                 type="button"
                 onClick={save}
@@ -1270,7 +1270,7 @@ const textareaStyle: React.CSSProperties = {
 };
 
 const hintStyle: React.CSSProperties = {
-  fontSize: "var(--fs-body)",  /* ≥13px — lesbarer Hinweistext */
+  fontSize: "var(--fs-body)",  /* ≥13px — readable hint text */
   color: "var(--ink-3)",
   lineHeight: "var(--lh-body)",
 };
@@ -1329,7 +1329,7 @@ const pipelineKindStyle: React.CSSProperties = {
 };
 
 const pipelineDetailStyle: React.CSSProperties = {
-  fontSize: "var(--fs-body)",  /* ≥13px — lesbarer Detail-Text */
+  fontSize: "var(--fs-body)",  /* ≥13px — readable detail text */
   color: "var(--on-card)",     /* --ink-2: ~8:1 on card */
   fontFamily: "var(--font-mono)",
   marginTop: 3,
@@ -1355,7 +1355,7 @@ const runItemStyle: React.CSSProperties = {
   borderRadius: 8,
   background: "var(--card)",
   border: "0.5px solid var(--line)",
-  fontSize: "var(--fs-body)",  /* ≥13px — lesbarer Run-Status */
+  fontSize: "var(--fs-body)",  /* ≥13px — readable run status */
   flexWrap: "wrap",
 };
 
@@ -1440,7 +1440,7 @@ const primaryBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-/** Brand-Gradient Speichern-Button — einzige primäre Aktion im Footer. */
+/** Brand-gradient save button — the only primary action in the footer. */
 const saveBtnStyle: React.CSSProperties = {
   fontFamily: "var(--font-sans)",
   fontSize: 13,

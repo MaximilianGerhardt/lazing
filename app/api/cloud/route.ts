@@ -4,14 +4,14 @@
  *   GET  /api/cloud?workspace=<id>&folder=<id|root>      — list artifacts
  *   POST /api/cloud  (multipart/form-data: workspace, file, folder?, metadata?)
  *
- * Auth: Edge-Middleware-gated (Session-Cookie ODER Bearer). Kein Auth-Check
- * im Route-Handler nötig — wenn der Request ankommt, ist er authentisch.
- * Actor wird aus Header abgeleitet für Audit-Log.
+ * Auth: edge-middleware-gated (session cookie OR Bearer). No auth check
+ * needed in the route handler — if the request arrives, it is authentic.
+ * The actor is derived from the header for the audit log.
  *
- * VPS-Only-Hinweis: Der File-Upload schreibt aufs lokale Filesystem
- * (VPS-Disk-Backend). Auf Vercel scheitert der Constructor mit
- * `StorageBackendError`. Damit gilt: Cloud-Routen MÜSSEN auf der VPS-
- * Instanz laufen. Phase-N: Vercel-Edge-Stream-Proxy zur VPS.
+ * VPS-only note: the file upload writes to the local filesystem
+ * (VPS disk backend). On Vercel the constructor fails with
+ * `StorageBackendError`. So: cloud routes MUST run on the VPS
+ * instance. Phase-N: Vercel-edge stream proxy to the VPS.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
 /* ----------------------- POST (upload) ----------------------- */
 
-/** Day-1 Hard-Cap: 50 MB per Upload. Phase-N: Stream-Upload via VPS-Bridge. */
+/** Day-1 hard cap: 50 MB per upload. Phase-N: stream upload via VPS bridge. */
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -85,8 +85,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Pre-Check Content-Length BEVOR wir formData() lesen — sonst hätte ein
-  // 5GB-Upload den Server schon RAM-allokiert bevor wir 413 schicken können.
+  // Pre-check Content-Length BEFORE we read formData() — otherwise a
+  // 5GB upload would have allocated server RAM before we can send a 413.
   const contentLengthRaw = req.headers.get("content-length");
   if (contentLengthRaw) {
     const cl = Number(contentLengthRaw);
@@ -179,10 +179,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 function toApiShape(
   row: import("@/db/schema/cloud").CloudArtifactRow,
 ): Record<string, unknown> {
-  // Absoluter Pfad für den Agent-Prompt (`[Angehängt: <abs-pfad>]`), damit
-  // der Agent das File per Read/Vision nutzen kann. Nur unverschlüsselte
-  // Artefakte (encryptionVersion=0) liegen plain auf der Disk; verschlüsselte
-  // haben keinen direkt-lesbaren Pfad → absPath bleibt null.
+  // Absolute path for the agent prompt (`[Angehängt: <abs-pfad>]`), so
+  // the agent can use the file via Read/Vision. Only unencrypted
+  // artifacts (encryptionVersion=0) lie plain on the disk; encrypted ones
+  // have no directly readable path → absPath stays null.
   let absPath: string | null = null;
   if (row.encryptionVersion === 0) {
     try {

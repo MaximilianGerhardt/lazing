@@ -1,32 +1,32 @@
 /**
- * chat-consensus — Synthese mehrerer Engine-Antworten zu EINER Konsens-Antwort.
+ * chat-consensus — synthesis of multiple engine answers into ONE consensus answer.
  *
- * Owner-Direktive (2026-06-03): „Parallel" soll NICHT fastest-wins sein, sondern
- * die Ergebnisse mehrerer Engines überlagern und einen Konsens daraus gewinnen.
+ * Owner directive (2026-06-03): „Parallel" should NOT be fastest-wins, but rather
+ * overlay the results of multiple engines and derive a consensus from them.
  *
- * Dieser Helper nimmt die (≥2) erfolgreichen Engine-Antworten + die ursprüngliche
- * Nutzer-Anfrage und lässt EINEN Synthese-Pass (claude-cli, N11: Synthese-Rolle)
- * eine konsolidierte Antwort bilden. Kein Workstream-/Ticket-Plumbing (anders als
- * server/agents/tier-orchestrator.ts runSynthesis) — bewusst leichtgewichtig für
- * den Chat-Pfad.
+ * This helper takes the (≥2) successful engine answers + the original
+ * user request and lets ONE synthesis pass (claude-cli, N11: synthesis role)
+ * form a consolidated answer. No workstream/ticket plumbing (unlike
+ * server/agents/tier-orchestrator.ts runSynthesis) — deliberately lightweight for
+ * the chat path.
  *
- * N11: Synthese via claude-cli (NICHT deepseek). Aufrufer begrenzt die Racer-Zahl.
+ * N11: synthesis via claude-cli (NOT deepseek). The caller limits the racer count.
  */
 
 import { getEngine } from './engines/selector';
 import type { EngineId, EngineMessage } from './engines/types';
 
 export interface ConsensusInput {
-  /** Die ursprüngliche Konversation (für die letzte Nutzer-Anfrage). */
+  /** The original conversation (for the last user request). */
   messages: EngineMessage[];
-  /** Die erfolgreichen Engine-Antworten (≥2). */
+  /** The successful engine answers (≥2). */
   responses: Array<{ engine: EngineId; text: string }>;
   signal?: AbortSignal;
 }
 
 export interface ConsensusResult {
   text: string;
-  /** Welche Engines in den Konsens eingeflossen sind. */
+  /** Which engines flowed into the consensus. */
   engines: EngineId[];
 }
 
@@ -38,9 +38,9 @@ function lastUserMessage(messages: EngineMessage[]): string {
 }
 
 /**
- * Überlagert die Engine-Antworten und synthetisiert eine Konsens-Antwort.
- * Wirft bei Fehler — der Aufrufer (orchestrator) fällt dann auf die erste
- * Einzelantwort zurück (nie hart crashen).
+ * Overlays the engine answers and synthesizes a consensus answer.
+ * Throws on error — the caller (orchestrator) then falls back to the first
+ * individual answer (never hard-crash).
  */
 export async function synthesizeConsensus(
   input: ConsensusInput,

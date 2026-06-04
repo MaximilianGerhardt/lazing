@@ -1,20 +1,20 @@
 /**
- * Stale-Detection Scanner — File-Cleanup-Heuristik.
+ * Stale-detection scanner — file-cleanup heuristic.
  *
- * HINWEIS Naming (2026-05-01):
- *   Hieß früher "Unlearning Scanner". Umbenannt nach User-Feedback —
- *   Anne (Legaly-AI) meint mit "to unlearn" persönliche Arbeitshaltung
- *   (Annahmen verwerfen + experimentieren), NICHT File-Cleanup.
- *   Das echte Unlearn-Pattern liegt jetzt in `lib/unlearning/`.
+ * NOTE on naming (2026-05-01):
+ *   Was previously called "Unlearning Scanner". Renamed after user feedback —
+ *   Anne (Legaly-AI) means by "to unlearn" a personal working attitude
+ *   (discarding assumptions + experimenting), NOT file cleanup.
+ *   The real unlearn pattern now lives in `lib/unlearning/`.
  *
- * Wöchentliches Re-Evaluieren von Memory/Docs/Skills.
- * Liefert Vorschläge zur Archivierung — KEINE Aktionen.
+ * Weekly re-evaluation of memory/docs/skills.
+ * Provides archiving suggestions — NO actions.
  *
- * Kritisch:
- *  - STICKY-Items werden DYNAMISCH aus MEMORY.md geparst (User-Veto-respect)
- *  - sticky=true → Vorschlag wird NICHT in Output aufgenommen
- *  - Fail-soft bei fehlenden Pfaden (ENOENT → leeres Array)
- *  - Nur LESEN, nie schreiben/löschen/verschieben
+ * Critical:
+ *  - STICKY items are parsed DYNAMICALLY from MEMORY.md (user-veto respect)
+ *  - sticky=true → the suggestion is NOT included in the output
+ *  - Fail-soft on missing paths (ENOENT → empty array)
+ *  - READ only, never write/delete/move
  */
 
 import { execSync } from "node:child_process";
@@ -27,9 +27,9 @@ export interface UnlearnSuggestion {
   reason: string;
   lastSeenDays: number;
   /**
-   * Wenn true → Critic-Hook lehnt ab. In dieser Implementierung wird
-   * sticky=true bereits am Output-Filter ausgeschlossen, das Feld bleibt
-   * für späteres --apply-Auditing erhalten.
+   * If true → the critic hook rejects. In this implementation
+   * sticky=true is already excluded at the output filter; the field is kept
+   * for later --apply auditing.
    */
   sticky: boolean;
 }
@@ -44,8 +44,8 @@ const PROJECTS_JSONL_ROOT = "/root/.claude/projects";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Parst eine Section aus MEMORY.md. Headers sind `## NAME`.
- * Liefert den Body bis zur nächsten `## ` Überschrift.
+ * Parses a section from MEMORY.md. Headers are `## NAME`.
+ * Returns the body up to the next `## ` heading.
  */
 function extractSection(md: string, header: string): string {
   const re = new RegExp(`^## ${header}\\s*$`, "m");
@@ -58,7 +58,7 @@ function extractSection(md: string, header: string): string {
 }
 
 /**
- * Findet alle `[label](file.md)` Referenzen in einem Markdown-Body.
+ * Finds all `[label](file.md)` references in a markdown body.
  */
 function extractMarkdownPaths(body: string): string[] {
   const out: string[] = [];
@@ -81,9 +81,9 @@ function safeStatMtime(filePath: string): number | null {
 /**
  * scanMemoryArchive
  *
- * Liest MEMORY.md, parst STICKY (für sticky-Set) + ARCHIVE.
- * Schlägt ARCHIVE-Items vor, wenn ihr Memory-File älter als 30 Tage ist
- * UND der Pfad nicht im sticky-Set liegt.
+ * Reads MEMORY.md, parses STICKY (for the sticky set) + ARCHIVE.
+ * Suggests ARCHIVE items if their memory file is older than 30 days
+ * AND the path is not in the sticky set.
  */
 export function scanMemoryArchive(now: number = Date.now()): UnlearnSuggestion[] {
   if (!existsSync(MEMORY_FILE)) return [];
@@ -106,12 +106,12 @@ export function scanMemoryArchive(now: number = Date.now()): UnlearnSuggestion[]
 
   for (const relPath of archivePaths) {
     const isSticky = stickySet.has(relPath);
-    if (isSticky) continue; // User-Veto: NIEMALS löschen ohne Erlaubnis
+    if (isSticky) continue; // user veto: NEVER delete without permission
 
     const abs = path.isAbsolute(relPath) ? relPath : path.join(MEMORY_DIR, relPath);
     const mtime = safeStatMtime(abs);
 
-    // Wenn Datei nicht gefunden: konservativ keinen Vorschlag (User-Veto-Risiko)
+    // If the file is not found: conservatively no suggestion (user-veto risk)
     if (mtime === null) continue;
 
     if (mtime < cutoff) {
@@ -156,7 +156,7 @@ function listMarkdownFilesRecursive(dir: string): string[] {
 }
 
 function hasReferencesInCode(basename: string): boolean {
-  // grep liefert exit=1 wenn nichts gefunden — das werfen wir als false zurück
+  // grep returns exit=1 when nothing is found — we return that as false
   try {
     const out = execSync(
       `grep -rln --include='*.ts' --include='*.tsx' --include='*.mts' ${JSON.stringify(
@@ -173,7 +173,7 @@ function hasReferencesInCode(basename: string): boolean {
 /**
  * scanStaleDocs
  *
- * docs/**\/*.md: mtime > 180 Tage UND keine Referenz im Code → Vorschlag.
+ * docs/**\/*.md: mtime > 180 days AND no reference in the code → suggestion.
  */
 export function scanStaleDocs(now: number = Date.now()): UnlearnSuggestion[] {
   if (!existsSync(DOCS_DIR)) return [];
@@ -232,8 +232,8 @@ function listJsonlFiles(root: string): string[] {
 /**
  * scanStaleSkills
  *
- * Skills in /root/.claude/skills/ deren Name in keinem jsonl der letzten
- * 60 Tage referenziert ist → Vorschlag. Fail-safe bei fehlendem Skills-Dir.
+ * Skills in /root/.claude/skills/ whose name is not referenced in any jsonl of the last
+ * 60 days → suggestion. Fail-safe on a missing skills dir.
  */
 export function scanStaleSkills(now: number = Date.now()): UnlearnSuggestion[] {
   if (!existsSync(SKILLS_DIR)) return [];
@@ -264,13 +264,13 @@ export function scanStaleSkills(now: number = Date.now()): UnlearnSuggestion[] {
     return mtime !== null && mtime >= cutoff;
   });
 
-  // Performance-Schutz: bei vielen jsonls per-Skill nur EINEN find+xargs grep
-  // statt N×M execSync-Roundtrips. Wir bauen eine zentrale Find-Liste und
-  // grep'pen pro Skill genau einmal mit -l und Early-Exit (-m1).
+  // Performance protection: with many jsonls, only ONE find+xargs grep per skill
+  // instead of N×M execSync round-trips. We build a central find list and
+  // grep per skill exactly once with -l and early-exit (-m1).
   const suggestions: UnlearnSuggestion[] = [];
 
   if (recentJsonls.length === 0) {
-    // Keine recent jsonls → alle Skills sind "stale" per Definition
+    // No recent jsonls → all skills are "stale" by definition
     for (const skill of skills) {
       const skillPath = path.join(SKILLS_DIR, skill);
       const mtime = safeStatMtime(skillPath);
@@ -286,8 +286,8 @@ export function scanStaleSkills(now: number = Date.now()): UnlearnSuggestion[] {
     return suggestions;
   }
 
-  // Performance: schreibe File-Liste einmal nach temp und nutze xargs pro Skill.
-  // Vermeidet ARG_MAX-Limits bei 10k+ Files.
+  // Performance: write the file list to temp once and use xargs per skill.
+  // Avoids ARG_MAX limits with 10k+ files.
   const tmpListPath = path.join(
     require("node:os").tmpdir(),
     `stale-detection-jsonl-list-${process.pid}.txt`,
@@ -302,14 +302,14 @@ export function scanStaleSkills(now: number = Date.now()): UnlearnSuggestion[] {
     const skillName = skill.replace(/\.md$/, "");
     let foundRecent = false;
     try {
-      // xargs liest File-Liste, grep -l -m1 -F = fast & early-exit
+      // xargs reads the file list, grep -l -m1 -F = fast & early-exit
       const out = execSync(
         `xargs -a ${JSON.stringify(tmpListPath)} grep -F -l -m1 ${JSON.stringify(skillName)} 2>/dev/null || true`,
         { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
       );
       if (out.trim().length > 0) foundRecent = true;
     } catch {
-      // grep liefert exit=1 wenn nix gefunden → durch "|| true" gefangen
+      // grep returns exit=1 when nothing is found → caught by "|| true"
     }
 
     if (!foundRecent) {

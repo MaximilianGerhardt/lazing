@@ -1,19 +1,19 @@
 #!/usr/bin/env tsx
 /**
- * /how Coverage-Audit (Task #31).
+ * /how coverage audit (task #31).
  *
- * Scannt die Codebase nach erstklassigen Konzepten und prüft ob jedes davon
- * in /how dokumentiert ist. Output zeigt:
- *   [+] dokumentiert  → /how/<slug> existiert
- *   [-] fehlend       → Konzept in Code aber kein /how-Slug
- *   [?] verwaist      → /how-Slug aber kein Code-Konzept (manuell prüfen)
+ * Scans the codebase for first-class concepts and checks whether each one
+ * is documented in /how. The output shows:
+ *   [+] documented  → /how/<slug> exists
+ *   [-] missing     → concept in code but no /how slug
+ *   [?] orphaned    → /how slug but no code concept (check manually)
  *
- * Das ersetzt **kein** richtiges Auto-Update — der Inhalt der Sub-Pages bleibt
- * handgeschrieben. Aber so wissen wir vor jedem Release was fehlt.
+ * This is **not** a real auto-update — the content of the sub-pages stays
+ * handwritten. But this way we know before every release what is missing.
  *
- * Aufruf:
+ * Invocation:
  *   pnpm tsx scripts/audit-how-coverage.ts
- *   pnpm tsx scripts/audit-how-coverage.ts --json    # für CI
+ *   pnpm tsx scripts/audit-how-coverage.ts --json    # for CI
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -40,7 +40,7 @@ const ROUTE_TO_SLUG: Record<string, string> = {
   "/inbox": "inbox",
 };
 
-/** Scan-Result: alle App-Routes (außer api/ + dynamic). */
+/** Scan result: all app routes (except api/ + dynamic). */
 function listAppRoutes(): string[] {
   const root = path.join(process.cwd(), "app");
   const out: string[] = [];
@@ -78,7 +78,7 @@ function listAppRoutes(): string[] {
   return Array.from(new Set(out)).sort();
 }
 
-/** Liest Surface-Kinds aus lib/chat/surface-parser.ts. */
+/** Reads surface kinds from lib/chat/surface-parser.ts. */
 function listSurfaceKinds(): string[] {
   try {
     const p = path.join(process.cwd(), "lib", "chat", "surface-parser.ts");
@@ -111,8 +111,8 @@ function buildReport(): CoverageReport {
     }
   }
 
-  // Surface-Kinds gegen /how check (nur informativ — viele Kinds haben keine
-  // eigene Sub-Page, das ist OK).
+  // Check surface kinds against /how (informational only — many kinds have no
+  // sub-page of their own, that's OK).
   const kinds = listSurfaceKinds();
   const surfaceCovered: string[] = [];
   const surfaceMissing: string[] = [];
@@ -121,7 +121,7 @@ function buildReport(): CoverageReport {
     else surfaceMissing.push(k);
   }
 
-  // Verwaiste Slugs (existieren in /how aber kein bekannter Code-Anchor)
+  // Orphaned slugs (exist in /how but no known code anchor)
   const orphaned = SLUGS.filter(
     (s) => !knownRouteSlugs.has(s) && !kinds.includes(s),
   );

@@ -1,30 +1,30 @@
 /**
  * POST /api/portfolio/[workspaceId]/advance
  *
- * Phase 2 W2.x (2026-05-29) — Portfolio-Orchestrator WRITE-route.
+ * Phase 2 W2.x (2026-05-29) — portfolio-orchestrator WRITE route.
  *
- * Zwei Aktionen, gegated durch `action` im Body:
+ * Two actions, gated by `action` in the body:
  *
  *   { action: 'create', lanes?, intent? }
  *       → createPortfolioRun → 201 + { portfolioRunId, laneWorkstreamIds }.
- *         Materialisiert den Run (parent mode='portfolio' + N Lane-Children),
- *         danach sieht `loadPortfolioRunState` einen ECHTEN State.
+ *         Materializes the run (parent mode='portfolio' + N lane children),
+ *         after which `loadPortfolioRunState` sees a REAL state.
  *
  *   { action: 'advance', portfolioRunId, stage }   (default action)
  *       → advanceStage → 200.
- *         Schreibt die Stage-Completion-Decision NUR, wenn das Gate grün ist.
- *         Rotes Gate → 200 + { advanced:false, reason, gate } (kein Write,
- *         kein Fehler — der Caller sieht verbatim, was blockiert).
+ *         Writes the stage-completion decision ONLY when the gate is green.
+ *         Red gate → 200 + { advanced:false, reason, gate } (no write,
+ *         no error — the caller sees verbatim what blocks).
  *
- * ── Auth-Gate (member-Muster wie execute-plan / spine GET) ────────────────
- *   (A) currentUserIdResolved      → 401 wenn nicht eingeloggt.
- *   (B) canEditWorkspaceContent    → 403 wenn < member.
- *   (C) hasRealWorkspaceMembership → 403 (IDOR-Härtung).
+ * ── Auth gate (member pattern like execute-plan / spine GET) ──────────────
+ *   (A) currentUserIdResolved      → 401 when not logged in.
+ *   (B) canEditWorkspaceContent    → 403 when < member.
+ *   (C) hasRealWorkspaceMembership → 403 (IDOR hardening).
  *
- * ── Scope-Härtung ─────────────────────────────────────────────────────────
- *   Bei action='advance' verifizieren wir, dass der portfolioRunId WIRKLICH
- *   zum [workspaceId] der URL gehört, bevor wir advancen — kein cross-scope
- *   Advance über eine fremde Run-ID.
+ * ── Scope hardening ───────────────────────────────────────────────────────
+ *   On action='advance' we verify that the portfolioRunId REALLY
+ *   belongs to the [workspaceId] of the URL before we advance — no cross-scope
+ *   advance via a foreign run ID.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -51,7 +51,7 @@ interface Ctx {
   params: Promise<{ workspaceId: string }>;
 }
 
-// Format-Guard analog spine GET-Route.
+// Format guard analogous to the spine GET route.
 const WORKSPACE_ID_RE = /^(?:__org_root__:)?[a-zA-Z0-9_:()-]{1,128}$/;
 
 const STAGE_IDS = [
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // (B) Rolle.
+  // (B) Role.
   const role = getEffectiveWorkspaceRole(userId, workspaceId);
   if (!canEditWorkspaceContent(role)) {
     return NextResponse.json(
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // (C) IDOR-Härtung.
+  // (C) IDOR hardening.
   if (!hasRealWorkspaceMembership(userId, workspaceId)) {
     return NextResponse.json(
       { error: 'forbidden' },
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // Body parsen.
+  // Parse body.
   let raw: unknown;
   try {
     raw = await req.json();
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     // ── advance (default) ──────────────────────────────────────────────────
     const { portfolioRunId, stage } = parsed.data;
 
-    // Scope-Härtung: der Run MUSS zu diesem Workspace gehören.
+    // Scope hardening: the run MUST belong to this workspace.
     const status = getPortfolioRunStatus(db.$raw, portfolioRunId);
     if (!status || status.state.workspaceId !== workspaceId) {
       return NextResponse.json(

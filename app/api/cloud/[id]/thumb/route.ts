@@ -1,13 +1,13 @@
 /**
  * /api/cloud/[id]/thumb
  *
- * Day-1: returnt einen schlichten SVG-Placeholder mit Filename + Mime.
- * Day-N: echte Thumbnails (poppler/pdftoppm für PDF, sharp für Images,
- * libreoffice-headless für DOCX/XLSX) — Generation läuft asynchron im
- * Cloud-Service nach Upload und schreibt thumbnailPath zurück.
+ * Day-1: returns a plain SVG placeholder with filename + mime.
+ * Day-N: real thumbnails (poppler/pdftoppm for PDF, sharp for images,
+ * libreoffice-headless for DOCX/XLSX) — generation runs asynchronously in the
+ * cloud service after upload and writes thumbnailPath back.
  *
- * Wenn `thumbnailPath` gesetzt ist, streamen wir die Datei direkt.
- * Sonst Placeholder.
+ * If `thumbnailPath` is set, we stream the file directly.
+ * Otherwise a placeholder.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -53,7 +53,7 @@ export async function GET(
         },
       });
     } catch {
-      // Fallthrough zu Placeholder
+      // Fall through to placeholder
     }
   }
 
@@ -71,7 +71,7 @@ function buildPlaceholderSvg(
 ): string {
   const ext = (row.filename.split(".").pop() || "?").slice(0, 6).toUpperCase();
   const sizeKb = (row.bytes / 1024).toFixed(0);
-  // Schlichter Placeholder — pitch-black Canvas-Sprache mit passendem Akzent.
+  // Plain placeholder — pitch-black canvas language with a matching accent.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="260" viewBox="0 0 200 260">
   <rect width="200" height="260" rx="12" fill="#0b0b0b" stroke="#1f1f1f" stroke-width="1"/>
   <rect x="20" y="20" width="160" height="200" rx="6" fill="#141414" stroke="#222" stroke-width="1"/>

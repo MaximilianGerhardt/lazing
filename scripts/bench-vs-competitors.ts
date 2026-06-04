@@ -1,24 +1,24 @@
 #!/usr/bin/env tsx
 /**
- * Quantitative USP-Benchmark-Suite (Welle 3d, 2026-05-03).
+ * Quantitative USP benchmark suite (wave 3d, 2026-05-03).
  *
- * Misst 5 Metriken die belegen, wo laz.ing gegen single-shot-CLI-Tools
- * (Claude Code Solo, Cline, Cursor) Vorteile bringt. Output:
- * `bench/results/<ISO-Date>.json` + Markdown-Tabelle in stdout.
+ * Measures 5 metrics that show where laz.ing brings advantages against
+ * single-shot CLI tools (Claude Code Solo, Cline, Cursor). Output:
+ * `bench/results/<ISO-Date>.json` + a markdown table on stdout.
  *
- * Wichtige Einschränkungen dieser Welle:
- *   - KEINE echten Calls gegen externe Repos (Cline-Repo cloning etc.).
- *     Vergleichswerte für Fremd-Tools sind dokumentierte Baselines aus
- *     der Recherche (siehe `bench/baselines.md` — TODO falls Welle 3d2).
- *   - Latency E2E + Token-Saving nutzen interne Module (tier-orchestrator,
- *     consensus-term-logic) im Dry-Run-Modus, KEINE echten LLM-Calls.
- *     Die Zeiten sind reine Code-Pfad-Wallclock + ein Synthetic-Sleep
- *     der LLM-Latenz simuliert (konstant 800ms pro Spawn). Das macht
- *     den Vergleich fair: Architektur-Kosten messen, nicht LLM-Kosten.
- *   - Drift-Recall nutzt classifySimilarity gegen synthetische
- *     fabrizierte Snippets — der Cosine-Score wird aus String-Distance
- *     abgeleitet (kein echter Embed-Call) damit das Skript ohne
- *     transformers-Modell läuft.
+ * Important limitations of this wave:
+ *   - NO real calls against external repos (Cline-repo cloning etc.).
+ *     Comparison values for third-party tools are documented baselines from
+ *     the research (see `bench/baselines.md` — TODO if wave 3d2).
+ *   - Latency E2E + token saving use internal modules (tier-orchestrator,
+ *     consensus-term-logic) in dry-run mode, NO real LLM calls.
+ *     The times are pure code-path wallclock + a synthetic sleep
+ *     that simulates LLM latency (constant 800ms per spawn). That makes
+ *     the comparison fair: measure architecture cost, not LLM cost.
+ *   - Drift recall uses classifySimilarity against synthetic
+ *     fabricated snippets — the cosine score is derived from string distance
+ *     (no real embed call) so the script runs without a
+ *     transformers model.
  *
  * Output-Schema (`bench/results/*.json`):
  * {
@@ -36,7 +36,7 @@ import { aggregateTerms, type Term } from '@/lib/agents/consensus-term-logic';
 import { classifySimilarity } from '@/lib/audit/reasoning-verify';
 
 // --------------------------------------------------------------------------
-// Inline-Test-Daten (deterministisch, kein externer State).
+// Inline test data (deterministic, no external state).
 // --------------------------------------------------------------------------
 
 const PROMPT_CASES = [
@@ -47,7 +47,7 @@ const PROMPT_CASES = [
   'Generiere 5 User-Stories für ein neues Onboarding-Feature.',
 ];
 
-/** 20 known-fabricated Snippets gegen 20 known-real für Drift-Recall. */
+/** 20 known-fabricated snippets against 20 known-real for drift recall. */
 const FABRICATED_SNIPPETS = [
   'Tesla wurde im Jahr 1612 von Nikola Tesla persönlich gegründet.',
   'Die DSGVO trat 1998 in Kraft und gilt nur für US-Konzerne.',
@@ -84,7 +84,7 @@ const REAL_SNIPPETS = [
   'CSS3 ist die aktuelle Spezifikationsfamilie.',
 ];
 
-/** 10 Sample-Pläne mit Sub-Tickets und Phrasing — für Plan-Quality-Score. */
+/** 10 sample plans with sub-tickets and phrasing — for the plan-quality score. */
 const SAMPLE_PLANS = [
   {
     title: 'RAG Phase 2',
@@ -139,7 +139,7 @@ const SAMPLE_PLANS = [
 ];
 
 // --------------------------------------------------------------------------
-// Synthetic LLM-Latency. Keine echten Calls — fair Architektur-Vergleich.
+// Synthetic LLM latency. No real calls — a fair architecture comparison.
 // --------------------------------------------------------------------------
 const SYNTHETIC_LLM_MS = 800;
 
@@ -159,12 +159,12 @@ export async function measureLatency(): Promise<{
   const cliTimes: number[] = [];
 
   for (const _prompt of PROMPT_CASES) {
-    // laz.ing Sniper V1→V5: 5 sequential spawns mit Pause/Aggregation.
-    // Wir messen den Code-Pfad ohne LLM-Wait + 5x synthetic LLM.
+    // laz.ing Sniper V1→V5: 5 sequential spawns with pause/aggregation.
+    // We measure the code path without an LLM wait + 5x synthetic LLM.
     const t0 = performance.now();
     for (let i = 0; i < 5; i += 1) {
       await syntheticLLMCall();
-      // Aggregation-Step (consensus + sniper-decision) — Code-only.
+      // Aggregation step (consensus + sniper decision) — code-only.
       aggregateTerms([
         [{ claim: `r${i}_a`, basis: 'b', confidence: 0.8 }],
         [{ claim: `r${i}_a`, basis: 'b', confidence: 0.7 }],
@@ -172,7 +172,7 @@ export async function measureLatency(): Promise<{
     }
     lazingTimes.push(performance.now() - t0);
 
-    // CLI-Solo: 1 spawn, kein iterate.
+    // CLI-Solo: 1 spawn, no iterate.
     const t1 = performance.now();
     await syntheticLLMCall();
     cliTimes.push(performance.now() - t1);
@@ -188,10 +188,10 @@ export async function measureLatency(): Promise<{
 // --------------------------------------------------------------------------
 
 export function measureTokenSaving(): { reductionPct: number } {
-  // Simuliert: Without-Twin baseline 1 Lead-Spawn liest komplettes Roaster-
-  // Output (3 roaster × 600 token = 1800 Token Input).
-  // With-Twin: Aggregator mergt zu 600 Token Konsens vorher → Lead bekommt
-  // 600 Input.
+  // Simulated: without-twin baseline, 1 lead spawn reads the complete roaster
+  // output (3 roasters × 600 tokens = 1800 tokens input).
+  // With-twin: the aggregator merges to a 600-token consensus beforehand → the
+  // lead gets 600 input.
   const baselineInputTokens = 3 * 600;
   const twinInputTokens = 600;
   return {
@@ -200,13 +200,13 @@ export function measureTokenSaving(): { reductionPct: number } {
 }
 
 // --------------------------------------------------------------------------
-// 3. Consensus-Determinismus (Cosine zwischen Spawn-Outputs)
+// 3. Consensus determinism (cosine between spawn outputs)
 // --------------------------------------------------------------------------
 
 export function measureConsensusDeterminism(): { medianCosine: number } {
-  // 5 simulierte Spawns derselben Query — Output-Texte mit kleinen
-  // Sampling-Variationen. Wir nutzen char-level Jaccard als Proxy für
-  // Embed-Cosine (transformers-frei).
+  // 5 simulated spawns of the same query — output texts with small
+  // sampling variations. We use char-level Jaccard as a proxy for
+  // embed cosine (transformers-free).
   const spawns = [
     'Plan: erstens A, zweitens B, drittens C',
     'Plan: erstens A, zweitens B, drittens C, viertens D',
@@ -238,15 +238,15 @@ export function measureConsensusDeterminism(): { medianCosine: number } {
 // --------------------------------------------------------------------------
 
 export function measureDriftRecall(): { recall: number } {
-  // Für jedes fabrizierte Snippet: Synthetic-Cosine ableiten via
-  // String-Distance zum Real-Pendant. Bei großen Distanzen → low cosine
-  // → classifySimilarity sollte 'fabricated' liefern.
+  // For each fabricated snippet: derive a synthetic cosine via
+  // string distance to the real counterpart. At large distances → low cosine
+  // → classifySimilarity should return 'fabricated'.
   let tp = 0;
   let fn = 0;
 
   function syntheticCosine(fab: string, reals: string[]): number {
-    // Nimm den Real-Snippet mit größtem Token-Overlap. Wenn Overlap niedrig
-    // → low cosine. Reine Heuristik für die Bench, kein Embed.
+    // Take the real snippet with the largest token overlap. If the overlap is
+    // low → low cosine. Pure heuristic for the bench, no embed.
     const fabTokens = new Set(fab.toLowerCase().split(/\s+/).filter(Boolean));
     let bestOverlap = 0;
     for (const r of reals) {
@@ -357,7 +357,7 @@ async function main(): Promise<void> {
 const invokedDirectly =
   typeof require !== 'undefined' &&
   typeof module !== 'undefined' &&
-  // @ts-ignore — runtime CommonJS-Form
+  // @ts-ignore — runtime CommonJS form
   require.main === module;
 
 if (invokedDirectly) {

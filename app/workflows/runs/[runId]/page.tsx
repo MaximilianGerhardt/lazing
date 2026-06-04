@@ -3,11 +3,11 @@
  *
  * Pattern 4 Welle 2.2 (2026-05-01).
  *
- * Server-Component. Zeigt:
- *   - Run-Status (workflow, version, currentState, status, timestamps)
- *   - History via events-Tabelle (workflow.* events, desc-sort)
- *   - Manual-Override-Buttons wenn currentState.manualOverride='allow'
- *   - Link auf Workflow-Detail
+ * Server component. Shows:
+ *   - Run status (workflow, version, currentState, status, timestamps)
+ *   - History via events table (workflow.* events, desc sort)
+ *   - Manual-override buttons when currentState.manualOverride='allow'
+ *   - Link to workflow detail
  */
 
 import Link from 'next/link';

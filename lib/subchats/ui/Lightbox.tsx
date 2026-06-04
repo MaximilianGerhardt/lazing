@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * Lightbox — Vollbild-Bildansicht für den Sub-Chat-Thread (intern + extern).
- * Apple-Standard: Tap-zum-Schließen (Backdrop), Wisch horizontal = nächstes/
- * vorheriges Bild, Wisch nach unten = schließen (iOS-Standard), ESC (Desktop).
- * Bewegung dient der Hierarchie (Tiefe = ins Bild hineinzoomen), nie Dekoration;
- * alle Übergänge <=200ms bzw. Spring-äquivalent. Nur laz.ing-Tokens, keine Emojis.
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Lightbox — full-screen image view for the sub-chat thread (internal + external).
+ * Apple standard: tap-to-close (backdrop), horizontal swipe = next/
+ * previous image, swipe down = close (iOS standard), ESC (desktop).
+ * Motion serves the hierarchy (depth = zooming into the image), never decoration;
+ * all transitions <=200ms or spring-equivalent. Only laz.ing tokens, no emojis.
+ * Gathering-Intelligence goal (2026-06-02).
  */
 
 import { useCallback, useEffect } from 'react';
@@ -27,11 +27,11 @@ export function Lightbox({
   onClose,
 }: {
   images: LightboxImage[];
-  index: number; // kontrollierter aktueller Index
+  index: number; // controlled current index
   onIndexChange: (i: number) => void;
   onClose: () => void;
 }): React.ReactElement | null {
-  // ESC schließt (Desktop-Affordance).
+  // ESC closes (desktop affordance).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -45,7 +45,7 @@ export function Lightbox({
   const onDragEnd = useCallback(
     (_e: unknown, info: PanInfo) => {
       const { offset } = info;
-      // Wisch nach unten = schließen (iOS-Standard).
+      // Swipe down = close (iOS standard).
       if (Math.abs(offset.y) > 120 && Math.abs(offset.y) > Math.abs(offset.x)) {
         onClose();
         return;
@@ -60,7 +60,7 @@ export function Lightbox({
           return;
         }
       }
-      // Snap-back (kein State-Change) erledigt motion automatisch via Constraints.
+      // Snap-back (no state change) is handled automatically by motion via constraints.
     },
     [images.length, index, onIndexChange, onClose],
   );
@@ -109,14 +109,14 @@ export function Lightbox({
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-            // Klick auf das Bild selbst schließt NICHT (nur Backdrop).
+            // Clicking the image itself does NOT close (only the backdrop).
             onClick={(e) => e.stopPropagation()}
           />
         </div>
 
         <div style={s.lbCaption} onClick={(e) => e.stopPropagation()}>
-          {/* N1: filename wird nur per CSS auf eine Zeile geklemmt (Display-Clamp),
-              der String selbst bleibt unverändert. */}
+          {/* N1: filename is only clamped to one line via CSS (display clamp),
+              the string itself stays unchanged. */}
           <span style={s.lbCaptionName}>{current.filename}</span>
           {images.length > 1 ? (
             <span style={s.lbCaptionCounter}>

@@ -1,11 +1,11 @@
 /**
- * POST /api/subchats/[subchatId]/suggest — KI-Antwort-Vorschläge für das
- * interne Team (Gathering-Intelligence-Goal, 2026-06-02).
+ * POST /api/subchats/[subchatId]/suggest — AI answer suggestions for the
+ * internal team (Gathering-Intelligence goal, 2026-06-02).
  *
- * Aus dem bisherigen Sub-Chat-Verlauf generiert die Engine 2-3 kurze, sendbare
- * Antwort-Optionen (Claude-Code-App-Stil), die technische Aspekte/Komplikationen
- * berücksichtigen — als Sicherheitsnetz für den User. EXTERNE sehen das NIE
- * (diese Route ist member-gated). Best-effort: Engine-Fehler → leere Liste.
+ * From the existing sub-chat history the engine generates 2-3 short, sendable
+ * answer options (Claude-Code-app style) that account for technical
+ * aspects/complications — as a safety net for the user. EXTERNAL parties NEVER
+ * see this (this route is member-gated). Best-effort: engine error → empty list.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -73,10 +73,10 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   }
 }
 
-/** Robust: JSON-Array extrahieren; sonst auf Zeilen/Aufzählung zurückfallen. */
+/** Robust: extract a JSON array; otherwise fall back to lines/list items. */
 function parseSuggestions(text: string): string[] {
   const t = (text ?? '').trim();
-  // 1. JSON-Array irgendwo im Text.
+  // 1. JSON array anywhere in the text.
   const m = t.match(/\[[\s\S]*\]/);
   if (m) {
     try {
@@ -92,7 +92,7 @@ function parseSuggestions(text: string): string[] {
       /* fallthrough */
     }
   }
-  // 2. Fallback: nummerierte/aufgezählte Zeilen.
+  // 2. Fallback: numbered/bulleted lines.
   return t
     .split('\n')
     .map((l) => l.replace(/^\s*(?:[-*]|\d+[.)])\s*/, '').replace(/^["']|["']$/g, '').trim())

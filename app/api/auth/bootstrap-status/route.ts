@@ -1,21 +1,21 @@
 /**
  * GET /api/auth/bootstrap-status
  *
- * Phase AU.1.1 — Probe für die Login-UI: soll die Operator-Bootstrap-Sektion
- * angezeigt werden?
+ * Phase AU.1.1 — probe for the login UI: should the operator bootstrap section
+ * be shown?
  *
- * Antwort:
+ * Response:
  *   { available: boolean, reason?: string }
  *
- *   available=true wenn:
- *     - LAZYOS_ACCESS_CODE gesetzt + ≥16 Zeichen
- *     - DB hat noch keinen aktiven Founder
- *     - Mail-Provider ist konfiguriert ODER Operator-Bootstrap ist die einzige
- *       Möglichkeit reinzukommen
+ *   available=true when:
+ *     - LAZYOS_ACCESS_CODE set + ≥16 characters
+ *     - DB has no active founder yet
+ *     - a mail provider is configured OR operator bootstrap is the only
+ *       way to get in
  *
- *   available=false sonst (Reason für Diagnose, optional in der UI).
+ *   available=false otherwise (reason for diagnosis, optional in the UI).
  *
- * Public (in middleware whitelisted). Keine Sensitive-Info im Response.
+ * Public (whitelisted in middleware). No sensitive info in the response.
  */
 
 import { NextResponse } from "next/server";
@@ -45,9 +45,9 @@ export async function GET(): Promise<Response> {
       .get() as { c?: number } | undefined;
     const founders = row?.c ?? 0;
     if (founders > 0) {
-      // 2026-04-28: Solo-Master-Login bleibt immer verfügbar wenn Code
-      // gesetzt UND ein Founder existiert. UI kann dann das Master-Tab
-      // anzeigen statt Bootstrap.
+      // 2026-04-28: solo master login always stays available when a code is
+      // set AND a founder exists. The UI can then show the master tab
+      // instead of bootstrap.
       return NextResponse.json({
         available: false,
         reason: "founder-exists",

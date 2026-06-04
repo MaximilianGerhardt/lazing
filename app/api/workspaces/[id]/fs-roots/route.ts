@@ -1,14 +1,14 @@
 /**
- * GET  /api/workspaces/[id]/fs-roots — Liste der Verzeichnisse/Repos dieses Workspace.
- * POST /api/workspaces/[id]/fs-roots — { absPath, access?, role? } fügt einen Root hinzu.
+ * GET  /api/workspaces/[id]/fs-roots — list of this workspace's directories/repos.
+ * POST /api/workspaces/[id]/fs-roots — { absPath, access?, role? } adds a root.
  *
- * Workspace-Isolations-Modell (FS-1, Design-Doc §4.1): ein Workspace ist ein
- * Satz von FS-Roots (Multi-Repo: CRM-Git + Website-Git = EIN Projekt), NICHT
- * ein einzelnes Git-Repo. Diese Route befüllt `workspace_fs_roots` über das
- * Repo-Modul `@/lib/workspaces/fs-roots` (baut ein paralleler Agent).
+ * Workspace isolation model (FS-1, design doc §4.1): a workspace is a
+ * set of FS roots (multi-repo: CRM Git + website Git = ONE project), NOT
+ * a single Git repo. This route populates `workspace_fs_roots` via the
+ * repo module `@/lib/workspaces/fs-roots` (built by a parallel agent).
  *
- * Auth: nur Owner/Member des Workspace (≥ member, analog credentials/route.ts).
- * `is_git` wird best-effort aus <absPath>/.git erkannt (fs.existsSync), default 1.
+ * Auth: only owner/member of the workspace (≥ member, analogous to credentials/route.ts).
+ * `is_git` is detected best-effort from <absPath>/.git (fs.existsSync), default 1.
  */
 
 import { existsSync } from 'node:fs';
@@ -22,7 +22,7 @@ import {
   canEditWorkspaceContent,
   getEffectiveWorkspaceRole,
 } from '@/lib/security/permissions';
-// CONTRACT — Repo baut ein paralleler Agent; Signaturen sind fixiert (FS-1).
+// CONTRACT — the repo is built by a parallel agent; signatures are fixed (FS-1).
 import {
   addWorkspaceRoot,
   listWorkspaceRoots,
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   try {
     const db = getDb();
-    // fs-roots-Repo nimmt eine better-sqlite3-Database direkt → db.$raw.
+    // The fs-roots repo takes a better-sqlite3 Database directly → db.$raw.
     const roots: FsRoot[] = listWorkspaceRoots(db.$raw, wsId);
     return NextResponse.json({ roots });
   } catch (err) {
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   }
 
   const absPath = typeof body.absPath === 'string' ? body.absPath.trim() : '';
-  // absPath MUSS absolut sein (beginnt mit '/'). Keine '..'-Eskalation.
+  // absPath MUST be absolute (starts with '/'). No '..' escalation.
   if (!absPath.startsWith('/') || absPath.includes('..') || absPath.length > 4096) {
     return NextResponse.json(
       {
@@ -112,17 +112,17 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   }
 
   const access: 'ro' | 'rw' = body.access === 'ro' ? 'ro' : 'rw';
-  // role: nur 'repo' | 'dir' akzeptieren — 'primary' wird NIE über die API gesetzt
-  // (das ist der gespiegelte workspaces.path-Root, FS-1).
+  // role: only accept 'repo' | 'dir' — 'primary' is NEVER set via the API
+  // (that is the mirrored workspaces.path root, FS-1).
   const role: 'repo' | 'dir' = body.role === 'dir' ? 'dir' : 'repo';
 
-  // is_git best-effort: existiert <absPath>/.git → Git-Repo. Default 1 wenn
-  // unklar (Doc §4.1: "default 1").
+  // is_git best-effort: if <absPath>/.git exists → Git repo. Default 1 when
+  // unclear (doc §4.1: "default 1").
   let isGit = true;
   try {
     isGit = existsSync(join(absPath, '.git'));
   } catch {
-    isGit = true; // unklar → default 1.
+    isGit = true; // unclear → default 1.
   }
 
   try {
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     });
     return NextResponse.json({ root }, { status: 201 });
   } catch (err) {
-    // UNIQUE(workspace_id, abs_path)-Verletzung → 409 statt 500.
+    // UNIQUE(workspace_id, abs_path) violation → 409 instead of 500.
     const msg = err instanceof Error ? err.message : String(err);
     if (/unique|constraint/i.test(msg)) {
       return NextResponse.json(

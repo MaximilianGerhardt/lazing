@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * TicketBody — Apple-Keynote-Style ausklappbare Beschreibung.
+ * TicketBody — Apple-Keynote-style expandable description.
  *
- * Default: 1-2 Sätze (~180 Zeichen) als Lead, dezent. Klick auf
- * "Mehr lesen" expand'd auf vollen Text mit grosser Typo + Whitespace.
- * Markdown wird als pre-wrap Plain-Text gerendert (kein react-markdown
- * weil Bundle-Size; bei Bedarf später swappen).
+ * Default: 1-2 sentences (~180 characters) as a lead, subtle. Clicking
+ * "Mehr lesen" expands to the full text with large typography + whitespace.
+ * Markdown is rendered as pre-wrap plain text (no react-markdown
+ * because of bundle size; swap later if needed).
  */
 
 import { useState, type CSSProperties } from 'react';

@@ -65,11 +65,11 @@ export const workspaces = sqliteTable(
      * Default 'inherit' = backward-compat for all existing workspaces.
      */
     credentialIsolation: text("credential_isolation").notNull().default("inherit"),
-    /** Phase Notes: pro-Workspace Mini-CLAUDE.md. */
+    /** Phase Notes: per-workspace mini-CLAUDE.md. */
     notes: text("notes"),
     notesUpdatedAt: integer("notes_updated_at", { mode: "timestamp_ms" }),
     notesSource: text("notes_source"),
-    /** Phase Brand: pro-Workspace-Branding (gehört eigentlich in org, ist Legacy). */
+    /** Phase Brand: per-workspace branding (really belongs in org, is legacy). */
     logoUrl: text("logo_url"),
     wordmarkUrl: text("wordmark_url"),
     brandColors: text("brand_colors"),

@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * OrgCoreEditor — Name, Description, Type, Parent-Org editierbar.
+ * OrgCoreEditor — name, description, type, parent-org editable.
  *
- * Sichtbar im Overview-Tab. Auto-Save bei Blur. Type-Wechsel aktualisiert
- * sofort die Org-Sortierung im Workspace-Switcher.
+ * Visible in the overview tab. Auto-save on blur. A type change updates
+ * the org sorting in the workspace switcher immediately.
  */
 
 import { useState, useTransition, type CSSProperties } from 'react';

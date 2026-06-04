@@ -19,7 +19,7 @@ interface Ctx {
 }
 
 export async function DELETE(req: NextRequest, ctx: Ctx): Promise<Response> {
-  // Auth-Gate: DELETE löscht Credentials → mindestens member.
+  // Auth gate: DELETE removes credentials → at least member.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required' }, { status: 401 });

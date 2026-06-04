@@ -1,13 +1,13 @@
 /**
  * POST /api/ctx/compact-snapshot
  *
- * Phase CTX — User-getriggerter Compact-Helper. Nimmt einen Workspace,
- * baut einen Snapshot, schreibt ihn als neuen Block ins Plan-File und
- * gibt eine Summary für ein UI-Toast zurück.
+ * Phase CTX — user-triggered compact helper. Takes a workspace,
+ * builds a snapshot, writes it as a new block into the plan file and
+ * returns a summary for a UI toast.
  *
  * Body: { workspaceId: string, planFile?: string }
  *
- * Auth: User muss eingeloggt sein UND mind. viewer im Workspace.
+ * Auth: the user must be logged in AND at least viewer in the workspace.
  */
 
 import { NextResponse, type NextRequest } from "next/server";

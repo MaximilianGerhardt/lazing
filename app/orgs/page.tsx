@@ -1,13 +1,13 @@
 /**
  * /orgs — Phase IA.3.
  *
- * Top-Level wurde von einer Listenseite zur Redirect-Page degradiert.
- * Standard-Landing ist immer die aktive Organisation:
- *   - Cookie `lazyos.org` gesetzt → redirect /orgs/<that-id>
- *   - Sonst → erste Org der listOrgsForUser()-Liste
- *   - Wenn der User in keiner Org ist → /orgs/manage (zum Anlegen)
+ * Top-level was demoted from a list page to a redirect page.
+ * The default landing is always the active organization:
+ *   - Cookie `lazyos.org` set → redirect /orgs/<that-id>
+ *   - Otherwise → first org of the listOrgsForUser() list
+ *   - If the user is in no org → /orgs/manage (to create one)
  *
- * Die heutige Verwaltungs-Liste lebt unter /orgs/manage.
+ * Today's management list lives under /orgs/manage.
  */
 
 import { redirect } from "next/navigation";
@@ -19,7 +19,7 @@ import { findActiveUserById } from "@/lib/users/repo";
 
 export const dynamic = "force-dynamic";
 
-const ORG_COOKIE_NAMES = ["lazyos.org", "lazyos_org"]; // tolerieren beide Schreibweisen
+const ORG_COOKIE_NAMES = ["lazyos.org", "lazyos_org"]; // tolerate both spellings
 
 export default async function OrgsRedirectPage() {
   const h = await headers();
@@ -34,11 +34,11 @@ export default async function OrgsRedirectPage() {
 
   const orgs = listOrgsForUser(userId);
   if (orgs.length === 0) {
-    // User ist in keiner Org — Verwaltungs-Page als Notfall-Landing.
+    // User is in no org — management page as fallback landing.
     redirect("/orgs/manage");
   }
 
-  // Cookie-bevorzugte Org, sonst erste verfügbare.
+  // Cookie-preferred org, otherwise first available.
   const c = await cookies();
   let preferredId: string | null = null;
   for (const name of ORG_COOKIE_NAMES) {

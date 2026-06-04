@@ -1,12 +1,13 @@
 /**
- * /how — System-Anleitung. Wie hängt lazyOS zusammen?
+ * /how — System guide. How does lazyOS fit together?
  *
- * Analog zu /design (Component-Library), aber als Architektur-Erklärung.
- * Apple-Keynote-Style: viel Whitespace, große Typo, Flussdiagramme als
- * inline-SVG die responsive auf Mobile zu vertikalen Stacks werden.
+ * Analogous to /design (component library), but as an architecture
+ * explanation. Apple keynote style: lots of whitespace, large typography,
+ * flow diagrams as inline SVG that become vertical stacks responsively on
+ * mobile.
  *
- * Zielgruppe: Max beim Testen. Soll das mentale Modell geben damit jede
- * UI-Aktion ihren Platz im Gesamtsystem hat.
+ * Audience: Max while testing. Meant to give the mental model so every
+ * UI action has its place in the overall system.
  */
 
 import type { CSSProperties, ReactNode } from 'react';
@@ -47,7 +48,7 @@ export default async function HowPage(props: PageProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Top-Bar (Locale-Toggle)
+// Top bar (locale toggle)
 // ---------------------------------------------------------------------------
 
 function TopBar(props: { loc: Locale }) {
@@ -219,7 +220,7 @@ function SectionFundamentals() {
 }
 
 // ---------------------------------------------------------------------------
-// Layers — vertikales SVG-Stack das auf Mobile bleibt
+// Layers — vertical SVG stack that stays on mobile
 // ---------------------------------------------------------------------------
 
 function SectionLayers() {
@@ -272,7 +273,7 @@ function SectionLayers() {
 }
 
 // ---------------------------------------------------------------------------
-// Flow: Chat → Plan-Erkennung → Tier-Spawn
+// Flow: Chat → plan detection → tier spawn
 // ---------------------------------------------------------------------------
 
 function SectionFlowChat() {
@@ -331,7 +332,7 @@ function SectionFlowChat() {
 }
 
 // ---------------------------------------------------------------------------
-// Flow: Workstream-Container
+// Flow: Workstream container
 // ---------------------------------------------------------------------------
 
 function SectionFlowWorkstream() {
@@ -362,7 +363,7 @@ function SectionFlowWorkstream() {
 }
 
 // ---------------------------------------------------------------------------
-// Flow: Ticket-FSM
+// Flow: Ticket FSM
 // ---------------------------------------------------------------------------
 
 function SectionFlowTicket() {

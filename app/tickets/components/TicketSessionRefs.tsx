@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * TicketSessionRefs — Zeigt Claude-Sessions die an diesem Ticket gearbeitet
- * haben (Handoff-Punkt 5). Klick → resume-Endpoint übernimmt die Session
- * als aktive Chat-Session für den Workspace, Navigation zu `/`.
+ * TicketSessionRefs — shows Claude sessions that have worked on this ticket
+ * (handoff point 5). Click → the resume endpoint takes over the session
+ * as the active chat session for the workspace, navigating to `/`.
  */
 
 import { useState, type CSSProperties } from 'react';

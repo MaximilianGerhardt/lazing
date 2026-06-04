@@ -7,18 +7,18 @@
  * Master-Briefing §7.3 Schritt 2 (verbatim, N1):
  *   „Quelle, Sprecher, Zeit, Projekt und Sensitivitaet erfassen."
  *
- * Diese Datei ist eine pure Funktion: gleiche Inputs → gleiches Envelope
- * inkl. identischem contentHash (N10). KEIN DB-Read, keine Netz-I/O.
+ * This file is a pure function: same inputs → same envelope
+ * incl. identical contentHash (N10). NO DB read, no net I/O.
  *
- * Substrat-Disziplin:
- *   - N1:  rawContent VERBATIM. Niemals slice/substring/Paraphrase.
- *   - N6:  deterministische Validatoren VOR allem.
- *   - N9:  projectScope = workspaceId (ManifestCoord-Scope).
- *   - N10: contentHash = sha256 über kanonisches JSON eines fix definierten
- *          Teilsets der envelope-Identität (externalId + dataSource +
- *          rawContent + receivedAt + projectScope). Reihenfolge der Keys ist
- *          alphabetisch erzwungen, damit der Hash über Implementierungen
- *          stabil ist.
+ * Substrate discipline:
+ *   - N1:  rawContent VERBATIM. Never slice/substring/paraphrase.
+ *   - N6:  deterministic validators BEFORE everything.
+ *   - N9:  projectScope = workspaceId (ManifestCoord scope).
+ *   - N10: contentHash = sha256 over canonical JSON of a fixed-defined
+ *          subset of the envelope identity (externalId + dataSource +
+ *          rawContent + receivedAt + projectScope). The key order is
+ *          alphabetically enforced so that the hash is stable across
+ *          implementations.
  */
 
 import { createHash } from "node:crypto";
@@ -49,7 +49,7 @@ function isFiniteNonNegativeNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v) && v >= 0;
 }
 
-/** N10: sha256 hex über kanonisches JSON. Reihenfolge der Keys deterministisch. */
+/** N10: sha256 hex over canonical JSON. Key order is deterministic. */
 function sha256hex(payload: Record<string, unknown>): string {
   const keys = Object.keys(payload).sort();
   const canonical: Record<string, unknown> = {};
@@ -75,20 +75,20 @@ export interface BuildSourceEnvelopeInput {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// buildSourceEnvelope — Pure, deterministisch
+// buildSourceEnvelope — pure, deterministic
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut einen `SourceEnvelope` aus dem rohen Input. Wirft bei ungültigem
- * Vokabular ODER fehlendem Pflicht-Feld (fail-fast in der Konstruktion;
- * die laufende Pipeline ist dagegen fail-soft).
+ * Builds a `SourceEnvelope` from the raw input. Throws on invalid
+ * vocabulary OR a missing required field (fail-fast in the construction;
+ * the running pipeline, by contrast, is fail-soft).
  *
- * Reine Funktion — gleicher Input ⇒ gleiches Envelope. Insbesondere:
- *   - rawContent wird VERBATIM übernommen (kein trim/slice).
- *   - contentHash wird ÜBER `externalId + dataSource + rawContent +
- *     receivedAt + projectScope` berechnet — bewusst NICHT über
- *     speakerExternalId/speakerLocalId, damit eine spätere Speaker-Resolution
- *     den Hash nicht invalidiert (sie ist Annotation, nicht Identität).
+ * Pure function — same input ⇒ same envelope. In particular:
+ *   - rawContent is taken VERBATIM (no trim/slice).
+ *   - contentHash is computed OVER `externalId + dataSource + rawContent +
+ *     receivedAt + projectScope` — deliberately NOT over
+ *     speakerExternalId/speakerLocalId, so that a later speaker resolution
+ *     does not invalidate the hash (it is annotation, not identity).
  */
 export function buildSourceEnvelope(
   input: BuildSourceEnvelopeInput,
@@ -181,8 +181,8 @@ export function buildSourceEnvelope(
 }
 
 /**
- * Re-berechnet den contentHash aus einem bestehenden Envelope-Like Objekt.
- * Nützlich für Tests + Idempotenz-Checks.
+ * Recomputes the contentHash from an existing envelope-like object.
+ * Useful for tests + idempotency checks.
  */
 export function computeEnvelopeContentHash(args: {
   externalId: string;

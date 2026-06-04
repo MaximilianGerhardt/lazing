@@ -1,20 +1,20 @@
 /**
  * POST /api/workstreams/[id]/merge-run  — A4 GATED Operator-Merge (2026-05-29, Opus 4.8)
  *
- * Schließt den Akkumulations-Loop: die zusammengesetzte Arbeit aller erfolgreichen
- * Steps liegt im Run-Branch `lazing/run/prun-…` (plan-executor-Accumulation). Diese
- * Route ist der EINZIGE user-gated Pfad, der ihn in den Live-Checkout (main des
- * Workspace-Repos) bringt — member-auth, explizit per Owner-Klick, NIE automatisch
- * (R1). Der `mergeRunWorktree`-Stub bleibt throw für nicht-gated Caller.
+ * Closes the accumulation loop: the assembled work of all successful
+ * steps lives in the run branch `lazing/run/prun-…` (plan-executor accumulation). This
+ * route is the ONLY user-gated path that brings it into the live checkout (main of
+ * the workspace repo) — member auth, explicitly by owner click, NEVER automatically
+ * (R1). The `mergeRunWorktree` stub keeps throwing for non-gated callers.
  *
  * Body:
- *   { preview?: true }  → S5 Diff-Preview: gibt Datei-Liste + Stat + aheadBy zurück,
- *                          KEIN Merge (read-only).
- *   { }                 → S6 Merge: commitGatedMerge(runBranch → Live-HEAD), konflikt-
- *                          sicher (Konflikt → merge --abort → Live sauber).
+ *   { preview?: true }  → S5 diff preview: returns file list + stat + aheadBy,
+ *                          NO merge (read-only).
+ *   { }                 → S6 merge: commitGatedMerge(runBranch → live HEAD), conflict-
+ *                          safe (conflict → merge --abort → live clean).
  *
- * Auth: Workspace-Member (401 → 404 → 403, Muster execute-plan/route.ts).
- * N8: schreibt eine workstream_decision (decisionKind 'route', verbatim rationale).
+ * Auth: workspace member (401 → 404 → 403, pattern execute-plan/route.ts).
+ * N8: writes a workstream_decision (decisionKind 'route', verbatim rationale).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // S5 — Diff-Preview (read-only).
+  // S5 — diff preview (read-only).
   const diff = await getRunBranchDiffStat(repoPath, runBranch);
   if (body.preview === true) {
     return NextResponse.json({
@@ -96,10 +96,10 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     });
   }
 
-  // S6 — der eigentliche gated Merge.
+  // S6 — the actual gated merge.
   const result = await commitGatedMerge({ repoPath, runBranch });
 
-  // N8 — Audit/Decision (best-effort, wirft nie).
+  // N8 — audit/decision (best-effort, never throws).
   try {
     writeDecision({
       workspaceId: ws.workspaceId,
@@ -122,11 +122,11 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // W1.4 (2026-05-30) — nach erfolgreichem gated Merge: die zusammengesetzte
-  // Website serven (lokal + optional Tailscale via LAZYOS_SERVE_LOCAL) und eine
-  // tappbare <surface:preview>-Karte in den Chat emittieren. Best-effort,
-  // fail-soft (ein Serve-/Emit-Fehler darf die 200-Antwort nicht kippen). Reuse
-  // des gemeinsamen Einhängepunkts (identisch zum Auto-Merge-Pfad W1.3).
+  // W1.4 (2026-05-30) — after a successful gated merge: serve the assembled
+  // website (local + optional Tailscale via LAZYOS_SERVE_LOCAL) and emit a
+  // tappable <surface:preview> card into the chat. Best-effort,
+  // fail-soft (a serve/emit error must not topple the 200 response). Reuse
+  // of the shared hook point (identical to the auto-merge path W1.3).
   try {
     const { emitPreviewAfterMerge } = await import('@/lib/workstreams/plan-executor');
     await emitPreviewAfterMerge({
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       title: ws.description ?? ws.name ?? `Workstream ${id}`,
     });
   } catch {
-    /* non-fatal — der Merge ist erfolgt, die Preview ist best-effort */
+    /* non-fatal — the merge happened, the preview is best-effort */
   }
 
   return NextResponse.json({

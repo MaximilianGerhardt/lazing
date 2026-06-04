@@ -175,10 +175,10 @@ export function useCurrentWorkspace(
  */
 export function setWorkspaceId(id: string, organizationId?: string): void {
   if (typeof window === 'undefined') return;
-  // Fix #2 (2026-06-02): Wenn die Org des Ziel-Workspace bekannt ist (z.B. aus
-  // der POST /api/workspaces-Antwort beim Create-and-Switch), den Org-Kontext
-  // mit-setzen — sonst ist der neue Workspace in einer anderen Org als der
-  // aktiven unsichtbar/wird von der Org-Normalisierung auf org-root resettet.
+  // Fix #2 (2026-06-02): when the org of the target workspace is known (e.g. from
+  // the POST /api/workspaces response on create-and-switch), also set the org
+  // context — otherwise the new workspace is invisible in an org other than the
+  // active one / gets reset to org-root by the org normalization.
   if (organizationId && organizationId !== cachedOrgId) {
     setOrgIdSilent(organizationId);
   }
@@ -208,12 +208,12 @@ export function useSetWorkspace(
     (id: string): void => {
       const next = findWorkspaceById(list, id);
       if (!next) return;
-      // Fix #2 (2026-06-02): Org-Kontext an den Ziel-Workspace angleichen,
-      // BEVOR der Workspace gesetzt wird. Sonst blieb ein Workspace aus einer
-      // anderen Org als der aktiven unsichtbar im Switcher UND die Org-
-      // Normalisierung (OrgSwitcher) resettete die Auswahl auf org-root →
-      // ein Wechsel „klappte nicht". `setOrgIdSilent` setzt nur den Kontext
-      // (localStorage+Cookie+Event), OHNE Hard-Reset auf org-root / Navigate.
+      // Fix #2 (2026-06-02): align the org context with the target workspace
+      // BEFORE the workspace is set. Otherwise a workspace from an
+      // org other than the active one stayed invisible in the switcher AND the org
+      // normalization (OrgSwitcher) reset the selection to org-root →
+      // a switch „klappte nicht". `setOrgIdSilent` only sets the context
+      // (localStorage+cookie+event), WITHOUT a hard reset to org-root / navigate.
       if (next.organizationId && next.organizationId !== cachedOrgId) {
         setOrgIdSilent(next.organizationId);
       }
@@ -265,9 +265,9 @@ export function useMobileDrawer(): {
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
-  // Sub-Plan 4: BackgroundActivityIndicator dispatched
-  // 'lazyos:drawer:open' wenn der User auf die Pulse-Pill klickt.
-  // Drawer öffnet + scrollt nach #drawer-section-activity (anchor).
+  // Sub-plan 4: BackgroundActivityIndicator dispatches
+  // 'lazyos:drawer:open' when the user clicks the pulse pill.
+  // The drawer opens + scrolls to #drawer-section-activity (anchor).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handler = (ev: Event): void => {
@@ -294,15 +294,15 @@ export function useMobileDrawer(): {
 }
 
 /* ------------------------------------------------------------------ */
-/* Organisationen — TopNav-Switcher (Phase A)                         */
+/* Organizations — TopNav switcher (Phase A)                          */
 /* ------------------------------------------------------------------ */
 
 const ORG_STORAGE_KEY = 'lazyos.org';
 const ORG_CHANGE_EVENT = 'org-change';
 
 /**
- * Pseudo-ID für „alle Orgs" — kein Filter aktiv. Workspace-Switcher
- * zeigt dann alle Workspaces (gruppiert nach Org).
+ * Pseudo-ID for „alle Orgs" — no filter active. The workspace switcher
+ * then shows all workspaces (grouped by org).
  */
 export const ORG_ALL_ID = '__all__';
 
@@ -342,7 +342,7 @@ import type { Organization } from './types';
 
 /**
  * Fetches the orgs the current user is member of. Same lifecycle pattern
- * as `useWorkspaces`. Niemals leer — wenn API fehlt, leeres Array.
+ * as `useWorkspaces`. Never empty — when the API is missing, an empty array.
  */
 export function useUserOrgs(): {
   orgs: readonly Organization[];
@@ -357,11 +357,11 @@ export function useUserOrgs(): {
     let cancelled = false;
     void (async () => {
       try {
-        // 2026-05-01 fix: include=all damit MobileDrawer + WorkspaceSwitcher
-        // Sub-Orgs auflösen können. Vorher Default Top-Level-only → alle
-        // Sub-Org-Workspaces (Demo Fitness, Demo PV, TAP, example-product-c,
-        // Example App, example-tool) landeten im "Ohne Org"-Bucket weil die Sub-Orgs
-        // im orgIndex fehlten.
+        // 2026-05-01 fix: include=all so that MobileDrawer + WorkspaceSwitcher
+        // can resolve sub-orgs. Previously default top-level-only → all
+        // sub-org workspaces (Demo Fitness, Demo PV, TAP, example-product-c,
+        // Example App, example-tool) landed in the "Ohne Org" bucket because the sub-orgs
+        // were missing from the orgIndex.
         const res = await fetch('/api/orgs?include=all', {
           cache: 'no-store',
           credentials: 'same-origin',
@@ -387,7 +387,7 @@ export function useUserOrgs(): {
   return state;
 }
 
-/** Liefert die aktive Org-ID oder ORG_ALL_ID. */
+/** Returns the active org ID or ORG_ALL_ID. */
 export function useCurrentOrgId(): string {
   const stored = useSyncExternalStore(
     subscribeOrg,
@@ -397,23 +397,23 @@ export function useCurrentOrgId(): string {
   return stored ?? ORG_ALL_ID;
 }
 
-/** Imperative Setter — persist + Event. */
+/** Imperative setter — persist + event. */
 /**
- * Phase IA.1 — Org-Wechsel ist ab jetzt ein **Hard-Context-Switch**:
- *   1. localStorage `lazyos.org` setzen (für Reload-Persistenz).
- *   2. WORKSPACE_STORAGE_KEY auf den Org-Root-Pseudo-Workspace setzen
+ * Phase IA.1 — an org switch is from now on a **hard context switch**:
+ *   1. set localStorage `lazyos.org` (for reload persistence).
+ *   2. set WORKSPACE_STORAGE_KEY to the org-root pseudo-workspace
  *      (`__org_root__:<orgId>`).
- *   3. Hard-Navigate zu `/orgs/[orgId]/chat` — Default-Landing nach jedem
- *      Org-Switch ist der Org-scoped Root-Chat (User-Entscheidung 2026-04-29).
+ *   3. hard-navigate to `/orgs/[orgId]/chat` — the default landing after every
+ *      org switch is the org-scoped root chat (user decision 2026-04-29).
  *
- * Wenn `orgId === ORG_ALL_ID` wird nur das alte Filter-Verhalten beibehalten
- * (Persistenz + Event), kein Redirect — ORG_ALL_ID ist Legacy und wird in
- * Phase IA.6 vollständig entfernt, der Hook akzeptiert ihn aber bis dahin.
+ * When `orgId === ORG_ALL_ID`, only the old filter behavior is kept
+ * (persistence + event), no redirect — ORG_ALL_ID is legacy and will be
+ * fully removed in Phase IA.6, but the hook accepts it until then.
  */
 function writeOrgCookie(orgId: string): void {
   if (typeof document === 'undefined') return;
-  // Path=/ damit jede Server-Component den Wert lesen kann; SameSite=Lax
-  // erlaubt Top-Level-Navigation; 365 Tage Lifetime.
+  // Path=/ so that every server component can read the value; SameSite=Lax
+  // allows top-level navigation; 365-day lifetime.
   const oneYear = 60 * 60 * 24 * 365;
   document.cookie = `${ORG_STORAGE_KEY}=${encodeURIComponent(orgId)}; Path=/; Max-Age=${oneYear}; SameSite=Lax`;
 }
@@ -447,7 +447,7 @@ export function useSetOrg(): (orgId: string) => void {
     cachedOrgId = orgId;
     window.dispatchEvent(new CustomEvent(ORG_CHANGE_EVENT));
 
-    // Hard-Switch nur für echte Org-IDs (nicht Legacy-„Alle").
+    // Hard switch only for real org IDs (not the legacy „Alle").
     if (orgId !== ORG_ALL_ID && typeof window !== 'undefined') {
       const rootWorkspaceId = `__org_root__:${orgId}`;
       try {
@@ -474,9 +474,9 @@ export function useSetOrg(): (orgId: string) => void {
  * treats it as external-sync (not a render-triggering effect).
  */
 /**
- * Custom-Event den jeder Caller (z.B. WorkspaceEditor nach Org-Update)
- * dispatchen kann um TopNav-Switcher zum Re-Fetch zu zwingen. Nötig weil
- * `router.refresh()` nur Server-Components invalidiert, nicht Client-State.
+ * Custom event that any caller (e.g. WorkspaceEditor after an org update)
+ * can dispatch to force the TopNav switcher to re-fetch. Needed because
+ * `router.refresh()` only invalidates server components, not client state.
  */
 export const WORKSPACE_DATA_CHANGE_EVENT = 'workspace-data-change';
 

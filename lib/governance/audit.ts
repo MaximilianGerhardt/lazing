@@ -1,26 +1,26 @@
 /**
- * G4 — Governance-Audit-Helper (Phase 2 W2.1 · Lane G Governance · 2026-05-29).
+ * G4 — governance audit helper (Phase 2 W2.1 · Lane G Governance · 2026-05-29).
  *
- * Integration-Plan §4 Lane G (verbatim, N1):
+ * Integration plan §4 Lane G (verbatim, N1):
  *   „audit/provenance requirements"
  *
- * Pattern analog zu lib/security/permission-mode.ts (lazyos_permission_audit).
- * Diese Schicht schreibt append-only Decision-Logs in governance_audit
- * (Migration 0118), die das beweisen, was Lane G entschieden hat:
+ * Pattern analogous to lib/security/permission-mode.ts (lazyos_permission_audit).
+ * This layer writes append-only decision logs to governance_audit
+ * (Migration 0118) that prove what Lane G decided:
  *
- *   - jede Action, die canAutoRun (no-auto-run.ts) befragt, erzeugt einen
- *     governance_audit-Eintrag mit decision ∈ {allowed, denied,
+ *   - every action that queries canAutoRun (no-auto-run.ts) produces a
+ *     governance_audit entry with decision ∈ {allowed, denied,
  *     requires-approval}.
- *   - jede revokeConsent-Operation erzeugt einen Audit-Row (§13.2 „Pause/
- *     Stop jederzeit" muss überprüfbar sein).
- *   - jede LIVE-Connector-Invocation erzeugt einen Audit-Row (§13.2
+ *   - every revokeConsent operation produces an audit row (§13.2 „Pause/
+ *     Stop jederzeit" must be verifiable).
+ *   - every LIVE connector invocation produces an audit row (§13.2
  *     „Review durch betroffene Person").
  *
- * Substrat-Disziplin:
- *   - N1:  reason VERBATIM, kein .slice.
- *   - N8:  append-only Triggers in der Migration.
+ * Substrate discipline:
+ *   - N1:  reason VERBATIM, no .slice.
+ *   - N8:  append-only triggers in the migration.
  *   - N9:  workspaceId-scoped.
- *   - N10: content_hash (sha256 über kanonisches JSON) pro Row.
+ *   - N10: content_hash (sha256 over canonical JSON) per row.
  */
 
 import { createHash } from "node:crypto";
@@ -52,7 +52,7 @@ export interface WriteGovernanceAuditInput {
   readonly action: ActionKind | string;
   readonly dataSource?: string | null;
   readonly decision: GovernanceDecision;
-  /** VERBATIM N1 — keine Kürzung. */
+  /** VERBATIM N1 — no truncation. */
   readonly reason: string;
 }
 
@@ -79,10 +79,10 @@ function mapRow(r: Record<string, unknown>): GovernanceAuditEntry {
 }
 
 /**
- * Schreibt einen append-only Eintrag in governance_audit (Migration 0118).
+ * Writes an append-only entry to governance_audit (Migration 0118).
  *
- * Verbatim-Disziplin (N1): `reason` wird ohne jede Kürzung persistiert.
- * Tamper-Evidenz (N10): content_hash = sha256(canonical-JSON(row)).
+ * Verbatim discipline (N1): `reason` is persisted without any truncation.
+ * Tamper evidence (N10): content_hash = sha256(canonical-JSON(row)).
  */
 export function writeGovernanceAudit(
   raw: RawDb,
@@ -162,7 +162,7 @@ export interface ListGovernanceAuditOpts {
 }
 
 /**
- * Liest die Audit-Rows eines Workspace (neueste zuerst).
+ * Reads the audit rows of a workspace (newest first).
  */
 export function listGovernanceAudit(
   raw: RawDb,

@@ -1,49 +1,49 @@
 /**
- * lib/routines/scheduler-loop — In-Process Cron-Scheduler-Loop.
+ * lib/routines/scheduler-loop — in-process cron scheduler loop.
  *
- * sweepDueRoutines() ist der einzige öffentliche Entry-Point.
- * Sie wird aufgerufen von:
- *   1. instrumentation.ts  — 45 s nach Boot + alle 60 s (setInterval, im
- *      Node-Prozess, fire-and-forget).  Prozess-Lokalität ist hier ZWINGEND:
- *      broadcastEvent() und der resourcePool sind reine In-Memory-Singletons
- *      (Module-Scope); ein externer cURL-Cron kann diese nicht triggern.
- *   2. /api/heartbeat/tick  — belt-and-suspenders für systemd-Timer.
+ * sweepDueRoutines() is the only public entry point.
+ * It is called by:
+ *   1. instrumentation.ts  — 45 s after boot + every 60 s (setInterval, in the
+ *      Node process, fire-and-forget).  Process locality is MANDATORY here:
+ *      broadcastEvent() and the resourcePool are pure in-memory singletons
+ *      (module scope); an external cURL cron cannot trigger them.
+ *   2. /api/heartbeat/tick  — belt and suspenders for the systemd timer.
  *
- * N11-Slot-Gate (ADMISSION-TOKEN-Modell):
- *   tryAcquireSlot('ollama-heavy', background) ist ein NICHT-blockierender
- *   Admission-Token: voller Pool → defer (next_run_at bleibt → Retry nächster
- *   Tick).  Kein Drop, kein Stau.  WIE der Token danach gehalten wird, hängt
- *   vom action_kind ab:
+ * N11 slot gate (ADMISSION-TOKEN model):
+ *   tryAcquireSlot('ollama-heavy', background) is a NON-blocking
+ *   admission token: full pool → defer (next_run_at stays → retry next
+ *   tick).  No drop, no jam.  HOW the token is held afterwards depends
+ *   on the action_kind:
  *
- *     - action_kind='shell'         → kein Self-Gating im Runner; wir HALTEN
- *       den Slot über die gesamte executeRoutine-Ausführung (releaseSlot im
+ *     - action_kind='shell'         → no self-gating in the runner; we HOLD
+ *       the slot across the entire executeRoutine execution (releaseSlot in the
  *       finally).
- *     - action_kind='plan-dispatch' → executePlan() acquired PRO STEP selbst
- *       resourcePool.acquireSlot.  Würden wir den Scheduler-Slot über das
- *       await halten, belegte EINE plan-dispatch-Routine 2 Slots; zwei
- *       gleichzeitige → Deadlock bis acquireSlot-Timeout (BLOCKER A).  Deshalb
- *       geben wir den Admission-Token SOFORT VOR dem await wieder frei —
- *       executePlan self-gated dann allein gegen das N11-Budget.
+ *     - action_kind='plan-dispatch' → executePlan() acquires resourcePool.acquireSlot
+ *       itself PER STEP.  If we held the scheduler slot across the
+ *       await, ONE plan-dispatch routine would occupy 2 slots; two
+ *       simultaneous ones → deadlock until acquireSlot timeout (BLOCKER A).  So
+ *       we release the admission token IMMEDIATELY BEFORE the await —
+ *       executePlan then self-gates alone against the N11 budget.
  *
- * Dispatch-Lock / Anti-Stacking (BLOCKER B):
- *   (1) Optimistisches next_run_at-Advance VOR dem Fire: sobald wir uns zum
- *       Feuern entscheiden, schreiben wir next_run_at = nextRunAt(cron, now).
- *       Eine 240-s-plan-dispatch-Routine bei cron `* /1` verlässt damit sofort
- *       die Due-Menge — der nächste 60-s-Sweep sieht sie nicht mehr als fällig.
- *   (2) In-Process-Running-Guard: ein modul-scope Set<string> mit aktuell
- *       laufenden routineIds.  Ist die id schon drin → skip (als deferred
- *       gezählt).  Schützt gegen Re-Entrancy wenn instrumentation-Interval UND
- *       /api/heartbeat/tick parallel feuern.  Im finally wieder entfernt.
+ * Dispatch lock / anti-stacking (BLOCKER B):
+ *   (1) Optimistic next_run_at advance BEFORE the fire: as soon as we decide to
+ *       fire, we write next_run_at = nextRunAt(cron, now).
+ *       A 240-s plan-dispatch routine at cron `* /1` thereby leaves the
+ *       due set immediately — the next 60-s sweep no longer sees it as due.
+ *   (2) In-process running guard: a module-scope Set<string> with currently
+ *       running routineIds.  If the id is already in it → skip (counted as
+ *       deferred).  Protects against re-entrancy when the instrumentation interval AND
+ *       /api/heartbeat/tick fire in parallel.  Removed again in the finally.
  *
- * Fehler-Isolation:
- *   try/catch pro Routine; ein Fehler bricht die anderen NICHT ab; alle Fehler
- *   landen in SweepResult.errors.
+ * Error isolation:
+ *   try/catch per routine; one error does NOT abort the others; all errors
+ *   land in SweepResult.errors.
  *
- * Schedule-Update-Strategie:
- *   skipScheduleUpdate=true an executeRoutine — wir verwalten last_run_at /
- *   next_run_at SELBST (optimistisch, s.o.), und vermeiden so einen doppelten
- *   Write.  Bei Fehler bleibt das optimistische Advance bestehen (kein
- *   Endlos-Retry derselben Minute).
+ * Schedule-update strategy:
+ *   skipScheduleUpdate=true at executeRoutine — we manage last_run_at /
+ *   next_run_at OURSELVES (optimistically, see above), thus avoiding a double
+ *   write.  On error the optimistic advance stays (no
+ *   endless retry of the same minute).
  */
 
 import { and, eq, isNotNull, lte } from "drizzle-orm";
@@ -56,17 +56,17 @@ import { executeRoutine } from "./runner";
 import type { RunResult } from "./types";
 
 // ---------------------------------------------------------------------------
-// In-Process Running-Guard (Modul-Scope, Prozess-lokal)
+// In-process running guard (module scope, process-local)
 // ---------------------------------------------------------------------------
 
 /**
- * routineIds die JETZT mitten in einem Fire stecken.  Re-Entrancy-Schutz
- * gegen parallele Sweep-Aufrufer (instrumentation-Interval + heartbeat-tick).
- * Prozess-lokal — exakt wie resourcePool ein In-Memory-Singleton.
+ * routineIds that are RIGHT NOW in the middle of a fire.  Re-entrancy protection
+ * against parallel sweep callers (instrumentation interval + heartbeat tick).
+ * Process-local — exactly like resourcePool, an in-memory singleton.
  */
 const inflightRoutineIds = new Set<string>();
 
-/** TEST-ONLY — leert den Running-Guard zwischen Tests. */
+/** TEST-ONLY — clears the running guard between tests. */
 export function __resetRunningGuard(): void {
   inflightRoutineIds.clear();
 }
@@ -76,19 +76,19 @@ export function __resetRunningGuard(): void {
 // ---------------------------------------------------------------------------
 
 export interface SweepResult {
-  /** Epoch-ms des Sweeps. */
+  /** Epoch-ms of the sweep. */
   sweptAt: number;
-  /** Anzahl der Routinen mit nextRunAt <= now (vor Slot-Gate). */
+  /** Number of routines with nextRunAt <= now (before the slot gate). */
   candidateCount: number;
-  /** Anzahl erfolgreich gefeuerter Routinen. */
+  /** Number of successfully fired routines. */
   firedCount: number;
-  /** Anzahl deferrierter Routinen (kein freier Slot ODER bereits laufend). */
+  /** Number of deferred routines (no free slot OR already running). */
   deferredCount: number;
-  /** Anzahl Routinen die gefeuert wurden aber fehlschlugen. */
+  /** Number of routines that were fired but failed. */
   failedCount: number;
-  /** Run-Records aller gefeuerten Routinen (success + failure). */
+  /** Run records of all fired routines (success + failure). */
   runs: RunResult[];
-  /** Fehler pro Routine (routineId → message). */
+  /** Errors per routine (routineId → message). */
   errors: Record<string, string>;
 }
 
@@ -104,9 +104,9 @@ interface DueRow {
 // ---------------------------------------------------------------------------
 
 /**
- * Schreibt last_run_at + next_run_at.  `now` = Fire-Zeitpunkt; next wird aus
- * der Cron-Expression relativ zu now berechnet.  Non-fatal — Fehler werden
- * geloggt und geschluckt (ein DB-Write-Fehler darf den Sweep nicht killen).
+ * Writes last_run_at + next_run_at.  `now` = fire time; next is computed from
+ * the cron expression relative to now.  Non-fatal — errors are
+ * logged and swallowed (a DB write error must not kill the sweep).
  */
 function advanceSchedule(routineId: string, cronExpr: string | null, now: number): void {
   try {
@@ -132,11 +132,11 @@ function advanceSchedule(routineId: string, cronExpr: string | null, now: number
 // ---------------------------------------------------------------------------
 
 /**
- * Findet alle fälligen cron-Routinen (active=1, triggerMode='cron',
- * nextRunAt IS NOT NULL, nextRunAt <= now) und feuert sie unter N11-Budget-
- * Kontrolle.  Non-fatal, fire-and-forget-freundlich.
+ * Finds all due cron routines (active=1, triggerMode='cron',
+ * nextRunAt IS NOT NULL, nextRunAt <= now) and fires them under N11-budget
+ * control.  Non-fatal, fire-and-forget-friendly.
  *
- * @param now  Unix-Epoch in ms.  Default: Date.now().  Nur in Tests überschreiben.
+ * @param now  Unix epoch in ms.  Default: Date.now().  Only override in tests.
  */
 export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepResult> {
   const result: SweepResult = {
@@ -170,7 +170,7 @@ export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepR
         ),
       );
   } catch (err) {
-    // DB-Fehler beim SELECT → nichts feuern, aber nicht crashen.
+    // DB error on the SELECT → fire nothing, but do not crash.
     process.stderr.write(
       `[routine-scheduler] SELECT failed: ${err instanceof Error ? err.message : String(err)}\n`,
     );
@@ -190,10 +190,10 @@ export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepR
     const isPlanDispatch = row.actionKind === "plan-dispatch";
 
     // ------------------------------------------------------------------
-    // BLOCKER B (2) — In-Process-Running-Guard.
-    // Schon ein laufender Fire derselben Routine? → skip (deferred).
-    // Schützt gegen Re-Entrancy wenn ein zweiter Sweep parallel reinkommt
-    // (instrumentation-Interval + heartbeat-tick).
+    // BLOCKER B (2) — in-process running guard.
+    // Already a running fire of the same routine? → skip (deferred).
+    // Protects against re-entrancy when a second sweep comes in parallel
+    // (instrumentation interval + heartbeat tick).
     // ------------------------------------------------------------------
     if (inflightRoutineIds.has(routineId)) {
       result.deferredCount += 1;
@@ -204,9 +204,9 @@ export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepR
     }
 
     // ------------------------------------------------------------------
-    // N11-Admission-Token: SYNCHRON, nicht-blockierend.
-    // tryAcquireSlot gibt sofort null zurück wenn kein Budget frei ist —
-    // kein Queuing, kein await, kein Hängen.
+    // N11 admission token: SYNCHRONOUS, non-blocking.
+    // tryAcquireSlot returns null immediately when no budget is free —
+    // no queuing, no await, no hanging.
     // ------------------------------------------------------------------
     const slot = resourcePool.tryAcquireSlot({
       kind: "ollama-heavy",
@@ -214,7 +214,7 @@ export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepR
       priority: "background",
     });
     if (slot === null) {
-      // Kein Slot frei — defer, nicht droppen.  next_run_at bleibt unverändert.
+      // No slot free — defer, do not drop.  next_run_at stays unchanged.
       result.deferredCount += 1;
       process.stderr.write(
         `[routine-scheduler] deferred id=${routineId} (no slot available)\n`,
@@ -223,19 +223,19 @@ export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepR
     }
 
     // ------------------------------------------------------------------
-    // Wir haben uns zum Feuern entschieden.  AB HIER:
-    //  - Running-Guard markieren (im finally entfernen).
-    //  - BLOCKER B (1): next_run_at OPTIMISTISCH vorrücken, BEVOR wir awaiten.
-    //    Eine 240-s-Routine verlässt damit sofort die Due-Menge.
+    // We have decided to fire.  FROM HERE:
+    //  - mark the running guard (remove in the finally).
+    //  - BLOCKER B (1): advance next_run_at OPTIMISTICALLY, BEFORE we await.
+    //    A 240-s routine thereby leaves the due set immediately.
     // ------------------------------------------------------------------
     inflightRoutineIds.add(routineId);
     advanceSchedule(routineId, row.cronExpr, now);
 
     // ------------------------------------------------------------------
-    // BLOCKER A — Admission-Token-Lebensdauer abhängig vom action_kind.
-    // plan-dispatch: executePlan() self-gated PRO STEP gegen das N11-Budget.
-    //   → Token JETZT freigeben (vor dem await), sonst Doppel-Slot/Deadlock.
-    // shell: kein Self-Gating → Token über die Ausführung halten.
+    // BLOCKER A — admission-token lifetime depends on the action_kind.
+    // plan-dispatch: executePlan() self-gates PER STEP against the N11 budget.
+    //   → release the token NOW (before the await), otherwise double-slot/deadlock.
+    // shell: no self-gating → hold the token across the execution.
     // ------------------------------------------------------------------
     let slotReleased = false;
     const releaseOnce = (): void => {
@@ -253,7 +253,7 @@ export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepR
     // ------------------------------------------------------------------
     // Fire the routine.  executeRoutine() is non-throwing by contract, but
     // we wrap anyway to protect sibling routines against any unexpected throw.
-    // skipScheduleUpdate=true: wir haben das Advance schon (optimistisch) gemacht.
+    // skipScheduleUpdate=true: we have already done the advance (optimistically).
     // ------------------------------------------------------------------
     try {
       const runResult = await executeRoutine(routineId, {
@@ -284,8 +284,8 @@ export async function sweepDueRoutines(now: number = Date.now()): Promise<SweepR
         `[routine-scheduler] failed id=${routineId} (unexpected throw): ${msg}\n`,
       );
     } finally {
-      // shell: Token erst hier freigeben (über die Ausführung gehalten).
-      // plan-dispatch: bereits vor dem await freigegeben → releaseOnce no-op.
+      // shell: release the token only here (held across the execution).
+      // plan-dispatch: already released before the await → releaseOnce no-op.
       releaseOnce();
       inflightRoutineIds.delete(routineId);
     }

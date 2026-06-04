@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * PlanOpenQuestionsCard — Welle 7 (2026-05-01)
+ * PlanOpenQuestionsCard — Wave 7 (2026-05-01)
  *
- * Persistente Card-Variante zu OpenQuestionsSurface. Der Server emittiert
- * heute beides redundant (kind='plan-open-questions' im commented-Pfad
- * UND eine `<surface:open-questions>`-Card via emitOrUpdateCard). Die
- * commented-Variante hatte keine Surface — User sah nur Toast/Spam.
+ * Persistent card variant of OpenQuestionsSurface. The server today emits
+ * both redundantly (kind='plan-open-questions' in the commented path
+ * AND a `<surface:open-questions>` card via emitOrUpdateCard). The
+ * commented variant had no surface — the user only saw toast/spam.
  *
- * Diese Card rendert die Fragen mit QuickChoice-Buttons (analog
- * OpenQuestionsSurface) — der Klick replied via SurfaceActionContext mit
- * dem gewählten Option-Label, sodass der Server die Antwort als chat-
- * message-sent zurück bekommt.
+ * This card renders the questions with QuickChoice buttons (analogous to
+ * OpenQuestionsSurface) — the click replies via SurfaceActionContext with
+ * the chosen option label, so the server gets the answer back as a chat-
+ * message-sent.
  */
 
 import type { ReactElement } from 'react';

@@ -1,19 +1,19 @@
 /**
- * Tier-Presets für den Iterate-Modus (Sub-Plan A · 2026-04-30).
+ * Tier presets for iterate mode (sub-plan A · 2026-04-30).
  *
- * Vorher hat `runIterate` die User-Wahl im TierChoice-Picker komplett
- * ignoriert — Roaster-Count war fix 2, Sniper-Loop fix on. Jetzt steuern
- * Presets:
- *   - leadCount        Anzahl Lead-Spawns (immer 1, future-proof).
- *   - roasterCount     Anzahl paralleler Roaster (0 / 2 / 4).
- *   - sniperLoop       Wenn `false`, breche nach V2 ab (kein V3-V5-Loop).
- *   - stages           Auto-Dispatch-Pipeline-Stages pro Sub-Ticket.
- *                      Schnell = nur senior-dev, Standard = +reviewer,
+ * Previously `runIterate` completely ignored the user's choice in the
+ * TierChoice picker — the roaster count was fixed at 2, the sniper loop fixed on. Now
+ * presets control:
+ *   - leadCount        number of lead spawns (always 1, future-proof).
+ *   - roasterCount     number of parallel roasters (0 / 2 / 4).
+ *   - sniperLoop       when `false`, stop after V2 (no V3-V5 loop).
+ *   - stages           auto-dispatch pipeline stages per sub-ticket.
+ *                      Schnell = senior-dev only, Standard = +reviewer,
  *                      Tief = +critic.
- *   - estMinutes       Erwartete Wallclock-Zeit für die UI-Pill.
+ *   - estMinutes       expected wallclock time for the UI pill.
  *
- * Backwards-Compat: Workstreams ohne `mode`/`iterate_config_json` (Pre-0041)
- * werden vom Caller wie `TIER_PRESETS.standard` behandelt.
+ * Backwards-compat: workstreams without `mode`/`iterate_config_json` (pre-0041)
+ * are treated by the caller like `TIER_PRESETS.standard`.
  */
 
 export type TierPresetId = 'schnell' | 'standard' | 'tief';
@@ -57,20 +57,20 @@ export const TIER_PRESETS: Record<TierPresetId, IterateConfig> = {
 };
 
 /**
- * Total-Agent-Count für UI-Pill: Lead + Roasters + Synthesis (1) +
- * (sniperLoop ? 2 zusätzliche Versionen : 0). Synthesis = der finale
- * V2-Lead-Spawn der Roasts integriert.
+ * Total agent count for the UI pill: lead + roasters + synthesis (1) +
+ * (sniperLoop ? 2 additional versions : 0). Synthesis = the final
+ * V2 lead spawn that integrates the roasts.
  *
- * Schnell: 1 (lead) + 0 (roast) + 0 (kein synth, weil keine roasts) = 1
- *   Sonderfall: bei roasterCount=0 gibt's keinen V2 — der Lead-Output IST
- *   der finale Plan. Daher kein +1 Synthesis-Aufschlag.
+ * Schnell: 1 (lead) + 0 (roast) + 0 (no synth, because no roasts) = 1
+ *   Special case: with roasterCount=0 there is no V2 — the lead output IS
+ *   the final plan. Hence no +1 synthesis surcharge.
  * Standard: 1 + 2 + 1 = 4
- * Tief: 1 + 4 + 1 + 2 (V3+V4 via Sniper-Loop, V5 optional) = 8 max,
- *   aber wir zeigen erwartungswert ~7 (Loop bricht oft früher).
+ * Tief: 1 + 4 + 1 + 2 (V3+V4 via the sniper loop, V5 optional) = 8 max,
+ *   but we show an expected value of ~7 (the loop often stops earlier).
  */
 export function totalAgents(c: IterateConfig): number {
   if (c.roasterCount === 0) {
-    // Schnell-Pfad: nur Lead, kein Synthesis-Schritt nötig.
+    // Schnell path: lead only, no synthesis step needed.
     return c.leadCount + (c.sniperLoop ? 2 : 0);
   }
   return (
@@ -79,8 +79,8 @@ export function totalAgents(c: IterateConfig): number {
 }
 
 /**
- * Backwards-Compat-Resolver: parse das `iterate_config_json`-Feld eines
- * Workstreams. Bei NULL/fehlerhaft: TIER_PRESETS.standard.
+ * Backwards-compat resolver: parses the `iterate_config_json` field of a
+ * workstream. On NULL/malformed: TIER_PRESETS.standard.
  */
 export function resolveIterateConfig(
   json: string | null | undefined,
@@ -96,19 +96,19 @@ export function resolveIterateConfig(
         parsed.presetId === 'standard' ||
         parsed.presetId === 'tief')
     ) {
-      // Wir vertrauen dem Preset-Lookup und überschreiben nicht mit
-      // möglicherweise korrupten Einzelwerten — der Preset-Schlüssel ist
-      // die Source of Truth, das JSON ist nur ein Cache.
+      // We trust the preset lookup and don't overwrite with
+      // possibly corrupt individual values — the preset key is
+      // the source of truth, the JSON is just a cache.
       return TIER_PRESETS[parsed.presetId];
     }
   } catch {
-    // fallthrough zu Default
+    // fall through to default
   }
   return TIER_PRESETS.standard;
 }
 
 /**
- * UI-Helper: human-readable Cost-Summary für TierChoiceCard.
+ * UI helper: human-readable cost summary for TierChoiceCard.
  * Format: „Schnell · 1 Agent · ~3 min".
  */
 export function presetSummary(p: IterateConfig): string {

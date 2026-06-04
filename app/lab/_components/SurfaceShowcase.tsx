@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * /lab Tab-Switcher (MVP, 2026-05-01).
+ * /lab tab switcher (MVP, 2026-05-01).
  *
- * Apple-Pure-Pill-Group: 5 Tabs, URL-Param `?tab=` als Single Source of Truth.
- * Selected-State via `?tab=`-Match. Klick triggert client-seitige Navigation
- * via `router.replace` damit kein voller Reload entsteht und kein
- * Server-Re-Fetch-Cost entsteht.
+ * Apple-pure pill group: 5 tabs, URL param `?tab=` as the single source of truth.
+ * Selected state via `?tab=` match. Click triggers client-side navigation
+ * via `router.replace` so that no full reload occurs and no
+ * server re-fetch cost arises.
  *
- * Refactor-Tab und SpringStack-Toggle kommen in Welle 3 — bis dahin zeigt
- * der Refactor-Tab einen Placeholder.
+ * The refactor tab and SpringStack toggle arrive in wave 3 — until then the
+ * refactor tab shows a placeholder.
  */
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -51,10 +51,10 @@ export function isLabTabId(value: string | null | undefined): value is LabTabId 
 export interface SurfaceShowcaseProps {
   activeTab: LabTabId;
   /**
-   * Render-Map: wir lassen den Server jeden Tab pre-rendern und reichen
-   * sie als Children durch. So bleibt das Switching client-side billig
-   * ohne Re-Fetch (Tabs sind nur Show/Hide). Foundation-MVP, kann später
-   * auf code-split per Tab umgestellt werden.
+   * Render map: we let the server pre-render each tab and pass them
+   * through as children. This keeps switching cheap on the client
+   * without re-fetch (tabs are just show/hide). Foundation MVP, can later
+   * be switched to code-split per tab.
    */
   panels: Record<LabTabId, ReactNode>;
 }

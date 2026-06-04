@@ -1,13 +1,12 @@
 /**
  * POST /api/workstreams/[id]/extract-subs — Sub-Plan 04 Welle 1 Fix.
  *
- * Wenn der V_final-Plan KEINEN ## Sub-Tickets-YAML-Block enthält
- * (Resume-Prompt-Bug bis 2026-04-29 nachmittag), spawnt diesen Endpoint
- * einen Sonnet-Agent der den Plan-Text liest und ein striktes YAML-Block-
- * Format extrahiert. Daraus werden Sub-Tickets via createSubTicketEvent
- * erzeugt.
+ * If the V_final plan contains NO ## Sub-Tickets YAML block
+ * (resume-prompt bug until the afternoon of 2026-04-29), this endpoint spawns
+ * a Sonnet agent that reads the plan text and extracts a strict YAML-block
+ * format. From it, sub-tickets are created via createSubTicketEvent.
  *
- * Idempotent: wenn Master-Ticket schon Sub-Tickets hat, no-op.
+ * Idempotent: if the master ticket already has sub-tickets, no-op.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -71,7 +70,7 @@ export async function POST(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // Idempotent: schon Sub-Tickets vorhanden?
+  // Idempotent: sub-tickets already present?
   const existing = db.$raw
     .prepare(
       `SELECT count(*) as c FROM events
@@ -87,7 +86,7 @@ export async function POST(
     });
   }
 
-  // V_final-Plan-Text holen
+  // Fetch the V_final plan text
   const planRow = db.$raw
     .prepare(
       `SELECT json_extract(payload,'$.text') as text
@@ -104,11 +103,11 @@ export async function POST(
     return NextResponse.json({ error: 'no-plan' }, { status: 400 });
   }
 
-  // Erst direkt parsen — vielleicht IST schon ein Sub-Tickets-Block drin
+  // First parse directly — maybe a sub-tickets block IS already in there
   let parsed = parseSubTicketsBlock(planRow.text);
 
   if (parsed.length === 0) {
-    // Kein YAML-Block im Plan — Sonnet-Spawn der ihn extrahiert
+    // No YAML block in the plan — Sonnet spawn that extracts it
     try {
       const { spawnInTmux } = await import('@/server/agents/tmux-spawn');
       const { MODEL_NAMES } = await import('@/lib/agents/pricing');
@@ -149,8 +148,8 @@ export async function POST(
         timeoutMs: 3 * 60_000,
       });
       if (result.text && result.text.trim().length > 0) {
-        // Wickle den Output in eine ## Sub-Tickets-Section damit
-        // parseSubTicketsBlock greift
+        // Wrap the output in a ## Sub-Tickets section so that
+        // parseSubTicketsBlock takes effect
         const wrapped = `## Sub-Tickets\n\n${result.text}`;
         parsed = parseSubTicketsBlock(wrapped);
       }
@@ -175,7 +174,7 @@ export async function POST(
     );
   }
 
-  // Sub-Tickets-Events erzeugen
+  // Create sub-ticket events
   let created = 0;
   for (const sub of parsed) {
     await createSubTicketEvent({

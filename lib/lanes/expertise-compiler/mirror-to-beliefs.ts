@@ -8,53 +8,53 @@
  *   „Glossary Entries · Principles · If-Then Rules · Exceptions · Tactics ·
  *    Eval Cases · Belief Candidates."
  *
- * ── DER N4-PROBLEMRAUM ────────────────────────────────────────────────────
+ * ── THE N4 PROBLEM SPACE ────────────────────────────────────────────────────
  *
- * `knowledge_forms.statement/rationale` ist strukturell identisch zu
- * `workspace_beliefs.belief/rationale`. Eine blinde Text-Kopie waere
- * N4-Doppelhaltung („Recovery before reinvention" — dieselbe Aussage in zwei
- * Stores, die auseinanderdriften koennen). Diese Datei schliesst die Naht:
+ * `knowledge_forms.statement/rationale` is structurally identical to
+ * `workspace_beliefs.belief/rationale`. A blind text copy would be
+ * N4 double-holding („Recovery before reinvention" — the same statement in two
+ * stores that can drift apart). This file closes the seam:
  *
- *   1. Sie benutzt AUSSCHLIESSLICH `upsertBelief` aus
- *      lib/reasoning/beliefs-repo.ts — KEIN eigener Belief-Writer (kein
- *      zweites INSERT INTO workspace_beliefs irgendwo).
- *   2. Sie schreibt die zurueckgegebene `belief.id` in
- *      `knowledge_forms.source_json.beliefId` zurueck (Rueck-FK). Damit ist
- *      a) die Spiegelung idempotent (ein bereits gespiegeltes knowledge_form
- *         spiegelt nicht erneut), und b) die Projektion explizit: das
- *         knowledge_form ist die Quelle, der belief die abgeleitete,
- *         recall-/reconcile-faehige Projektion.
- *   3. Beides passiert in EINER TX (analog N2-Disziplin: die Spiegelung und
- *      der Rueck-FK sind atomar — entweder beide oder keine).
+ *   1. It uses EXCLUSIVELY `upsertBelief` from
+ *      lib/reasoning/beliefs-repo.ts — NO own belief writer (no
+ *      second INSERT INTO workspace_beliefs anywhere).
+ *   2. It writes the returned `belief.id` back into
+ *      `knowledge_forms.source_json.beliefId` (back-FK). This makes
+ *      a) the mirroring idempotent (an already-mirrored knowledge_form
+ *         does not mirror again), and b) the projection explicit: the
+ *         knowledge_form is the source, the belief the derived,
+ *         recall-/reconcile-capable projection.
+ *   3. Both happen in ONE TX (analogous to N2 discipline: the mirroring and
+ *      the back-FK are atomic — either both or neither).
  *
- * ── TOPIC-ABLEITUNG (deterministisch, dokumentiert) ───────────────────────
+ * ── TOPIC DERIVATION (deterministic, documented) ───────────────────────
  *
- * `recallRelevant` / `reconcile` (lib/reasoning/) finden Beliefs ueber
- * `workspace_beliefs.topic` (exact-Match + LIKE-Substring, lower-cased). Damit
- * die gespiegelten Beliefs wiederauffindbar sind, MUSS die Topic-Ableitung
- * deterministisch + stabil sein. Regel (verbatim):
+ * `recallRelevant` / `reconcile` (lib/reasoning/) find beliefs via
+ * `workspace_beliefs.topic` (exact match + LIKE substring, lower-cased). For
+ * the mirrored beliefs to be findable, the topic derivation MUST be
+ * deterministic + stable. Rule (verbatim):
  *
- *   - glossary:  topic = lower(term)          (der Begriff IST das Topic)
- *   - sonst:     topic = lower(domain)         (die Fach-Domain, z.B. 'pv-planning')
- *   - Fallback (weder term noch domain gesetzt):
- *                topic = lower(kind)            (die Wissensform selbst)
+ *   - glossary:  topic = lower(term)          (the term IS the topic)
+ *   - otherwise: topic = lower(domain)         (the domain, e.g. 'pv-planning')
+ *   - fallback (neither term nor domain set):
+ *                topic = lower(kind)            (the knowledge form itself)
  *
- * Alle Varianten werden getrimmt; Whitespace-Folgen auf ein Leerzeichen
- * normalisiert (damit „PV Planning" und „pv  planning" dasselbe Topic geben).
- * KEIN .slice/.substring — der Wert wird nur lower-cased + whitespace-
- * normalisiert, nie gekuerzt (N1).
+ * All variants are trimmed; whitespace runs are normalized to a single space
+ * (so that „PV Planning" and „pv  planning" yield the same topic).
+ * NO .slice/.substring — the value is only lower-cased + whitespace-
+ * normalized, never truncated (N1).
  *
- * ── DISZIPLIN ──────────────────────────────────────────────────────────────
- *   - N1:  belief/rationale werden VERBATIM aus statement/rationale uebernommen.
- *   - N4:  upsertBelief ist der EINZIGE Belief-Writer; Rueck-FK statt Kopie.
- *   - N8:  knowledge_forms.source_json-UPDATE ist erlaubt (Trigger blockt nur
- *          id/kind/term/statement/content_hash) — die Spiegelung mutiert KEIN
- *          Kern-Feld.
- *   - N10: content_hash bleibt unangetastet (Spiegelung ist Annotation).
+ * ── DISCIPLINE ──────────────────────────────────────────────────────────────
+ *   - N1:  belief/rationale are taken VERBATIM from statement/rationale.
+ *   - N4:  upsertBelief is the ONLY belief writer; back-FK instead of a copy.
+ *   - N8:  knowledge_forms.source_json UPDATE is allowed (the trigger blocks only
+ *          id/kind/term/statement/content_hash) — the mirroring mutates NO
+ *          core field.
+ *   - N10: content_hash stays untouched (mirroring is annotation).
  *
- * Reines DB-Modul: nimmt ein rohes better-sqlite3-Handle (analog
- * lib/reasoning/beliefs-repo.ts) — kein getDb()-Singleton, in-memory testbar.
- * KEIN LLM, keine Netz-I/O.
+ * Pure DB module: takes a raw better-sqlite3 handle (analogous to
+ * lib/reasoning/beliefs-repo.ts) — no getDb() singleton, in-memory testable.
+ * NO LLM, no net I/O.
  */
 
 import { upsertBelief, type Belief } from "@/lib/reasoning/beliefs-repo";
@@ -62,18 +62,18 @@ import { upsertBelief, type Belief } from "@/lib/reasoning/beliefs-repo";
 type RawDb = import("better-sqlite3").Database;
 
 // ───────────────────────────────────────────────────────────────────────────
-// Topic-Ableitung (exportiert für Tests + Lane-Contract)
+// Topic derivation (exported for tests + the lane contract)
 // ───────────────────────────────────────────────────────────────────────────
 
 function normalizeTopic(value: string): string {
-  // lower + whitespace-Folgen → ein Space + trim. KEIN slice (N1).
+  // lower + whitespace runs → one space + trim. NO slice (N1).
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 /**
- * Deterministische Topic-Ableitung aus kind/term/domain. Siehe Modul-Doc.
- * Wirft, wenn keine der drei Quellen einen nicht-leeren Topic ergibt — eine
- * Spiegelung ohne Topic waere von recallRelevant nicht wiederfindbar.
+ * Deterministic topic derivation from kind/term/domain. See the module doc.
+ * Throws if none of the three sources yields a non-empty topic — a
+ * mirroring without a topic would not be findable by recallRelevant.
  */
 export function deriveBeliefTopic(args: {
   kind: string;
@@ -96,15 +96,15 @@ export function deriveBeliefTopic(args: {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Result-Typ
+// Result type
 // ───────────────────────────────────────────────────────────────────────────
 
 export interface MirrorResult {
-  /** Die gespiegelte (neu angelegte) belief-Row. */
+  /** The mirrored (newly created) belief row. */
   readonly belief: Belief;
-  /** Das abgeleitete Topic (für Recall/Reconcile-Auffindbarkeit). */
+  /** The derived topic (for recall/reconcile findability). */
   readonly topic: string;
-  /** true, wenn das knowledge_form bereits gespiegelt war (No-op-Rückgabe der bestehenden belief-Projektion). */
+  /** true when the knowledge_form was already mirrored (no-op return of the existing belief projection). */
   readonly alreadyMirrored: boolean;
 }
 
@@ -113,21 +113,21 @@ export interface MirrorResult {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Spiegelt ein APPROVED knowledge_form in workspace_beliefs (0113) und schreibt
- * den Rueck-FK (belief.id) in knowledge_forms.source_json.beliefId — beides in
- * EINER TX.
+ * Mirrors an APPROVED knowledge_form into workspace_beliefs (0113) and writes
+ * the back-FK (belief.id) into knowledge_forms.source_json.beliefId — both in
+ * ONE TX.
  *
- * Idempotent: ist source_json.beliefId bereits gesetzt UND die referenzierte
- * belief-Row existiert noch, wird NICHT erneut gespiegelt (alreadyMirrored=true,
- * bestehende belief-Row zurueckgegeben).
+ * Idempotent: if source_json.beliefId is already set AND the referenced
+ * belief row still exists, it is NOT mirrored again (alreadyMirrored=true,
+ * existing belief row returned).
  *
- * Fail-fast (Wurf), wenn:
- *   - das knowledge_form nicht existiert,
- *   - sein review_state ≠ 'approved' ist (nur approved wird gespiegelt — §8
- *     human-review-Gate),
+ * Fail-fast (throws) when:
+ *   - the knowledge_form does not exist,
+ *   - its review_state ≠ 'approved' (only approved is mirrored — §8
+ *     human-review gate),
  *
- * @param raw              rohes better-sqlite3-Handle
- * @param knowledgeFormId  id der zu spiegelnden knowledge_forms-Row
+ * @param raw              raw better-sqlite3 handle
+ * @param knowledgeFormId  id of the knowledge_forms row to mirror
  */
 export function mirrorApprovedKnowledgeFormToBelief(
   raw: RawDb,
@@ -173,7 +173,7 @@ export function mirrorApprovedKnowledgeFormToBelief(
     );
   }
 
-  // Bestehendes source_json parsen (defensiv — kann null / kaputt sein).
+  // Parse the existing source_json (defensive — may be null / broken).
   let sourceObj: Record<string, unknown> = {};
   if (typeof kf.source_json === "string" && kf.source_json.length > 0) {
     try {
@@ -182,9 +182,9 @@ export function mirrorApprovedKnowledgeFormToBelief(
         sourceObj = parsed as Record<string, unknown>;
       }
     } catch {
-      // kaputtes JSON → wir starten mit leerem Envelope, ueberschreiben es
-      // unten kontrolliert (kein Datenverlust an Kern-Feldern — die liegen in
-      // eigenen Spalten).
+      // broken JSON → we start with an empty envelope and overwrite it
+      // below in a controlled way (no data loss on core fields — they live in
+      // their own columns).
       sourceObj = {};
     }
   }
@@ -198,7 +198,7 @@ export function mirrorApprovedKnowledgeFormToBelief(
   const existingBeliefId =
     typeof sourceObj.beliefId === "string" ? sourceObj.beliefId : null;
 
-  // Idempotenz: bereits gespiegelt + Ziel-belief existiert noch (im selben WS)?
+  // Idempotency: already mirrored + target belief still exists (in the same WS)?
   if (existingBeliefId) {
     const existing = raw
       .prepare(
@@ -231,23 +231,23 @@ export function mirrorApprovedKnowledgeFormToBelief(
         alreadyMirrored: true,
       };
     }
-    // Rueck-FK zeigte auf eine nicht (mehr) existente belief-Row → neu spiegeln.
+    // The back-FK pointed at a no-longer-existent belief row → mirror anew.
   }
 
-  // EINE TX: upsertBelief (einziger Belief-Writer, N4) + Rueck-FK-UPDATE.
+  // ONE TX: upsertBelief (the only belief writer, N4) + back-FK UPDATE.
   const txn = raw.transaction((): Belief => {
     const belief = upsertBelief(raw, {
       workspaceId: kf.workspace_id,
       topic,
       belief: kf.statement, // N1: verbatim
-      // workspace_beliefs.rationale ist NOT NULL — knowledge_forms.rationale
-      // ist nullable. Fallback auf das statement (verbatim, kein slice), damit
-      // die NOT-NULL-Disziplin gewahrt bleibt ohne Inhalt zu erfinden.
+      // workspace_beliefs.rationale is NOT NULL — knowledge_forms.rationale
+      // is nullable. Fall back to the statement (verbatim, no slice), so
+      // the NOT-NULL discipline is preserved without inventing content.
       rationale:
         typeof kf.rationale === "string" && kf.rationale.length > 0
           ? kf.rationale // N1: verbatim
-          : kf.statement, // N1: verbatim Fallback
-      source: "ai", // aus Lane-B-Kompilierung abgeleitet
+          : kf.statement, // N1: verbatim fallback
+      source: "ai", // derived from the Lane-B compilation
     });
 
     const nextSourceJson = JSON.stringify({
@@ -255,8 +255,8 @@ export function mirrorApprovedKnowledgeFormToBelief(
       beliefId: belief.id,
     });
 
-    // N8: source_json-UPDATE ist erlaubt (Trigger blockt nur id/kind/term/
-    // statement/content_hash). updated_at darf mitwachsen.
+    // N8: source_json UPDATE is allowed (the trigger blocks only id/kind/term/
+    // statement/content_hash). updated_at may grow along.
     raw
       .prepare(
         `UPDATE knowledge_forms

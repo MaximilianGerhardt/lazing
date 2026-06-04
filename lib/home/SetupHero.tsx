@@ -7,7 +7,7 @@
  *   - No engine probed available (Engines-card lit)
  *   - No push subscription / VAPID missing (Push-card lit)
  *
- * GitHub-optional direktive 2026-05-23: The GitHub-card is NO LONGER part
+ * GitHub-optional directive 2026-05-23: The GitHub-card is NO LONGER part
  * of the default setup flow. lazyOS works fully without GitHub — Chat,
  * Workspaces, Engines, Push all run standalone. A GitHub-card is only
  * rendered if the user already opted-in earlier (cookie / localStorage
@@ -112,7 +112,7 @@ export function SetupHero({ hidden }: SetupHeroProps = {}): React.JSX.Element | 
   // the card disappears as soon as the user enables push.
   const pushReady = !!status.push.subscribed || status.push.vapidConfigured === false;
 
-  // GitHub-optional direktive 2026-05-23: GitHub is NEVER required for the
+  // GitHub-optional directive 2026-05-23: GitHub is NEVER required for the
   // hero to disappear. Only engines + push count for the gating decision.
   // The GitHub-card is rendered ONLY if the user opted-in (and not
   // already connected) — purely informational, never gating.
@@ -192,11 +192,11 @@ export function SetupHero({ hidden }: SetupHeroProps = {}): React.JSX.Element | 
             })()}
           </h2>
           {/*
-            Direktive 2026-05-23: Onboarding-Resume-Banner zeigen nur wenn
-            BEIDES gilt: (a) Onboarding nicht abgeschlossen UND (b)
-            mindestens eine Karte noch offen. Wenn der User funktional
-            fertig ist (Engine + Push grün), gilt onboarding implizit als
-            erledigt — kein "fortsetzen" mehr anzeigen.
+            Directive 2026-05-23: show the onboarding-resume banner only when
+            BOTH hold: (a) onboarding not completed AND (b)
+            at least one card still open. When the user is functionally
+            done (engine + push green), onboarding implicitly counts as
+            done — no longer show "resume".
           */}
           {!status.onboardingCompleted && !(enginesReady && pushReady) && (
             <p

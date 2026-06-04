@@ -1,21 +1,21 @@
 /**
- * RAG-Indexer-CLI (Sprint 2 / Strang B, 2026-04-30).
+ * RAG indexer CLI (Sprint 2 / Strand B, 2026-04-30).
  *
- * Indexiert einen Workspace inkl. Files + Chat-History + Tickets +
- * Work-Products. Idempotent (re-index überschreibt alte Chunks pro Source).
+ * Indexes a workspace including files + chat history + tickets +
+ * work products. Idempotent (re-index overwrites old chunks per source).
  *
- * Privacy-Gate (Defense-in-Depth):
- *   - Workspaces mit sensitivity='high' (z.B. 'private') werden komplett
- *     übersprungen außer mit `--include-high` Flag (bewusste Opt-in).
- *   - Pro Source: high-sensitivity-Events/Chunks bleiben aus dem Index.
+ * Privacy gate (defense-in-depth):
+ *   - Workspaces with sensitivity='high' (e.g. 'private') are skipped
+ *     entirely except with the `--include-high` flag (deliberate opt-in).
+ *   - Per source: high-sensitivity events/chunks stay out of the index.
  *
  * Usage:
  *   pnpm tsx scripts/rag-index.ts --workspace=lazyos
  *   pnpm tsx scripts/rag-index.ts --workspace=demo-fitness --dry-run
  *   pnpm tsx scripts/rag-index.ts --workspace=lazyos --skip-files
  *
- * Background-Run via systemd-timer (Sprint 2 Welle 3 follow-up):
- *   /etc/systemd/system/lazyos-rag-indexer.timer (alle 30 min)
+ * Background run via systemd timer (Sprint 2 wave 3 follow-up):
+ *   /etc/systemd/system/lazyos-rag-indexer.timer (every 30 min)
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';

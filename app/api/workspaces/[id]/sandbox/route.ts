@@ -2,19 +2,19 @@
  * PUT /api/workspaces/[id]/sandbox  (P16, 2026-05-01)
  * ----------------------------------------------------
  *
- * Toggle Sandbox-Mode für einen Workspace.
+ * Toggle sandbox mode for a workspace.
  *
  * Body: { enabled: boolean }
  * Response: { ok: true, sandboxMode: 0 | 1 }
  *
- * Auth + Permission:
- *   - requireSession via Cookie (Middleware-Layer)
- *   - User muss admin / founder im Workspace sein (canManageWorkspaceStructure)
+ * Auth + permission:
+ *   - requireSession via cookie (middleware layer)
+ *   - user must be admin / founder in the workspace (canManageWorkspaceStructure)
  *
- * Constraints (server-seitig hart):
- *   - Aktivieren NUR erlaubt wenn workspace.sensitivity = 'low'
- *   - Workspace muss existieren
- *   - Loop-Guard / Credential-Gates bleiben in jedem Fall aktiv (siehe
+ * Constraints (hard, server-side):
+ *   - enabling is ONLY allowed when workspace.sensitivity = 'low'
+ *   - workspace must exist
+ *   - loop guard / credential gates remain active in every case (see
  *     lib/workspaces/sandbox.ts JSDoc).
  */
 
@@ -53,8 +53,8 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // Auth-Check: nur User-Subjects (keine Service-Bypässe für Struktur-
-  // Änderungen).
+  // Auth check: only user subjects (no service bypasses for structural
+  // changes).
   const subj = currentSubject(req);
   if (subj.kind !== "user") {
     return NextResponse.json(
@@ -70,7 +70,7 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // Permission: ≥ admin im Workspace.
+  // Permission: ≥ admin in the workspace.
   const role = getEffectiveWorkspaceRole(userId, id);
   if (!canManageWorkspaceStructure(role)) {
     return NextResponse.json(
@@ -96,8 +96,8 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // Sensitivity-Floor prüfen BEVOR wir setSandboxMode aufrufen — gleiche
-  // Logik, aber wir wollen einen sprechenden 409 statt eines 500.
+  // Check the sensitivity floor BEFORE we call setSandboxMode — same
+  // logic, but we want a meaningful 409 instead of a 500.
   try {
     const db = getDb();
     const row = db.$raw

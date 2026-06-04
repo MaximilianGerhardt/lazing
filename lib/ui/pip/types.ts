@@ -1,15 +1,15 @@
 /**
- * lib/ui/pip — Stepper-Domain-Typen (Sub-Plan 5 Welle 1, 2026-05-01).
+ * lib/ui/pip — stepper domain types (sub-plan 5 wave 1, 2026-05-01).
  *
- * StageDescriptor ist die Adapter-Output-Form: jedes Welle-2-Adapter
- * (workflows, iterate, rag, drift, sniper) liefert ein
- * `StageDescriptor[]` an den Pipeline-Renderer.
+ * StageDescriptor is the adapter output shape: every wave-2 adapter
+ * (workflows, iterate, rag, drift, sniper) delivers a
+ * `StageDescriptor[]` to the pipeline renderer.
  *
- * `StepStatus` ist hier 5-wertig (pending|running|done|failed|skipped).
- * Step.tsx mappt das auf CSS-Klassen `w|r|d|f|k`. Der bestehende
- * 3-wertige `StepStatus`-Export aus Step.tsx (`'done'|'running'|'waiting'`)
- * bleibt aus Backwards-Compat-Gründen funktional, intern wird er auf den
- * neuen Typ gehoben.
+ * `StepStatus` here is 5-valued (pending|running|done|failed|skipped).
+ * Step.tsx maps it to CSS classes `w|r|d|f|k`. The existing
+ * 3-valued `StepStatus` export from Step.tsx (`'done'|'running'|'waiting'`)
+ * stays functional for backwards-compat reasons; internally it is promoted
+ * to the new type.
  */
 
 export type StepStatus =
@@ -20,52 +20,52 @@ export type StepStatus =
   | 'skipped';
 
 /**
- * Qualitative ETA-Buckets — wir geben keine harten Zeit-Promises ab,
- * sondern Hinweise wie "fast fertig" / "läuft länger als üblich".
+ * Qualitative ETA buckets — we make no hard time promises,
+ * just hints like "fast fertig" / "läuft länger als üblich".
  *
- * Renderer entscheidet wie das anzeigt wird (Subtitle-String oder
- * Pill-Color); der Adapter bestimmt nur den Bucket.
+ * The renderer decides how this is shown (subtitle string or
+ * pill color); the adapter only determines the bucket.
  */
 export type EtaBucket = 'fast' | 'normal' | 'slow' | 'overdue';
 
 export interface StageDescriptor {
-  /** Stabile ID für React-Keys + a11y. Pro Adapter eindeutig. */
+  /** Stable ID for React keys + a11y. Unique per adapter. */
   id: string;
-  /** Lesbares Label, z.B. "Roast V2" oder "Embedding". */
+  /** Readable label, e.g. "Roast V2" or "Embedding". */
   label: string;
   status: StepStatus;
   /**
-   * Optionaler ETA-Bucket — qualitativer Zeit-Hinweis. Renderer kann
-   * daraus Subtitle wie "fast fertig" oder "läuft länger als üblich"
-   * generieren, oder den Bucket per Color-Token visualisieren.
+   * Optional ETA bucket — qualitative time hint. The renderer can
+   * generate a subtitle like "fast fertig" or "läuft länger als üblich"
+   * from it, or visualize the bucket via a color token.
    */
   etaBucket?: EtaBucket;
   /**
-   * Frei-Text-Subtitle, z.B. "ca. 2 Wellen noch", "47/120 Chunks".
-   * Hat Vorrang vor automatisch aus etaBucket abgeleitetem Subtitle.
+   * Free-text subtitle, e.g. "ca. 2 Wellen noch", "47/120 Chunks".
+   * Takes precedence over a subtitle derived automatically from etaBucket.
    */
   subtitle?: string;
   /**
-   * 0..100 — wenn gesetzt, rendert Step eine 1px Underline-Bar.
-   * Werte außerhalb [0,100] werden geklammert.
+   * 0..100 — when set, Step renders a 1px underline bar.
+   * Values outside [0,100] are clamped.
    */
   progressPct?: number;
   /**
-   * GitHub-Actions-Style aufklappbare Sub-Steps. Optional, eine Ebene
-   * tief reicht für die aktuellen Use-Cases (Workflow-Sub-States,
-   * Sub-Plan-Sniper-Tickets).
+   * GitHub-Actions-style collapsible sub-steps. Optional; one level
+   * deep is enough for the current use cases (workflow sub-states,
+   * sub-plan sniper tickets).
    */
   sub?: StageDescriptor[];
 }
 
 /**
- * Mapping von 5-wertiger StepStatus auf CSS-Modifier.
+ * Mapping from 5-valued StepStatus to a CSS modifier.
  *
- *   pending  → 'w'  (waiting/neutral, alt: identisch)
- *   running  → 'r'  (amber, alt: identisch)
- *   done     → 'd'  (green, alt: identisch)
- *   failed   → 'f'  (rot, NEU)
- *   skipped  → 'k'  (durchgestrichen-grau, NEU)
+ *   pending  → 'w'  (waiting/neutral, old: identical)
+ *   running  → 'r'  (amber, old: identical)
+ *   done     → 'd'  (green, old: identical)
+ *   failed   → 'f'  (red, NEW)
+ *   skipped  → 'k'  (struck-through grey, NEW)
  */
 export const STEP_STATUS_CLASS: Record<StepStatus, 'w' | 'r' | 'd' | 'f' | 'k'> = {
   pending: 'w',
@@ -76,7 +76,7 @@ export const STEP_STATUS_CLASS: Record<StepStatus, 'w' | 'r' | 'd' | 'f' | 'k'> 
 };
 
 /**
- * Default-Kurz-Labels (visual shorthand only — a11y nimmt die Voll-Form).
+ * Default short labels (visual shorthand only — a11y takes the full form).
  */
 export const STEP_STATUS_LABEL: Record<StepStatus, string> = {
   pending: 'wait',
@@ -87,7 +87,7 @@ export const STEP_STATUS_LABEL: Record<StepStatus, string> = {
 };
 
 /**
- * a11y-Voll-Form für `aria-label` an der Status-Pille.
+ * a11y full form for the `aria-label` on the status pill.
  */
 export const STEP_STATUS_ARIA: Record<StepStatus, string> = {
   pending: 'Wartet',
@@ -98,8 +98,8 @@ export const STEP_STATUS_ARIA: Record<StepStatus, string> = {
 };
 
 /**
- * Helper für Subtitle aus EtaBucket — nur wenn Adapter keinen
- * eigenen Subtitle gesetzt hat.
+ * Helper for a subtitle from EtaBucket — only when the adapter hasn't
+ * set its own subtitle.
  */
 export function defaultSubtitleForEta(bucket: EtaBucket): string {
   switch (bucket) {
@@ -115,7 +115,7 @@ export function defaultSubtitleForEta(bucket: EtaBucket): string {
 }
 
 /**
- * Klammert progressPct auf [0,100]. Nicht-Numbers → undefined.
+ * Clamps progressPct to [0,100]. Non-numbers → undefined.
  */
 export function clampProgressPct(pct: number | undefined): number | undefined {
   if (typeof pct !== 'number' || !Number.isFinite(pct)) return undefined;

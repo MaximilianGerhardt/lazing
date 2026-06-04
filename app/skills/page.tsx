@@ -1,9 +1,9 @@
 /**
- * /skills — Liste aller Skills (Built-in + User-defined).
+ * /skills — list of all skills (built-in + user-defined).
  *
- * Read-Heavy + Inline-Create-Form (Phase S Minimal). Edit-Page kommt
- * später; für jetzt: User können neue Skills anlegen, Built-Ins werden
- * read-only angezeigt mit eindeutigem Marker.
+ * Read-heavy + inline create form (Phase S minimal). The edit page comes
+ * later; for now: users can create new skills, built-ins are shown
+ * read-only with a clear marker.
  */
 
 import type { CSSProperties } from 'react';

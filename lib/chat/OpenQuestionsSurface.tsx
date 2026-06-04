@@ -84,7 +84,7 @@ export function OpenQuestionsSurface(
 }
 
 // ---------------------------------------------------------------------------
-// Workspace-Mode-Wrapper — alter Pfad. Findet aktiven Workstream + pollt API.
+// Workspace-mode wrapper — old path. Finds the active workstream + polls the API.
 // ---------------------------------------------------------------------------
 
 function WorkspaceModeWrapper({
@@ -95,7 +95,7 @@ function WorkspaceModeWrapper({
   const [ws, setWs] = useState<ActiveWs | null>(null);
   const [data, setData] = useState<QuestionsResponse | null>(null);
 
-  // Active-WS finden
+  // Find the active WS
   useEffect(() => {
     let cancelled = false;
     const find = async (): Promise<void> => {

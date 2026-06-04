@@ -1,30 +1,30 @@
 /**
  * GET /api/rag/index/[runId]/status (Sub-Plan 5 Welle 2, 2026-05-01).
  *
- * Liefert einen `RagRunStatus`-Snapshot für den Stepper-Adapter
+ * Returns a `RagRunStatus` snapshot for the stepper adapter
  * (`lib/rag/progress-adapter.ts`).
  *
- * Run-Identifikation:
- *   `runId` ist ein Pseudo-Identifier `<workspaceId>::<sourceType>` oder
- *   `<workspaceId>::all`. Der Indexer hat keine Run-Entity (er ist
- *   stateful per workspace+sourceType in `rag_indexer_state`), daher
- *   leiten wir den Phase-/Progress-Status aus dem aktuellen
- *   `ragIndexerState`-Row + ragChunks-Counts ab.
+ * Run identification:
+ *   `runId` is a pseudo-identifier `<workspaceId>::<sourceType>` or
+ *   `<workspaceId>::all`. The indexer has no run entity (it is
+ *   stateful per workspace+sourceType in `rag_indexer_state`), so
+ *   we derive the phase/progress status from the current
+ *   `ragIndexerState` row + ragChunks counts.
  *
- * Phase-Mapping (best-effort, da kein expliziter Phase-Marker in DB):
+ * Phase mapping (best-effort, since no explicit phase marker in DB):
  *   - circuitOpen=1                                  → 'circuit-open'
- *   - failedRuns > 0 + lastIndexedTs nicht aktuell   → 'failed'
- *   - lastIndexedTs == jetzt-ish + chunks vorhanden  → 'done'
- *   - kein State-Row                                 → 'idle'
+ *   - failedRuns > 0 + lastIndexedTs not current     → 'failed'
+ *   - lastIndexedTs == now-ish + chunks present      → 'done'
+ *   - no state row                                   → 'idle'
  *
- * Out-of-scope (kommt mit echtem Run-Schema):
+ * Out-of-scope (arrives with a real run schema):
  *   - 'discover-sources' / 'chunk' / 'embed' / 'persist' / 'cleanup'
- *     Live-Phase. Aktuell nur Done/Failed/Circuit/Idle aus DB ableitbar —
- *     der Adapter rendert Idle-Stages dann als "pending", was korrekt ist.
+ *     live phase. Currently only Done/Failed/Circuit/Idle derivable from DB —
+ *     the adapter then renders idle stages as "pending", which is correct.
  *
  * Auth:
- *   - Nur authentifizierte User
- *   - Liefert keine Chunk-Inhalte (Privacy-Gate)
+ *   - Authenticated users only
+ *   - Returns no chunk contents (privacy gate)
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -43,7 +43,7 @@ import type { RagRunStatus, RagPhase } from '@/lib/rag/progress-adapter';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 min — danach gilt Run als "alt"
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 min — after that the run counts as "stale"
 
 interface RouteParams {
   params: Promise<{ runId: string }>;
@@ -110,7 +110,7 @@ export async function GET(
     .limit(1)
     .all();
 
-  // Total-Chunks aktuell — auch wenn kein State-Row da
+  // Current total chunks — even when no state row is present
   const chunkRows = db
     .select({ count: sql<number>`count(*)` })
     .from(ragChunks)
@@ -124,7 +124,7 @@ export async function GET(
   let lastUpdateMs: number | undefined;
 
   if (!stateRow) {
-    // Kein State → noch nie indiziert / oder gerade erst gestartet
+    // No state → never indexed / or just started
     phase = persistedCount > 0 ? 'done' : 'idle';
   } else {
     lastUpdateMs = stateRow.updatedAt;
@@ -150,7 +150,7 @@ export async function GET(
     phase,
     totalChunks: stateRow?.totalChunks ?? undefined,
     persistedCount,
-    embeddedCount: persistedCount, // Best-effort — embedded == persisted im Indexer
+    embeddedCount: persistedCount, // Best-effort — embedded == persisted in the indexer
     lastUpdateMs,
     errorMessage,
   };

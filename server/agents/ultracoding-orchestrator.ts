@@ -503,7 +503,7 @@ async function runSlice(args: {
         );
         baseSha = stdout.trim();
       } catch {
-        /* baseSha bleibt '' → captureDiff fällt auf `git diff HEAD` zurück */
+        /* baseSha stays '' → captureDiff falls back to `git diff HEAD` */
       }
     } catch (err) {
       emitLane(onLaneEvent, {

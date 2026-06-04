@@ -1,10 +1,10 @@
 /**
- * Phase 2 W2.0 — Portfolio-Spine · Types
+ * Phase 2 W2.0 — portfolio spine · types
  * ════════════════════════════════════════════════════════════════════════
  *
- * Diese Datei deklariert das Vokabular der **11-Stufen-Merge-Sequenz** und
- * des **Lane-Vertrags**, die der Owner als unverhandelbare Klammer
- * über jeden Portfolio-Run gesetzt hat. Verbatim-Quellen (N1):
+ * This file declares the vocabulary of the **11-stage merge sequence** and
+ * the **lane contract** that the owner set as a non-negotiable bracket
+ * over every portfolio run. Verbatim sources (N1):
  *
  *   • Master-Kontext §6 — Sequenzieller Merge: 1. Governance Gate Contract,
  *     2. Source / Event Envelope, 3. Expertise Object Model,
@@ -22,21 +22,21 @@
  *     produziert, harte Fachlogik auf später verschiebt, keine Source
  *     Trace besitzt, keine Failure Modes benennt."
  *
- *   • Integration-Plan §7 — 6 Quality-Gates G1..G6.
+ *   • Integration-Plan §7 — 6 quality gates G1..G6.
  *
- * Datei ist rein deklarativ — keine Implementierung, keine Runtime-Imports
- * auf der Modul-Ebene. Spine-Logik lebt in `spine.ts`.
+ * The file is purely declarative — no implementation, no runtime imports
+ * at module level. The spine logic lives in `spine.ts`.
  *
- * SUBSTRAT-DISZIPLIN (N4: keine neue Tabelle):
- *   Ein Portfolio-Run = 1 parent-Workstream (`workstreams.mode='portfolio'`).
- *   Pro Lane = 1 child-Workstream (`parent_workstream_id=<parent>`).
- *   Lane-Artefakte = `workstream_decisions` + `workspace_beliefs`.
- *   Stage-Completion = `workstream_decisions(decision_kind='route')` mit
- *     rationale-Text, der den Stage-Übergang dokumentiert. (decision_kind ist
- *     CHECK-constrained in 0071; wir reusen den 'route'-Kind und tragen die
- *     Stage-ID in rationale.)
+ * SUBSTRATE DISCIPLINE (N4: no new table):
+ *   A portfolio run = 1 parent workstream (`workstreams.mode='portfolio'`).
+ *   Per lane = 1 child workstream (`parent_workstream_id=<parent>`).
+ *   Lane artifacts = `workstream_decisions` + `workspace_beliefs`.
+ *   Stage completion = `workstream_decisions(decision_kind='route')` with
+ *     rationale text that documents the stage transition. (decision_kind is
+ *     CHECK-constrained in 0071; we reuse the 'route' kind and put the
+ *     stage ID in rationale.)
  *
- * Stand: 2026-05-29
+ * As of: 2026-05-29
  */
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -44,21 +44,21 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Die 7 Lanes der Portfolio-Pipeline (verbatim aus Integration-Plan §4).
+ * The 7 lanes of the portfolio pipeline (verbatim from integration plan §4).
  *
- *   • communication-intake     — übersetzt User-Input → Source-Event-Envelopes
- *                                + Dependency-Hinweise. Nährstoff für Lanes 2–4.
- *   • expertise-compiler       — baut domain-spezifische Expertise-Objekte
- *                                aus Intake-Envelopes. Liefert Domain-Depth.
- *   • role-reverse-engineering — leitet Rollen/Entscheidungen/Dependencies aus
- *                                Real-World-Workflows ab.
- *   • innovation-mode          — reframt Probleme; liefert das Innovation-
- *                                Reframe-Model (Stage 6).
- *   • toolstack-replacement    — bewertet existierende Tools und liefert das
- *                                Toolstack-Replacement-Model (Stage 5).
- *   • mobile-ux                — liefert das Mobile Surface Model (Stage 7).
- *   • governance               — liefert das Governance-Gate-Contract (Stage 1)
- *                                + die Quality-Gate-Validatoren.
+ *   • communication-intake     — translates user input → source-event envelopes
+ *                                + dependency hints. Nutrient for lanes 2–4.
+ *   • expertise-compiler       — builds domain-specific expertise objects
+ *                                from intake envelopes. Provides domain depth.
+ *   • role-reverse-engineering — derives roles/decisions/dependencies from
+ *                                real-world workflows.
+ *   • innovation-mode          — reframes problems; provides the innovation
+ *                                reframe model (stage 6).
+ *   • toolstack-replacement    — evaluates existing tools and provides the
+ *                                toolstack replacement model (stage 5).
+ *   • mobile-ux                — provides the mobile surface model (stage 7).
+ *   • governance               — provides the governance-gate contract (stage 1)
+ *                                + the quality-gate validators.
  */
 export type LaneId =
   | 'communication-intake'
@@ -70,8 +70,8 @@ export type LaneId =
   | 'governance';
 
 /**
- * Vollständige Liste aller Lanes als Konstante.
- * Wird vom Spine + von Tests + UI-Konsumenten als Source-of-Truth genutzt.
+ * Complete list of all lanes as a constant.
+ * Used by the spine + tests + UI consumers as the source of truth.
  */
 export const LANE_IDS: readonly LaneId[] = [
   'communication-intake',
@@ -88,12 +88,12 @@ export const LANE_IDS: readonly LaneId[] = [
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Confidence-Behavior einer Lane (Integration-Plan §6).
+ * Confidence behavior of a lane (integration plan §6).
  *
- *   • deterministic            — SQL/Rule-only, kein LLM, kein Human-Review.
- *   • llm-with-validation      — LLM-Output wird mit deterministischem
- *                                Validator geprüft (N6 Vorrang).
- *   • llm-with-human-review    — Output braucht explizites human-decision-Gate.
+ *   • deterministic            — SQL/rule-only, no LLM, no human review.
+ *   • llm-with-validation      — LLM output is checked with a deterministic
+ *                                validator (N6 precedence).
+ *   • llm-with-human-review    — output needs an explicit human-decision gate.
  */
 export type ConfidenceBehavior =
   | 'deterministic'
@@ -101,58 +101,58 @@ export type ConfidenceBehavior =
   | 'llm-with-human-review';
 
 /**
- * Human-Review-Anforderung (Integration-Plan §6).
+ * Human-review requirement (integration plan §6).
  */
 export type HumanReviewRequirement = 'none' | 'optional' | 'required';
 
 /**
- * Lane-Vertrag — die 12 Pflichtfelder aus Integration-Plan §6.
+ * Lane contract — the 12 mandatory fields from integration plan §6.
  *
- * Ein Vertrag ist „komplett" und „akzeptiert", wenn:
- *   1. ALLE 12 Felder vorhanden sind (kein Feld undefined).
- *   2. Listen-Felder mindestens 1 Eintrag haben (keine leeren Arrays).
- *      Ausnahme: errorStates darf leer sein — eine Lane ohne Failure-Modes
- *      ist EXPLIZIT verboten (Integration-Plan §6: „keine Failure Modes
- *      benennt" → Lane wird abgelehnt), darum verlangen wir auch hier ≥1.
+ * A contract is „complete" and „accepted" when:
+ *   1. ALL 12 fields are present (no field undefined).
+ *   2. List fields have at least 1 entry (no empty arrays).
+ *      Exception: errorStates may be empty — a lane without failure modes
+ *      is EXPLICITLY forbidden (integration plan §6: „keine Failure Modes
+ *      benennt" → lane is rejected), so we require ≥1 here too.
  *
- * Die Felder spiegeln den Integration-Plan §6 1:1 — die Reihenfolge ist
- * absichtlich identisch zur Owner-Direktive für leichten Diff.
+ * The fields mirror integration plan §6 1:1 — the order is
+ * deliberately identical to the owner directive for an easy diff.
  */
 export interface LaneContract {
-  /** Event-Typen, die diese Lane KONSUMIERT (Input). */
+  /** Event types this lane CONSUMES (input). */
   inputEvents: string[];
-  /** Event-Typen, die diese Lane EMITTIERT (Output). */
+  /** Event types this lane EMITS (output). */
   outputEvents: string[];
-  /** Tabellen/Views, aus denen sie liest oder in die sie schreibt. */
+  /** Tables/views it reads from or writes to. */
   dataSchema: string[];
-  /** Permissions, die sie braucht (z.B. 'workspace:read', 'governance:write'). */
+  /** Permissions it needs (e.g. 'workspace:read', 'governance:write'). */
   permissionRequirements: string[];
-  /** Wie sie zu ihrer Aussage kommt (deterministic / llm-mit-validator / human-review). */
+  /** How it arrives at its statement (deterministic / llm-with-validator / human-review). */
   confidenceBehavior: ConfidenceBehavior;
-  /** Ob ein human-decision-Gate vor Stage-Completion zwingend ist. */
+  /** Whether a human-decision gate is mandatory before stage completion. */
   humanReviewRequirements: HumanReviewRequirement;
-  /** Benannte Fehler-Zustände (Integration-Plan §6: „keine Failure Modes benennt" ist verboten). */
+  /** Named error states (integration plan §6: „keine Failure Modes benennt" is forbidden). */
   errorStates: string[];
-  /** Audit-/Provenance-Anforderungen (z.B. 'workstream_evidence-row pro retrieval'). */
+  /** Audit/provenance requirements (e.g. 'workstream_evidence row per retrieval'). */
   auditRequirements: string[];
-  /** Surface-Kinds, die sie im Chat zeigt (z.B. 'open-questions', 'plan-step'). */
+  /** Surface kinds it shows in the chat (e.g. 'open-questions', 'plan-step'). */
   uxSurfaces: string[];
-  /** Benannte Metriken (z.B. 'intake_envelope_count', 'expertise_depth_score'). */
+  /** Named metrics (e.g. 'intake_envelope_count', 'expertise_depth_score'). */
   metrics: string[];
-  /** Test-Fixture-Pfade/Namen. */
+  /** Test-fixture paths/names. */
   testFixtures: string[];
-  /** Rollout-Constraints (z.B. 'dry-run only until owner LIVE-flip'). */
+  /** Rollout constraints (e.g. 'dry-run only until owner LIVE-flip'). */
   rolloutConstraints: string[];
 }
 
 /**
- * Ergebnis der Vertragsprüfung. Wird vom Spine + von der API zurückgegeben.
+ * Result of the contract check. Returned by the spine + the API.
  */
 export interface LaneContractValidation {
   valid: boolean;
   /**
-   * Verbatim-Beschwerden, die für den Owner / Critic-Loop lesbar sind.
-   * Mehrere Issues möglich (alle 12 Felder werden geprüft, nicht nur das erste).
+   * Verbatim complaints that are readable for the owner / critic loop.
+   * Multiple issues possible (all 12 fields are checked, not just the first).
    */
   issues: string[];
 }
@@ -162,9 +162,9 @@ export interface LaneContractValidation {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Die 11 Stages der sequenziellen Merge-Sequenz (Master-Kontext §6).
- * Reihenfolge ist load-bearing — Stage N darf nur mergen, wenn alle
- * Dependencies abgeschlossen sind (siehe MergeStage.requires).
+ * The 11 stages of the sequential merge sequence (master context §6).
+ * The order is load-bearing — stage N may only merge when all
+ * dependencies are complete (see MergeStage.requires).
  */
 export type MergeStageId =
   | 'governance-gate-contract'
@@ -180,19 +180,19 @@ export type MergeStageId =
   | 'reconciliation-belief-update';
 
 /**
- * Stage-Order ist 1..11 (Master-Kontext §6). Die Reihenfolge wird sowohl
- * als Type-Constraint als auch als Konstante exportiert.
+ * Stage order is 1..11 (master context §6). The order is exported both
+ * as a type constraint and as a constant.
  */
 export type MergeStageOrder = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
 export interface MergeStage {
   id: MergeStageId;
   order: MergeStageOrder;
-  /** Welche Stages MÜSSEN merged sein, bevor diese mergen darf. */
+  /** Which stages MUST be merged before this one may merge. */
   requires: MergeStageId[];
-  /** Welche Lanes feeden in diese Stage (Output-Artefakte werden hier konsolidiert). */
+  /** Which lanes feed into this stage (output artifacts are consolidated here). */
   lanes: LaneId[];
-  /** Welche Quality-Gates müssen passen, BEVOR diese Stage mergen darf. */
+  /** Which quality gates must pass BEFORE this stage may merge. */
   gates: QualityGateId[];
 }
 
@@ -201,15 +201,15 @@ export interface MergeStage {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Die 6 Quality-Gates aus Integration-Plan §7 (verbatim).
+ * The 6 quality gates from integration plan §7 (verbatim).
  *
- *   • G1 Concept-Integrity     — Liefert die Lane echtes Konzept (kein Slide)?
- *   • G2 Data-Readiness        — Sind Schema/Events vorhanden?
- *   • G3 Governance-Readiness  — Gibt es Permissions/Audit?
- *   • G4 Workflow-Readiness    — Hängt die Lane in den DAG?
- *   • G5 Domain-Depth          — Hat sie echte Fachlogik (kein generischer
- *                                Feature-Brei)?
- *   • G6 Build-Readiness       — Ist sie testbar/build-fähig?
+ *   • G1 concept integrity     — Does the lane deliver a real concept (not a slide)?
+ *   • G2 data readiness        — Are schema/events present?
+ *   • G3 governance readiness  — Are there permissions/audit?
+ *   • G4 workflow readiness    — Does the lane hang in the DAG?
+ *   • G5 domain depth          — Does it have real domain logic (not generic
+ *                                feature mush)?
+ *   • G6 build readiness       — Is it testable/buildable?
  */
 export type QualityGateId =
   | 'G1-concept-integrity'
@@ -221,22 +221,22 @@ export type QualityGateId =
 
 export interface QualityGate {
   id: QualityGateId;
-  /** Verbatim-Frage aus Integration-Plan §7. */
+  /** Verbatim question from integration plan §7. */
   question: string;
-  /** Pure function — nimmt den Run-State, gibt ein Ergebnis. Deterministisch (N6). */
+  /** Pure function — takes the run state, returns a result. Deterministic (N6). */
   validator: (state: PortfolioRunState) => QualityGateResult;
 }
 
 export interface QualityGateResult {
   passed: boolean;
-  /** Verbatim-Begründung — wird in workstream_decisions.rationale gespiegelt. */
+  /** Verbatim rationale — mirrored into workstream_decisions.rationale. */
   reason: string;
-  /** Konkrete Items, die noch fehlen (z.B. Lane-IDs ohne Contract). */
+  /** Concrete items still missing (e.g. lane IDs without a contract). */
   blockingItems: string[];
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Domain-Eval-Kontext (G5 Anti-MVP-Brücke)
+// Domain-eval context (G5 anti-MVP bridge)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
@@ -272,46 +272,46 @@ export type LaneRunStatus =
 
 export interface LaneState {
   laneId: LaneId;
-  /** workstreams.id des child-Workstream, der diese Lane physisch repräsentiert (NULL bis spawn). */
+  /** workstreams.id of the child workstream that physically represents this lane (NULL until spawn). */
   workstreamId: string | null;
   status: LaneRunStatus;
-  /** Aktueller Vertrags-Stand. NULL = noch nicht geschrieben. */
+  /** Current contract state. NULL = not yet written. */
   contract: LaneContract | null;
-  /** Referenzen auf produzierte Artefakte (workstream_decisions.id / workspace_beliefs.id / …). */
+  /** References to produced artifacts (workstream_decisions.id / workspace_beliefs.id / …). */
   artifactRefs: string[];
 }
 
 export interface PortfolioRunState {
-  /** workstreams.id des parent-Workstream (mode='portfolio'). */
+  /** workstreams.id of the parent workstream (mode='portfolio'). */
   portfolioRunId: string;
   workspaceId: string;
   /** ms epoch. */
   startedAt: number;
-  /** Pro Lane EIN Eintrag. Vollständig — auch nicht-gestartete Lanes werden geführt. */
+  /** ONE entry per lane. Complete — even non-started lanes are tracked. */
   laneStates: Record<LaneId, LaneState>;
-  /** Stages, die bereits merged sind. Strikt aufsteigend (1..11). */
+  /** Stages that are already merged. Strictly ascending (1..11). */
   completedMergeStages: MergeStageId[];
-  /** Gates, die für mindestens einen Merge bestanden wurden (informational; nicht persistent). */
+  /** Gates passed for at least one merge (informational; not persistent). */
   passedQualityGates: QualityGateId[];
-  /** Falls aktuell ein Merge blockiert ist, hier die Stage + Verbatim-Grund. */
+  /** If a merge is currently blocked, the stage + verbatim reason here. */
   blockedAt: MergeStageId | null;
   blockedReason: string | null;
   /**
-   * Optionaler Domain-Eval-Kontext. Wenn gesetzt, prüft G5 (Domain-Depth)
-   * ECHT gegen das kompilierte PV-Fachmodell statt nur gegen die Lane-
-   * Contract-Heuristik. NULL/undefined = Nicht-PV-Lane → G5-Fallback.
+   * Optional domain-eval context. When set, G5 (domain depth) checks
+   * REALLY against the compiled PV domain model instead of only against the
+   * lane-contract heuristic. NULL/undefined = non-PV lane → G5 fallback.
    */
   domainEval?: DomainEvalContext | null;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Helpers für Validatoren + canMergeStage
+// Helpers for validators + canMergeStage
 // ───────────────────────────────────────────────────────────────────────────
 
 export interface CanMergeStageResult {
   ok: boolean;
-  /** Stages, die noch fehlen (Dependency-Verletzung). */
+  /** Stages still missing (dependency violation). */
   blockingRequirements: MergeStageId[];
-  /** Quality-Gates, die nicht passed sind. */
+  /** Quality gates that are not passed. */
   blockingGates: QualityGateId[];
 }

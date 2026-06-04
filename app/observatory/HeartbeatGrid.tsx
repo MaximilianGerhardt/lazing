@@ -14,7 +14,7 @@ import {
 } from "@/lib/heartbeat/ui";
 
 // ---------------------------------------------------------------------------
-// API-Shapes (Spiegel zu /api/heartbeat/status)
+// API shapes (mirror of /api/heartbeat/status)
 // ---------------------------------------------------------------------------
 
 interface ApiProbes {
@@ -250,10 +250,10 @@ export function HeartbeatGrid(): React.JSX.Element {
 // ---------------------------------------------------------------------------
 
 /**
- * Zeigt statt „noch keine Workspaces“-Text drei Skeleton-Cards + einen
- * lesbaren Hinweis, dass die Engine laeuft. Countdown bis zum naechsten
- * Refresh (REFRESH_MS = 30s) hilft Max einzuordnen, ob gerade nur gewartet
- * wird oder wirklich nichts zurueckkommt.
+ * Instead of a "no workspaces yet" text, shows three skeleton cards + a
+ * readable hint that the engine is running. The countdown to the next
+ * refresh (REFRESH_MS = 30s) helps Max gauge whether it is just waiting
+ * or truly nothing is coming back.
  */
 function HeartbeatSkeleton({
   lastFetched,

@@ -36,7 +36,7 @@ function pickProvider(): EmailProvider {
     case "resend":
       return resendProvider;
     case "null":
-    case "console": // alias: identisch zu `null` — loggt nur, sendet nichts
+    case "console": // alias: identical to `null` — only logs, sends nothing
     case "":
       return nullProvider;
     default:
@@ -64,7 +64,7 @@ function renderTemplate(
 export async function sendEmail(
   input: EmailSendInput,
 ): Promise<EmailSendResult> {
-  // Email-Format-Check minimal (Whitespace + @-Sign).
+  // Minimal email format check (whitespace + @ sign).
   if (!input.to || !input.to.includes("@")) {
     return {
       ok: false,
@@ -77,7 +77,7 @@ export async function sendEmail(
   const rendered = renderTemplate(input.template, input.vars);
   const provider = pickProvider();
 
-  // Resend-Pipeline-Trick: rendered an den Provider durchreichen.
+  // Resend-pipeline trick: pass rendered through to the provider.
   const augmented = {
     ...input,
     _rendered: rendered,
@@ -85,7 +85,7 @@ export async function sendEmail(
   return provider.send(augmented as EmailSendInput);
 }
 
-/** Test-Helper: erlaubt Provider-Override in Unit-Tests. */
+/** Test helper: allows a provider override in unit tests. */
 let providerOverride: EmailProvider | null = null;
 export function setEmailProviderForTests(p: EmailProvider | null): void {
   providerOverride = p;

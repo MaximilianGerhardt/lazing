@@ -346,10 +346,10 @@ const layoutStyle: CSSProperties = {
   gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
   gap: 24,
   minWidth: 0,
-  // overflow-hidden 2026-04-26: lange Markdown-Code-Blocks oder Stack-Traces
-  // in Comments brachen den Container auf Mobile. minWidth 0 + overflow-hidden
-  // zwingt grid-children sich an den Container zu halten, scrollen passiert
-  // dann INNERHALB des Code-Blocks.
+  // overflow-hidden 2026-04-26: long Markdown code blocks or stack traces
+  // in comments were breaking the container on mobile. minWidth 0 + overflow-hidden
+  // forces grid children to stay within the container; scrolling then happens
+  // INSIDE the code block.
   overflowX: 'hidden',
 };
 

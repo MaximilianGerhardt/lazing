@@ -1,11 +1,11 @@
 /**
- * GET  /api/orgs/[id]/github  — Verbindungs-Status (member+)
- * DELETE /api/orgs/[id]/github — Verbindung trennen (admin+)
+ * GET  /api/orgs/[id]/github  — connection status (member+)
+ * DELETE /api/orgs/[id]/github — disconnect (admin+)
  *
- * Sicherheits-Gebot:
- *   - assertOrgRole prüft Org-Mitgliedschaft + Mindestrolle vor jeder Op.
- *   - Token wird NIEMALS in der Response zurückgegeben.
- *   - SQL immer WHERE org_id = ? (via getOrgCredential / deleteOrgCredential).
+ * Security mandate:
+ *   - assertOrgRole checks org membership + minimum role before every op.
+ *   - The token is NEVER returned in the response.
+ *   - SQL always WHERE org_id = ? (via getOrgCredential / deleteOrgCredential).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/orgs/[id]/github
- * Mindestrolle: viewer (jeder Org-Member darf den Status sehen)
+ * Minimum role: viewer (every org member may see the status)
  *
  * Response:
  *   200 { connected: false }
@@ -43,7 +43,7 @@ export async function GET(
     throw err;
   }
 
-  // getOrgCredentialMeta: public-safe, gibt kein encrypted_token zurück (MEDIUM-1).
+  // getOrgCredentialMeta: public-safe, does not return encrypted_token (MEDIUM-1).
   const meta = getOrgCredentialMeta(orgId);
 
   if (!meta) {
@@ -59,7 +59,7 @@ export async function GET(
 
 /**
  * DELETE /api/orgs/[id]/github
- * Mindestrolle: admin
+ * Minimum role: admin
  *
  * Response:
  *   200 { ok: true }

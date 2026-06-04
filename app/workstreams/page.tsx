@@ -1,9 +1,9 @@
 /**
- * /workstreams — Liste + Kanban aller Workstreams (Multi-Agent-Container).
+ * /workstreams — list + kanban of all workstreams (multi-agent containers).
  *
- * Server-Component: lädt initial via service. View-Toggle (Liste|Kanban) per
- * searchParams.view. Kanban gruppiert nach status — ersetzt damit das alte
- * /lanes (das jetzt zu /workstreams?view=kanban redirectet).
+ * Server component: loads initially via service. View toggle (list|kanban) via
+ * searchParams.view. Kanban groups by status — thereby replacing the old
+ * /lanes (which now redirects to /workstreams?view=kanban).
  */
 
 import Link from 'next/link';
@@ -110,7 +110,7 @@ export default async function WorkstreamsPage({
 }
 
 // ---------------------------------------------------------------------------
-// View-Toggle
+// View toggle
 // ---------------------------------------------------------------------------
 
 function ViewToggle({ current }: { current: ViewMode }) {
@@ -137,7 +137,7 @@ function ViewToggle({ current }: { current: ViewMode }) {
 }
 
 // ---------------------------------------------------------------------------
-// List-View
+// List view
 // ---------------------------------------------------------------------------
 
 function ListView({
@@ -208,7 +208,7 @@ function ListView({
 }
 
 // ---------------------------------------------------------------------------
-// Kanban-View
+// Kanban view
 // ---------------------------------------------------------------------------
 
 function KanbanBoard({

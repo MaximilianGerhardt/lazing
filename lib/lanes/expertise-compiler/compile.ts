@@ -1,57 +1,57 @@
 /**
- * Lane B — Expertise Compiler · DER KERN (compileKnowledgeForms)
+ * Lane B — Expertise Compiler · THE CORE (compileKnowledgeForms)
  * ════════════════════════════════════════════════════════════════════════
  *
- * Phase 2 W2.2 · 2026-05-29 · KERN-Remediation.
+ * Phase 2 W2.2 · 2026-05-29 · CORE remediation.
  *
- * IST/SOLL-Befund (2 Opus-Analysen): Das 0120-Schema `knowledge_forms` + die
- * N4-Naht `mirrorApprovedKnowledgeFormToBelief` waren gebaut — ABER der
- * namensgebende KERN fehlte: KEIN Code erzeugte je eine knowledge_forms-Row.
- * Diese Datei IST dieser Kern.
+ * Current/target finding (2 Opus analyses): the 0120 schema `knowledge_forms` + the
+ * N4 seam `mirrorApprovedKnowledgeFormToBelief` were built — BUT the
+ * eponymous CORE was missing: NO code ever produced a knowledge_forms row.
+ * This file IS that core.
  *
  * Master-Briefing §8.1 (verbatim, N1):
  *   „Experte erklaert oder handelt, System extrahiert Begriffe, Regeln,
  *    Ausnahmen, Entscheidungen und Qualitaetskriterien."
- * Master-Briefing §8.2 (verbatim, N1) — die 12 Wissensformen:
+ * Master-Briefing §8.2 (verbatim, N1) — the 12 knowledge forms:
  *   „Glossary Entry · Principle · If-Then Rule · Exception · Tactic ·
  *    Role Judgment · Handoff Dependency · Quality Criterion ·
  *    Simulation Case · Eval Question · SOP Step · Open Unknown."
- * Master-Briefing §8.3 review-gate (Owner-Direktive):
- *   Lane-B-Outputs landen IMMER mit review_state='pending-review'; nichts
- *   wird ohne human-review zu einer Belief.
+ * Master-Briefing §8.3 review gate (owner directive):
+ *   Lane-B outputs ALWAYS land with review_state='pending-review'; nothing
+ *   becomes a belief without human review.
  *
- * ── ARCHITEKTUR ───────────────────────────────────────────────────────────
+ * ── ARCHITECTURE ───────────────────────────────────────────────────────────
  *
  *   rawText / intakeEventId
- *        │  (callEngine — injizierbar, Test stubt das LLM)
+ *        │  (callEngine — injectable, the test stubs the LLM)
  *        ▼
- *   LLM liefert STRUKTURIERTES JSON ({ forms: [{kind, term?, statement, …}] })
- *        │  N6: deterministischer Parse + Validierung VOR Vertrauen.
- *        │      malformed → fail-soft (0 Formen, kein Crash).
+ *   the LLM delivers STRUCTURED JSON ({ forms: [{kind, term?, statement, …}] })
+ *        │  N6: deterministic parse + validation BEFORE trust.
+ *        │      malformed → fail-soft (0 forms, no crash).
  *        ▼
- *   pro valider Form: insertKnowledgeForm(...) → EINE knowledge_forms-Row,
- *        review_state='pending-review' (§8 Gate), content_hash (N10),
- *        source_json mit intakeEventId-Provenienz.
+ *   per valid form: insertKnowledgeForm(...) → ONE knowledge_forms row,
+ *        review_state='pending-review' (§8 gate), content_hash (N10),
+ *        source_json with intakeEventId provenance.
  *        ▼
- *   (Owner approved manuell) → mirrorApprovedKnowledgeFormToBelief (N4-Naht,
- *        NICHT hier; bestehendes Modul).
+ *   (owner approves manually) → mirrorApprovedKnowledgeFormToBelief (N4 seam,
+ *        NOT here; existing module).
  *
- * ── DISZIPLIN ─────────────────────────────────────────────────────────────
- *   - N1:  statement / rationale / term / example_cases / counter_cases werden
- *          VERBATIM aus dem LLM-JSON uebernommen (kein .slice/.substring). Der
- *          Prompt instruiert das LLM explizit, den Owner-Wortlaut zu zitieren.
- *   - N4:  KEIN zweiter Belief-Writer. Der Ausgang fliesst in das bestehende
- *          mirrorApprovedKnowledgeFormToBelief. Diese Datei schreibt NUR
+ * ── DISCIPLINE ─────────────────────────────────────────────────────────────
+ *   - N1:  statement / rationale / term / example_cases / counter_cases are
+ *          taken VERBATIM from the LLM JSON (no .slice/.substring). The
+ *          prompt explicitly instructs the LLM to quote the owner's wording.
+ *   - N4:  NO second belief writer. The output flows into the existing
+ *          mirrorApprovedKnowledgeFormToBelief. This file writes ONLY
  *          knowledge_forms.
- *   - N6:  Deterministischer Parse + Schema-Validierung VOR LLM-Vertrauen.
- *          Unbekannter kind / leeres statement / kaputtes JSON → fail-soft.
- *   - N8:  append-only-konform (0120-Trigger). Insert-only; kein UPDATE/DELETE.
- *   - N9:  workspace_id-Scope auf jeder Row.
- *   - N10: content_hash (sha256 ueber kanonisches JSON) pro Row.
+ *   - N6:  deterministic parse + schema validation BEFORE trusting the LLM.
+ *          Unknown kind / empty statement / broken JSON → fail-soft.
+ *   - N8:  append-only-compliant (0120 trigger). Insert-only; no UPDATE/DELETE.
+ *   - N9:  workspace_id scope on every row.
+ *   - N10: content_hash (sha256 over canonical JSON) per row.
  *
- * Reines Modul mit injizierter LLM-Funktion: `callEngine` ist der einzige
- * Seiteneffekt-Pfad. Tests stubben es. Kein getDb()-Singleton — rohes
- * better-sqlite3-Handle (analog beliefs-repo.ts / mirror-to-beliefs.ts).
+ * Pure module with an injected LLM function: `callEngine` is the only
+ * side-effect path. Tests stub it. No getDb() singleton — raw
+ * better-sqlite3 handle (analogous to beliefs-repo.ts / mirror-to-beliefs.ts).
  */
 
 import { createHash } from "node:crypto";
@@ -61,7 +61,7 @@ import { ulid } from "@/lib/ulid";
 type RawDb = import("better-sqlite3").Database;
 
 // ───────────────────────────────────────────────────────────────────────────
-// Die 12 Wissensformen (§8.2) — Single Source of Truth für den CHECK + Parse
+// The 12 knowledge forms (§8.2) — single source of truth for the CHECK + parse
 // ───────────────────────────────────────────────────────────────────────────
 
 export type KnowledgeFormKind =
@@ -96,8 +96,8 @@ export const KNOWLEDGE_FORM_KINDS: readonly KnowledgeFormKind[] = [
 const KIND_SET = new Set<string>(KNOWLEDGE_FORM_KINDS);
 
 /**
- * Kurz-Definition je Form (verbatim aus §8.2-Geist), die im LLM-Prompt als
- * Extraktions-Schema mitgegeben wird. Bewusst knapp + DE+EN-tauglich.
+ * Short definition per form (verbatim from the §8.2 spirit), passed along in
+ * the LLM prompt as the extraction schema. Deliberately terse + DE+EN-capable.
  */
 export const KNOWLEDGE_FORM_GUIDE: Readonly<Record<KnowledgeFormKind, string>> =
   Object.freeze({
@@ -127,10 +127,10 @@ export const KNOWLEDGE_FORM_GUIDE: Readonly<Record<KnowledgeFormKind, string>> =
   });
 
 // ───────────────────────────────────────────────────────────────────────────
-// Result-Typen
+// Result types
 // ───────────────────────────────────────────────────────────────────────────
 
-/** Eine extrahierte (und persistierte) Wissensform. */
+/** An extracted (and persisted) knowledge form. */
 export interface CompiledKnowledgeForm {
   readonly id: string;
   readonly workspaceId: string;
@@ -147,29 +147,29 @@ export interface CompiledKnowledgeForm {
 }
 
 export interface CompileResult {
-  /** Die persistierten Formen — ALLE mit review_state='pending-review' (§8 Gate). */
+  /** The persisted forms — ALL with review_state='pending-review' (§8 gate). */
   readonly forms: readonly CompiledKnowledgeForm[];
   /**
-   * Anzahl der vom LLM gelieferten, aber VERWORFENEN Roh-Formen (N6: malformed/
-   * unbekannter kind/leeres statement). >0 ist kein Fehler — fail-soft.
+   * Number of raw forms delivered by the LLM but DISCARDED (N6: malformed/
+   * unknown kind/empty statement). >0 is not an error — fail-soft.
    */
   readonly rejectedCount: number;
-  /** Provenienz: der intake_events-Row, aus dem kompiliert wurde (oder null bei rawText). */
+  /** Provenance: the intake_events row that was compiled from (or null for rawText). */
   readonly intakeEventId: string | null;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// callEngine — injizierbarer LLM-Aufruf (Test stubt das)
+// callEngine — injectable LLM call (the test stubs it)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Der einzige LLM-Seiteneffekt-Pfad. In Produktion wird das von einer dünnen
- * Adapter-Funktion erfüllt, die `detectEngines()/pickEngine()` (lib/llm/engines/
- * selector.ts) nutzt und `engine.chat({ messages })` aufruft; im Test wird ein
- * Stub übergeben, der ein fixes JSON liefert.
+ * The only LLM side-effect path. In production it is fulfilled by a thin
+ * adapter function that uses `detectEngines()/pickEngine()` (lib/llm/engines/
+ * selector.ts) and calls `engine.chat({ messages })`; in the test a
+ * stub is passed that returns a fixed JSON.
  *
- * Vertrag: nimmt System- + User-Prompt, gibt den ROHEN Text der LLM-Antwort
- * zurück (erwartet darin JSON; der Parser ist defensiv).
+ * Contract: takes system + user prompt, returns the RAW text of the LLM
+ * response (expects JSON in it; the parser is defensive).
  */
 export type CallEngineFn = (args: {
   system: string;
@@ -177,12 +177,12 @@ export type CallEngineFn = (args: {
 }) => Promise<string>;
 
 // ───────────────────────────────────────────────────────────────────────────
-// Prompt-Bau (§8 — strukturierte Extraktion der 12 Formen)
+// Prompt construction (§8 — structured extraction of the 12 forms)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut den System-Prompt. Er (a) erklärt die 12 Formen, (b) erzwingt
- * VERBATIM-Zitate des Owner-Wortlauts (N1), (c) erzwingt striktes JSON-Schema.
+ * Builds the system prompt. It (a) explains the 12 forms, (b) enforces
+ * VERBATIM quotes of the owner's wording (N1), (c) enforces a strict JSON schema.
  */
 export function buildCompileSystemPrompt(): string {
   const kindLines = KNOWLEDGE_FORM_KINDS.map(
@@ -222,22 +222,22 @@ export function buildCompileSystemPrompt(): string {
   ].join("\n");
 }
 
-/** Baut den User-Prompt — der verbatim Input. KEIN slice (N1). */
+/** Builds the user prompt — the verbatim input. NO slice (N1). */
 export function buildCompileUserPrompt(rawText: string): string {
   return [
     "Hier ist der Owner-/Experten-Input. Extrahiere die Wissensformen daraus:",
     "",
     "----- INPUT (verbatim) -----",
-    rawText, // N1: kein slice
+    rawText, // N1: no slice
     "----- ENDE INPUT -----",
   ].join("\n");
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Deterministischer Parser (N6 — VOR LLM-Vertrauen)
+// Deterministic parser (N6 — BEFORE trusting the LLM)
 // ───────────────────────────────────────────────────────────────────────────
 
-/** Eine validierte Roh-Form, bereit zum Insert. */
+/** A validated raw form, ready for insert. */
 interface ParsedForm {
   kind: KnowledgeFormKind;
   term: string | null;
@@ -256,8 +256,8 @@ export interface ParseOutcome {
 
 function asStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
-  // N1: jedes Element verbatim übernehmen (kein slice/trim-Verlust); nur
-  // Nicht-Strings werden verworfen.
+  // N1: take every element verbatim (no slice/trim loss); only
+  // non-strings are discarded.
   return v.filter((x): x is string => typeof x === "string");
 }
 
@@ -267,24 +267,24 @@ function asNullableString(v: unknown): string | null {
 
 function asNullableConfidence(v: unknown): number | null {
   if (typeof v !== "number" || !Number.isFinite(v)) return null;
-  if (v < 0 || v > 1) return null; // 0120 CHECK erzwingt [0,1]; out-of-range → null
+  if (v < 0 || v > 1) return null; // 0120 CHECK enforces [0,1]; out-of-range → null
   return v;
 }
 
 /**
- * Robuste JSON-Extraktion: das LLM könnte Markdown-Fences oder Vor-/Nachtext
- * liefern. Wir versuchen (1) direktes JSON.parse, (2) den ersten balancierten
- * {...}-Block. Schlägt beides fehl → null (fail-soft, N6).
+ * Robust JSON extraction: the LLM might deliver markdown fences or pre-/post-text.
+ * We try (1) direct JSON.parse, (2) the first balanced
+ * {...} block. If both fail → null (fail-soft, N6).
  */
 function extractJsonObject(text: string): unknown | null {
   if (typeof text !== "string" || text.length === 0) return null;
-  // (1) direkt.
+  // (1) direct.
   try {
     return JSON.parse(text);
   } catch {
-    // weiter zu (2)
+    // continue to (2)
   }
-  // (2) erster balancierter Top-Level-{...}-Block.
+  // (2) first balanced top-level {...} block.
   const start = text.indexOf("{");
   if (start === -1) return null;
   let depth = 0;
@@ -316,15 +316,15 @@ function extractJsonObject(text: string): unknown | null {
 }
 
 /**
- * Deterministischer Parser (N6): nimmt den rohen LLM-Text, validiert ihn gegen
- * das knowledge_forms-Schema und gibt nur die VALIDEN Formen zurück. Wirft NIE —
- * malformed Output → { forms: [], rejectedCount: <#roh> } (fail-soft).
+ * Deterministic parser (N6): takes the raw LLM text, validates it against
+ * the knowledge_forms schema and returns only the VALID forms. NEVER throws —
+ * malformed output → { forms: [], rejectedCount: <#raw> } (fail-soft).
  *
- * Eine Roh-Form ist valide gdw.:
- *   - kind ∈ den 12 (sonst verworfen),
- *   - statement ist ein nicht-leerer String (N1 — wir persistieren keine leere
- *     Aussage),
- *   - (alle anderen Felder werden defensiv normalisiert).
+ * A raw form is valid iff:
+ *   - kind ∈ the 12 (otherwise discarded),
+ *   - statement is a non-empty string (N1 — we do not persist an empty
+ *     statement),
+ *   - (all other fields are defensively normalized).
  */
 export function parseCompilerOutput(rawLlmText: string): ParseOutcome {
   const obj = extractJsonObject(rawLlmText);
@@ -356,14 +356,14 @@ export function parseCompilerOutput(rawLlmText: string): ParseOutcome {
       continue;
     }
 
-    // glossary erwartet term; ist es leer, bleibt es null (kein Reject —
-    // der Code-Layer darf ein term-loses glossary tolerieren, die UI markiert).
+    // glossary expects term; if it is empty, it stays null (no reject —
+    // the code layer may tolerate a term-less glossary, the UI marks it).
     const term =
       kind === "glossary" ? asNullableString(r.term) : asNullableString(r.term);
 
     forms.push({
       kind: kind as KnowledgeFormKind,
-      term: kind === "glossary" ? term : null, // term NUR bei glossary (Schema-Disziplin)
+      term: kind === "glossary" ? term : null, // term ONLY for glossary (schema discipline)
       statement, // N1: verbatim
       rationale: asNullableString(r.rationale), // N1: verbatim
       exampleCases: asStringArray(r.example_cases), // N1: verbatim
@@ -377,7 +377,7 @@ export function parseCompilerOutput(rawLlmText: string): ParseOutcome {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// insertKnowledgeForm — der knowledge_forms-Writer (N10 + Provenienz)
+// insertKnowledgeForm — the knowledge_forms writer (N10 + provenance)
 // ───────────────────────────────────────────────────────────────────────────
 
 export interface InsertKnowledgeFormInput {
@@ -390,19 +390,19 @@ export interface InsertKnowledgeFormInput {
   readonly counterCases?: readonly string[];
   readonly domain?: string | null;
   readonly confidence?: number | null;
-  /** Provenienz (§7.3 Lane-A-Quelle 0119). */
+  /** Provenance (§7.3 Lane-A source 0119). */
   readonly intakeEventId?: string | null;
-  /** Provenienz: Owner-Chat-Turn-Quelle. */
+  /** Provenance: owner chat-turn source. */
   readonly userInputTurnId?: string | null;
   readonly nowMs?: number;
 }
 
 /**
- * Schreibt EINE knowledge_forms-Row (0120) mit review_state='pending-review'
- * (§8 Gate — der Compiler erzeugt NIEMALS approved). content_hash (N10) deckt
- * die Kern-Identität ab; source_json trägt die Provenienz (intakeEventId /
- * userInputTurnId), an die später mirrorApprovedKnowledgeFormToBelief die
- * beliefId anhängt (N4-Rück-FK).
+ * Writes ONE knowledge_forms row (0120) with review_state='pending-review'
+ * (§8 gate — the compiler NEVER produces approved). content_hash (N10) covers
+ * the core identity; source_json carries the provenance (intakeEventId /
+ * userInputTurnId), to which mirrorApprovedKnowledgeFormToBelief later appends
+ * the beliefId (N4 back-FK).
  */
 export function insertKnowledgeForm(
   raw: RawDb,
@@ -425,8 +425,8 @@ export function insertKnowledgeForm(
   const domain = input.domain ?? null;
   const confidence = asNullableConfidence(input.confidence);
 
-  // source_json — Provenienz. Nur gesetzte Felder, damit der Rück-FK (beliefId)
-  // später sauber ergänzt werden kann.
+  // source_json — provenance. Only set fields, so that the back-FK (beliefId)
+  // can be cleanly added later.
   const source: Record<string, unknown> = {};
   if (input.intakeEventId) source.intakeEventId = input.intakeEventId;
   if (input.userInputTurnId) source.userInputTurnId = input.userInputTurnId;
@@ -435,9 +435,9 @@ export function insertKnowledgeForm(
   const id = `KFM-${ulid()}`;
   const ts = Number.isFinite(input.nowMs) ? (input.nowMs as number) : Date.now();
 
-  // N10: content_hash über kanonisches JSON der Kern-Identität (deterministisch,
-  // Keys alphabetisch). example/counter werden mit-gehasht (Tamper-Evidenz auf
-  // den vollen Wissens-Inhalt).
+  // N10: content_hash over canonical JSON of the core identity (deterministic,
+  // keys alphabetical). example/counter are co-hashed (tamper evidence on
+  // the full knowledge content).
   const contentHash = sha256hex({
     confidence,
     counter_cases: counterCases,
@@ -492,7 +492,7 @@ export function insertKnowledgeForm(
   };
 }
 
-/** N10: sha256 hex über kanonisches JSON (Keys alphabetisch sortiert). */
+/** N10: sha256 hex over canonical JSON (keys sorted alphabetically). */
 function sha256hex(payload: Record<string, unknown>): string {
   const keys = Object.keys(payload).sort();
   const canonical: Record<string, unknown> = {};
@@ -501,37 +501,36 @@ function sha256hex(payload: Record<string, unknown>): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// compileKnowledgeForms — DER KERN
+// compileKnowledgeForms — THE CORE
 // ───────────────────────────────────────────────────────────────────────────
 
 export interface CompileKnowledgeFormsArgs {
   readonly db: RawDb;
-  /** ENTWEDER ein bestehender intake_events-Row (Lane-A-Quelle) … */
+  /** EITHER an existing intake_events row (Lane-A source) … */
   readonly intakeEventId?: string;
-  /** … ODER direkter Roh-Text (z.B. Owner-Chat-Turn). Genau eines von beiden. */
+  /** … OR direct raw text (e.g. an owner chat turn). Exactly one of the two. */
   readonly rawText?: string;
   readonly workspaceId: string;
-  /** Injizierter LLM-Aufruf (Test stubt). */
+  /** Injected LLM call (the test stubs it). */
   readonly callEngine: CallEngineFn;
-  /** Provenienz-Override für rawText-Pfad. */
+  /** Provenance override for the rawText path. */
   readonly userInputTurnId?: string;
   readonly nowMs?: number;
 }
 
 /**
- * DER KERN: extrahiert aus einem Owner-/Experten-Input typisierte
- * knowledge_forms-Rows.
+ * THE CORE: extracts typed knowledge_forms rows from an owner/expert input.
  *
  * Flow:
- *   1. Quelle auflösen — intakeEventId → lese raw_content aus intake_events
- *      (0119, im selben Workspace; N9-Scope); ODER rawText direkt.
- *   2. callEngine(system, user) → roher LLM-Text.
- *   3. parseCompilerOutput (N6, deterministisch) → valide Formen (+ rejectedCount).
- *      Malformed → fail-soft (0 Formen, kein Crash).
- *   4. pro Form insertKnowledgeForm(...) → review_state='pending-review' (§8 Gate).
+ *   1. Resolve the source — intakeEventId → read raw_content from intake_events
+ *      (0119, in the same workspace; N9 scope); OR rawText directly.
+ *   2. callEngine(system, user) → raw LLM text.
+ *   3. parseCompilerOutput (N6, deterministic) → valid forms (+ rejectedCount).
+ *      Malformed → fail-soft (0 forms, no crash).
+ *   4. per form insertKnowledgeForm(...) → review_state='pending-review' (§8 gate).
  *
- * Wirft NUR bei Bedienfehler (kein/doppeltes Quellen-Argument, fehlender
- * Workspace, intakeEventId nicht gefunden). LLM-/Parse-Fehler sind fail-soft.
+ * Throws ONLY on a usage error (no/duplicate source argument, missing
+ * workspace, intakeEventId not found). LLM/parse errors are fail-soft.
  */
 export async function compileKnowledgeForms(
   args: CompileKnowledgeFormsArgs,
@@ -553,7 +552,7 @@ export async function compileKnowledgeForms(
     );
   }
 
-  // (1) Quelle auflösen — verbatim (N1).
+  // (1) Resolve the source — verbatim (N1).
   let rawText: string;
   let intakeEventId: string | null = null;
   if (hasIntake) {
@@ -571,13 +570,13 @@ export async function compileKnowledgeForms(
         `compileKnowledgeForms: intake_event '${args.intakeEventId}' not found in workspace '${workspaceId}'`,
       );
     }
-    rawText = row.raw_content; // N1: verbatim, kein slice
+    rawText = row.raw_content; // N1: verbatim, no slice
     intakeEventId = args.intakeEventId as string;
   } else {
     rawText = args.rawText as string; // N1: verbatim
   }
 
-  // (2) LLM-Aufruf.
+  // (2) LLM call.
   let llmText: string;
   try {
     llmText = await callEngine({
@@ -585,17 +584,17 @@ export async function compileKnowledgeForms(
       user: buildCompileUserPrompt(rawText),
     });
   } catch {
-    // LLM-Crash → fail-soft: 0 Formen (N6 — wir vertrauen erst nach Parse).
+    // LLM crash → fail-soft: 0 forms (N6 — we only trust after the parse).
     return { forms: [], rejectedCount: 0, intakeEventId };
   }
 
-  // (3) Deterministischer Parse (N6) VOR Vertrauen.
+  // (3) Deterministic parse (N6) BEFORE trust.
   const parsed = parseCompilerOutput(llmText);
   if (parsed.forms.length === 0) {
     return { forms: [], rejectedCount: parsed.rejectedCount, intakeEventId };
   }
 
-  // (4) Persistieren — alle als pending-review (§8 Gate).
+  // (4) Persist — all as pending-review (§8 gate).
   const inserted: CompiledKnowledgeForm[] = [];
   for (const f of parsed.forms) {
     const form = insertKnowledgeForm(db, {

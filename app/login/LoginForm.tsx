@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * Phase AU.1.1 — Magic-Link-First Login.
+ * Phase AU.1.1 — magic-link-first login.
  *
- * Default-Form: Email + „Login-Link senden". POST /api/auth/magic/issue.
+ * Default form: email + "send login link". POST /api/auth/magic/issue.
  *
- * Operator-Bootstrap-Sektion (collapsible): Email + Display-Name + Access-Code.
- * Wird nur angezeigt wenn /api/auth/bootstrap-status `available=true` liefert
- * (LAZYOS_ACCESS_CODE gesetzt UND DB hat noch keinen Founder).
+ * Operator bootstrap section (collapsible): email + display name + access code.
+ * Only shown when /api/auth/bootstrap-status returns `available=true`
+ * (LAZYOS_ACCESS_CODE set AND the DB has no founder yet).
  *
- * Nach Bootstrap-Erfolg → redirect /onboarding.
- * Nach Magic-Mail-Erfolg → Inline-Success „Mail unterwegs zu xx@yy.zz".
+ * After a successful bootstrap → redirect /onboarding.
+ * After a successful magic mail → inline success "mail on its way to xx@yy.zz".
  */
 
 import { useEffect, useState, useTransition, type CSSProperties } from "react";
@@ -22,13 +22,13 @@ interface LoginFormProps {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
-  // Magic-Link-State
+  // Magic-link state
   const [email, setEmail] = useState("");
   const [magicSent, setMagicSent] = useState<string | null>(null);
   const [magicError, setMagicError] = useState<string | null>(null);
   const [magicPending, startMagicTransition] = useTransition();
 
-  // Bootstrap-State
+  // Bootstrap state
   const [bootstrapAvailable, setBootstrapAvailable] = useState<boolean | null>(
     null,
   );
@@ -39,7 +39,7 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
   const [bootError, setBootError] = useState<string | null>(null);
   const [bootPending, startBootTransition] = useTransition();
 
-  // Master-Login-State (Solo-Self-Host, OHNE Mail)
+  // Master-login state (solo self-host, WITHOUT mail)
   const [masterAvailable, setMasterAvailable] = useState<boolean>(false);
   const [masterOpen, setMasterOpen] = useState(false);
   const [masterCode, setMasterCode] = useState("");
@@ -94,9 +94,9 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
           setMagicError(body.error ?? "Sending failed.");
           return;
         }
-        // DEV AUTO-LOGIN (2026-05-23): wenn Server `autoLoginUsed=true`
-        // zurückgibt → KEIN Mail-Versand, Session-Cookie ist bereits gesetzt,
-        // direkt redirecten.
+        // DEV AUTO-LOGIN (2026-05-23): if the server returns
+        // `autoLoginUsed=true` → NO mail sent, the session cookie is already
+        // set, redirect directly.
         const json = (await res.json().catch(() => ({}))) as {
           autoLoginUsed?: boolean;
           redirectTo?: string;

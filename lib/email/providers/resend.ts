@@ -1,17 +1,17 @@
 /**
- * Resend-Email-Provider (Phase ORG SP-4).
+ * Resend email provider (Phase ORG SP-4).
  *
- * Native fetch zur Resend HTTP-API — kein npm-Package. Bundle-Size
+ * Native fetch to the Resend HTTP API — no npm package. Bundle size
  * minimal, runtime-agnostic (Node + Edge).
  *
- * env-Konfiguration:
- *   - LAZYOS_RESEND_API_KEY  — Pflicht
- *   - LAZYOS_EMAIL_FROM      — Default-From-Override, z.B. `laz.ing <noreply@mail.example.com>`
- *                              (Default kommt aus @/lib/brand BRAND_EMAIL_FROM_DEFAULT)
- *   - LAZYOS_RESEND_REGION   — optional, "eu-west-1" für DSGVO-Region
+ * env configuration:
+ *   - LAZYOS_RESEND_API_KEY  — required
+ *   - LAZYOS_EMAIL_FROM      — default-from override, e.g. `laz.ing <noreply@mail.example.com>`
+ *                              (default comes from @/lib/brand BRAND_EMAIL_FROM_DEFAULT)
+ *   - LAZYOS_RESEND_REGION   — optional, "eu-west-1" for the GDPR region
  *
- * DSGVO: Resend bietet EU-Region (Frankfurt) + AVV. Für Phase ORG
- * konfigurieren wir EU-Region per `region`-Param der Resend-API.
+ * GDPR: Resend offers an EU region (Frankfurt) + DPA. For Phase ORG
+ * we configure the EU region via the `region` param of the Resend API.
  */
 
 import type {
@@ -27,7 +27,7 @@ const RESEND_API_URL = "https://api.resend.com/emails";
 export const resendProvider: EmailProvider = {
   name: "resend",
   async send(input: EmailSendInput): Promise<EmailSendResult> {
-    // Akzeptiert beide: RESEND_API_KEY (Standard-Convention) und
+    // Accepts both: RESEND_API_KEY (standard convention) and
     // LAZYOS_RESEND_API_KEY (legacy SP-4).
     const apiKey =
       process.env.RESEND_API_KEY?.trim() ||
@@ -42,10 +42,10 @@ export const resendProvider: EmailProvider = {
       };
     }
 
-    // Render passiert in der Send-Pipeline (lib/email/send.ts) — hier
-    // kommt der gerenderte Inhalt via input.vars.__rendered rein.
-    // (Trick: Send-Pipeline rendert vorab und stopft das Ergebnis
-    //  durch.) Wir lesen es hier strikt.
+    // Rendering happens in the send pipeline (lib/email/send.ts) — here
+    // the rendered content comes in via input.vars.__rendered.
+    // (Trick: the send pipeline renders ahead of time and stuffs the result
+    //  through.) We read it strictly here.
     const rendered = (input as unknown as { _rendered?: RenderedTemplate })
       ._rendered;
     if (!rendered) {

@@ -1,11 +1,11 @@
 /**
- * /orgs/[id] — Org-Detail mit 4 Tabs (Phase ORG SP-5).
+ * /orgs/[id] — org detail with 4 tabs (Phase ORG SP-5).
  *
  * Tabs (?tab=…):
- *   - overview (default) — Stats + Verantwortlicher + Description
- *   - members             — Mitglieder-Liste + Invite
- *   - workspaces          — Verbundene Workspaces
- *   - branding            — Logo, Farben, Imprint, USt-IdNr (für PDF-Pipeline SP-7)
+ *   - overview (default) — stats + responsible person + description
+ *   - members             — member list + invite
+ *   - workspaces          — connected workspaces
+ *   - branding            — logo, colors, imprint, VAT ID (for the PDF pipeline SP-7)
  */
 
 import Link from "next/link";
@@ -36,8 +36,8 @@ export const dynamic = "force-dynamic";
 
 type Tab = "workspaces" | "overview" | "members" | "branding" | "github";
 
-// Phase IA.2 — Default-Tab ist jetzt `workspaces`. Tab-Reihenfolge spiegelt
-// das wider: zuerst Workspaces, dann Übersicht/Mitglieder/Branding.
+// Phase IA.2 — the default tab is now `workspaces`. The tab order reflects
+// this: workspaces first, then overview/members/branding.
 const TAB_LABELS: Record<Tab, string> = {
   workspaces: "Workspaces",
   overview: "Übersicht",
@@ -224,9 +224,9 @@ interface WsItem {
 }
 
 /**
- * Phase IA-Konsolidierung 2026-04-29: zeigt Sub-Org-Cards statt direkter
- * Workspaces. Wird gerendert wenn die aktuelle Org Sub-Orgs hat (z.B.
- * Example Company mit Example App/Demo PV/...).
+ * Phase IA consolidation 2026-04-29: shows sub-org cards instead of direct
+ * workspaces. Rendered when the current org has sub-orgs (e.g.
+ * Example Company with Example App/Demo PV/...).
  */
 function SubOrgsView({
   parentOrgId,
@@ -401,10 +401,10 @@ function WorkspacesTab({
   orgName: string;
   canAttach: boolean;
 }) {
-  // Phase IA-Konsolidierung 2026-04-29: wenn die Org Sub-Orgs hat, zeigen
-  // wir Sub-Org-Cards (segmentiert nach Type) statt direkter Workspaces.
-  // Top-Level „Example Company" → Cards für Example App/example-tool/Demo PV/...
-  // Sub-Org „Demo PV" → echte Workspace-Cards (CRM, Web).
+  // Phase IA consolidation 2026-04-29: if the org has sub-orgs, we show
+  // sub-org cards (segmented by type) instead of direct workspaces.
+  // Top-level "Example Company" → cards for Example App/example-tool/Demo PV/...
+  // Sub-org "Demo PV" → real workspace cards (CRM, Web).
   const subOrgs = listSubOrgs(orgId);
 
   if (subOrgs.length > 0) {
@@ -419,23 +419,23 @@ function WorkspacesTab({
   }
 
   const rawWorkspaces = listOrgWorkspaces(orgId);
-  // Phase IA.4 — Org-Root-Pseudo-Workspace (`__org_root__:<id>`) wird in
-  // dieser Liste rausgefiltert, weil er keinen normalen WS darstellt.
+  // Phase IA.4 — the org-root pseudo-workspace (`__org_root__:<id>`) is
+  // filtered out of this list, because it does not represent a normal WS.
   const visibleWs = rawWorkspaces.filter(
     (w) => !w.id.startsWith("__org_root__:") && w.id !== "__root__",
   );
 
-  // Workspace-Type kommt aus der `accent`-Spalte oder einem Tag — heute
-  // nutzen wir die `accent`-Spalte als grobe Type-Annotation. Für Sections
-  // nutzen wir den Org-Type als Fallback (alle Workspaces einer client-Org
-  // sind „client", wenn keine eigene Type-Spalte existiert).
+  // The workspace type comes from the `accent` column or a tag — today
+  // we use the `accent` column as a rough type annotation. For sections
+  // we use the org type as a fallback (all workspaces of a client org
+  // are "client" if no dedicated type column exists).
   const items: WsItem[] = visibleWs.map((w) => ({
     id: w.id,
     label: w.label,
     description: w.description ?? null,
     sensitivity: w.sensitivity ?? "low",
-    // Phase IA-Konsolidierung 2026-04-29: workspace_type ist die echte
-    // Type-Annotation (company/product/client/tool/private/default).
+    // Phase IA consolidation 2026-04-29: workspace_type is the real
+    // type annotation (company/product/client/tool/private/default).
     type:
       (w as { workspaceType?: string; workspace_type?: string }).workspaceType ??
       (w as { workspace_type?: string }).workspace_type ??
@@ -443,8 +443,8 @@ function WorkspacesTab({
     archived: Boolean(w.archived),
   }));
 
-  // Section-Logik: gruppieren nach pickSectionKey(workspace.type), Rest
-  // landet in „Sonstige". Sortierung pro Section alphabetisch.
+  // Section logic: group by pickSectionKey(workspace.type), the rest
+  // lands in "Other". Sorting per section is alphabetical.
   const sections: Array<{
     key: string;
     title: string;
@@ -606,7 +606,7 @@ const tabsRowStyle: CSSProperties = {
   background: "color-mix(in oklab, var(--sheet-2) 70%, transparent)",
   alignSelf: "flex-start",
   width: "fit-content",
-  // Mobile: scroll horizontally wenn Tabs nicht passen, statt zu brechen.
+  // Mobile: scroll horizontally when tabs don't fit, instead of breaking.
   overflowX: "auto",
   flexWrap: "nowrap",
 };

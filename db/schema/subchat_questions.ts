@@ -27,23 +27,23 @@ export const subchatQuestions = sqliteTable(
     /** ULID, prefix `SCQ-`. */
     id: text('id').primaryKey(),
     subchatId: text('subchat_id').notNull(),
-    /** N9 Scope (denormalisiert, wie subchat_messages). */
+    /** N9 scope (denormalized, like subchat_messages). */
     workspaceId: text('workspace_id').notNull(),
-    /** WER hat angespinnt: 'internal' | 'external' | 'ai'. */
+    /** WHO spun it up: 'internal' | 'external' | 'ai'. */
     authorKind: text('author_kind').notNull(),
     /** user-id (internal) | session-id (external) | NULL (ai). */
     authorId: text('author_id'),
-    /** Anzeigename ('Team' / Gast-Name / 'Assistent'). */
+    /** Display name ('Team' / guest name / 'Assistent'). */
     authorName: text('author_name'),
-    /** N1: VERBATIM Frage-Text, nie truncated. */
+    /** N1: VERBATIM question text, never truncated. */
     text: text('text').notNull(),
-    /** Monoton steigend pro subchat_id — das „aufeinanderfolgend" der Vision. */
+    /** Monotonically increasing per subchat_id — the „aufeinanderfolgend" of the vision. */
     seq: integer('seq').notNull(),
     /** 'open' | 'resolved'. */
     status: text('status').notNull().default('open'),
-    /** Epoch ms; NULL solange offen. */
+    /** Epoch ms; NULL while open. */
     resolvedAt: integer('resolved_at'),
-    /** author_id, der zuletzt auf resolved setzte (oder 'auto:stale'). */
+    /** author_id that last set it to resolved (or 'auto:stale'). */
     resolvedBy: text('resolved_by'),
     /** Epoch ms. */
     createdAt: integer('created_at').notNull(),
@@ -61,16 +61,16 @@ export const subchatQuestionOptions = sqliteTable(
     /** ULID, prefix `SCO-`. */
     id: text('id').primaryKey(),
     questionId: text('question_id').notNull(),
-    /** Denormalisiert für Scope-/Realtime-Filter. */
+    /** Denormalized for scope/realtime filters. */
     subchatId: text('subchat_id').notNull(),
     /** N9. */
     workspaceId: text('workspace_id').notNull(),
-    /** N1 verbatim Option-Label. */
+    /** N1 verbatim option label. */
     label: text('label').notNull(),
-    /** WER hat die Option hinzugefügt: 'internal' | 'external' | 'ai'. */
+    /** WHO added the option: 'internal' | 'external' | 'ai'. */
     addedByKind: text('added_by_kind').notNull(),
     addedById: text('added_by_id'),
-    /** Anzeige-Reihenfolge der Optionen. */
+    /** Display order of the options. */
     seq: integer('seq').notNull(),
     createdAt: integer('created_at').notNull(),
   },
@@ -89,15 +89,15 @@ export const subchatQuestionAnswers = sqliteTable(
     subchatId: text('subchat_id').notNull(),
     /** N9. */
     workspaceId: text('workspace_id').notNull(),
-    /** WER antwortet: 'internal' | 'external' | 'ai'. */
+    /** WHO answers: 'internal' | 'external' | 'ai'. */
     answererKind: text('answerer_kind').notNull(),
     answererId: text('answerer_id'),
     answererName: text('answerer_name'),
-    /** Gesetzt, wenn via Option beantwortet. */
+    /** Set when answered via an option. */
     optionId: text('option_id'),
-    /** Gesetzt, wenn Freitext (N1 verbatim). */
+    /** Set when free text (N1 verbatim). */
     freeText: text('free_text'),
-    /** In RAG aufgenommen? (wie subchat_messages.ingested). */
+    /** Ingested into RAG? (like subchat_messages.ingested). */
     ingested: integer('ingested').notNull().default(0),
     createdAt: integer('created_at').notNull(),
   },

@@ -6,7 +6,7 @@ export interface CloudBrowserProps {
   artifactCount: number;
   totalBytes: number;
   folderCount: number;
-  /** href zur Cloud-Page-URL (`/workspaces/<id>/cloud`). */
+  /** href to the cloud page URL (`/workspaces/<id>/cloud`). */
   href?: string;
 }
 
@@ -18,8 +18,8 @@ function formatBytes(b: number): string {
 }
 
 /**
- * DOC-03 CloudBrowser-Summary-Card. Zeigt Workspace-Cloud-Stats kompakt
- * mit "Öffnen"-Button. Default-Surface beim ersten Aufruf.
+ * DOC-03 CloudBrowser summary card. Shows workspace cloud stats compactly
+ * with an "open" button. Default surface on the first call.
  */
 export function CloudBrowser(props: CloudBrowserProps): React.JSX.Element {
   return (

@@ -1,47 +1,47 @@
 'use client';
 
 /**
- * ActionDeck — Slice 2 (2026-05-30, Apple-UX Surface-Rework).
+ * ActionDeck — Slice 2 (2026-05-30, Apple-UX surface rework).
  *
- * DIE EINE gepinnte Bottom-Region über dem Composer. Ersetzt KEIN bestehendes
- * Pinning, sondern UMSCHLIESST die heutige OpenQuestionsPill: an derselben
- * DOM-Position (`composerWrapStyle`, außerhalb des Scroll-Containers), mit
- * derselben Flexbox-Pinning-Geometrie. Es gibt weiterhin GENAU EINE gepinnte
- * Region — nie zwei konkurrierende Dinge.
+ * THE ONE pinned bottom region above the composer. Does NOT replace any
+ * existing pinning, but WRAPS today's OpenQuestionsPill: at the same
+ * DOM position (`composerWrapStyle`, outside the scroll container), with
+ * the same flexbox pinning geometry. There is still EXACTLY ONE pinned
+ * region — never two competing things.
  *
- * Owner-Befund #1 (verbatim):
+ * Owner finding #1 (verbatim):
  *   „Plan-Synthese fertig + Entscheidung benötigt gleichzeitig → die
  *    Entscheidung geht komplett unter → komplett irreführend. Sowas muss
  *    immer unten über den Chat angepinnt sein, so wie mit den Fragen."
  *
- * Quelle der Wahrheit ist die DB-Projektion (`useWorkspaceState` →
- * `selectPinnedItem`), NICHT die gerenderte History. `selectPinnedItem`
- * spiegelt `deriveNextAllowedUserInput`: Gate > offene Frage > Info > null.
+ * The source of truth is the DB projection (`useWorkspaceState` →
+ * `selectPinnedItem`), NOT the rendered history. `selectPinnedItem`
+ * mirrors `deriveNextAllowedUserInput`: gate > open question > info > null.
  *
- * Rendert je nach Priorität GENAU EINE Variante:
- *   (a) Gate → ruhige Card „◆ Entscheidung benötigt · <headline>" collapsed;
- *       Expand zeigt die primäre Aktion (≥44px). Die AKTION wird an den
- *       Parent delegiert (`onGateAction`) — derselbe Submit-Pfad wie die
- *       Stream-Card, KEIN zweites Routing im Deck (wie OpenQuestionsPill
- *       seinen Submit an ChatShell delegiert). Akzent --a-warn, bzw.
- *       --a-danger bei live-warn.
- *   (b) Frage → die BESTEHENDE ChatOpenQuestionsPill 1:1 (Back-Compat —
- *       alle Features: Nav, n/total, Optionen, Dismiss, ask-but-proceed).
- *   (c) Info → schmale nicht-blockierende „läuft"-Zeile.
- *   (d) null → die Region rendert für den Deck-Teil nichts.
+ * Renders EXACTLY ONE variant depending on priority:
+ *   (a) Gate → quiet card „◆ Entscheidung benötigt · <headline>" collapsed;
+ *       Expand shows the primary action (≥44px). The ACTION is delegated to
+ *       the parent (`onGateAction`) — the same submit path as the
+ *       stream card, NO second routing in the deck (just as OpenQuestionsPill
+ *       delegates its submit to ChatShell). Accent --a-warn, resp.
+ *       --a-danger for live-warn.
+ *   (b) Question → the EXISTING ChatOpenQuestionsPill 1:1 (back-compat —
+ *       all features: nav, n/total, options, dismiss, ask-but-proceed).
+ *   (c) Info → a narrow non-blocking „läuft" line.
+ *   (d) null → the region renders nothing for the deck part.
  *
- * WICHTIG (ERHALTEN): Wenn die Projektion (noch) kein Gate kennt, aber die
- * History bereits offene Fragen hat, MUSS die Pille trotzdem erscheinen. Der
- * Deck entscheidet deshalb nicht allein anhand der Projektion, ob die Pille
- * rendert — er rendert die Pille immer dann, wenn `pillQuestions` nicht leer
- * ist UND kein Gate Vorrang hat. So bleibt der heutige History-getriebene
- * Fragen-Pfad voll erhalten, auch wenn die Projektions-Route mal langsamer
- * ist als der Live-Stream.
+ * IMPORTANT (PRESERVED): When the projection does not (yet) know a gate, but
+ * the history already has open questions, the pill MUST still appear. The
+ * deck therefore does not decide on the projection alone whether the pill
+ * renders — it renders the pill whenever `pillQuestions` is not empty
+ * AND no gate takes precedence. This keeps today's history-driven
+ * question path fully intact, even when the projection route is sometimes
+ * slower than the live stream.
  *
- * Die Gate-Surface bleibt als VERLAUF/Beleg im Strom (N8) — nur die primäre
- * Aktion wird hier gespiegelt. Sobald via DB beantwortet (nächste Projektion),
- * verschwindet das Gate aus `blockingGates` → der Deck rutscht zur nächsten
- * Priorität.
+ * The gate surface stays as a TRAIL/record in the stream (N8) — only the
+ * primary action is mirrored here. Once answered via DB (next projection),
+ * the gate disappears from `blockingGates` → the deck slides to the next
+ * priority.
  */
 
 import { useState } from 'react';
@@ -61,18 +61,18 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Gate-Aktions-Routing (SINGLE SUBMIT PATH) — pure + DOM-getestet.
+// Gate action routing (SINGLE SUBMIT PATH) — pure + DOM-tested.
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Pro Gate-Kind: Selektor der Stream-Card · der primäre Aktions-Button in ihr ·
- * ob ein Secret nötig ist (dann NICHT auto-klicken, nur fokussieren — Vault-
- * Regel, das Secret landet NIE im Deck).
+ * Per gate kind: selector of the stream card · the primary action button in it ·
+ * whether a secret is needed (then do NOT auto-click, only focus — Vault
+ * rule, the secret NEVER lands in the deck).
  *
- * BLOCKER 1 (Critic, 2026-05-30): die frühere Map `surface-${kind}` traf nur
- * live-warn. human-decision rendert als `surface-decision-brief`,
- * credential-request/connector-call-preview hatten gar kein `data-test` → das
- * war ein stiller No-op. Diese Map ist die korrigierte, vollständige Quelle.
+ * BLOCKER 1 (Critic, 2026-05-30): the earlier map `surface-${kind}` only hit
+ * live-warn. human-decision renders as `surface-decision-brief`,
+ * credential-request/connector-call-preview had no `data-test` at all → that
+ * was a silent no-op. This map is the corrected, complete source.
  */
 export const GATE_ACTION_MAP: Record<
   BlockingGateKind,
@@ -95,18 +95,18 @@ export const GATE_ACTION_MAP: Record<
   },
   'credential-request': {
     card: '[data-test="surface-credential-request"]',
-    action: null, // Secret → nur fokussieren.
+    action: null, // Secret → only focus.
     secret: true,
   },
   'counter-evidence': {
     card: '[data-test="surface-counter-evidence"]',
-    action: null, // reine Beleg-Card.
+    action: null, // pure evidence card.
     secret: false,
   },
-  // F18 (2026-05-30): die gepinnte Decision/quickchoice. Der Deck rendert die
-  // Optionen selbst; eine Option-Auswahl klickt den ECHTEN Button der in-feed
-  // Decision-Card (single submit path, kein zweiter fetch). Default-`action`
-  // (ohne spezifische Option) → die empfohlene/primäre Option der Card.
+  // F18 (2026-05-30): the pinned decision/quickchoice. The deck renders the
+  // options itself; selecting an option clicks the REAL button of the in-feed
+  // decision card (single submit path, no second fetch). Default `action`
+  // (without a specific option) → the recommended/primary option of the card.
   decision: {
     card: '[data-test="surface-decision"]',
     action: '[data-test="surface-decision-option"][data-recommended="true"]',
@@ -115,38 +115,38 @@ export const GATE_ACTION_MAP: Record<
 };
 
 /**
- * F18 — Selektor für EINE bestimmte Option einer gepinnten Decision-Card. Der
- * Deck klickt damit den ECHTEN in-feed-Button (kein zweiter fetch) → exakt der
- * gleiche reply(label)-Submit-Pfad wie ein direkter Klick auf die Karte.
+ * F18 — selector for ONE specific option of a pinned decision card. The
+ * deck uses it to click the REAL in-feed button (no second fetch) → exactly the
+ * same reply(label) submit path as a direct click on the card.
  */
 function decisionOptionSelector(optionId: string): string {
-  // Attribut-Selektor mit escaptem Wert (Option-IDs sind app-generiert, i.d.R.
-  // einfache Slugs — JSON.stringify quotet defensiv für CSS-Attr-Matching).
+  // Attribute selector with escaped value (option IDs are app-generated, usually
+  // simple slugs — JSON.stringify quotes defensively for CSS attr matching).
   return `[data-test="surface-decision-option"][data-option-id=${JSON.stringify(optionId)}]`;
 }
 
 export type GateActionOutcome =
-  | 'clicked' // primärer Card-Button wurde programmatisch ausgelöst (single POST)
-  | 'focused' // Secret-Card: Input fokussiert, NICHT geklickt
-  | 'scrolled' // sichtbar gemacht, aber keine primäre Aktion (counter-evidence)
-  | 'missing'; // Card (noch) nicht im DOM → Caller zeigt sichtbares Feedback
+  | 'clicked' // primary card button was triggered programmatically (single POST)
+  | 'focused' // secret card: input focused, NOT clicked
+  | 'scrolled' // made visible, but no primary action (counter-evidence)
+  | 'missing'; // card not (yet) in the DOM → caller shows visible feedback
 
 /**
- * Führt die primäre Gate-Aktion DIREKT über die zugehörige Stream-Card aus —
- * GENAU EIN POST-Pfad (Critic-Punkt 3): der Deck baut nie einen zweiten fetch,
- * er klickt den echten Button der Card. Für Secret-Gates wird nur fokussiert.
+ * Runs the primary gate action DIRECTLY via the associated stream card —
+ * EXACTLY ONE POST path (Critic point 3): the deck never builds a second fetch,
+ * it clicks the real button of the card. For secret gates it only focuses.
  *
- * Reiner DOM-Effekt (kein React) → unit-testbar gegen ein injiziertes
- * `root` (Default: document). Fail-soft bei fehlendem DOM (SSR) → 'missing'.
+ * Pure DOM effect (no React) → unit-testable against an injected
+ * `root` (default: document). Fail-soft on missing DOM (SSR) → 'missing'.
  */
 export function executeGateAction(
   gate: BlockingGateState,
   root?: Document | HTMLElement,
   /**
-   * F18: für kind='decision' optional die ID der gewählten Option. Gesetzt →
-   * der Deck klickt GENAU diese Option der in-feed Decision-Card; fehlt sie →
-   * die empfohlene/primäre Option (entry.action). So bleibt es EIN Submit-Pfad
-   * (Klick auf den echten Card-Button), egal ob Primär- oder Listen-Option.
+   * F18: for kind='decision', optionally the ID of the chosen option. Set →
+   * the deck clicks EXACTLY this option of the in-feed decision card; missing →
+   * the recommended/primary option (entry.action). This keeps it ONE submit path
+   * (click on the real card button), whether primary or list option.
    */
   optionId?: string,
 ): GateActionOutcome {
@@ -178,7 +178,7 @@ export function executeGateAction(
     return 'focused';
   }
 
-  // F18: gezielte Option (Listen-Auswahl) ODER die empfohlene Primär-Aktion.
+  // F18: targeted option (list selection) OR the recommended primary action.
   const actionSel =
     gate.kind === 'decision' && typeof optionId === 'string' && optionId.length > 0
       ? decisionOptionSelector(optionId)
@@ -197,23 +197,23 @@ export function executeGateAction(
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Gate-Vokabular → menschenlesbares Label + primärer Aktions-Text (verbatim
-// description bleibt N1-erhalten als Sub-Zeile).
+// Gate vocabulary → human-readable label + primary action text (verbatim
+// description stays N1-preserved as a sub-line).
 // ───────────────────────────────────────────────────────────────────────────
 
 interface GateCopy {
-  /** Kicker-Label (collapsed sichtbar). */
+  /** Kicker label (visible while collapsed). */
   kicker: string;
-  /** Primärer Aktions-Button-Text (expanded). */
+  /** Primary action button text (expanded). */
   cta: string;
-  /** true → danger-Akzent (--a-danger), sonst warn-Akzent (--a-warn). */
+  /** true → danger accent (--a-danger), otherwise warn accent (--a-warn). */
   danger: boolean;
 }
 
 export function gateCopy(kind: BlockingGateKind): GateCopy {
   switch (kind) {
     case 'live-warn':
-      // Owner-Spec: live-warn ist die schärfste Stufe → danger-Akzent.
+      // Owner spec: live-warn is the sharpest level → danger accent.
       return { kicker: 'LIVE-Mode bestätigen', cta: 'Ansehen & bestätigen', danger: true };
     case 'credential-request':
       return { kicker: 'Zugang benötigt', cta: 'Zugang eingeben', danger: false };
@@ -224,12 +224,12 @@ export function gateCopy(kind: BlockingGateKind): GateCopy {
     case 'human-decision':
       return { kicker: 'Entscheidung benötigt', cta: 'Entscheiden', danger: false };
     case 'decision':
-      // F18: die gepinnte Decision/quickchoice. Kicker = Owner-Vokabular
-      // („Entscheidung benötigt"), CTA = die empfohlene Primär-Option (der
-      // Deck überschreibt den CTA-Text mit dem verbatim Label der Primär-Option).
+      // F18: the pinned decision/quickchoice. Kicker = owner vocabulary
+      // („Entscheidung benötigt"), CTA = the recommended primary option (the
+      // deck overrides the CTA text with the verbatim label of the primary option).
       return { kicker: 'Entscheidung benötigt', cta: 'Empfohlene Option', danger: false };
     default: {
-      // Exhaustiv — neue Gate-Kinds müssen hier ergänzt werden.
+      // Exhaustive — new gate kinds must be added here.
       const _exhaustive: never = kind;
       void _exhaustive;
       return { kicker: 'Entscheidung benötigt', cta: 'Ansehen', danger: false };
@@ -238,9 +238,9 @@ export function gateCopy(kind: BlockingGateKind): GateCopy {
 }
 
 /**
- * Eine knappe Überschrift für das Gate. Bevorzugt die verbatim description
- * aus dem payload (N1); fällt sonst auf das Kicker-Label zurück. KEIN .slice —
- * CSS klemmt die Anzeige (line-clamp), der Wahrheits-Text bleibt im DOM.
+ * A short headline for the gate. Prefers the verbatim description
+ * from the payload (N1); otherwise falls back to the kicker label. NO .slice —
+ * CSS clamps the display (line-clamp), the truth text stays in the DOM.
  */
 export function gateHeadline(gate: BlockingGateState): string {
   const d = typeof gate.description === 'string' ? gate.description.trim() : '';
@@ -249,29 +249,29 @@ export function gateHeadline(gate: BlockingGateState): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Gate-Card (collapsed/expand) — token-only, alle Farben via CSS-Klassen.
+// Gate card (collapsed/expand) — token-only, all colors via CSS classes.
 // ───────────────────────────────────────────────────────────────────────────
 
 export interface ActionDeckGateProps {
   gate: BlockingGateState;
   /**
-   * Primäre Aktion → an den Parent delegiert (single submit path). Der Parent
-   * (ChatShell) besitzt den EINEN Aktions-Pfad zur Stream-Card / zum POST-
-   * Handler — der Deck routet NICHT selbst. Spiegelt das Delegations-Modell
-   * der OpenQuestionsPill (`onSubmitAll` lebt im Parent).
+   * Primary action → delegated to the parent (single submit path). The parent
+   * (ChatShell) owns the ONE action path to the stream card / to the POST
+   * handler — the deck does NOT route itself. Mirrors the delegation model
+   * of OpenQuestionsPill (`onSubmitAll` lives in the parent).
    *
-   * F18: für kind='decision' kann der Deck eine konkrete Option mitgeben
-   * (zweites Argument). Der Parent reicht sie an `executeGateAction(gate, root,
-   * option.id)` weiter — dort wird der ECHTE in-feed-Option-Button geklickt
-   * (kein zweiter fetch). Ohne Option (alte Caller) → empfohlene Primär-Aktion.
+   * F18: for kind='decision', the deck can pass along a concrete option
+   * (second argument). The parent forwards it to `executeGateAction(gate, root,
+   * option.id)` — there the REAL in-feed option button is clicked
+   * (no second fetch). Without an option (old callers) → recommended primary action.
    */
   onGateAction: (gate: BlockingGateState, option?: GateOption) => void;
 }
 
 /**
- * F18 — wählt die empfohlene Primär-Option (genau eine; `extractGateOptions`
- * garantiert das) oder die erste als Fallback. Liefert undefined, wenn die
- * Decision keine Optionen trägt (dann rendert der Deck wie ein generisches Gate).
+ * F18 — picks the recommended primary option (exactly one; `extractGateOptions`
+ * guarantees that) or the first as a fallback. Returns undefined when the
+ * decision carries no options (then the deck renders like a generic gate).
  */
 function primaryOption(gate: BlockingGateState): GateOption | undefined {
   if (!Array.isArray(gate.options) || gate.options.length === 0) return undefined;
@@ -284,9 +284,9 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
   const headline = gateHeadline(gate);
   const accentClass = copy.danger ? 'action-deck-gate--danger' : 'action-deck-gate--warn';
 
-  // F18: eine gepinnte Decision mit Optionen rendert die Optionen + EINE
-  // empfohlene Primär-Aktion (gefüllt/Akzent) + ruhige Liste. Free-Text bleibt
-  // über den Composer möglich (der Deck blockiert die Eingabe nicht).
+  // F18: a pinned decision with options renders the options + ONE
+  // recommended primary action (filled/accent) + a quiet list. Free text stays
+  // possible via the composer (the deck does not block input).
   const isDecision = gate.kind === 'decision';
   const primary = isDecision ? primaryOption(gate) : undefined;
   const secondary: GateOption[] =
@@ -294,7 +294,7 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
       ? gate.options.filter((o) => o !== primary)
       : [];
 
-  // Collapsed: eine ruhige Zeile. ◆ + Kicker + Headline + Chevron. ≥44px Hit.
+  // Collapsed: a quiet line. ◆ + kicker + headline + chevron. ≥44px hit.
   if (!expanded) {
     return (
       <div className={cx('action-deck-gate', 'action-deck-gate--collapsed', accentClass)}>
@@ -334,7 +334,7 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
     );
   }
 
-  // Expanded: Headline (verbatim) + primäre Aktion + Einklappen.
+  // Expanded: headline (verbatim) + primary action + collapse.
   return (
     <div
       className={cx('action-deck-gate', 'action-deck-gate--expanded', accentClass)}
@@ -383,12 +383,12 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
         </button>
       </div>
 
-      {/* N1: verbatim description — CSS klemmt visuell, Text bleibt vollständig. */}
+      {/* N1: verbatim description — CSS clamps visually, text stays complete. */}
       <p className="action-deck-gate-headline action-deck-gate-headline--full">{headline}</p>
 
       {isDecision && primary ? (
-        // ── F18: Decision mit Optionen — EINE empfohlene Primär-Aktion +
-        //    ruhige Liste (progressive disclosure). KEINE 4 gleichlaute Buttons.
+        // ── F18: decision with options — ONE recommended primary action +
+        //    a quiet list (progressive disclosure). NO 4 equally loud buttons.
         <div className="action-deck-gate-options" data-test="action-deck-gate-options">
           <button
             type="button"
@@ -398,7 +398,7 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
             data-recommended="true"
             onClick={() => onGateAction(gate, primary)}
           >
-            {/* N1: verbatim Label der empfohlenen Option. */}
+            {/* N1: verbatim label of the recommended option. */}
             <span className="action-deck-gate-cta-label">{primary.label}</span>
             {primary.sublabel ? (
               <span className="action-deck-gate-cta-sub">{primary.sublabel}</span>
@@ -419,7 +419,7 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
                     data-option-id={opt.id}
                     onClick={() => onGateAction(gate, opt)}
                   >
-                    {/* N1: verbatim Label. */}
+                    {/* N1: verbatim label. */}
                     <span className="action-deck-gate-option-label">{opt.label}</span>
                     {opt.sublabel ? (
                       <span className="action-deck-gate-option-sub">{opt.sublabel}</span>
@@ -435,7 +435,7 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
           </p>
         </div>
       ) : (
-        // ── Generisches Gate (live-warn/credential/connector/…): EIN CTA. ──
+        // ── Generic gate (live-warn/credential/connector/…): ONE CTA. ──
         <div className="action-deck-gate-actions">
           <button
             type="button"
@@ -452,12 +452,12 @@ function ActionDeckGate({ gate, onGateAction }: ActionDeckGateProps): React.JSX.
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Info-Zeile (Run läuft) — schmal, nicht blockierend.
+// Info line (run is running) — narrow, non-blocking.
 // ───────────────────────────────────────────────────────────────────────────
 
 // ───────────────────────────────────────────────────────────────────────────
-// Resume-Card — ein unterbrochener/pausierter Workstream wartet auf Reaktion.
-// (Owner-Szenario „Connector-Onboarding heygen unterbrochen".)
+// Resume card — an interrupted/paused workstream waits for a reaction.
+// (Owner scenario „Connector-Onboarding heygen unterbrochen".)
 // ───────────────────────────────────────────────────────────────────────────
 
 export interface ActionDeckResumeProps {
@@ -465,7 +465,7 @@ export interface ActionDeckResumeProps {
   name: string;
   status: string;
   isOnboarding: boolean;
-  /** „Fortsetzen" → an den Parent delegiert (single submit/resume path). */
+  /** „Fortsetzen" → delegated to the parent (single submit/resume path). */
   onResume: (workstreamId: string) => void;
 }
 
@@ -505,7 +505,7 @@ function ActionDeckResume({
       </span>
       <span className="action-deck-resume-text">
         <span className="action-deck-resume-kicker">{kicker}</span>
-        {/* N1: verbatim Workstream-Name — CSS klemmt visuell, Text bleibt voll. */}
+        {/* N1: verbatim workstream name — CSS clamps visually, text stays full. */}
         <span className="action-deck-resume-name">{name}</span>
       </span>
       <button
@@ -537,44 +537,44 @@ function ActionDeckInfo({ phase }: { phase?: string }): React.JSX.Element {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// ActionDeck — die Region.
+// ActionDeck — the region.
 // ───────────────────────────────────────────────────────────────────────────
 
 export interface ActionDeckProps {
   /**
-   * Das gepinnte Item aus der DB-Projektion (`selectPinnedItem`). Bestimmt
-   * Gate vs. Info. null/Frage → Gate/Info rendern nicht (s. Pille unten).
+   * The pinned item from the DB projection (`selectPinnedItem`). Determines
+   * gate vs. info. null/question → gate/info do not render (see pill below).
    */
   pinned: PinnedItem;
   /**
-   * Primäre Gate-Aktion → an den Parent delegiert (single submit path).
-   * F18: optionales zweites Argument = die gewählte Decision-Option (für
-   * kind='decision'); der Parent klickt damit den echten in-feed-Button.
+   * Primary gate action → delegated to the parent (single submit path).
+   * F18: optional second argument = the chosen decision option (for
+   * kind='decision'); the parent uses it to click the real in-feed button.
    */
   onGateAction: (gate: BlockingGateState, option?: GateOption) => void;
 
   /**
-   * „Fortsetzen" eines unterbrochenen/pausierten Workstreams → an den Parent
-   * delegiert (Owner-Szenario Connector-Onboarding). Der Parent kennt den
-   * Resume-/Auth-Pfad (Connector/Server). Optional — fehlt der Handler, wird
-   * die Resume-Card als nicht-aktionierbarer Kontext-Hinweis gerendert.
+   * „Fortsetzen" of an interrupted/paused workstream → delegated to the parent
+   * (owner scenario connector onboarding). The parent knows the
+   * resume/auth path (connector/server). Optional — if the handler is missing,
+   * the resume card is rendered as a non-actionable context hint.
    */
   onResume?: (workstreamId: string) => void;
 
   /**
-   * BLOCKER 1 (2026-05-30): sichtbares Feedback statt stillem No-op. Wenn der
-   * Parent die Stream-Card der Aktion (noch) nicht im DOM findet, setzt er den
-   * gate.kind kurz hier — die Gate-Region pulst (CSS) statt nichts zu tun.
-   * null = kein Miss.
+   * BLOCKER 1 (2026-05-30): visible feedback instead of a silent no-op. When the
+   * parent does not (yet) find the action's stream card in the DOM, it briefly
+   * sets the gate.kind here — the gate region pulses (CSS) instead of doing nothing.
+   * null = no miss.
    */
   actionMissKind?: string | null;
 
   /**
-   * Die offenen Fragen für die bestehende Pille (History-getrieben, wie heute).
-   * Wenn nicht leer UND kein Gate Vorrang hat → Pille rendert (Back-Compat).
+   * The open questions for the existing pill (history-driven, as today).
+   * If not empty AND no gate takes precedence → pill renders (back-compat).
    */
   pillQuestions: ChatOpenQuestionsPillProps['questions'];
-  /** Alle Pillen-Props bis auf `questions` — 1:1 an die bestehende Pille. */
+  /** All pill props except `questions` — 1:1 to the existing pill. */
   pillProps: Omit<ChatOpenQuestionsPillProps, 'questions'>;
 }
 
@@ -586,7 +586,7 @@ export function ActionDeck({
   pillQuestions,
   pillProps,
 }: ActionDeckProps): React.JSX.Element | null {
-  // ── (a) Gate hat IMMER Vorrang — nie Gate UND Pille gleichzeitig. ──────────
+  // ── (a) Gate ALWAYS takes precedence — never gate AND pill at the same time. ──────────
   if (pinned && pinned.type === 'gate') {
     const miss = actionMissKind === pinned.gate.kind;
     return (
@@ -601,10 +601,10 @@ export function ActionDeck({
     );
   }
 
-  // ── (b) Frage-Pfad — die heutige Pille 1:1 (voll erhalten). ────────────────
-  // Bewusst History-getrieben (pillQuestions), NICHT projektions-getrieben:
-  // so erscheint die Pille auch dann, wenn die Projektions-Route der Live-
-  // Frage hinterherhinkt. Kein Gate → die Pille darf rendern.
+  // ── (b) Question path — today's pill 1:1 (fully preserved). ────────────────
+  // Deliberately history-driven (pillQuestions), NOT projection-driven:
+  // so the pill appears even when the projection route lags behind the live
+  // question. No gate → the pill may render.
   if (pillQuestions.length > 0) {
     return (
       <div className="action-deck" data-test="action-deck" data-variant="question">
@@ -613,10 +613,10 @@ export function ActionDeck({
     );
   }
 
-  // ── (b2) Resume — unterbrochener/pausierter Workstream wartet. ─────────────
-  // Owner-Szenario „Connector-Onboarding heygen unterbrochen": handlungs-
-  // leitende Karte mit Workstream-Namen + „Fortsetzen", statt dass der
-  // Kontext in einem generischen „läuft"/Klär-Menü untergeht.
+  // ── (b2) Resume — interrupted/paused workstream waits. ─────────────
+  // Owner scenario „Connector-Onboarding heygen unterbrochen": an action-
+  // guiding card with the workstream name + „Fortsetzen", instead of the
+  // context getting lost in a generic „läuft"/clarification menu.
   if (pinned && pinned.type === 'resume') {
     return (
       <div
@@ -636,7 +636,7 @@ export function ActionDeck({
     );
   }
 
-  // ── (c) Info — Run läuft, kein User-Input erwartet. ────────────────────────
+  // ── (c) Info — run is running, no user input expected. ────────────────────────
   if (pinned && pinned.type === 'info') {
     return (
       <div className="action-deck" data-test="action-deck" data-variant="info">
@@ -645,7 +645,7 @@ export function ActionDeck({
     );
   }
 
-  // ── (d) Nichts zu pinnen. ──────────────────────────────────────────────────
+  // ── (d) Nothing to pin. ──────────────────────────────────────────────────
   return null;
 }
 

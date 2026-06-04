@@ -1,13 +1,13 @@
 /**
- * /lab Real-Data-Loader (MVP, 2026-05-01).
+ * /lab real-data loader (MVP, 2026-05-01).
  *
- * Server-Component: lädt redacted Real-Events aus der DB und rendert
- * sie als Liste. Foundation-MVP zeigt JSON-Pretty-Render — Refactor-
- * Welle 3 mountet hier den echten <SurfaceRenderer>.
+ * Server component: loads redacted real events from the DB and renders
+ * them as a list. The foundation MVP shows a JSON-pretty render — refactor
+ * wave 3 mounts the real <SurfaceRenderer> here.
  *
- * Privacy: loadRealEvents filtert sensitivity='high' bereits im SQL +
- * läuft jeden Payload-String durch redactPii. Hier wird nichts mehr
- * weitergereicht das nicht durch die 4 Defense-Layer gegangen ist.
+ * Privacy: loadRealEvents already filters sensitivity='high' in the SQL +
+ * runs every payload string through redactPii. Nothing is passed on here
+ * that has not gone through the 4 defense layers.
  */
 
 import { loadRealEvents, type RealEvent } from "../_lib/load-real-events";

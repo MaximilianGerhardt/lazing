@@ -1,52 +1,52 @@
 /**
  * Surface Library · Registry (Flow Studio P4 · 2026-05-27)
  * =======================================================
- * Single-source-of-truth fuer Surface-*Metadaten*. Das Surface-Wissen war
- * bisher verstreut: `lib/chat/surface-parser.ts` (`SURFACE_KINDS`-Array) +
- * `lib/chat/SurfaceRenderer.tsx` (ein `case` je kind) + viele
- * `lib/chat/*Card.tsx`. Es gab KEINE zentrale Beschreibung, was eine Surface
- * eigentlich *ist* — nur, wie sie gerendert wird.
+ * Single source of truth for surface *metadata*. Surface knowledge was
+ * scattered until now: `lib/chat/surface-parser.ts` (`SURFACE_KINDS` array) +
+ * `lib/chat/SurfaceRenderer.tsx` (one `case` per kind) + many
+ * `lib/chat/*Card.tsx`. There was NO central description of what a surface
+ * actually *is* — only how it is rendered.
  *
- * Diese Datei ist die „Surface Library" aus
- * `docs/plans/2026-05-27_flow-studio-architecture.md` §4 — REIN ADDITIV:
+ * This file is the "Surface Library" from
+ * `docs/plans/2026-05-27_flow-studio-architecture.md` §4 — PURELY ADDITIVE:
  *
- *   • KEINE Render-Logik. Importiert NICHTS aus SurfaceRenderer/*Card.
- *   • Aendert NICHTS am Parser, Renderer oder an einer Card.
- *   • Beschreibt jeden `SurfaceKind` mit menschenlesbaren Metadaten
- *     (Kategorie, Label, Beschreibung, Interaktivitaet, Secret-Flag).
+ *   • NO render logic. Imports NOTHING from SurfaceRenderer/*Card.
+ *   • Changes NOTHING in the parser, renderer or any card.
+ *   • Describes each `SurfaceKind` with human-readable metadata
+ *     (category, label, description, interactivity, secret flag).
  *
- * Vollstaendigkeit ist *compile-time* erzwungen: `SURFACE_LIBRARY` ist ein
- * `Record<SurfaceKind, SurfaceMeta>`. Fehlt EIN Kind, bricht `tsc`. Genau
- * das ist gewollt — neue Surface-Kinds koennen nicht still durchrutschen,
- * ohne dass die Library sie kennt.
+ * Completeness is enforced at *compile-time*: `SURFACE_LIBRARY` is a
+ * `Record<SurfaceKind, SurfaceMeta>`. If ONE kind is missing, `tsc` breaks. That
+ * is exactly the intent — new surface kinds cannot slip through silently
+ * without the library knowing them.
  *
- * Security-Doku (N2/ACL5): Secret-tragende Surfaces (`credential-request`,
- * `connector-call-preview`, `credential-prompt`, `prompt` mit
- * variant=credential) tragen NIE ein Secret im Chat/SSE/Ledger. Das
- * `emitsSecret`-Flag dokumentiert diese Invariante explizit als `false` —
- * es ist KEINE Erlaubnis, jemals Secrets zu emittieren, sondern eine
- * verifizierbare Aussage „diese Surface fuehrt eine Secret-Interaktion,
- * aber das Secret verlaesst niemals den Out-of-Chat-Pfad".
+ * Security docs (N2/ACL5): secret-carrying surfaces (`credential-request`,
+ * `connector-call-preview`, `credential-prompt`, `prompt` with
+ * variant=credential) NEVER carry a secret in the chat/SSE/ledger. The
+ * `emitsSecret` flag documents this invariant explicitly as `false` —
+ * it is NOT a permission to ever emit secrets, but a
+ * verifiable statement "this surface drives a secret interaction,
+ * but the secret never leaves the out-of-chat path".
  */
 
 import { SURFACE_KINDS, type SurfaceKind } from '../chat/surface-parser';
 
 /**
- * Surface-Kategorien (Flow Studio P4 §4). Grobe fachliche Einordnung — KEINE
- * Render-Achse, sondern „wozu dient die Surface im Flow":
+ * Surface categories (Flow Studio P4 §4). Coarse domain classification — NO
+ * render axis, but "what the surface is for in the flow":
  *
- *   progress  — laufende, mehrstufige Vorgaenge mit Fortschritt (Pipelines,
- *               Loops, Swarm-Phasen).
- *   prompt    — fordert eine Entscheidung/Eingabe vom User (Form, Decision,
- *               Open-Questions, Permission/Credential-Eingabe).
- *   tool      — Tool-/Connector-Aufruf-Vorschau & -Kopplung.
- *   media     — eingebettete Medien (reserviert fuer P5: imagegen2/Higgsfield/
- *               Heygen-Ausgaben).
- *   status    — Zustands-/Ereignis-Anzeige ohne User-Aktion (Toast,
- *               Milestone, Heartbeat, Preview-Link).
- *   flow      — Flow-/Plan-Topologie (Flow-Graph, Subplan, Sub-Workstreams).
- *   data      — Daten-/Datei-Artefakte (Dokumente, Ordner, Cloud-Browser,
- *               Charts, Tickets, Rechnungen).
+ *   progress  — ongoing, multi-step operations with progress (pipelines,
+ *               loops, swarm phases).
+ *   prompt    — demands a decision/input from the user (form, decision,
+ *               open-questions, permission/credential entry).
+ *   tool      — tool/connector call preview & coupling.
+ *   media     — embedded media (reserved for P5: imagegen2/Higgsfield/
+ *               Heygen outputs).
+ *   status    — state/event display without a user action (toast,
+ *               milestone, heartbeat, preview link).
+ *   flow      — flow/plan topology (flow graph, subplan, sub-workstreams).
+ *   data      — data/file artifacts (documents, folders, cloud browser,
+ *               charts, tickets, invoices).
  */
 export type SurfaceCategory =
   | 'progress'
@@ -68,19 +68,19 @@ export const SURFACE_CATEGORIES: readonly SurfaceCategory[] = [
 ] as const;
 
 /**
- * R7 Lifecycle-Phasen (Surface-Manifestation-Strategie §9 „Every Surface has
- * a lifecycle"). Beschreibt die *möglichen* Zustände, die eine Surface über
- * ihre Lebensdauer einnehmen kann — NICHT den aktuellen Zustand einer
- * konkreten Instanz (der lebt in der Payload). Das `lifecycle`-Feld in
- * `SurfaceMeta` ist additiv und dokumentiert, welche dieser Zustände eine
- * Surface-Klasse überhaupt erreichen kann:
+ * R7 lifecycle phases (Surface Manifestation Strategy §9 "Every Surface has
+ * a lifecycle"). Describes the *possible* states a surface can take over
+ * its lifetime — NOT the current state of a
+ * concrete instance (that lives in the payload). The `lifecycle` field in
+ * `SurfaceMeta` is additive and documents which of these states a
+ * surface class can ever reach:
  *
- *   created     — gerade emittiert, noch ohne weitere Veränderung.
- *   updated     — coord-upsert hat dieselbe Card aktualisiert.
- *   needs-input — wartet auf eine User-Entscheidung/-Eingabe (Human-Gate).
- *   resolved    — abgeschlossen / bestätigt / gemergt (Endzustand „erledigt").
- *   archived    — durch einen Peer verdrängt / in die Artifact-Rail gewandert.
- *   superseded  — durch eine neuere Wahrheit ersetzt (Belief/Decision-Update).
+ *   created     — just emitted, still without any further change.
+ *   updated     — coord-upsert updated the same card.
+ *   needs-input — waiting for a user decision/input (human gate).
+ *   resolved    — completed / confirmed / merged (end state "done").
+ *   archived    — displaced by a peer / moved into the artifact rail.
+ *   superseded  — replaced by a newer truth (belief/decision update).
  */
 export type SurfaceLifecyclePhase =
   | 'created'
@@ -100,44 +100,44 @@ export const SURFACE_LIFECYCLE_PHASES: readonly SurfaceLifecyclePhase[] = [
 ] as const;
 
 /**
- * Metadaten-Beschreibung einer einzelnen Surface. Bewusst klein gehalten —
- * keine Render-Props, kein Schema-Validator (das bleibt bei Parser/Card).
+ * Metadata description of a single surface. Deliberately kept small —
+ * no render props, no schema validator (that stays with parser/card).
  */
 export interface SurfaceMeta {
-  /** Der kanonische SurfaceKind aus `surface-parser` SURFACE_KINDS. */
+  /** The canonical SurfaceKind from `surface-parser` SURFACE_KINDS. */
   kind: SurfaceKind;
-  /** Fachliche Einordnung im Flow. */
+  /** Domain classification in the flow. */
   category: SurfaceCategory;
-  /** Menschenlesbarer Anzeigename (Katalog / Flow-Studio-Palette). */
+  /** Human-readable display name (catalog / Flow Studio palette). */
   label: string;
-  /** Wofuer die Surface da ist — eine knappe Beschreibung. */
+  /** What the surface is for — a brief description. */
   description: string;
-  /** Hat der User echte Aktionen (Buttons/Inputs/Approve)? */
+  /** Does the user have real actions (buttons/inputs/approve)? */
   interactive: boolean;
   /**
-   * Doku-Flag: Surfaces, die eine Secret-Interaktion (Credential-Eingabe/
-   * -Vorschau) ANSTOSSEN, tragen das Secret NIE im Chat-Payload. Immer
-   * `false` (oder weggelassen). Niemals `true` — der Typ laesst nur `false`
-   * zu, damit kein Build jemals eine Secret-Emission ueber Chat zusagt.
+   * Docs flag: surfaces that TRIGGER a secret interaction (credential entry/
+   * preview) NEVER carry the secret in the chat payload. Always
+   * `false` (or omitted). Never `true` — the type only allows `false`,
+   * so no build ever promises a secret emission over chat.
    */
   emitsSecret?: false;
   /**
-   * R7 (Surface-Manifestation-Strategie §9) — die Lifecycle-Phasen, die diese
-   * Surface-Klasse überhaupt durchlaufen kann. ADDITIV + optional: fehlt das
-   * Feld, gilt der minimale Default `['created']` (rein anzeige-orientiert).
-   * Genutzt von Coord-Upsert / Artifact-Rail, um zu wissen, ob eine Surface
-   * jemals `resolved`/`superseded` werden kann (z.B. merge-offer →resolved,
-   * project-truth →updated/superseded). KEINE Render-Achse; reine Metadaten.
+   * R7 (Surface Manifestation Strategy §9) — the lifecycle phases this
+   * surface class can ever go through. ADDITIVE + optional: if the
+   * field is missing, the minimal default `['created']` applies (purely display-oriented).
+   * Used by coord-upsert / artifact-rail to know whether a surface
+   * can ever become `resolved`/`superseded` (e.g. merge-offer →resolved,
+   * project-truth →updated/superseded). NO render axis; pure metadata.
    */
   lifecycle?: readonly SurfaceLifecyclePhase[];
 }
 
 /**
- * Das Registry. `Record<SurfaceKind, SurfaceMeta>` erzwingt Vollstaendigkeit
- * zur Compile-Zeit: fehlt ein Kind aus SURFACE_KINDS, schlaegt `tsc` fehl.
+ * The registry. `Record<SurfaceKind, SurfaceMeta>` enforces completeness
+ * at compile time: if a kind from SURFACE_KINDS is missing, `tsc` fails.
  */
 export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
-  // --- data: Daten-/Artefakt-Surfaces ------------------------------------
+  // --- data: data/artifact surfaces ------------------------------------
   chart: {
     kind: 'chart',
     category: 'data',
@@ -181,7 +181,7 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     interactive: true,
   },
 
-  // --- progress: laufende mehrstufige Vorgaenge --------------------------
+  // --- progress: ongoing multi-step operations --------------------------
   pipeline: {
     kind: 'pipeline',
     category: 'progress',
@@ -251,7 +251,7 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     emitsSecret: false,
   },
 
-  // --- prompt: fordert User-Entscheidung/-Eingabe -----------------------
+  // --- prompt: demands a user decision/input -----------------------
   decision: {
     kind: 'decision',
     category: 'prompt',
@@ -348,7 +348,7 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     emitsSecret: false,
   },
 
-  // --- tool: Tool-/Connector-Kopplung -----------------------------------
+  // --- tool: tool/connector coupling -----------------------------------
   terminal: {
     kind: 'terminal',
     category: 'tool',
@@ -368,7 +368,7 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     emitsSecret: false,
   },
 
-  // --- flow: Flow-/Plan-Topologie ---------------------------------------
+  // --- flow: flow/plan topology ---------------------------------------
   'flow-graph': {
     kind: 'flow-graph',
     category: 'flow',
@@ -441,8 +441,8 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     interactive: false,
   },
 
-  // --- agent/swarm: parallele Agent-Laeufe ------------------------------
-  // (kategorisiert als progress — mehrstufige laufende Vorgaenge)
+  // --- agent/swarm: parallel agent runs ------------------------------
+  // (categorized as progress — multi-step ongoing operations)
   agent: {
     kind: 'agent',
     category: 'progress',
@@ -499,7 +499,7 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     interactive: true,
   },
 
-  // --- iterate-family: Roast/Version/Correction -------------------------
+  // --- iterate-family: roast/version/correction -------------------------
   'iterate-roast': {
     kind: 'iterate-roast',
     category: 'progress',
@@ -522,7 +522,7 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     interactive: false,
   },
 
-  // --- status: Zustands-/Ereignis-Anzeige -------------------------------
+  // --- status: state/event display -------------------------------
   toast: {
     kind: 'toast',
     category: 'status',
@@ -580,14 +580,14 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     interactive: false,
     emitsSecret: false,
   },
-  // Owner-Fix Run-Cockpit (2026-05-28) — Master-Cockpit-Surface, die die
-  // bisherigen 3 simultanen Emit-Stellen (sub-workstreams + iterate-pipeline
-  // + iterate-version) zu EINER verfolgbaren Card aggregiert. Phase-Stepper
-  // (Decompose → Tier-Spawn → Lead → Roaster → Consensus → Done), Sub-WS-
-  // Liste collapsed-default, „nächste Phase"-Hint, Token/Cost-Counter. Die
-  // 3 alten Cards bleiben emittiert (Back-Compat), werden aber im Renderer
-  // suppressed, sobald eine run-cockpit-Surface für denselben Workstream
-  // aktiv ist. SECURITY: kein Secret in der Payload.
+  // Owner-fix run-cockpit (2026-05-28) — master cockpit surface that
+  // aggregates the previous 3 simultaneous emit sites (sub-workstreams + iterate-pipeline
+  // + iterate-version) into ONE trackable card. Phase stepper
+  // (Decompose → Tier-Spawn → Lead → Roaster → Consensus → Done), sub-WS
+  // list collapsed-default, "next phase" hint, token/cost counter. The
+  // 3 old cards remain emitted (back-compat), but are
+  // suppressed in the renderer as soon as a run-cockpit surface for the same workstream
+  // is active. SECURITY: no secret in the payload.
   'run-cockpit': {
     kind: 'run-cockpit',
     category: 'progress',
@@ -601,15 +601,15 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     interactive: true,
     emitsSecret: false,
   },
-  // Slice C (2026-05-29) — Discovery-Phase VOR Plan-Decompose. Eine Card pro
-  // Workstream (subKey='discovery'), idempotent pre-emit „running" +
-  // post-emit „done". Listet vom Owner referenzierte URLs (fail-soft
-  // gefetcht, mit Title + Snapshot) und vom Owner angekündigte Dokumente,
-  // die das System gezielt anfordern sollte. Status-Surface aus der Sicht
-  // des Flows („vor der Tier-Wahl"), interaktiv nur für Doku-Anforderungen.
-  // SECURITY: kein Secret in der Payload — WebFetch zielt nur auf vom Owner
-  // explizit genannte öffentliche URLs (N2: kein cross-workspace-Read, keine
-  // Audit-Row für reguläre Public-URLs).
+  // Slice C (2026-05-29) — discovery phase BEFORE plan-decompose. One card per
+  // workstream (subKey='discovery'), idempotent pre-emit "running" +
+  // post-emit "done". Lists owner-referenced URLs (fail-soft
+  // fetched, with title + snapshot) and owner-announced documents
+  // that the system should specifically request. Status surface from the flow's
+  // perspective ("before the tier choice"), interactive only for doc requests.
+  // SECURITY: no secret in the payload — WebFetch targets only owner-
+  // explicitly-named public URLs (N2: no cross-workspace read, no
+  // audit row for regular public URLs).
   discovery: {
     kind: 'discovery',
     category: 'status',
@@ -624,10 +624,10 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     emitsSecret: false,
     lifecycle: ['created', 'updated', 'resolved'],
   },
-  // A4 (2026-05-29) — Merge-Offer-Surface (klickbarer Operator-Merge-Gate).
-  // EINZIGE Schreib-Aktion: „In Live mergen" → POST /api/workstreams/[id]/
-  // merge-run {} (R3 Human-Gate). „Diff ansehen" ist read-only (preview:true).
-  // SECURITY: kein Secret in der Payload.
+  // A4 (2026-05-29) — merge-offer surface (clickable operator merge gate).
+  // ONLY write action: "merge into Live" → POST /api/workstreams/[id]/
+  // merge-run {} (R3 human gate). "view diff" is read-only (preview:true).
+  // SECURITY: no secret in the payload.
   'merge-offer': {
     kind: 'merge-offer',
     category: 'prompt',
@@ -642,9 +642,9 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
     emitsSecret: false,
     lifecycle: ['created', 'needs-input', 'resolved', 'archived'],
   },
-  // A3/R7 (2026-05-29) — Project-Truth-Surface (langlebiger Lese-Anker).
-  // EINE Card pro Workspace (subKey='project-truth'), bündelt Vision/Decisions/
-  // Beliefs/Open-Unknowns/Widersprüche ÜBER Runs hinweg. NICHT-interaktiv.
+  // A3/R7 (2026-05-29) — project-truth surface (long-lived read anchor).
+  // ONE card per workspace (subKey='project-truth'), bundles vision/decisions/
+  // beliefs/open-unknowns/contradictions ACROSS runs. NON-interactive.
   'project-truth': {
     kind: 'project-truth',
     category: 'flow',
@@ -662,9 +662,9 @@ export const SURFACE_LIBRARY: Record<SurfaceKind, SurfaceMeta> = {
 };
 
 /**
- * Liefert die Metadaten fuer einen kind-String oder `null`, wenn der String
- * kein bekannter SurfaceKind ist. Tolerant gegenueber beliebigem Input
- * (z.B. halluzinierte Tags) — wirft nie.
+ * Returns the metadata for a kind string or `null` if the string
+ * is not a known SurfaceKind. Tolerant of arbitrary input
+ * (e.g. hallucinated tags) — never throws.
  */
 export function getSurfaceMeta(kind: string): SurfaceMeta | null {
   return Object.prototype.hasOwnProperty.call(SURFACE_LIBRARY, kind)
@@ -673,8 +673,8 @@ export function getSurfaceMeta(kind: string): SurfaceMeta | null {
 }
 
 /**
- * Alle Surfaces einer Kategorie. Reihenfolge entspricht SURFACE_KINDS
- * (kanonische Parser-Reihenfolge), damit der Output stabil ist.
+ * All surfaces of a category. Order matches SURFACE_KINDS
+ * (canonical parser order), so the output is stable.
  */
 export function listSurfacesByCategory(cat: SurfaceCategory): SurfaceMeta[] {
   return SURFACE_KINDS.map((k) => SURFACE_LIBRARY[k]).filter(
@@ -682,7 +682,7 @@ export function listSurfacesByCategory(cat: SurfaceCategory): SurfaceMeta[] {
   );
 }
 
-/** Alle Metadaten in kanonischer SURFACE_KINDS-Reihenfolge. */
+/** All metadata in canonical SURFACE_KINDS order. */
 export function listAllSurfaces(): SurfaceMeta[] {
   return SURFACE_KINDS.map((k) => SURFACE_LIBRARY[k]);
 }

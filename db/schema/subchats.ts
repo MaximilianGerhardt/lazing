@@ -22,21 +22,21 @@ export const subchats = sqliteTable(
   {
     /** ULID, prefix `SC-`. */
     id: text('id').primaryKey(),
-    /** Scope (N9). FK-artig auf workspaces.id (kein harter FK — Single-User-MVP). */
+    /** Scope (N9). FK-like on workspaces.id (no hard FK — single-user MVP). */
     workspaceId: text('workspace_id').notNull(),
-    /** Anzeigename, z.B. "Demo PV — Onboarding". N1 verbatim. */
+    /** Display name, e.g. "Demo PV — Onboarding". N1 verbatim. */
     title: text('title').notNull(),
-    /** Mit wem: 'external' (Kunde) | 'internal' (Team). */
+    /** With whom: 'external' (customer) | 'internal' (team). */
     kind: text('kind').notNull().default('external'),
-    /** Optionaler Kontext/Zweck (verbatim). */
+    /** Optional context/purpose (verbatim). */
     description: text('description'),
-    /** User, der den Sub-Chat angelegt hat. */
+    /** User who created the sub-chat. */
     createdByUserId: text('created_by_user_id'),
-    /** sha256(rawToken) für externen Link-Zugang. NULL = kein externer Zugang. */
+    /** sha256(rawToken) for external link access. NULL = no external access. */
     shareTokenHash: text('share_token_hash'),
-    /** Externer Zugang abgelaufen? Epoch ms; NULL = unbefristet. */
+    /** External access expired? Epoch ms; NULL = unlimited. */
     shareExpiresAt: integer('share_expires_at'),
-    /** Externer Zugang widerrufen? Epoch ms. */
+    /** External access revoked? Epoch ms. */
     shareRevokedAt: integer('share_revoked_at'),
     /** 'active' | 'archived'. */
     status: text('status').notNull().default('active'),
@@ -56,15 +56,15 @@ export const subchatMessages = sqliteTable(
     /** ULID, prefix `SCM-`. */
     id: text('id').primaryKey(),
     subchatId: text('subchat_id').notNull(),
-    /** Denormalisiert für Scope-Filter + RAG-Ingestion (N2). */
+    /** Denormalized for scope filters + RAG ingestion (N2). */
     workspaceId: text('workspace_id').notNull(),
-    /** 'internal' (Team-User) | 'external' (Kunde via Token) | 'system'. */
+    /** 'internal' (team user) | 'external' (customer via token) | 'system'. */
     authorKind: text('author_kind').notNull(),
-    /** User-ID bei internal; bei external eine flüchtige Session-ID; NULL bei system. */
+    /** User ID for internal; for external an ephemeral session ID; NULL for system. */
     authorId: text('author_id'),
-    /** Anzeigename (Externe geben einen Namen an). */
+    /** Display name (external users provide a name). */
     authorName: text('author_name'),
-    /** N1: VERBATIM, nie truncated. */
+    /** N1: VERBATIM, never truncated. */
     content: text('content').notNull(),
     /**
      * Attachments (documents/media/photos) as a JSON array. NULL/'' = none.
@@ -72,7 +72,7 @@ export const subchatMessages = sqliteTable(
      * The bytes live in the cloud artifact store (lib/cloud); only a reference here.
      */
     attachments: text('attachments'),
-    /** 0/1 — schon in rag_chunks ingestet? (Idempotenz der Wissens-Aufnahme). */
+    /** 0/1 — already ingested into rag_chunks? (idempotency of knowledge ingestion). */
     ingested: integer('ingested').notNull().default(0),
     /** Epoch ms. */
     createdAt: integer('created_at').notNull(),

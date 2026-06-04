@@ -2,8 +2,8 @@
  * GET /api/workstreams[?workspaceId=&status=]
  * POST /api/workstreams
  *
- * Phase W: Workstream-Foundation. Workstream-Container für Multi-Agent-
- * Pläne. Nicht event-sourced (eigene Tabelle wegen aggregiertem State).
+ * Phase W: workstream foundation. Workstream container for multi-agent
+ * plans. Not event-sourced (its own table due to aggregated state).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const limitRaw = url.searchParams.get('limit');
   const limit = limitRaw ? Math.max(1, Math.min(500, Number(limitRaw) || 100)) : undefined;
 
-  // Phase IA.5 — wenn keine workspaceId mitkommt, fallback auf Org-Cookie.
+  // Phase IA.5 — if no workspaceId comes along, fall back to the org cookie.
   const cookieOrgId = req.cookies.get('lazyos.org')?.value
     ?? req.cookies.get('lazyos_org')?.value
     ?? null;

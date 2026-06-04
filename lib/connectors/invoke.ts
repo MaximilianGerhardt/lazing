@@ -1,47 +1,47 @@
 /**
- * Connector Invocation-Executor (ACL-5-D — 2026-05-24).
+ * Connector invocation executor (ACL-5-D — 2026-05-24).
  *
- * Der einzige Ort im System, an dem ein echter externer Connector-Call passiert.
- * Sicherheitskritisch: jede fehlende Vorbedingung → fail-closed (kein Netzwerk).
+ * The only place in the system where a real external connector call happens.
+ * Security-critical: every missing precondition → fail-closed (no network).
  *
- * ─── Öffentliche API ───────────────────────────────────────────────────────────
- *   previewCall(args)  → CallPreview   (S5: Vorschau ohne Netzwerk, maskiert)
- *   executeCall(args)  → CallResult    (gated: alle Vorbedingungen oder blocked)
+ * ─── Public API ────────────────────────────────────────────────────────────────
+ *   previewCall(args)  → CallPreview   (S5: preview without network, masked)
+ *   executeCall(args)  → CallResult    (gated: all preconditions or blocked)
  *
- * ─── Vorbedingungs-Kette (executeCall, fail-closed, in Reihenfolge) ────────────
- *   PRE-1  Connector-Profil existiert (getConnectorProfile) → 'no-profile'
- *   PRE-2  Coverage-OK (validateCoverage requiredCaps vs. Profil) → 'coverage-fail'
- *   PRE-3  S4-Hardening (buildHardenedToolset + assertCallAllowed) → 'not-hardened'
- *   PRE-4  S6-Gate: trust='auto' ODER gültiges approvalToken → 'awaiting-approval'
- *   PRE-5  Master-Schalter LAZYOS_CONNECTOR_LIVE: off → Dry-Run (kein Netzwerk)
- *   PRE-6  Echter Call (nur wenn LIVE on + alle PRE-1..4 ok):
- *            resolveApiCredential ERST JETZT (nie früher materialisiert)
- *            → Netzwerk-Call → recordCallAudit('invoke', live:1)
+ * ─── Precondition chain (executeCall, fail-closed, in order) ───────────────────
+ *   PRE-1  Connector profile exists (getConnectorProfile) → 'no-profile'
+ *   PRE-2  Coverage OK (validateCoverage requiredCaps vs. profile) → 'coverage-fail'
+ *   PRE-3  S4 hardening (buildHardenedToolset + assertCallAllowed) → 'not-hardened'
+ *   PRE-4  S6 gate: trust='auto' OR a valid approvalToken → 'awaiting-approval'
+ *   PRE-5  Master switch LAZYOS_CONNECTOR_LIVE: off → dry run (no network)
+ *   PRE-6  Real call (only if LIVE on + all PRE-1..4 ok):
+ *            resolveApiCredential ONLY NOW (never materialized earlier)
+ *            → network call → recordCallAudit('invoke', live:1)
  *
- * ─── Secret-Leak-Prävention ───────────────────────────────────────────────────
- *   - resolveApiCredential() wird AUSSCHLIESSLICH im echten-Call-Zweig aufgerufen.
- *     Die Variable `cred` ist lokal zum echten-Call-Block und wird nicht zurückgegeben.
- *   - result + audit + alle Logs enthalten NUR maskierte/gehashte Werte.
- *   - payloadHash = sha256(canonicalJSON(payload)) — nie der Payload selbst (D3).
- *   - Secret-Wert fließt NIEMALS in CallResult, CallPreview, oder Audit-Rows.
+ * ─── Secret-leak prevention ───────────────────────────────────────────────────
+ *   - resolveApiCredential() is called EXCLUSIVELY in the real-call branch.
+ *     The variable `cred` is local to the real-call block and is not returned.
+ *   - result + audit + all logs contain ONLY masked/hashed values.
+ *   - payloadHash = sha256(canonicalJSON(payload)) — never the payload itself (D3).
+ *   - the secret value NEVER flows into CallResult, CallPreview, or audit rows.
  *
  * ─── Audit (N8) ───────────────────────────────────────────────────────────────
  *   previewCall    → recordCallAudit('preview', live:false)
  *   executeCall:
- *     PRE-Fehler   → recordCallAudit('deny', live:false, reason)
- *     Dry-Run      → recordCallAudit('dry-run', live:false)
- *     Echter Call  → recordCallAudit('invoke', live:true, payloadHash, resultSummary)
+ *     PRE error    → recordCallAudit('deny', live:false, reason)
+ *     Dry run      → recordCallAudit('dry-run', live:false)
+ *     Real call    → recordCallAudit('invoke', live:true, payloadHash, resultSummary)
  *
  * ─── Constraints ──────────────────────────────────────────────────────────────
- *   N2/K1:  K1-RAG-Deny ist hart (über assertCallAllowed aus invoke-policy.ts).
- *   N6:     Deterministische Gates vor Call.
- *   N8:     Audit jede Phase.
- *   N10:    content_hash auf jeder Audit-Row (via recordCallAudit).
- *   ENV:    LAZYOS_CONNECTOR_LIVE — default off = nie echter Call.
+ *   N2/K1:  K1-RAG-Deny is hard (via assertCallAllowed from invoke-policy.ts).
+ *   N6:     deterministic gates before the call.
+ *   N8:     audit every phase.
+ *   N10:    content_hash on every audit row (via recordCallAudit).
+ *   ENV:    LAZYOS_CONNECTOR_LIVE — default off = never a real call.
  *
- * ─── Was NICHT hier passiert ──────────────────────────────────────────────────
- *   Kein Spawn von Code-Agenten. Kein Bash. Kein File-System. Kein LLM-Call.
- *   Der Call ist ein gezielter API-Request, S4-hardened.
+ * ─── What does NOT happen here ────────────────────────────────────────────────
+ *   No spawn of code agents. No Bash. No file system. No LLM call.
+ *   The call is a targeted API request, S4-hardened.
  */
 
 import { createHash } from "node:crypto";
@@ -72,110 +72,110 @@ import type { ConnectorScopeKind } from "@/db/schema/connector_calls";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Eingabe-Kontext für previewCall und executeCall.
- * Enthält KEINE Secrets — Credentials werden intern via resolveApiCredential
- * aufgelöst, ausschließlich im echten-Call-Zweig.
+ * Input context for previewCall and executeCall.
+ * Contains NO secrets — credentials are resolved internally via resolveApiCredential,
+ * exclusively in the real-call branch.
  */
 export interface InvokeArgs {
-  /** Provider-Slug aus connector_catalog, z.B. 'heygen'. */
+  /** Provider slug from connector_catalog, e.g. 'heygen'. */
   provider: string;
-  /** Capability-Name, z.B. 'render_video'. */
+  /** Capability name, e.g. 'render_video'. */
   capability: string;
   /**
-   * Capability-Anforderungen für Coverage-Prüfung.
-   * Typischerweise [capability] — kann mehrere sein wenn der Call mehrere braucht.
+   * Capability requirements for the coverage check.
+   * Typically [capability] — can be several if the call needs several.
    */
   requiredCaps?: readonly string[];
   /**
-   * Call-Payload (Keys + Werte). Secrets dürfen hier NICHT enthalten sein —
-   * der Vault füllt den Auth-Header beim echten Call selbst aus.
+   * Call payload (keys + values). Secrets must NOT be contained here —
+   * the vault fills in the auth header itself on the real call.
    */
   payload?: Record<string, unknown>;
-  /** Workspace-ID für Credential-Resolution und Audit-Scoping. */
+  /** Workspace ID for credential resolution and audit scoping. */
   workspaceId: string;
-  /** Scope-Kind für Trust-Gate und Audit. Default: 'workspace'. */
+  /** Scope kind for the trust gate and audit. Default: 'workspace'. */
   scopeKind?: ConnectorScopeKind;
-  /** User-ID für Audit-Rows und Auth-Gate. */
+  /** User ID for audit rows and the auth gate. */
   userId: string;
   /**
-   * S6-Approval-Token: repräsentiert dass der Owner diesen Call freigegeben hat.
-   * Der Caller (ACL5-E) setzt diesen Wert nachdem der User die preview-Card
-   * bestätigt hat. Alternativ: trust='auto' via getTrust() reicht ebenfalls.
+   * S6 approval token: represents that the owner has approved this call.
+   * The caller (ACL5-E) sets this value after the user has confirmed the
+   * preview card. Alternatively: trust='auto' via getTrust() is also sufficient.
    */
   approved?: boolean;
-  /** Opakes Call-ID — für Idempotenz und Audit-Korrelation. Wenn nicht gesetzt: generiert. */
+  /** Opaque call ID — for idempotency and audit correlation. Generated if not set. */
   callId?: string;
 }
 
 /**
- * S5 Preview — Vorschau OHNE Netzwerk.
- * Zeigt dem Owner was gecallt werden würde, welches Credential verwendet,
- * und den Payload-Fingerprint. Kein Secret-Wert.
+ * S5 preview — preview WITHOUT network.
+ * Shows the owner what would be called, which credential is used,
+ * and the payload fingerprint. No secret value.
  */
 export interface CallPreview {
-  /** Immer true bei previewCall (keine Blockierungen — preview ist informativ). */
+  /** Always true on previewCall (no blocking — preview is informational). */
   ok: true;
   provider: string;
   capability: string;
   /**
-   * Welches MCP-Tool würde aufgerufen werden.
-   * null wenn die Capability kein MCP-Tool hat (REST-only).
+   * Which MCP tool would be called.
+   * null if the capability has no MCP tool (REST-only).
    */
   mcpTool: string | null;
   /**
-   * Basis-URL des Providers aus dem Connector-Profil.
-   * null wenn nicht bekannt.
+   * Base URL of the provider from the connector profile.
+   * null if not known.
    */
   baseUrl: string | null;
   /**
-   * Payload-Zusammenfassung: Keys + Typen, KEINE Werte.
-   * z.B. { "template_id": "string", "ratio": "number" }
+   * Payload summary: keys + types, NO values.
+   * e.g. { "template_id": "string", "ratio": "number" }
    */
   payloadSummary: Record<string, string>;
   /**
-   * Welches Credential-Scope würde verwendet.
-   * z.B. 'workspace:ws-123' oder 'org:org-456 (inherit)'.
-   * Kein Secret-Wert, nur der Scope-Identifier.
+   * Which credential scope would be used.
+   * e.g. 'workspace:ws-123' or 'org:org-456 (inherit)'.
+   * No secret value, only the scope identifier.
    */
   credentialScope: string;
   /**
-   * Decrypt-FREIER Credential-Hinweis für den Owner.
+   * Decrypt-FREE credential hint for the owner.
    *
-   * ACL-5-D-Härtung (Security-Critic Finding 3): previewCall entschlüsselt das
-   * Secret NICHT mehr — die Vorschau läuft bei jeder keyword-matchenden
-   * Chat-Nachricht, lange bevor der Owner „Freigeben" klickt. Ein decrypt pro
-   * Preview wäre unnötige Exposition. Dieser Wert ist daher ein decrypt-freies
-   * Existenz-Label, KEIN aus dem Klartext abgeleiteter maskedPreview-Wert:
-   *   '•••• (vorhanden)'   wenn ein Credential im Scope existiert,
-   *   null                 wenn keins existiert.
-   * Der erste echte Decrypt passiert ausschließlich in executeCall (PRE-6).
-   * NIEMALS der Klartext.
+   * ACL-5-D hardening (Security-Critic Finding 3): previewCall no longer
+   * decrypts the secret — the preview runs on every keyword-matching
+   * chat message, long before the owner clicks „Freigeben". A decrypt per
+   * preview would be unnecessary exposure. This value is therefore a decrypt-free
+   * existence label, NOT a maskedPreview value derived from the plaintext:
+   *   '•••• (vorhanden)'   if a credential exists in the scope,
+   *   null                 if none exists.
+   * The first real decrypt happens exclusively in executeCall (PRE-6).
+   * NEVER the plaintext.
    */
   credentialPreview: string | null;
   /**
-   * Auth-Kind des Connectors ('api_key' | 'oauth' | 'pat' | 'none' | 'custom').
+   * Auth kind of the connector ('api_key' | 'oauth' | 'pat' | 'none' | 'custom').
    */
   authKind: string;
   /**
-   * sha256-Hash des Payloads (für Idempotenz). NICHT der Payload selbst.
+   * sha256 hash of the payload (for idempotency). NOT the payload itself.
    */
   payloadHash: string;
-  /** Aktueller Trust-Level für diesen Provider+Scope. */
+  /** Current trust level for this provider+scope. */
   currentTrust: "ask" | "auto";
-  /** Ob LAZYOS_CONNECTOR_LIVE aktiv ist (würde echter Call stattfinden?). */
+  /** Whether LAZYOS_CONNECTOR_LIVE is active (would a real call take place?). */
   liveEnabled: boolean;
-  /** Correlations-ID dieser Preview-Instanz. */
+  /** Correlation ID of this preview instance. */
   callId: string;
 }
 
 /**
- * Ergebnis von executeCall.
+ * Result of executeCall.
  *
- * ok: false → Call wurde blockiert (kein Netzwerk).
- * ok: true, dryRun: true → Dry-Run (LAZYOS_CONNECTOR_LIVE off).
- * ok: true, dryRun: false → Echter Call durchgeführt.
+ * ok: false → call was blocked (no network).
+ * ok: true, dryRun: true → dry run (LAZYOS_CONNECTOR_LIVE off).
+ * ok: true, dryRun: false → real call performed.
  *
- * NIEMALS ein Secret oder roher Response-Body hier.
+ * NEVER a secret or raw response body here.
  */
 export type CallResult =
   | BlockedCallResult
@@ -185,13 +185,13 @@ export type CallResult =
 export interface BlockedCallResult {
   ok: false;
   /**
-   * Blockierungs-Grund (maschinenlesbar für ACL5-E):
-   *   'no-profile'          — Connector-Profil nicht gefunden.
-   *   'coverage-fail'       — Coverage-Prüfung fehlgeschlagen.
-   *   'not-hardened'        — Capability nicht im S4-gehärteten Toolset.
-   *   'awaiting-approval'   — trust='ask' + kein gültiger approvalToken.
-   *   'credential-missing'  — Credential nicht im Vault.
-   *   'call-error'          — Echter Call fehlgeschlagen (Netzwerk/HTTP).
+   * Block reason (machine-readable for ACL5-E):
+   *   'no-profile'          — connector profile not found.
+   *   'coverage-fail'       — coverage check failed.
+   *   'not-hardened'        — capability not in the S4-hardened toolset.
+   *   'awaiting-approval'   — trust='ask' + no valid approvalToken.
+   *   'credential-missing'  — credential not in the vault.
+   *   'call-error'          — real call failed (network/HTTP).
    */
   blocked: BlockedReason;
   detail?: string;
@@ -203,7 +203,7 @@ export interface DryRunCallResult {
   dryRun: true;
   provider: string;
   capability: string;
-  /** Klar gelabeltes simuliertes Resultat. Kein Netzwerk-Call. */
+  /** Clearly labeled simulated result. No network call. */
   simulatedResult: string;
   payloadHash: string;
   callId: string;
@@ -214,12 +214,12 @@ export interface LiveCallResult {
   dryRun: false;
   provider: string;
   capability: string;
-  /** HTTP-Statuskode des echten Calls. */
+  /** HTTP status code of the real call. */
   status: number;
   /**
-   * Kurzfassung des Ergebnisses.
-   * NIEMALS ein roher Response-Body oder Secret-Wert.
-   * z.B. 'status=200 duration=342ms size=1.2kb'.
+   * Short summary of the result.
+   * NEVER a raw response body or secret value.
+   * e.g. 'status=200 duration=342ms size=1.2kb'.
    */
   resultSummary: string;
   payloadHash: string;
@@ -235,16 +235,16 @@ export type BlockedReason =
   | "call-error";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Interne Hilfsfunktionen
+// Internal helper functions
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Liest und normalisiert den LAZYOS_CONNECTOR_LIVE-Master-Schalter. */
+/** Reads and normalizes the LAZYOS_CONNECTOR_LIVE master switch. */
 function isLiveEnabled(): boolean {
   const val = (process.env.LAZYOS_CONNECTOR_LIVE ?? "").trim().toLowerCase();
   return val === "on" || val === "1" || val === "true";
 }
 
-/** Generiert eine Correlation-ID wenn keine übergeben wurde. */
+/** Generates a correlation ID when none was passed. */
 function makeCallId(): string {
   return `cinvoke-${createHash("sha256")
     .update(`${Date.now()}-${Math.random()}`)
@@ -253,8 +253,8 @@ function makeCallId(): string {
 }
 
 /**
- * Baut eine Payload-Zusammenfassung (Keys + Typen, KEINE Werte).
- * Secrets können damit nicht versehentlich in die Preview gelangen.
+ * Builds a payload summary (keys + types, NO values).
+ * This prevents secrets from accidentally ending up in the preview.
  */
 function buildPayloadSummary(payload?: Record<string, unknown>): Record<string, string> {
   if (!payload) return {};
@@ -272,8 +272,8 @@ function buildPayloadSummary(payload?: Record<string, unknown>): Record<string, 
 }
 
 /**
- * Baut das ConnectorProfile-Objekt für S4 buildHardenedToolset aus Katalog-Daten.
- * Nur die für S4 relevanten Felder (provider + capabilities mit mcpToolName).
+ * Builds the ConnectorProfile object for S4 buildHardenedToolset from catalog data.
+ * Only the fields relevant for S4 (provider + capabilities with mcpToolName).
  */
 function buildConnectorProfileForS4(provider: string): ConnectorProfile {
   const caps = listCapabilities(provider);
@@ -287,34 +287,34 @@ function buildConnectorProfileForS4(provider: string): ConnectorProfile {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// previewCall — S5 Vorschau ohne Netzwerk
+// previewCall — S5 preview without network
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut eine Vorschau für einen Connector-Call OHNE Netzwerk.
+ * Builds a preview for a connector call WITHOUT network.
  *
- * S5: Zeigt dem Owner was gecallt werden würde, welches Credential-Scope,
- * maskierten Credential-Hinweis und Payload-Fingerprint. Schreibt einen
- * N8-Audit-Row mit phase='preview'.
+ * S5: shows the owner what would be called, which credential scope,
+ * the masked credential hint and payload fingerprint. Writes an
+ * N8 audit row with phase='preview'.
  *
- * Die Preview ist IMMER ok:true — sie kann niemals "fehlschlagen" im
- * Blockierungs-Sinne. Fehlendes Profil oder Credential wird als Information
- * zurückgegeben (credentialPreview: null, mcpTool: null), nicht als Error.
- * Der Owner bekommt damit das volle Bild bevor er freigeben muss.
+ * The preview is ALWAYS ok:true — it can never "fail" in the
+ * blocking sense. A missing profile or credential is returned as information
+ * (credentialPreview: null, mcpTool: null), not as an error.
+ * The owner thus gets the full picture before having to approve.
  *
- * Secret-Leak-Prävention (ACL-5-D-Härtung, Security-Critic Finding 3):
- *   - previewCall entschlüsselt das Secret NICHT mehr. Es ruft KEIN
- *     resolveApiCredential() (= decrypt) auf. Stattdessen ermittelt es via
- *     credentialExists() decrypt-FREI nur die Existenz + den Scope.
- *     Rationale: maybeAutoConnect ruft previewCall bei jeder keyword-matchenden
- *     Chat-Nachricht (missing='none') — ein decrypt pro Nachricht, lange bevor
- *     der Owner „Freigeben" klickt, wäre unnötige Klartext-Exposition.
- *   - credentialPreview ist ein decrypt-freies Existenz-Label ('•••• (vorhanden)'
- *     oder null) — NIE ein aus dem Klartext abgeleiteter maskedPreview-Wert.
- *   - Der erste echte Decrypt passiert ausschließlich in executeCall (PRE-6).
+ * Secret-leak prevention (ACL-5-D hardening, Security-Critic Finding 3):
+ *   - previewCall no longer decrypts the secret. It does NOT call
+ *     resolveApiCredential() (= decrypt). Instead it determines, decrypt-FREE
+ *     via credentialExists(), only the existence + the scope.
+ *     Rationale: maybeAutoConnect calls previewCall on every keyword-matching
+ *     chat message (missing='none') — a decrypt per message, long before
+ *     the owner clicks „Freigeben", would be unnecessary plaintext exposure.
+ *   - credentialPreview is a decrypt-free existence label ('•••• (vorhanden)'
+ *     or null) — NEVER a maskedPreview value derived from the plaintext.
+ *   - the first real decrypt happens exclusively in executeCall (PRE-6).
  *
  * @param args  InvokeArgs (payload, workspaceId, userId, provider, capability).
- * @returns     CallPreview (immer ok:true).
+ * @returns     CallPreview (always ok:true).
  */
 export function previewCall(args: InvokeArgs): CallPreview {
   const callId = args.callId ?? makeCallId();
@@ -322,36 +322,36 @@ export function previewCall(args: InvokeArgs): CallPreview {
   const requiredCaps = args.requiredCaps ?? [args.capability];
   const payloadHash = computePayloadHash(args.payload ?? {});
 
-  // Profil lesen (null → leere Defaults, Preview ist informativ nicht blockierend).
+  // Read the profile (null → empty defaults, preview is informational not blocking).
   const profile = getConnectorProfile(args.provider);
   const capabilities = args.provider ? listCapabilities(args.provider) : [];
 
-  // MCP-Tool für diese Capability finden.
+  // Find the MCP tool for this capability.
   const capRow = capabilities.find((c) => c.name === args.capability);
   const mcpTool = capRow?.mcpToolName ?? null;
 
-  // Credential-Existenz + Scope — DECRYPT-FREI (kein resolveApiCredential).
-  // credentialExists() macht nur einen Existenz-Lookup + Scope-Ableitung,
-  // ruft NIEMALS decryptCredential(). Kein Klartext-Secret wird berührt.
+  // Credential existence + scope — DECRYPT-FREE (no resolveApiCredential).
+  // credentialExists() only does an existence lookup + scope derivation,
+  // NEVER calls decryptCredential(). No plaintext secret is touched.
   let credentialScope = `workspace:${args.workspaceId}`;
   let credentialPreview: string | null = null;
   try {
     const existence = credentialExists(args.workspaceId, args.provider);
     credentialScope = existence.scopeLabel;
     if (existence.exists) {
-      // Decrypt-freies Label — KEIN maskedPreview(secret), kein decrypt.
-      // '•' beibehalten für UI-Konsistenz (Card zeigt „Credential vorhanden").
+      // Decrypt-free label — NO maskedPreview(secret), no decrypt.
+      // '•' kept for UI consistency (the card shows „Credential vorhanden").
       credentialPreview = "•••• (vorhanden)";
     }
   } catch {
-    // Existenz-Lookup fehlgeschlagen (DB-Fehler) — preview zeigt „fehlt".
+    // Existence lookup failed (DB error) — preview shows „fehlt".
     credentialPreview = null;
   }
 
-  // Aktueller Trust-Level.
+  // Current trust level.
   const currentTrust = getTrust(scopeKind, args.workspaceId, args.provider);
 
-  // N8 Audit für Preview-Phase.
+  // N8 audit for the preview phase.
   recordCallAudit({
     scopeKind,
     scopeId: args.workspaceId,
@@ -387,51 +387,51 @@ export function previewCall(args: InvokeArgs): CallPreview {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Führt einen Connector-Call aus oder blockiert ihn fail-closed.
+ * Executes a connector call or blocks it fail-closed.
  *
- * ─── Vorbedingungs-Kette (Reihenfolge = Priorität, erstes Fail wins) ──────────
+ * ─── Precondition chain (order = priority, first fail wins) ───────────────────
  *
  *   PRE-1  getConnectorProfile(provider) !== null
  *          → blocked: 'no-profile'
- *          Rationale: ohne Profil gibt es keine bekannte API-Konvention,
- *          keinen base_url, keine auth_kind — ein Call wäre unkontrolliert.
+ *          Rationale: without a profile there is no known API convention,
+ *          no base_url, no auth_kind — a call would be uncontrolled.
  *
  *   PRE-2  validateCoverage(requiredCaps, profile).ok === true
  *          → blocked: 'coverage-fail'
- *          Rationale (N6): deterministischer Coverage-Check vor jedem LLM oder
- *          Netzwerk. Eine fehlende Capability → der Connector kann den Auftrag
- *          nicht erfüllen; Fail-closed verhindert Partial-Execution.
+ *          Rationale (N6): deterministic coverage check before any LLM or
+ *          network. A missing capability → the connector cannot fulfill the
+ *          task; fail-closed prevents partial execution.
  *
  *   PRE-3  assertCallAllowed(provider, capability, buildHardenedToolset(...))
  *          → blocked: 'not-hardened'
- *          Rationale (S4, K1): die Capability muss im S4-gehärteten MCP-Toolset
- *          des Providers sein. K1-Tools (RAG, Bash, File) sind hier strukturell
- *          ausgeschlossen — auch wenn sie fälschlicherweise im Profil stehen.
+ *          Rationale (S4, K1): the capability must be in the provider's S4-hardened
+ *          MCP toolset. K1 tools (RAG, Bash, File) are structurally
+ *          excluded here — even if they are erroneously in the profile.
  *
  *   PRE-4  getTrust(scopeKind, workspaceId, provider) === 'auto'
- *          ODER args.approved === true
+ *          OR args.approved === true
  *          → blocked: 'awaiting-approval'
- *          Rationale (S6): jeder echte Call braucht Owner-Zustimmung. Default
- *          'ask' blockiert. Der Caller (ACL5-E) setzt approved:true nachdem der
- *          Owner die preview-Card bestätigt hat.
+ *          Rationale (S6): every real call needs owner consent. Default
+ *          'ask' blocks. The caller (ACL5-E) sets approved:true after the
+ *          owner has confirmed the preview card.
  *
  *   PRE-5  LAZYOS_CONNECTOR_LIVE === 'on'|'1'|'true'
- *          → wenn NICHT: Dry-Run (dryRun:true), kein Netzwerk.
- *          Rationale: Master-Schalter. Default ist off = nie echter Call.
- *          Der Owner flippt diesen Wert nach Review.
+ *          → if NOT: dry run (dryRun:true), no network.
+ *          Rationale: master switch. Default is off = never a real call.
+ *          The owner flips this value after review.
  *
  *   PRE-6  resolveApiCredential(workspaceId, userId, provider) !== null
  *          → blocked: 'credential-missing'
- *          Rationale: wird ERST JETZT aufgerufen — nach allen anderen Gates.
- *          Das Secret wird nur dann materialisiert wenn tatsächlich gecallt wird.
- *          Variable bleibt lokal im Call-Block, wird nicht zurückgegeben.
+ *          Rationale: called ONLY NOW — after all other gates.
+ *          The secret is materialized only when a call actually happens.
+ *          The variable stays local in the call block, is not returned.
  *
- * ─── Echter Call ──────────────────────────────────────────────────────────────
- *   Wenn LIVE on + alle PRE-1..4 ok + PRE-6 ok:
- *   Generischer fetch gegen profile.baseUrl + capability-endpoint.
- *   Auth-Header wird aus cred.kind + cred.secret gebaut (provider-agnostisch).
- *   cred.secret taucht NICHT in result, result_summary, logs oder audit auf.
- *   Nach dem Call: recordCallAudit('invoke', live:1, payloadHash, resultSummary).
+ * ─── Real call ────────────────────────────────────────────────────────────────
+ *   When LIVE on + all PRE-1..4 ok + PRE-6 ok:
+ *   Generic fetch against profile.baseUrl + capability endpoint.
+ *   The auth header is built from cred.kind + cred.secret (provider-agnostic).
+ *   cred.secret does NOT appear in result, result_summary, logs or audit.
+ *   After the call: recordCallAudit('invoke', live:1, payloadHash, resultSummary).
  *
  * @param args  InvokeArgs.
  * @returns     CallResult (BlockedCallResult | DryRunCallResult | LiveCallResult).
@@ -442,7 +442,7 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
   const requiredCaps = args.requiredCaps ?? [args.capability];
   const payloadHash = computePayloadHash(args.payload ?? {});
 
-  // ─── Shared helper: deny mit Audit-Row und geblockt zurückgeben ───────────
+  // ─── Shared helper: deny with an audit row and return blocked ─────────────
   const deny = (blocked: BlockedReason, detail: string): BlockedCallResult => {
     recordCallAudit({
       scopeKind,
@@ -460,7 +460,7 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     return { ok: false, blocked, detail, callId };
   };
 
-  // ─── PRE-1: Connector-Profil ──────────────────────────────────────────────
+  // ─── PRE-1: connector profile ─────────────────────────────────────────────
   const profile = getConnectorProfile(args.provider);
   if (!profile) {
     return deny(
@@ -470,7 +470,7 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     );
   }
 
-  // ─── PRE-2: Coverage-Prüfung (N6) ────────────────────────────────────────
+  // ─── PRE-2: coverage check (N6) ──────────────────────────────────────────
   const caps = listCapabilities(args.provider);
   const coverageProfile = {
     provider: args.provider,
@@ -486,7 +486,7 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     );
   }
 
-  // ─── PRE-3: S4 Tool-Hardening (K1-Deny, Provider-Namespace) ─────────────
+  // ─── PRE-3: S4 tool hardening (K1-Deny, provider namespace) ─────────────
   const s4Profile = buildConnectorProfileForS4(args.provider);
   const hardened = buildHardenedToolset(args.provider, s4Profile, requiredCaps);
   try {
@@ -499,7 +499,7 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     );
   }
 
-  // ─── PRE-4: S6-Gate — Trust 'auto' ODER Approval-Token ───────────────────
+  // ─── PRE-4: S6 gate — trust 'auto' OR approval token ─────────────────────
   const trust = getTrust(scopeKind, args.workspaceId, args.provider);
   const hasApproval = args.approved === true;
   if (trust !== "auto" && !hasApproval) {
@@ -510,9 +510,9 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     );
   }
 
-  // ─── PRE-5: Master-Schalter ───────────────────────────────────────────────
+  // ─── PRE-5: master switch ─────────────────────────────────────────────────
   if (!isLiveEnabled()) {
-    // Dry-Run: kein Netzwerk, klar gelabelt.
+    // Dry run: no network, clearly labeled.
     recordCallAudit({
       scopeKind,
       scopeId: args.workspaceId,
@@ -540,8 +540,8 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     };
   }
 
-  // ─── PRE-6: Credential-Resolution (ERST JETZT) ───────────────────────────
-  // Wichtig: wird nicht früher aufgerufen. Variable `cred` bleibt lokal.
+  // ─── PRE-6: credential resolution (ONLY NOW) ─────────────────────────────
+  // Important: not called earlier. The variable `cred` stays local.
   const cred = resolveApiCredential(args.workspaceId, args.userId, args.provider);
   if (!cred) {
     return deny(
@@ -551,19 +551,19 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     );
   }
 
-  // ─── Echter Call ──────────────────────────────────────────────────────────
-  // cred.secret wird AUSSCHLIESSLICH für den Auth-Header verwendet.
-  // Es taucht NICHT in result, result_summary, logs oder audit auf.
+  // ─── Real call ──────────────────────────────────────────────────────────
+  // cred.secret is used EXCLUSIVELY for the auth header.
+  // It does NOT appear in result, result_summary, logs or audit.
   const callStart = Date.now();
   let status = 0;
   let resultSummary = "";
   let callOk = false;
 
   try {
-    // Auth-Header provider-agnostisch aus auth_kind gebaut.
+    // Auth header built provider-agnostic from auth_kind.
     const authHeader = buildAuthHeader(profile.authKind, cred.secret);
 
-    // Endpoint: base_url + capability-Pfad (best-effort aus mcpTool-Tail).
+    // Endpoint: base_url + capability path (best-effort from the mcpTool tail).
     const capRow = caps.find((c) => c.name === args.capability);
     const endpointPath = capRow
       ? inferEndpointPath(args.capability, capRow.mcpToolName)
@@ -582,8 +582,8 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
 
     status = response.status;
     const duration = Date.now() - callStart;
-    // resultSummary enthält NIEMALS den Response-Body (N8, kein Leak).
-    // Nur Statuskode, Dauer und Größe (aus Content-Length).
+    // resultSummary NEVER contains the response body (N8, no leak).
+    // Only status code, duration and size (from Content-Length).
     const contentLength = response.headers.get("content-length");
     resultSummary =
       `status=${status} duration=${duration}ms` +
@@ -591,11 +591,11 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     callOk = response.ok;
   } catch (err) {
     const duration = Date.now() - callStart;
-    // Fehlertext: kein cred.secret, kein Payload (N8).
-    // ACL-5-D-Härtung (Finding 2): das konkrete resolvte Secret wird direkt
-    // aus dem Fehlertext per string-replace entfernt (stärkste Verteidigung),
-    // zusätzlich zur defensiven {12,}-Heuristik. cred.secret kann z.B. in einer
-    // TypeError-Message landen wenn fetch eine URL mit embedded credential baut.
+    // Error text: no cred.secret, no payload (N8).
+    // ACL-5-D hardening (Finding 2): the concrete resolved secret is removed
+    // directly from the error text via string-replace (strongest defense),
+    // in addition to the defensive {12,} heuristic. cred.secret can e.g. land in a
+    // TypeError message when fetch builds a URL with an embedded credential.
     resultSummary = `call-error after ${duration}ms: ${maskSensitiveFromError(
       err,
       cred.secret,
@@ -604,8 +604,8 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
     callOk = false;
   }
 
-  // N8 Audit-Row für invoke (live=1).
-  // payloadHash statt Payload (D3), resultSummary ohne Secret (D5).
+  // N8 audit row for invoke (live=1).
+  // payloadHash instead of payload (D3), resultSummary without secret (D5).
   recordCallAudit({
     scopeKind,
     scopeId: args.workspaceId,
@@ -642,19 +642,19 @@ export async function executeCall(args: InvokeArgs): Promise<CallResult> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Interne Call-Helpers (kein Aufruf von außen)
+// Internal call helpers (not called from outside)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut den Auth-Header aus auth_kind + Secret.
- * Secret fließt NUR in den HTTP-Header (nicht in Logs, nicht in Rückgabewerte).
+ * Builds the auth header from auth_kind + secret.
+ * The secret flows ONLY into the HTTP header (not into logs, not into return values).
  *
- * Unterstützte auth_kinds:
+ * Supported auth_kinds:
  *   api_key → 'X-API-Key: <secret>'
  *   pat     → 'Authorization: Bearer <secret>'
  *   oauth   → 'Authorization: Bearer <secret>'
  *   custom  → 'Authorization: Bearer <secret>' (best-effort)
- *   none    → {} (kein Auth-Header)
+ *   none    → {} (no auth header)
  */
 function buildAuthHeader(
   authKind: string,
@@ -670,17 +670,17 @@ function buildAuthHeader(
     case "none":
       return {};
     default:
-      // Unbekannte auth_kind: sicherheitshalber Bearer (versucht es zumindest).
+      // Unknown auth_kind: Bearer to be safe (at least it tries).
       return { Authorization: `Bearer ${secret}` };
   }
 }
 
 /**
- * Leitet einen Endpoint-Pfad aus dem Capability-Namen und MCP-Tool-Namen ab.
- * Best-effort: keiner dieser Werte enthält ein Secret.
+ * Derives an endpoint path from the capability name and MCP tool name.
+ * Best-effort: none of these values contains a secret.
  */
 function inferEndpointPath(capabilityName: string, mcpToolName: string | null): string {
-  // Wenn mcpToolName 'mcp__<provider>__<tool>' Format hat, Tail als Pfad nutzen.
+  // If mcpToolName has 'mcp__<provider>__<tool>' format, use the tail as the path.
   if (mcpToolName) {
     const parts = mcpToolName.split("__");
     if (parts.length >= 3) {
@@ -688,12 +688,12 @@ function inferEndpointPath(capabilityName: string, mcpToolName: string | null): 
       return `/${tail.replace(/_/g, "-")}`;
     }
   }
-  // Fallback: capability-name als Pfad (kebab-case).
+  // Fallback: capability name as the path (kebab-case).
   return `/${capabilityName.replace(/_/g, "-")}`;
 }
 
 /**
- * Formatiert eine Byte-Größe menschenlesbar.
+ * Formats a byte size human-readable.
  */
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}b`;
@@ -702,33 +702,33 @@ function formatSize(bytes: number): string {
 }
 
 /**
- * Maskiert potentiell sensitive Informationen aus Fehler-Texten.
- * Verhindert dass API-Keys oder URLs mit embedded credentials in Logs/Audit landen.
+ * Masks potentially sensitive information out of error texts.
+ * Prevents API keys or URLs with embedded credentials from ending up in logs/audit.
  *
- * ACL-5-D-Härtung (Finding 2), zwei Verteidigungsschichten:
- *   1. EXAKT-Replace des konkreten resolvten Secrets (stärkste Garantie): der
- *      aktuelle cred.secret wird wörtlich durch '••••' ersetzt, falls er
- *      (z.B. über eine embedded-credential-URL) im Fehlertext steht. Damit ist
- *      ein Leak des aktiven Secrets ausgeschlossen, unabhängig von der Heuristik.
- *   2. Defensive Heuristik: jeder zusammenhängende {12,}-Token aus
- *      [A-Za-z0-9_-] wird maskiert (Schwelle von 32 auf 12 gesenkt) — fängt
- *      auch kürzere Keys/Tokens ab, die NICHT der aktive cred.secret sind.
+ * ACL-5-D hardening (Finding 2), two defense layers:
+ *   1. EXACT replace of the concrete resolved secret (strongest guarantee): the
+ *      current cred.secret is literally replaced with '••••', if it
+ *      appears in the error text (e.g. via an embedded-credential URL). This rules out
+ *      a leak of the active secret, independent of the heuristic.
+ *   2. Defensive heuristic: every contiguous {12,} token of
+ *      [A-Za-z0-9_-] is masked (threshold lowered from 32 to 12) — also catches
+ *      shorter keys/tokens that are NOT the active cred.secret.
  *
- * @param err     Der gefangene Fehler.
- * @param secret  Das aktuelle resolvte Secret (für Schicht 1). Optional —
- *                wenn leer/undefined wird nur die Heuristik angewandt.
+ * @param err     The caught error.
+ * @param secret  The current resolved secret (for layer 1). Optional —
+ *                if empty/undefined only the heuristic is applied.
  */
 function maskSensitiveFromError(err: unknown, secret?: string): string {
   let msg = err instanceof Error ? err.message : String(err);
 
-  // Schicht 1: exakter Secret-Replace (nur wenn das Secret nicht-trivial ist).
+  // Layer 1: exact secret replace (only if the secret is non-trivial).
   if (secret && secret.length >= 4) {
-    // Globaler, escapeter Replace des Klartext-Secrets durch '••••'.
+    // Global, escaped replace of the plaintext secret with '••••'.
     const escaped = secret.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     msg = msg.replace(new RegExp(escaped, "g"), "••••");
   }
 
-  // Schicht 2: defensive Heuristik — lange hex/base64-ähnliche Strings maskieren.
-  // Schwelle auf {12,} gesenkt (war {32,}).
+  // Layer 2: defensive heuristic — mask long hex/base64-like strings.
+  // Threshold lowered to {12,} (was {32,}).
   return msg.replace(/[A-Za-z0-9_-]{12,}/g, "[masked]").slice(0, 200);
 }

@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * UserCorrectionCard — Welle 7 (2026-05-01)
+ * UserCorrectionCard — Wave 7 (2026-05-01)
  *
- * Kompakte Anzeige eines User-Inject während einer Sniper-Pause. User-
- * Befund 2026-05-01: 9 user-correction-Events sind heute nur Toast — ohne
- * Persistenz. Diese Card hält den User-Inject als sichtbaren Anker im
- * Stream, damit klar ist welcher Vn+1 auf welcher Korrektur basiert.
+ * Compact display of a user inject during a sniper pause. User
+ * finding 2026-05-01: 9 user-correction events are only a toast today — without
+ * persistence. This card holds the user inject as a visible anchor in the
+ * stream, so it is clear which Vn+1 is based on which correction.
  *
- * Token-bind: alle Werte aus app/components.css `.srf-user-correction__*`.
+ * Token bind: all values from app/components.css `.srf-user-correction__*`.
  */
 
 import type { ReactElement } from 'react';

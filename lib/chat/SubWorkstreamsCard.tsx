@@ -3,16 +3,16 @@
 /**
  * SubWorkstreamsCard — Sprint C (2026-04-29).
  *
- * Tree-View aller Sub-Workstreams unter einem Master. Pollt
- * `/api/workstreams/[id]/sub-workstreams` alle 2s. Pro Row:
- *   Role-Icon · Model-Badge · Live-Token-Counter · Status-Pill · Cost-Cents
+ * Tree view of all sub-workstreams under a master. Polls
+ * `/api/workstreams/[id]/sub-workstreams` every 2s. Per row:
+ *   role icon · model badge · live token counter · status pill · cost cents
  *
- * Klick auf eine Row springt zur tmux-Session via `/sessions/[name]` —
- * dort lebt die ttyd-Live-View.
+ * Clicking a row jumps to the tmux session via `/sessions/[name]` —
+ * the ttyd live view lives there.
  *
- * Keine Overlays, keine Modals — die Card ist Teil des Chat-Streams.
+ * No overlays, no modals — the card is part of the chat stream.
  *
- * Welle 3.2 — Refactored: Inline-Styles → CSS-Klassen + Token-Bind.
+ * Wave 3.2 — Refactored: inline styles → CSS classes + token bind.
  */
 
 import Link from 'next/link';
@@ -50,12 +50,12 @@ interface ApiResponse {
   };
 }
 
-// P1-2 Fix (2026-04-29): adaptives Polling.
-//   - Default-Tick alle ~4s (statt 2s) reicht fuer Live-Token-Updates.
-//   - Wenn alle Sub-Agents in Endzustand: auf 30s reduzieren (kein Burn
-//     mehr, nur Heartbeat).
-//   - Wenn der Tab im Hintergrund liegt: 5s warten und erneut pruefen,
-//     so vermeiden wir 1 Request alle 4s pro Hidden-Tab.
+// P1-2 Fix (2026-04-29): adaptive polling.
+//   - Default tick every ~4s (instead of 2s) is enough for live token updates.
+//   - When all sub-agents are in an end state: reduce to 30s (no more
+//     burn, just heartbeat).
+//   - When the tab is in the background: wait 5s and check again,
+//     this way we avoid 1 request every 4s per hidden tab.
 const POLL_INTERVAL_ACTIVE_MS = 4000;
 const POLL_INTERVAL_IDLE_MS = 30000;
 const POLL_INTERVAL_HIDDEN_MS = 5000;
@@ -72,7 +72,7 @@ function SubWorkstreamsCardImpl({
     let timer: number | null = null;
     async function tick(): Promise<void> {
       if (cancelled) return;
-      // Page-Visibility-Gate: bei verstecktem Tab nicht pollen.
+      // Page-visibility gate: do not poll when the tab is hidden.
       if (typeof document !== 'undefined' && document.hidden) {
         timer = window.setTimeout(tick, POLL_INTERVAL_HIDDEN_MS);
         return;
@@ -91,7 +91,7 @@ function SubWorkstreamsCardImpl({
         if (cancelled) return;
         setData(json);
         setError(null);
-        // Adaptiver Backoff: kein Live-Sub mehr → 30s.
+        // Adaptive backoff: no more live sub → 30s.
         if ((json.totals?.running ?? 0) === 0) {
           nextDelay = POLL_INTERVAL_IDLE_MS;
         }
@@ -201,7 +201,7 @@ function SubRow({ sub }: { sub: SubWorkstream }) {
   );
 
   if (sub.tmuxSessionId) {
-    // /sessions ist die Listen-Page; Query-Param highlightet die Row.
+    // /sessions is the list page; the query param highlights the row.
     return (
       <li className="srf-subws__row">
         <Link
@@ -225,14 +225,14 @@ function SubRow({ sub }: { sub: SubWorkstream }) {
 function inferSubStatus(
   sub: SubWorkstream,
 ): 'pending' | 'running' | 'done' | 'failed' | 'stuck' {
-  // Heuristik aus DB-Stand: tokens=0 + active + recent updatedAt = running.
-  // tokens=0 + active + älter = pending. tokens>0 + active = running.
+  // Heuristic from the DB state: tokens=0 + active + recent updatedAt = running.
+  // tokens=0 + active + older = pending. tokens>0 + active = running.
   // status='done' = done. status='paused' = failed. status='stuck' = stuck.
   if (sub.status === 'done') return 'done';
   if (sub.status === 'stuck') return 'stuck';
   if (sub.status === 'paused') return 'failed';
   if (sub.tokensIn + sub.tokensOut > 0) return 'running';
-  // active mit 0 Tokens — pending oder gerade erst gestartet.
+  // active with 0 tokens — pending or just started.
   return 'pending';
 }
 
@@ -251,7 +251,7 @@ function roleIcon(role: string): string {
   return '○';
 }
 
-// Sub-Plan E (2026-04-30) — React.memo. Beide Props primitiv.
+// Sub-Plan E (2026-04-30) — React.memo. Both props primitive.
 function subWorkstreamsPropsEqual(prev: Props, next: Props): boolean {
   return (
     prev.masterWorkstreamId === next.masterWorkstreamId &&

@@ -18,11 +18,11 @@ export const flowRuns = sqliteTable(
   "flow_runs",
   {
     id: text("id").primaryKey(),
-    /** welches Template lief (flow_templates.id). */
+    /** which template ran (flow_templates.id). */
     flowId: text("flow_id"),
-    /** ManifestCoord-Scope. */
+    /** ManifestCoord scope. */
     workspaceId: text("workspace_id"),
-    /** Brücke zum bestehenden tier-orchestrator (workstreams.id), NULL bis Start. */
+    /** Bridge to the existing tier orchestrator (workstreams.id), NULL until start. */
     workstreamId: text("workstream_id"),
     /** pending|running|done|failed|cancelled. */
     status: text("status").notNull().default("pending"),

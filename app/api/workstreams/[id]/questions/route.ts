@@ -1,16 +1,16 @@
 /**
  * GET /api/workstreams/[id]/questions — Sub-Plan 02 (2026-04-29).
  *
- * Extrahiert die `## Offene Fragen` Section aus dem letzten iterate-version-
- * Event-Payload des Workstreams. Plus: alle user-correction-Antworten seit
- * V_n damit das UI „beantwortet"-Status zeigen kann.
+ * Extracts the `## Offene Fragen` section from the workstream's last
+ * iterate-version event payload. Plus: all user-correction answers since
+ * V_n so the UI can show an "answered" status.
  *
  * Response:
  *   {
  *     workstreamId,
- *     fromVersion: number,                  // V_n des Plans
+ *     fromVersion: number,                  // V_n of the plan
  *     questions: Array<{ id, text }>,
- *     answers: Array<{ id?, text, ts }>     // user-correction-Events
+ *     answers: Array<{ id?, text, ts }>     // user-correction events
  *   }
  */
 
@@ -59,7 +59,7 @@ export async function GET(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // Letzten iterate-version-Event suchen — höchste Version, sonst created_at
+  // Find the last iterate-version event — highest version, otherwise created_at
   const planRow = db.$raw
     .prepare(
       `SELECT created_at,
@@ -88,7 +88,7 @@ export async function GET(
   const fromVersion = planRow.version ?? 0;
   const questions = parsePlanQuestions(planRow.text);
 
-  // Antworten: user-correction-Events seit Plan-Erstellung
+  // Answers: user-correction events since plan creation
   const answerRows = db.$raw
     .prepare(
       `SELECT created_at, json_extract(payload,'$.message') as msg

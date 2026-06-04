@@ -72,7 +72,7 @@ export interface FormField {
   placeholder?: string;
   helper?: string;
   options?: FormFieldOption[];
-  /** Sensitive: render type=password und nicht in reply()-Echo. */
+  /** Sensitive: render type=password and not in the reply() echo. */
   sensitive?: boolean;
 }
 
@@ -218,8 +218,8 @@ export function sanitizeReplyValues(
 }
 
 /**
- * Schema-Validierung (vor dem Render). Liefert null wenn ok, sonst eine
- * Fehler-Beschreibung warum das Schema verworfen werden sollte.
+ * Schema validation (before render). Returns null when ok, otherwise an
+ * error description of why the schema should be rejected.
  */
 export function validateFormSchema(schema: FormSchema | null): string | null {
   if (!schema) return 'Schema fehlt';

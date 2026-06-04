@@ -67,9 +67,9 @@ import type { ReactNode } from 'react';
 import { useSurfaceAction } from './SurfaceActionContext';
 
 /**
- * Inline „Magic-Wand"/Sparkles-Icon (ersetzt den vorigen Sparkles-Glyph). 24×24-viewBox,
- * currentColor, 1.6-Stroke, round caps — passt zur Nav-Icon-Familie. aria-hidden,
- * weil die umgebenden Spans/Buttons schon ein Label tragen.
+ * Inline „Magic-Wand"/sparkles icon (replaces the previous sparkles glyph). 24×24 viewBox,
+ * currentColor, 1.6 stroke, round caps — matches the nav-icon family. aria-hidden,
+ * because the surrounding spans/buttons already carry a label.
  */
 function MagicWandIcon({ size = 18 }: { size?: number }): ReactNode {
   return (
@@ -93,14 +93,14 @@ function MagicWandIcon({ size = 18 }: { size?: number }): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Trigger-Hook-Vertrag (Agent I Integrationspunkt)
+// Trigger-hook contract (Agent I integration point)
 // ---------------------------------------------------------------------------
 
 export type SurfaceRegenReason = 'render-null' | 'parse-error' | 'unknown-kind';
 export type SurfaceRegenIntent = 'generate' | 'correct';
 
 export interface SurfaceRegenRequest {
-  /** Warum das Surface heute nicht rendert. */
+  /** Why the surface does not render today. */
   reason: SurfaceRegenReason;
   /** The (possibly unknown / hallucinated) surface kind. */
   kind: string;
@@ -142,7 +142,7 @@ export function hasSurfaceRegenHandler(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Affordanz-Komponente
+// Affordance component
 // ---------------------------------------------------------------------------
 
 // Apple copy (feed cleanliness 2026-05-30): calm, without "Surface"/"the AI
@@ -182,10 +182,10 @@ export function SurfaceHelperAffordance({
     const req: SurfaceRegenRequest = { reason, kind, raw, intent };
     try {
       if (surfaceRegenHandler) {
-        // Agent-I-Pfad (generativ).
+        // Agent-I path (generative).
         await surfaceRegenHandler(req);
       } else {
-        // Fail-soft-Fallback: als normale Chat-Nachricht an den Agenten.
+        // Fail-soft fallback: as a normal chat message to the agent.
         const verb =
           intent === 'correct'
             ? 'Bitte korrigiere dieses Surface, sodass es korrekt angezeigt wird'
@@ -193,8 +193,8 @@ export function SurfaceHelperAffordance({
         reply(`${verb} (kind="${kind}", grund="${reason}"):\n\n${raw}`);
       }
     } catch {
-      // fail-soft — ein fehlgeschlagener (Re-)Gen-Trigger darf den Chat nie
-      // crashen. Der Owner kann erneut klicken.
+      // fail-soft — a failed (re-)gen trigger must never crash the chat.
+      // The owner can click again.
     } finally {
       setBusy(false);
     }

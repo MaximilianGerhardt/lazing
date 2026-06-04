@@ -1,20 +1,20 @@
 /**
  * POST /api/auth/2fa/verify
  *
- * Step-2 nach Magic-Link / Master-Code: User gibt 6-stelligen TOTP-Code
- * oder einen Recovery-Code ein.
+ * Step 2 after magic link / master code: the user enters a 6-digit TOTP code
+ * or a recovery code.
  *
  * Body: { pendingId: string, code: string }
  *
- *   - 6-stellig (`\d{6}$`) → TOTP-Verify gegen entschlüsseltes Secret.
- *   - 14-stellig mit `-` (`XXXX-XXXX-XXXX`) → Recovery-Code consume.
+ *   - 6 digits (`\d{6}$`) → TOTP verify against the decrypted secret.
+ *   - 14 chars with `-` (`XXXX-XXXX-XXXX`) → consume recovery code.
  *
- * Bei Erfolg: pendingToken löschen, Session via existing finalize-Pfad
- * issuen. (Aktuelle Iteration: Wir geben `{ ok, userId }` zurück und
- * lassen den Caller das Session-Cookie setzen — Magic-Link-Verify-
- * Handler kennt den Pfad. Sprint 3.2: integriert direkt im Magic-Link.)
+ * On success: delete the pendingToken, issue the session via the existing
+ * finalize path. (Current iteration: we return `{ ok, userId }` and
+ * let the caller set the session cookie — the magic-link verify
+ * handler knows the path. Sprint 3.2: integrated directly in the magic link.)
  *
- * Rate-Limit: 5 Versuche pro pendingToken (auth_2fa_pending.attempts).
+ * Rate limit: 5 attempts per pendingToken (auth_2fa_pending.attempts).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'totp-not-set' }, { status: 400 });
   }
 
-  // Pfad 1: Recovery-Code (Format XXXX-XXXX-XXXX, 12 hex)
+  // Path 1: recovery code (format XXXX-XXXX-XXXX, 12 hex)
   const isRecovery = /^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/i.test(body.code);
   if (isRecovery) {
     const consumed = consumeRecoveryCode(pending.userId, body.code);
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
   }
 
-  // Pfad 2: TOTP
+  // Path 2: TOTP
   if (!/^\d{6}$/.test(body.code)) {
     bumpPendingAttempts(body.pendingId);
     return NextResponse.json({ error: 'invalid-code-format' }, { status: 400 });

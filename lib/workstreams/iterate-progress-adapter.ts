@@ -1,26 +1,26 @@
 /**
- * Iterate-State → StageDescriptor[]-Adapter (Sub-Plan 5 Welle 2, 2026-05-01).
+ * Iterate state → StageDescriptor[] adapter (sub-plan 5 wave 2, 2026-05-01).
  *
- * Mapping V1..Vmax (Sniper-Loop) auf 5-State-Stepper:
+ * Maps V1..Vmax (sniper loop) onto the 5-state stepper:
  *
- *   - Stage pro Version (V1, V2, ..., Vmax)
+ *   - one stage per version (V1, V2, ..., Vmax)
  *   - currentVersion = State.lastVersion + (phase==='lead-vN' ? 0 : 1)
- *     Vereinfachung: wir akzeptieren pre-computed `currentVersion` vom
- *     Caller — der weiß die Phase besser als wir.
+ *     Simplification: we accept a pre-computed `currentVersion` from the
+ *     caller — it knows the phase better than we do.
  *   - n < currentVersion → 'done'
- *   - n === currentVersion → 'running' (außer bei isPaused)
+ *   - n === currentVersion → 'running' (except when isPaused)
  *   - n > currentVersion → 'pending'
- *   - isPaused + n === currentVersion → 'pending' mit Subtitle
- *     "Pause vor V{n}"  (Auto-Advance läuft)
+ *   - isPaused + n === currentVersion → 'pending' with subtitle
+ *     "Pause vor V{n}"  (auto-advance running)
  *   - aborted → currentVersion → 'failed'
  *
- * Phase als Sub-Step:
- *   - lead-vN: ein Sub-Step "Lead schreibt"
- *   - roast: ein Sub-Step "Roast aktiv" (mehrere Roaster zusammengefasst)
- *   - pause: ein Sub-Step "Pause" mit Sekunden-Countdown via subtitle
+ * Phase as a sub-step:
+ *   - lead-vN: one sub-step "Lead schreibt"
+ *   - roast: one sub-step "Roast aktiv" (several roasters combined)
+ *   - pause: one sub-step "Pause" with a seconds countdown via subtitle
  *
- * Out-of-scope: Roaster-Granularität (3-4 Agents) — Detail-Drilldown wäre
- * eigene Welle.
+ * Out-of-scope: roaster granularity (3-4 agents) — a detail drilldown would be
+ * its own wave.
  */
 
 import type { StageDescriptor, EtaBucket } from '@/lib/ui/pip';
@@ -32,19 +32,19 @@ export interface IterateProgressInput {
   currentVersion: number;
   maxVersion: number;
   phase: IteratePhase;
-  /** Wenn true → currentVersion-Stage ist 'pending' mit Pause-Subtitle. */
+  /** When true → the currentVersion stage is 'pending' with a pause subtitle. */
   isPaused: boolean;
-  /** Wenn true → aborted-State, currentVersion → failed. */
+  /** When true → aborted state, currentVersion → failed. */
   isAborted?: boolean;
-  /** Wenn true → komplett done, alle Stages → done. */
+  /** When true → fully done, all stages → done. */
   isCompleted?: boolean;
   /**
-   * Optional: Sekunden bis Pause-Ende. Wenn gesetzt + phase==='pause' →
-   * Subtitle "noch {N}s". Bei N <= 0 → "läuft an".
+   * Optional: seconds until the pause ends. When set + phase==='pause' →
+   * subtitle "noch {N}s". For N <= 0 → "läuft an".
    */
   pauseSecondsRemaining?: number;
   /**
-   * Optional: Sekunden seit Phase-Start (für eta-Bucket der active Stage).
+   * Optional: seconds since phase start (for the eta bucket of the active stage).
    */
   phaseElapsedMs?: number;
 }
@@ -112,7 +112,7 @@ export function iterateToStages(
       } else {
         status = 'running';
         etaBucket = bucketForElapsed(phaseElapsedMs);
-        // Sub-Step für Phase
+        // Sub-step for the phase
         sub.push({
           id: `iterate::v${n}::phase::${phase}`,
           label: phaseSubLabel(phase, n),

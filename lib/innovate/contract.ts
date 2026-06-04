@@ -1,42 +1,42 @@
 /**
- * Phase IN — Innovation-Button-Vertrag.
+ * Phase IN — Innovation-Button contract.
  *
- * Die Implementation ist bewusst nicht in dieser Session — wir liefern
- * nur Mockup-Page + 501-Skeleton + dokumentierten Vertrag, damit
- * Marketing-Screenshots + Future-Implementation klar sind.
+ * The implementation is deliberately not in this session — we ship
+ * only the mockup page + 501 skeleton + documented contract, so that
+ * marketing screenshots + the future implementation are clear.
  *
- * Vertrag (Future, Phase IN-Implement nach OSS-Launch):
+ * Contract (future, Phase IN-Implement after the OSS launch):
  *
  *   POST /api/innovate
  *
  *   Request:
  *   {
  *     scope: 'org' | 'workspace' | 'ticket' | 'tickets-list' | 'workstream',
- *     scopeId: string,                      // Org-/Workspace-/Ticket-/Workstream-ID
+ *     scopeId: string,                      // org/workspace/ticket/workstream ID
  *     personas: Array<'ux-analyst' | 'motion-director' | 'design-thinking'
  *                     | 'critic' | 'product-owner'>,
- *     hint?: string                         // Optional: User-Vorgabe
+ *     hint?: string                         // Optional: user hint
  *                                           // ("ich will mehr Whitespace", "darks first")
  *   }
  *
- *   Response (202 Accepted, sobald implementiert):
+ *   Response (202 Accepted, once implemented):
  *   {
- *     innovationId: string,                 // ULID — Tracking für Polling
+ *     innovationId: string,                 // ULID — tracking for polling
  *     status: 'queued',
  *     pollUrl: '/api/innovate/<innovationId>',
- *     etaSeconds: number                    // grobe Schätzung
+ *     etaSeconds: number                    // rough estimate
  *   }
  *
- *   Workflow (Future):
- *   1. n Designer-Agents spawnen parallel mit aktuellem UI-Snapshot + Brief
- *   2. Jeder schreibt 1 alternative Mockup-Spec (Apple-Keynote-Markdown +
- *      ggf. screenshotbare Komponenten-Specs)
- *   3. Cross-Roast-Phase analog Phase RA — Designs attackieren sich
- *   4. V_final-Mockups in 3-5 Karten an UI zurück
- *   5. User pickt eine, daraus werden Tickets generiert
+ *   Workflow (future):
+ *   1. spawn n designer agents in parallel with the current UI snapshot + brief
+ *   2. each writes 1 alternative mockup spec (Apple-Keynote markdown +
+ *      possibly screenshotable component specs)
+ *   3. Cross-Roast phase analogous to Phase RA — designs attack each other
+ *   4. V_final mockups returned to the UI as 3-5 cards
+ *   5. the user picks one, tickets are generated from it
  *
- *   Heute (501 Not Implemented): Endpoint existiert, dokumentiert den
- *   Vertrag, gibt Future-Phase im Body an.
+ *   Today (501 Not Implemented): the endpoint exists, documents the
+ *   contract, states the future phase in the body.
  */
 
 export type InnovateScope =
@@ -91,24 +91,24 @@ export const SCOPE_LABELS: Record<InnovateScope, string> = {
 };
 
 // ===========================================================================
-// Phase IN-Implement (Lane D · 2026-05-29 · Opus 4.8) — echte Engine.
+// Phase IN-Implement (Lane D · 2026-05-29 · Opus 4.8) — real engine.
 //
-// Der obige Vertrag (POST /api/innovate, 501-Marketing-Surface, Personas/
-// Scopes) bleibt UNVERAENDERT bestehen (app/api/innovate/route.ts + die
-// Mockup-Page haengen daran). Was hier FOLGT ist die tatsaechliche, lokal
-// aufrufbare Innovation-Engine — der „echte Inhalt" hinter dem Button.
+// The contract above (POST /api/innovate, 501 marketing surface, personas/
+// scopes) remains UNCHANGED (app/api/innovate/route.ts + the
+// mockup page depend on it). What FOLLOWS here is the actual, locally
+// callable innovation engine — the „echte Inhalt" behind the button.
 //
-// Sie erfuellt §10.2 Mechaniken (Annahmen offenlegen → umkehren → roasten) auf
-// BESTEHENDEM Substrat (N4):
-//   - assumption-map.ts  (Annahmen, §10.2.3)
-//   - reframe.ts         (Reframes,  §10.2.4)
-//   - contrarian-roast.ts(Roast,     §10.2.7 — counter-evidence-Surface wie
+// It fulfills §10.2 mechanics (surface assumptions → reverse → roast) on
+// EXISTING substrate (N4):
+//   - assumption-map.ts  (assumptions, §10.2.3)
+//   - reframe.ts         (reframes,    §10.2.4)
+//   - contrarian-roast.ts(roast,       §10.2.7 — counter-evidence surface like
 //                         lib/reasoning/reconcile.ts)
-//   - innovation_artifacts (0121, append-only Evidenz, N8/N10)
+//   - innovation_artifacts (0121, append-only evidence, N8/N10)
 //
-// callEngine ist injizierbar (Test stubt das LLM). Der Haupt-Agent ruft
-// runInnovate mit dem $raw-Handle + einem Engine-Adapter auf (Mode-Detection-
-// Vorschlag im Lane-D-Bericht).
+// callEngine is injectable (the test stubs the LLM). The main agent calls
+// runInnovate with the $raw handle + an engine adapter (mode-detection
+// suggestion in the Lane-D report).
 // ===========================================================================
 
 import { extractAssumptions } from './assumption-map';
@@ -119,16 +119,16 @@ import type { InnovationArtifact } from './artifacts-repo';
 type RawDb = import('better-sqlite3').Database;
 
 /**
- * Die 8 Innovation-Swarm-Rollen (Master-Briefing §10.3, verbatim N1). Als
- * Daten-Konstante exponiert (analog DIVERSITY_ROLES in
- * lib/agents/diversity-roles.ts), damit der Tier-Spawn / die UI die Rollen
- * deterministisch aufzaehlen kann. Welche Rolle welchen Engine-Call traegt,
- * entscheidet der Orchestrator; runInnovate deckt heute Historian-/First-
- * Principles-/Contrarian-/Critic-Anteile per LLM-Pipeline ab.
+ * The 8 innovation-swarm roles (Master-Briefing §10.3, verbatim N1). Exposed
+ * as a data constant (analogous to DIVERSITY_ROLES in
+ * lib/agents/diversity-roles.ts) so that the tier-spawn / the UI can
+ * enumerate the roles deterministically. Which role carries which engine call
+ * is decided by the orchestrator; runInnovate today covers the Historian/First-
+ * Principles/Contrarian/Critic shares via the LLM pipeline.
  */
 export interface InnovationSwarmRole {
   readonly name: string;
-  /** Die Leitfrage der Rolle, VERBATIM aus §10.3 (N1). */
+  /** The role's guiding question, VERBATIM from §10.3 (N1). */
   readonly question: string;
 }
 
@@ -145,34 +145,34 @@ export const INNOVATION_SWARM_ROLES: readonly InnovationSwarmRole[] = [
 
 export interface RunInnovateArgs {
   readonly workspaceId: string;
-  /** Der Ist-Zustand / Plan, der durch den Innovation-Mode geht (VERBATIM, N1). */
+  /** The current state / plan that goes through the innovation mode (VERBATIM, N1). */
   readonly rawText: string;
-  /** Engine-Adapter (injizierbar; Test stubt das LLM). */
+  /** Engine adapter (injectable; the test stubs the LLM). */
   readonly callEngine: (prompt: string) => Promise<string>;
 }
 
 export interface RunInnovateResult {
   readonly assumptions: readonly InnovationArtifact[];
   readonly reframes: readonly InnovationArtifact[];
-  /** Ein contrarian-roast je Reframe (nur die mit Gegen-Evidenz). */
+  /** One contrarian roast per reframe (only those with counter-evidence). */
   readonly roasts: readonly InnovationArtifact[];
   /**
-   * Die counter-evidence-Surface-Strings je geroastetem Reframe (Format wie
-   * reconcile.ts). Der Haupt-Agent emittiert sie in den Chat (R5: visuell
-   * getrennt, KEIN Antwort-Zwang).
+   * The counter-evidence surface strings per roasted reframe (format like
+   * reconcile.ts). The main agent emits them into the chat (R5: visually
+   * separated, NO forced reply).
    */
   readonly counterEvidenceSurfaces: readonly string[];
 }
 
 /**
- * Der Innovation-Mode-Durchlauf (§10.2 Schritte 3 → 4 → 7):
- *   1. Annahmen offenlegen (extractAssumptions).
- *   2. Annahmen umkehren  (generateReframes).
- *   3. Reframes roasten   (contrarianRoast je Reframe — counter-evidence).
+ * The innovation-mode pass (§10.2 steps 3 → 4 → 7):
+ *   1. Surface assumptions (extractAssumptions).
+ *   2. Reverse assumptions (generateReframes).
+ *   3. Roast reframes      (contrarianRoast per reframe — counter-evidence).
  *
- * Alle Artefakte landen append-only in innovation_artifacts (N8/N10), jede
- * Stufe verbatim (N1), deterministisch geparst (N6), workspace-scoped (N9).
- * Fail-soft auf jeder Stufe (eine malformte LLM-Antwort kippt den Run nicht).
+ * All artefacts land append-only in innovation_artifacts (N8/N10), every
+ * stage verbatim (N1), deterministically parsed (N6), workspace-scoped (N9).
+ * Fail-soft at every stage (a malformed LLM response does not topple the run).
  */
 export async function runInnovate(
   raw: RawDb,

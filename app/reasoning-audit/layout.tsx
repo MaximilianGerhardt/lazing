@@ -1,19 +1,19 @@
 /**
- * /reasoning-audit/* — Auth-Layout (Privacy-Sprint V5, 2026-05-01).
+ * /reasoning-audit/* — auth layout (Privacy-Sprint V5, 2026-05-01).
  *
- * Critic-VETO V5: Die /reasoning-audit/[id]-Page hatte einen Kommentar der
- * behauptete "requireSession via Layout" — aber kein Layout existierte.
- * Auth hing allein an der Edge-Middleware. Wenn die Middleware aus
- * irgend einem Grund nicht durchläuft (Matcher-Edge-Case, Build-Time-Render,
- * Bypass), war /reasoning-audit/[id] ungeschützt — und das Page-Rendering
- * würde audits aller Workspaces zeigen inkl. claimText.
+ * Critic-VETO V5: the /reasoning-audit/[id] page had a comment that
+ * claimed "requireSession via Layout" — but no layout existed.
+ * Auth hung solely on the Edge middleware. If the middleware for
+ * some reason does not run (matcher edge case, build-time render,
+ * bypass), /reasoning-audit/[id] was unprotected — and page rendering
+ * would show audits of all workspaces including claimText.
  *
- * Defense-in-Depth: dieses Layout läuft auf jeden Page-Render und
- * redirected unauthentisierte Requests nach /login. Keine Annahme, dass
- * die Edge bereits gefiltert hat.
+ * Defense-in-depth: this layout runs on every page render and
+ * redirects unauthenticated requests to /login. No assumption that
+ * the Edge has already filtered.
  *
- * Workspace-Membership-Filter findet zusätzlich auf der detail-page selbst
- * statt — siehe app/reasoning-audit/[id]/page.tsx.
+ * The workspace membership filter additionally happens on the detail page
+ * itself — see app/reasoning-audit/[id]/page.tsx.
  */
 
 import { headers } from "next/headers";

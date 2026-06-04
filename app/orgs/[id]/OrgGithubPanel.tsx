@@ -1,28 +1,28 @@
 "use client";
 
 /**
- * OrgGithubPanel — GitHub-Verbindung auf Org-Ebene (Slice D).
+ * OrgGithubPanel — GitHub connection at the org level (Slice D).
  *
- * Zustand:
- *   loading   — Status-Anfrage an GET /api/orgs/[id]/github läuft.
- *   idle      — nicht verbunden. PAT-Form (nur für Admins sichtbar).
- *   connected — Login + Avatar + Repo-Liste + Trennen-Button.
- *   error     — Status-Anfrage fehlgeschlagen.
+ * States:
+ *   loading   — status request to GET /api/orgs/[id]/github is running.
+ *   idle      — not connected. PAT form (only visible to admins).
+ *   connected — login + avatar + repo list + disconnect button.
+ *   error     — status request failed.
  *
- * Sicherheits-Gebot (spiegelt API-Konventionen):
- *   - Token-Feld vom Typ "password", wird nach erfolgreichem Submit sofort
- *     geleert. Token erscheint niemals im State nach dem Submit.
- *   - Disconnect setzt eine window.confirm-Barriere.
- *   - Nur Admins/Founder sehen das PAT-Formular und den Trennen-Button.
+ * Security requirement (mirrors API conventions):
+ *   - Token field of type "password", cleared immediately after a successful
+ *     submit. The token never appears in the state after the submit.
+ *   - Disconnect adds a window.confirm barrier.
+ *   - Only admins/founder see the PAT form and the disconnect button.
  *
- * Design: settings-hub-* Klassen (components.css), keine neuen Hex-Werte,
- * nur var(--…) Tokens. Ein primärer Button pro State (Jobs/Rams-Disziplin).
+ * Design: settings-hub-* classes (components.css), no new hex values,
+ * only var(--…) tokens. One primary button per state (Jobs/Rams discipline).
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useToast } from "@/lib/ui/tst/useToast";
 
-// ─── API-Shape-Typen (exakt wie die Route responses) ──────────────────────
+// ─── API shape types (exactly like the route responses) ──────────────────────
 
 interface StatusResponse {
   connected: boolean;
@@ -58,7 +58,7 @@ interface Props {
   isAdmin: boolean;
 }
 
-// ─── Status-Pill (spiegelt GithubSettingsClient) ────────────────────────────
+// ─── Status pill (mirrors GithubSettingsClient) ────────────────────────────
 
 type PillStatus = "ready" | "setup" | "off";
 
@@ -71,7 +71,7 @@ function StatusPill({ status, text }: { status: PillStatus; text: string }): Rea
   );
 }
 
-// ─── Repo-Zeile ─────────────────────────────────────────────────────────────
+// ─── Repo row ─────────────────────────────────────────────────────────────
 
 function RepoRow({ repo }: { repo: Repo }): React.JSX.Element {
   return (
@@ -107,20 +107,20 @@ function RepoRow({ repo }: { repo: Repo }): React.JSX.Element {
   );
 }
 
-// ─── Hauptkomponente ─────────────────────────────────────────────────────────
+// ─── Main component ─────────────────────────────────────────────────────────
 
 export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
   const toast = useToast();
 
-  // — Status-Lade-Phase —
+  // — Status loading phase —
   const [statusLoading, setStatusLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
 
-  // — Verbindungs-State —
+  // — Connection state —
   const [connected, setConnected] = useState(false);
   const [githubLogin, setGithubLogin] = useState<string | null>(null);
 
-  // — PAT-Formular —
+  // — PAT form —
   const [patValue, setPatValue] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -133,10 +133,10 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
   // — Disconnect —
   const [disconnecting, setDisconnecting] = useState(false);
 
-  // Verhindert doppelten Status-Fetch in StrictMode.
+  // Prevents a duplicate status fetch in StrictMode.
   const didFetch = useRef(false);
 
-  // ── Status laden ────────────────────────────────────────────────────────
+  // ── Load status ────────────────────────────────────────────────────────
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
     setStatusError(null);
@@ -158,7 +158,7 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
     }
   }, [orgId]);
 
-  // ── Repos laden ─────────────────────────────────────────────────────────
+  // ── Load repos ─────────────────────────────────────────────────────────
   const loadRepos = useCallback(async () => {
     setReposLoading(true);
     setReposError(null);
@@ -183,21 +183,21 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
     }
   }, [orgId]);
 
-  // ── Initial-Load ─────────────────────────────────────────────────────────
+  // ── Initial load ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (didFetch.current) return;
     didFetch.current = true;
     void loadStatus();
   }, [loadStatus]);
 
-  // ── Repos nach Connect/Status-Load laden ────────────────────────────────
+  // ── Load repos after connect/status load ────────────────────────────────
   useEffect(() => {
     if (connected && !statusLoading) {
       void loadRepos();
     }
   }, [connected, statusLoading, loadRepos]);
 
-  // ── PAT verbinden ────────────────────────────────────────────────────────
+  // ── Connect PAT ────────────────────────────────────────────────────────
   const submitPat = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -211,11 +211,11 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            // Token verlässt den Browser nur in diesem Request.
+            // The token leaves the browser only in this request.
             body: JSON.stringify({ token }),
           },
         );
-        // Token sofort aus dem State entfernen — unabhängig vom Ergebnis.
+        // Remove the token from the state immediately — regardless of the result.
         setPatValue("");
         const data = (await res.json()) as ConnectResponse;
         if (!res.ok) {
@@ -234,7 +234,7 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
     [orgId, patValue],
   );
 
-  // ── Verbindung trennen ───────────────────────────────────────────────────
+  // ── Disconnect ───────────────────────────────────────────────────
   const disconnect = useCallback(async () => {
     if (
       !window.confirm(
@@ -263,7 +263,7 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
     }
   }, [orgId, toast]);
 
-  // ─── Lade-Skeleton ────────────────────────────────────────────────────────
+  // ─── Loading skeleton ────────────────────────────────────────────────────────
   if (statusLoading) {
     return (
       <section className="settings-hub-card" aria-label="GitHub-Verbindung laden">
@@ -277,7 +277,7 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
     );
   }
 
-  // ─── Fehler beim Laden ────────────────────────────────────────────────────
+  // ─── Error while loading ────────────────────────────────────────────────────
   if (statusError) {
     return (
       <section className="settings-hub-card" aria-label="GitHub-Status-Fehler">
@@ -303,7 +303,7 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
     );
   }
 
-  // ─── Nicht verbunden ──────────────────────────────────────────────────────
+  // ─── Not connected ──────────────────────────────────────────────────────
   if (!connected) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -411,10 +411,10 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
     );
   }
 
-  // ─── Verbunden ────────────────────────────────────────────────────────────
+  // ─── Connected ────────────────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* Verbindungs-Card */}
+      {/* Connection card */}
       <section
         className="settings-hub-card"
         aria-labelledby="org-github-connected-title"
@@ -456,7 +456,7 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
         </div>
       </section>
 
-      {/* Repo-Liste */}
+      {/* Repo list */}
       <section
         className="settings-hub-card"
         aria-labelledby="org-github-repos-title"
@@ -534,7 +534,7 @@ export function OrgGithubPanel({ orgId, isAdmin }: Props): React.JSX.Element {
   );
 }
 
-// ─── Stile ────────────────────────────────────────────────────────────────────
+// ─── Styles ────────────────────────────────────────────────────────────────────
 
 const infoStyle: CSSProperties = {
   margin: 0,

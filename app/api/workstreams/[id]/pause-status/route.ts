@@ -1,16 +1,16 @@
 /**
  * GET /api/workstreams/[id]/pause-status
  *
- * Sniper-Live-Status. Liefert ob gerade ein Pause-Window läuft, wie lange
- * noch übrig ist, und nach welcher Phase es ist (roast / v2 / v3 / ...).
+ * Sniper live status. Returns whether a pause window is currently running, how
+ * much is still left, and after which phase it is (roast / v2 / v3 / ...).
  *
- * Implementation: schaut auf das jüngste `sniper-pause-start`-Event am
- * Master-Ticket. Wenn `created_at + durationMs > now`, wird die Differenz
- * als `remainingMs` zurückgegeben — und die Existenz späterer
- * `iterate-version`-Events nach dem Pause-Start beweist, dass die Pause
- * eigentlich schon vorbei ist (Lead-Spawn lief weiter).
+ * Implementation: looks at the most recent `sniper-pause-start` event on the
+ * master ticket. If `created_at + durationMs > now`, the difference is
+ * returned as `remainingMs` — and the existence of later
+ * `iterate-version` events after the pause start proves that the pause
+ * is actually already over (the lead spawn kept running).
  *
- * Auth: User muss eingeloggt + viewer im Workspace sein.
+ * Auth: the user must be logged in + a viewer in the workspace.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -69,8 +69,8 @@ export async function GET(
     });
   }
 
-  // Letztes pause-start ODER auto-dispatch-pause (Phase RA.4) — beide
-  // bedeuten „User hat ein Inject-Window".
+  // Last pause-start OR auto-dispatch-pause (Phase RA.4) — both
+  // mean "the user has an inject window".
   const pauseRow = db.$raw
     .prepare(
       `SELECT created_at, payload FROM events
@@ -83,9 +83,9 @@ export async function GET(
     )
     .get(ws.primary_ticket_id) as PauseEventRow | undefined;
 
-  // Roast-Active-Hint: gibt es iterate-version v1 aber noch keinen
-  // pause-start-Marker? Dann läuft gerade die Roast-Phase und der User
-  // soll wissen "korrigieren ist legitim, landet in V2".
+  // Roast-active hint: is there iterate-version v1 but still no
+  // pause-start marker? Then the roast phase is currently running and the user
+  // should know "correcting is legitimate, lands in V2".
   let phase: 'idle' | 'lead-v1' | 'roast' | 'v2-spawn' = 'idle';
   const v1Row = db.$raw
     .prepare(
@@ -109,8 +109,8 @@ export async function GET(
   if (v1Row && !roastRow) phase = 'lead-v1';
   if (v1Row && roastRow) phase = 'roast';
 
-  // Sub-Plan 04 Welle 2 (2026-04-29) — currentVersion + isFinal für
-  // IteratePipelineCard. maxVersion = höchste iterate-version im Ticket.
+  // Sub-Plan 04 wave 2 (2026-04-29) — currentVersion + isFinal for the
+  // IteratePipelineCard. maxVersion = highest iterate-version in the ticket.
   const maxVersionRow = db.$raw
     .prepare(
       `SELECT MAX(CAST(json_extract(payload,'$.version') AS INTEGER)) as v
@@ -121,7 +121,7 @@ export async function GET(
     )
     .get(ws.primary_ticket_id) as { v: number | null } | undefined;
   const currentVersion = maxVersionRow?.v ?? 0;
-  // isFinal = workstream.status='done' ODER Master.workflowState='review'+
+  // isFinal = workstream.status='done' OR Master.workflowState='review'+
   const masterRow = db.$raw
     .prepare("SELECT workflow_state FROM tickets WHERE id=?")
     .get(ws.primary_ticket_id) as { workflow_state: string | null } | undefined;
@@ -155,8 +155,8 @@ export async function GET(
       after?: string;
       kind?: string;
     };
-    // Phase RA.4: auto-dispatch-pause nutzt `pauseDurationMs`, sniper-
-    // pause-start nutzt `durationMs`. Wir akzeptieren beide.
+    // Phase RA.4: auto-dispatch-pause uses `pauseDurationMs`, sniper-
+    // pause-start uses `durationMs`. We accept both.
     durationMs = typeof p.durationMs === 'number'
       ? p.durationMs
       : typeof p.pauseDurationMs === 'number'
@@ -168,9 +168,9 @@ export async function GET(
     /* ignore */
   }
 
-  // Wurde nach dem Pause-Start schon eine neue iterate-version,
-  // synthesis oder auto-dispatch-cancelled/-overview emittet? Dann ist
-  // die Pause de-facto vorbei.
+  // Has a new iterate-version, synthesis or auto-dispatch-cancelled/-overview
+  // already been emitted after the pause start? Then the pause is
+  // de facto over.
   const nextVersionRow = db.$raw
     .prepare(
       `SELECT created_at FROM events

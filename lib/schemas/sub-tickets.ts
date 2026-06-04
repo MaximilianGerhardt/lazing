@@ -1,42 +1,42 @@
 /**
- * Sub-Ticket-Schema (Phase H · 2026-04-27)
+ * Sub-ticket schema (Phase H · 2026-04-27)
  * ----------------------------------------------------------------------
- * Strukturierter Output-Vertrag für den Lead-Synthesizer.
+ * Structured output contract for the lead synthesizer.
  *
- * Ersetzt das alte YAML-Freitext-Parsing (`parseSubTicketsBlock` in
- * `tier-orchestrator.ts`): YAML aus LLM-Output ist fragil — fehlende
- * Linebreaks, Quoting-Edge-Cases in Titles, halluzinierte Extra-Keys
- * brechen den gesamten Spawn-Pfad. Ab Phase H ist die JSON-Form
- * Source-of-Truth, der Markdown-`## Sub-Tickets`-Block wird **aus** dem
- * JSON gerendert (nicht umgekehrt parst).
+ * Replaces the old YAML free-text parsing (`parseSubTicketsBlock` in
+ * `tier-orchestrator.ts`): YAML from LLM output is fragile — missing
+ * line breaks, quoting edge cases in titles, hallucinated extra keys
+ * break the entire spawn path. From Phase H on, the JSON form is the
+ * source of truth; the markdown `## Sub-Tickets` block is rendered **from** the
+ * JSON (not parsed the other way around).
  *
- * Tool-Call-Schema-konform: Zod-Schema lässt sich direkt zu JSON-Schema
- * konvertieren (`zod-to-json-schema`) und in der Anthropic-Tool-Definition
- * als `input_schema` setzen. Die `.strict()`-Modus auf den Items verhindert,
- * dass das Modell Extra-Keys erfindet, die wir später still droppen würden.
+ * Tool-call-schema-compliant: the Zod schema can be converted directly to JSON-Schema
+ * (`zod-to-json-schema`) and set as `input_schema` in the Anthropic tool definition.
+ * The `.strict()` mode on the items prevents
+ * the model from inventing extra keys that we would later drop silently.
  *
- * Limits (konsolidierter Plan, Open-Question 3):
- *   - Hard-Cap 12 Items (P2/P3 werden bei >12 verworfen, nicht der ganze
- *     Run; siehe `MAX_SUB_TICKETS`).
- *   - Title 3-120 chars (kein leerer/Riesen-String).
- *   - Body bis 4000 chars (genug für 2-4 Sätze + Akzeptanzkriterium).
- *   - Prio strikt P0|P1|P2|P3 (kein P4, kein "high", kein Freetext).
+ * Limits (consolidated plan, open-question 3):
+ *   - Hard cap 12 items (P2/P3 are dropped at >12, not the whole
+ *     run; see `MAX_SUB_TICKETS`).
+ *   - Title 3-120 chars (no empty/giant string).
+ *   - Body up to 4000 chars (enough for 2-4 sentences + acceptance criterion).
+ *   - Prio strictly P0|P1|P2|P3 (no P4, no "high", no free text).
  */
 
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
-// Konstanten — single source of truth, importable für Worker + UI
+// Constants — single source of truth, importable for worker + UI
 // ---------------------------------------------------------------------------
 
-/** Hard-Cap für Sub-Tickets pro Synthesis-Run. Über-Plan: P2/P3 droppen. */
+/** Hard cap for sub-tickets per synthesis run. Over-plan: drop P2/P3. */
 export const MAX_SUB_TICKETS = 12;
 
 export const SUB_TICKET_TITLE_MIN = 3;
 export const SUB_TICKET_TITLE_MAX = 120;
 export const SUB_TICKET_BODY_MAX = 4000;
 
-/** Prio-Reihenfolge für Truncation: P0 zuerst behalten, P3 zuerst werfen. */
+/** Prio order for truncation: keep P0 first, drop P3 first. */
 const PRIO_ORDER: Record<SubTicketPrio, number> = {
   P0: 0,
   P1: 1,
@@ -52,11 +52,11 @@ export const SubTicketPrioSchema = z.enum(["P0", "P1", "P2", "P3"]);
 export type SubTicketPrio = z.infer<typeof SubTicketPrioSchema>;
 
 /**
- * Einzelnes Sub-Ticket. `.strict()` verhindert Halluzinations-Keys.
+ * A single sub-ticket. `.strict()` prevents hallucination keys.
  *
- * Felder bewusst flach: title/prio/body, nichts sonst. `tags`,
- * `assignee`, `due` werden NICHT vom Synthesizer befüllt — die erbt
- * der Worker vom Parent-Ticket bzw. setzt sie als `auto-generated`.
+ * Fields deliberately flat: title/prio/body, nothing else. `tags`,
+ * `assignee`, `due` are NOT populated by the synthesizer — the
+ * worker inherits them from the parent ticket or sets them as `auto-generated`.
  */
 export const SubTicketItemSchema = z
   .object({
@@ -75,10 +75,10 @@ export const SubTicketItemSchema = z
 export type SubTicketItem = z.infer<typeof SubTicketItemSchema>;
 
 /**
- * Wrapper-Schema für den Tool-Call-Output. Das Modell ruft das Tool
- * `emit_sub_tickets` mit `{ items: [...] }`. Der äußere Wrapper macht
- * den Tool-Call-Vertrag stabil, falls wir später Top-Level-Felder
- * wie `summary` oder `consensusLevel` hinzufügen wollen.
+ * Wrapper schema for the tool-call output. The model calls the tool
+ * `emit_sub_tickets` with `{ items: [...] }`. The outer wrapper makes
+ * the tool-call contract stable in case we later want to add top-level fields
+ * like `summary` or `consensusLevel`.
  */
 export const SubTicketsOutputSchema = z
   .object({
@@ -91,18 +91,18 @@ export const SubTicketsOutputSchema = z
 export type SubTicketsOutput = z.infer<typeof SubTicketsOutputSchema>;
 
 /**
- * Schema für die `payload.subTickets`-Liste auf dem **Outbox-Event**
- * `sub-tickets-planned`. Identisch zu SubTicketItem, separat exportiert
- * damit der Worker nicht das LLM-Tool-Call-Schema importiert.
+ * Schema for the `payload.subTickets` list on the **outbox event**
+ * `sub-tickets-planned`. Identical to SubTicketItem, exported separately
+ * so the worker does not import the LLM tool-call schema.
  */
 export const PlannedSubTicketSchema = SubTicketItemSchema;
 export type PlannedSubTicket = SubTicketItem;
 
 /**
- * Vollständiges Outbox-Event-Payload für `sub-tickets-planned`.
- * Wird vom Tier-Orchestrator emittiert, vom Sub-Ticket-Spawner-Worker
- * konsumiert. `synthesisHash` = sha256 der Synthesis-Roh-Outputs +
- * Master-ID, dient als Idempotenz-Anker für Crash-Resume.
+ * Full outbox-event payload for `sub-tickets-planned`.
+ * Emitted by the tier orchestrator, consumed by the sub-ticket-spawner
+ * worker. `synthesisHash` = sha256 of the raw synthesis outputs +
+ * master ID, serves as the idempotency anchor for crash-resume.
  */
 export const SubTicketsPlannedPayloadSchema = z
   .object({
@@ -112,7 +112,7 @@ export const SubTicketsPlannedPayloadSchema = z
     synthesisHash: z.string().regex(/^[a-f0-9]{64}$/, "expect sha256 hex"),
     promptVersion: z.string().min(1).max(40),
     items: z.array(PlannedSubTicketSchema).min(1).max(MAX_SUB_TICKETS),
-    /** Trace-ID-Verkettung (Cross-Cutting Sub-Ticket im Plan). */
+    /** Trace-ID chaining (cross-cutting sub-ticket in the plan). */
     traceId: z.string().min(1).max(64).optional(),
   })
   .strict();
@@ -125,12 +125,12 @@ export type SubTicketsPlannedPayload = z.infer<
 // ---------------------------------------------------------------------------
 
 /**
- * Wendet den 12-Item-Hard-Cap an. P0/P1 werden zuerst behalten,
- * P2/P3-Überschuss wird verworfen. Behält die Original-Reihenfolge
- * innerhalb gleicher Prio (stabil).
+ * Applies the 12-item hard cap. P0/P1 are kept first,
+ * the P2/P3 surplus is dropped. Preserves the original order
+ * within the same prio (stable).
  *
- * Gibt das ggf. gekürzte Array + Liste der gedroppten Titles zurück
- * (für Logging/Audit-Trail).
+ * Returns the possibly-shortened array + a list of the dropped titles
+ * (for logging/audit trail).
  */
 export function capSubTickets(items: SubTicketItem[]): {
   kept: SubTicketItem[];
@@ -155,13 +155,13 @@ export function capSubTickets(items: SubTicketItem[]): {
 }
 
 /**
- * JSON-Schema-Repräsentation des Tool-Call-Inputs für die Anthropic-API.
- * Keine externe Dependency — wir schreiben die JSON-Schema-Form von Hand,
- * weil das Schema klein ist und `zod-to-json-schema` einen 200kb-Tail
- * an die Server-Bundle hängt. Wenn das Schema oben angepasst wird,
- * MUSS dieser Block hier mitgepflegt werden — entsprechende Test in
- * `lib/schemas/sub-tickets.spec.ts` (Phase H+I T-Plan) prüft Schema
- * vs. JSON-Schema-Form auf Drift.
+ * JSON-Schema representation of the tool-call input for the Anthropic API.
+ * No external dependency — we write the JSON-Schema form by hand,
+ * because the schema is small and `zod-to-json-schema` appends a 200kb tail
+ * to the server bundle. When the schema above is adjusted,
+ * this block here MUST be maintained too — the corresponding test in
+ * `lib/schemas/sub-tickets.spec.ts` (Phase H+I T-plan) checks the schema
+ * vs. the JSON-Schema form for drift.
  */
 export const SUB_TICKETS_TOOL_JSON_SCHEMA = {
   type: "object",
@@ -195,9 +195,9 @@ export const SUB_TICKETS_TOOL_JSON_SCHEMA = {
 } as const;
 
 /**
- * Tool-Definition fürs LLM (Anthropic-Format). Kann direkt in den
- * `tools`-Array bei `messages.create` gegeben werden. Der Server liest
- * dann `tool_use.input` und gibt es in `SubTicketsOutputSchema.parse()`.
+ * Tool definition for the LLM (Anthropic format). Can be passed directly into the
+ * `tools` array at `messages.create`. The server then reads
+ * `tool_use.input` and feeds it into `SubTicketsOutputSchema.parse()`.
  */
 export const SUB_TICKETS_TOOL_DEFINITION = {
   name: "emit_sub_tickets",
@@ -211,10 +211,10 @@ export const SUB_TICKETS_TOOL_DEFINITION = {
 } as const;
 
 /**
- * Safe-parse + Cap. Konvenienz-Funktion für den Tier-Orchestrator:
- * nimmt den rohen `tool_use.input`, validiert, kürzt auf 12. Bei
- * Schema-Drift returned `{ ok: false, issues }` — der Caller entscheidet
- * dann ob `synthesis-malformed` emittiert wird.
+ * Safe-parse + cap. Convenience function for the tier orchestrator:
+ * takes the raw `tool_use.input`, validates, truncates to 12. On
+ * schema drift it returns `{ ok: false, issues }` — the caller then decides
+ * whether `synthesis-malformed` is emitted.
  */
 export function parseAndCapSubTickets(
   raw: unknown,

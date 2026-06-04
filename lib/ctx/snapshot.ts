@@ -1,11 +1,11 @@
 /**
- * Phase CTX — Compact-with-Snapshot.
+ * Phase CTX — compact-with-snapshot.
  *
- * Liefert einen Markdown-Block, der den aktuellen Stand eines Workspaces
- * komprimiert. Kein Claude-Spawn — pure data-driven (Phase 1). Spätere
- * Phasen können einen Lead-Agent dazwischen schalten.
+ * Returns a Markdown block that compresses the current state of a workspace.
+ * No Claude spawn — pure data-driven (Phase 1). Later
+ * phases can interpose a lead agent.
  *
- * Verwendung:
+ * Usage:
  *   const block = buildSnapshot({ workspaceId, userId });
  *   prependPlanSnapshot('/root/.claude/plans/active.md', block);
  */
@@ -19,15 +19,15 @@ export interface SnapshotInput {
 }
 
 export interface SnapshotResult {
-  /** ISO-String, beginnt mit `## Stand <ISO>`. */
+  /** ISO string, begins with `## Stand <ISO>`. */
   block: string;
-  /** Plain-Text-Summary für Chat-Toast (max 300 Zeichen). */
+  /** Plain-text summary for the chat toast (max 300 chars). */
   summary: string;
-  /** Anzahl der einbezogenen Events. */
+  /** Number of included events. */
   eventCount: number;
 }
 
-/** Async-Version (nutzt event-sourced ticket-Projection). */
+/** Async version (uses the event-sourced ticket projection). */
 export async function buildSnapshotAsync(
   input: SnapshotInput,
 ): Promise<SnapshotResult> {
@@ -65,14 +65,14 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
   const now = new Date();
   const isoNow = now.toISOString();
 
-  // 1. Workspace-Header
+  // 1. Workspace header
   const wsRow = db.$raw
     .prepare("SELECT id, label, description FROM workspaces WHERE id = ?")
     .get(input.workspaceId) as WorkspaceRow | undefined;
   const wsLabel = wsRow?.label ?? input.workspaceId;
   const wsDesc = wsRow?.description ?? null;
 
-  // 2. Letzte 30 chat_message-Events
+  // 2. Last 30 chat_message events
   const chatRows = db.$raw
     .prepare(
       `SELECT id, event_type, payload, created_at
@@ -84,9 +84,9 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
     )
     .all(input.workspaceId) as ChatMessageRow[];
 
-  // 3. Aktive Tickets (workflowState in review/approved/executing).
-  // Tickets sind event-sourced — wir gehen über listTickets/projectTickets
-  // statt eine `tickets`-Tabelle zu queryen (die existiert nicht).
+  // 3. Active tickets (workflowState in review/approved/executing).
+  // Tickets are event-sourced — we go via listTickets/projectTickets
+  // instead of querying a `tickets` table (which does not exist).
   let ticketRowsLite: TicketProjectionLite[] = [];
   try {
     const all = await listTickets({ workspaceId: input.workspaceId, limit: 200 });
@@ -108,10 +108,10 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
       )
       .slice(0, 20);
   } catch {
-    /* noop — Snapshot bleibt ohne Tickets-Sektion */
+    /* noop — the snapshot stays without a tickets section */
   }
 
-  // 4. Aktive Workstreams
+  // 4. Active workstreams
   const wsRows = db.$raw
     .prepare(
       `SELECT id, name, status, updated_at
@@ -123,7 +123,7 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
     )
     .all(input.workspaceId) as WorkstreamRow[];
 
-  // --- Markdown bauen ---
+  // --- Build Markdown ---
   const lines: string[] = [];
   lines.push(`## Stand ${isoNow}`);
   lines.push("");
@@ -131,7 +131,7 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
   if (wsDesc) lines.push(`**Beschreibung:** ${wsDesc}`);
   lines.push("");
 
-  // Aktive Tickets
+  // Active tickets
   if (ticketRowsLite.length > 0) {
     lines.push("### Aktive Tickets");
     for (const t of ticketRowsLite) {
@@ -141,7 +141,7 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
     lines.push("");
   }
 
-  // Aktive Workstreams
+  // Active workstreams
   if (wsRows.length > 0) {
     lines.push("### Aktive Workstreams");
     for (const w of wsRows) {
@@ -150,7 +150,7 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
     lines.push("");
   }
 
-  // Letzte Chat-Aktivität
+  // Last chat activity
   if (chatRows.length > 0) {
     lines.push(`### Letzte ${chatRows.length} Chat-Events`);
     for (const ev of chatRows.slice(0, 10)) {
@@ -192,8 +192,8 @@ async function buildSnapshotInternal(input: SnapshotInput): Promise<SnapshotResu
 }
 
 /**
- * Sync-Wrapper für Backward-Compat. Liefert ein Promise — Caller muss
- * awaiten. Behält den Original-Namen damit existing imports nicht brechen.
+ * Sync wrapper for backward compat. Returns a Promise — the caller must
+ * await it. Keeps the original name so existing imports do not break.
  */
 export function buildSnapshot(input: SnapshotInput): Promise<SnapshotResult> {
   return buildSnapshotInternal(input);

@@ -1,30 +1,30 @@
 // Plan-First mode — LLM-driven plan proposer for COMPLEX programming intents.
 //
-// BACKPORT-03 von Lazing-V2 (2026-05-23 · Agent 3/8).
-// Quelle: lazing-wt/realtime-orchestrator-v2/apps/web/src/lib/plan-first/
+// BACKPORT-03 from Lazing-V2 (2026-05-23 · agent 3/8).
+// Source: lazing-wt/realtime-orchestrator-v2/apps/web/src/lib/plan-first/
 //         orchestrate-plan.ts (330 LOC, V2 Slice C).
 //
-// Für komplexe Programmier-Intents erwartet der Operator:
+// For complex programming intents the operator expects:
 //
-//   1. Das Plan-Surface erscheint ZUERST (noch kein Code läuft, nur ein Plan).
-//   2. Der Operator approved/editiert den Plan.
-//   3. Approved Plan-Steps spawnen parallele Coder-Subagents — jeder Step
-//      wird zu einer eigenen Subdispatch.
+//   1. The plan surface appears FIRST (no code runs yet, just a plan).
+//   2. The operator approves/edits the plan.
+//   3. Approved plan steps spawn parallel coder subagents — each step
+//      becomes its own subdispatch.
 //
-// Dieses Modul besitzt Schritt (1): gegeben das verbatim User-Intent ruft es
-// das Routing-LLM mit einem plan-shaped Prompt und gibt eine geparste,
-// validierte `ProposedPlan` zurück. Schritt (3) ist die approve-plan-route,
-// die den (möglicherweise editierten) Plan in Follow-up-Intents umwandelt
-// und in die reguläre `dispatchIntent`-Pipeline einspeist.
+// This module owns step (1): given the verbatim user intent, it calls
+// the routing LLM with a plan-shaped prompt and returns a parsed,
+// validated `ProposedPlan`. Step (3) is the approve-plan route,
+// which turns the (possibly edited) plan into follow-up intents
+// and feeds them into the regular `dispatchIntent` pipeline.
 //
 // Discipline:
-//   - N1: jeder PlanStep.title + rationale ist VERBATIM aus der LLM-Emission —
-//     wir formatieren NICHT um, sliceн NICHT. Das ProposedPlan trägt
-//     `originalIntent` 1:1 vom Operator.
-//   - N6: deterministischer JSON-Validator (`parseProposedPlan`) gated den
-//     LLM-Output vor jedem Dispatch. Hard-Fail bei malformed shape, missing
+//   - N1: every PlanStep.title + rationale is VERBATIM from the LLM emission —
+//     we do NOT reformat, do NOT slice. The ProposedPlan carries
+//     `originalIntent` 1:1 from the operator.
+//   - N6: a deterministic JSON validator (`parseProposedPlan`) gates the
+//     LLM output before every dispatch. Hard-fail on malformed shape, missing
 //     fields, wrong types.
-//   - N11: max 7 Steps (small/fast iteration loop; bei mehr trunc'en wir).
+//   - N11: max 7 steps (small/fast iteration loop; we truncate beyond that).
 
 import { randomUUID } from 'node:crypto';
 
@@ -86,7 +86,7 @@ export interface ProposedPlan {
   readonly proposedAt: number;
 }
 
-/** Engine-side error — das Routing-LLM hat einen ungültigen Plan emittiert. */
+/** Engine-side error — the routing LLM emitted an invalid plan. */
 export class PlanValidationError extends Error {
   constructor(public readonly code: string, message: string) {
     super(message);
@@ -95,9 +95,9 @@ export class PlanValidationError extends Error {
 }
 
 /**
- * Build the plan-designer prompt. Deutsch + scharf per Task-Spec.
- * Exported damit Tests den Wortlaut prüfen können (N1 — wir müssen
- * Paraphrasierung des Operator-Intents explizit verbieten).
+ * Build the plan-designer prompt. German + sharp per the task spec.
+ * Exported so tests can check the wording (N1 — we must
+ * explicitly forbid paraphrasing of the operator intent).
  */
 export function buildPlanPrompt(intentText: string): string {
   return [
@@ -275,13 +275,13 @@ export function parseProposedPlan(
 /**
  * Build a proposed plan by calling the routing LLM and parsing its
  * output. `callEngine` is injected so the route can supply a wired-up
- * Ollama/Codex/Claude-cli adapter ohne dass dieses Modul eine harte
- * Dep auf das adapter package nimmt.
+ * Ollama/Codex/Claude-cli adapter without this module taking a hard
+ * dependency on the adapter package.
  *
- * Engine choice (N11): die Route SOLLTE einen llama3-Caller für
- * small/medium Intents übergeben und einen deepseek-r1:14b-Caller für
- * XL Intents — aber wir lassen die Entscheidung dem Caller, diese
- * Funktion ist engine-agnostisch.
+ * Engine choice (N11): the route SHOULD pass a llama3 caller for
+ * small/medium intents and a deepseek-r1:14b caller for
+ * XL intents — but we leave the decision to the caller; this
+ * function is engine-agnostic.
  */
 export async function proposePlan(
   intentText: string,
@@ -290,22 +290,22 @@ export async function proposePlan(
     readonly mintId?: () => string;
     readonly now?: () => number;
     /**
-     * P0.3a — Self-Learning / WARUM-Engine (2026-05-27). Ein bereits gerenderter
-     * WARUM-Block (lib/reasoning/why-context.ts::renderWhyContextForPrompt) mit
-     * früheren Begründungen + aktiven Beliefs dieses Workspace. Wenn gesetzt +
-     * nicht leer, wird er dem buildPlanPrompt-Output VORANGESTELLT — analog wie
-     * compose.ts es im Default-Decompose macht — damit der Plan-Proposer nicht
-     * amnesisch startet, sondern konsistent begründet empfiehlt ("wir haben X
-     * gewählt, weil … letztes Mal").
+     * P0.3a — self-learning / WHY engine (2026-05-27). An already-rendered
+     * WHY block (lib/reasoning/why-context.ts::renderWhyContextForPrompt) with
+     * earlier rationales + active beliefs of this workspace. When set +
+     * non-empty, it is PREPENDED to the buildPlanPrompt output — analogous to how
+     * compose.ts does it in the default decompose — so the plan proposer does not
+     * start amnesic but recommends with consistent reasoning ("we chose X,
+     * because … last time").
      *
-     * KEINE DB-Kopplung: dieses Modul liest NIE selbst — der String kommt fertig
-     * vom Caller (der das workspace-gescopte Read-Back besitzt, N9). Fehlt der
-     * Parameter ODER ist er leer/whitespace, ist der an die Engine gereichte
-     * Prompt BIT-IDENTISCH zu vorher (bestehende Caller/Tests unverändert).
+     * NO DB coupling: this module NEVER reads itself — the string arrives ready
+     * from the caller (which owns the workspace-scoped read-back, N9). If the
+     * parameter is missing OR empty/whitespace, the prompt handed to the engine
+     * is BIT-IDENTICAL to before (existing callers/tests unchanged).
      *
-     * N6: Der WARUM-Block ist NUR LLM-Kontext. Der deterministische
-     * parseProposedPlan-Validator läuft danach unverändert — der Kontext kann
-     * den Validator nicht umgehen.
+     * N6: the WHY block is ONLY LLM context. The deterministic
+     * parseProposedPlan validator runs afterward unchanged — the context cannot
+     * bypass the validator.
      */
     readonly whyContext?: string;
   } = {},
@@ -317,8 +317,8 @@ export async function proposePlan(
     );
   }
   const basePrompt = buildPlanPrompt(intentText);
-  // P0.3a: WARUM-Block voranstellen (nur wenn nicht leer). Leerer/fehlender
-  // whyContext ⇒ bit-identischer Prompt (Identitäts-Pfad).
+  // P0.3a: prepend the WHY block (only when non-empty). Empty/missing
+  // whyContext ⇒ bit-identical prompt (identity path).
   const why = typeof opts.whyContext === 'string' ? opts.whyContext.trim() : '';
   const prompt = why.length === 0 ? basePrompt : `${why}\n\n${basePrompt}`;
   const raw = await callEngine(prompt);
@@ -329,13 +329,13 @@ export async function proposePlan(
  * Thin wrapper around `proposePlan` that captures the parent step +
  * recursion depth so the call-site is uniform with
  * `recursive-plan.proposeLazySubplan`. Use case: routes (e.g.
- * approve-plan) die nicht die volle Recursive-Plan-Proposer-Dep
- * brauchen, können einen Subplan über diesen Helfer aufdrehen während
- * sie den Parent-Kontext an den per-lane LLM-Prompt durchreichen.
+ * approve-plan) that don't need the full recursive-plan-proposer
+ * dependency can spin up a subplan via this helper while
+ * passing the parent context through to the per-lane LLM prompt.
  *
- * Der Wrapper enriched den Intent-Text mit Parent-Step-Title +
- * Rationale damit das LLM den verbatim Parent-Kontext (N1) hat —
- * praktisch wenn der User "expand subplan for step X" im UI klickt.
+ * The wrapper enriches the intent text with the parent step title +
+ * rationale so the LLM has the verbatim parent context (N1) —
+ * handy when the user clicks "expand subplan for step X" in the UI.
  */
 export async function proposeSubplan(
   parentStep: PlanStep,

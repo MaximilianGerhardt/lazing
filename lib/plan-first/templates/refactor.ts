@@ -1,6 +1,6 @@
 // Plan template — refactor (4 steps).
 //
-// BACKPORT-03 von Lazing-V2 (2026-05-23). Bytewise identisch zur V2-Quelle.
+// BACKPORT-03 from Lazing-V2 (2026-05-23). Bytewise identical to the V2 source.
 //
 // Equivalence-preserving restructure. The hallmark step is
 // `verify-equivalence` — characterisation tests + diff review confirm

@@ -529,7 +529,7 @@ export async function renameArtifact(
 
 export interface MoveArtifactInput {
   artifactId: string;
-  /** Neue folder_id; null = root des Workspaces. */
+  /** New folder_id; null = root of the workspace. */
   targetFolderId: string | null;
   actor: string;
 }
@@ -587,8 +587,8 @@ export async function renameFolder(
   if (!cleanName) {
     throw new CloudError("Folder-Name ungültig.", "validation");
   }
-  // Materialized-Path-Update: alter prefix → neuer prefix in allen
-  // Nachfahren. SQLite-LIKE-Replace via raw SQL.
+  // Materialized-path update: old prefix → new prefix across all
+  // descendants. SQLite LIKE replace via raw SQL.
   const db = getDb();
   const oldPath = folder.path;
   const parentPath =

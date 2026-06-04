@@ -3,26 +3,26 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * BackgroundActivityIndicator — Pulse-Pill für laufende Hintergrund-Arbeit.
+ * BackgroundActivityIndicator — pulse pill for running background work.
  *
- * Sub-Plan 4 (TopNav-Pulse-Pill) — analog ObservatoryIndicator, aber
- * fokussiert auf "läuft gerade":
+ * Sub-plan 4 (TopNav pulse pill) — analogous to ObservatoryIndicator, but
+ * focused on "currently running":
  *
- *   - Polling alle 30s (kürzer als Observatory-Heartbeat 60s, weil
- *     Activity sich schneller ändert)
- *   - AbortController + visibilitychange-Pause
- *   - Apple-Pure: --press-scale, --spring-bouncy, Tokens-only
- *   - Pill grau bei count=0 (kein Spam), --a-now bei >0
- *   - Click → öffnet MobileDrawer (Custom-Event 'lazyos:drawer:open' mit
- *     anchor=#activity), keine Overlays
+ *   - polling every 30s (shorter than the Observatory heartbeat 60s, because
+ *     activity changes faster)
+ *   - AbortController + visibilitychange pause
+ *   - Apple-pure: --press-scale, --spring-bouncy, tokens only
+ *   - pill grey at count=0 (no spam), --a-now at >0
+ *   - click → opens MobileDrawer (custom event 'lazyos:drawer:open' with
+ *     anchor=#activity), no overlays
  *
- * KEIN Sticky, KEINE Floating-Card, KEIN Modal. Nur Pill in TopNav.
+ * NO sticky, NO floating card, NO modal. Only a pill in TopNav.
  *
  * Counts:
- *   - running    → primärer Anzeigewert
- *   - paused     → wenn >0 als " · Np" Suffix
- *   - stuck      → wenn >0 als " · Ns stuck"
- *   - cronSoon   → wenn >0 als " · Nc soon"
+ *   - running    → primary displayed value
+ *   - paused     → when >0 as a " · Np" suffix
+ *   - stuck      → when >0 as " · Ns stuck"
+ *   - cronSoon   → when >0 as " · Nc soon"
  */
 
 interface ActivityResponse {
@@ -47,9 +47,9 @@ type IndicatorState =
 const POLL_INTERVAL_MS = 30_000;
 
 /**
- * Welle 1 · 2026-05-03: optional excludeWorkstreamId, wird vom ChatShell
- * via Custom-Event broadcasted. Verhindert dass der gerade laufende
- * eigene Stream doppelt im Pulse-Pill mitgezaehlt wird.
+ * Wave 1 · 2026-05-03: optional excludeWorkstreamId, broadcast by the ChatShell
+ * via a custom event. Prevents the currently running
+ * own stream from being double-counted in the pulse pill.
  */
 async function fetchActivity(
   signal: AbortSignal,
@@ -82,8 +82,8 @@ export function BackgroundActivityIndicator(): React.JSX.Element {
   const [state, setState] = useState<IndicatorState>({ kind: 'loading' });
   const timerRef = useRef<number | null>(null);
   const inflightRef = useRef<AbortController | null>(null);
-  // Welle 1 · 2026-05-03: aktiver Workstream im ChatShell, der NICHT
-  // mitzaehlen soll. Wird via 'lazyos:active-workstream-changed' gesetzt.
+  // Wave 1 · 2026-05-03: active workstream in the ChatShell that should NOT
+  // be counted. Set via 'lazyos:active-workstream-changed'.
   const activeWorkstreamRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -119,7 +119,7 @@ export function BackgroundActivityIndicator(): React.JSX.Element {
       const next = detail?.workstreamId ?? null;
       if (next === activeWorkstreamRef.current) return;
       activeWorkstreamRef.current = next;
-      // Refetch sofort, damit die UI nicht 30s auf den naechsten Tick wartet.
+      // Refetch immediately so the UI does not wait 30s for the next tick.
       tick();
     };
 
@@ -146,8 +146,8 @@ export function BackgroundActivityIndicator(): React.JSX.Element {
   const { text, aria, variant, totalActive } = describe(state);
 
   const handleClick = (): void => {
-    // Drawer öffnen + zur Activity-Section scrollen. Kein Overlay,
-    // nutzt existierende MobileDrawer-Section #activity.
+    // Open the drawer + scroll to the activity section. No overlay,
+    // uses the existing MobileDrawer section #activity.
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('lazyos:drawer:open', {
@@ -199,7 +199,7 @@ function describe(state: IndicatorState): {
   const { running, paused, stuck, cronSoon } = state;
   const totalActive = running + paused + stuck + cronSoon;
 
-  // Compact-Text: leer ("—") wenn nichts läuft, sonst kompakte Form.
+  // Compact text: empty ("—") when nothing is running, otherwise a compact form.
   let text: string;
   if (totalActive === 0) {
     text = '0';
@@ -214,7 +214,7 @@ function describe(state: IndicatorState): {
 
   let variant: 'live' | 'warn' | 'down' | 'loading' = 'live';
   if (stuck > 0) variant = 'warn';
-  if (totalActive === 0) variant = 'loading'; // grau bei 0 (kein Spam)
+  if (totalActive === 0) variant = 'loading'; // grey at 0 (no spam)
 
   const ariaParts = [`${running} laufend`];
   if (paused > 0) ariaParts.push(`${paused} pausiert`);

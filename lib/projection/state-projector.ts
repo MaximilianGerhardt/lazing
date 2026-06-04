@@ -1,34 +1,34 @@
 /**
- * Phase 1 Track E — State-Projection-Spine
+ * Phase 1 Track E — state-projection spine
  * ════════════════════════════════════════════════════════════════════════
  *
- * WAS DIESES MODUL TUT
+ * WHAT THIS MODULE DOES
  * ────────────────────
- * `projectWorkspaceState(raw, workspaceId)` aggregiert den OPERATIVEN
- * Zustand eines Workspace deterministisch aus der DB (N6: SQL-Queries,
- * keine LLM-Reasoning) und liefert ihn als `WorkspaceState` zurück:
+ * `projectWorkspaceState(raw, workspaceId)` aggregates the OPERATIONAL
+ * state of a workspace deterministically from the DB (N6: SQL queries,
+ * no LLM reasoning) and returns it as a `WorkspaceState`:
  *
- *   • activeFlowRun          — jüngster nicht-finaler flow_runs-Eintrag
- *   • activeWorkstreams      — workstreams mit status='active' im Workspace
- *   • openQuestions          — chat_message-Events mit open-questions-Surface,
- *                              joint mit question_answers (falls Tabelle existiert)
- *   • blockingGates          — chat_message-Events mit credential-request /
+ *   • activeFlowRun          — most recent non-final flow_runs entry
+ *   • activeWorkstreams      — workstreams with status='active' in the workspace
+ *   • openQuestions          — chat_message events with an open-questions surface,
+ *                              joined with question_answers (if the table exists)
+ *   • blockingGates          — chat_message events with credential-request /
  *                              connector-call-preview / live-warn /
- *                              counter-evidence / human-decision Surfaces
- *   • lastSuccessfulAction   — jüngstes lifecycle-Event mit positivem Outcome
- *   • nextAllowedUserInput   — deterministisch aus den anderen Feldern abgeleitet
+ *                              counter-evidence / human-decision surfaces
+ *   • lastSuccessfulAction   — most recent lifecycle event with a positive outcome
+ *   • nextAllowedUserInput   — derived deterministically from the other fields
  *
- * Die Funktion arbeitet auf einem rohen `better-sqlite3` Database-Handle —
- * das macht sie test-freundlich (in-memory DB) und vermeidet die Kopplung
- * an den getDb()-Singleton (analog zu lib/reasoning/beliefs-repo.ts).
+ * The function works on a raw `better-sqlite3` database handle —
+ * which makes it test-friendly (in-memory DB) and avoids the coupling
+ * to the getDb() singleton (analogous to lib/reasoning/beliefs-repo.ts).
  *
- * WAS DIESES MODUL NICHT TUT
+ * WHAT THIS MODULE DOES NOT DO
  * ──────────────────────────
- * Es liest NICHT aus sichtbaren Chat-Karten / dem rendered DOM / aus
- * client-side state. Sichtbare Surfaces im Chat sind NUR Historie —
- * sie sind kein Beweis für den aktuellen Zustand.
+ * It does NOT read from visible chat cards / the rendered DOM / from
+ * client-side state. Visible surfaces in the chat are ONLY history —
+ * they are no proof of the current state.
  *
- * Owner-Direktive (verbatim aus Befund D Handoff §10):
+ * Owner directive (verbatim from finding D handoff §10):
  *
  *   „Operativer Zustand steckt im Chat-Verlauf. Beobachtung im aktiven
  *    PA-Workspace: alte Quickchoices · alte Subplan-Karten · alte
@@ -40,38 +40,38 @@
  *    User-Input. Sichtbare historische Chat-Surfaces dürfen nicht die
  *    Quelle der Wahrheit sein."
  *
- * Damit ist dieses Modul der VERTRAG für künftige UI-Konsumenten:
- *   - State Header / Status Pill / „Aktueller Run"-Indikator
- *   - Open-Questions-Inbox
- *   - Blocking-Gate-Surfaces (welches Gate ist NOCH OFFEN?)
- *   - Composer-Auto-Switch (free-prompt vs. answer-Mode)
+ * This makes this module the CONTRACT for future UI consumers:
+ *   - state header / status pill / „Aktueller Run" indicator
+ *   - open-questions inbox
+ *   - blocking-gate surfaces (which gate is STILL OPEN?)
+ *   - composer auto-switch (free-prompt vs. answer mode)
  *
- * Sie alle MÜSSEN sich an diesem Projection-Output orientieren — nicht
- * an der gerenderten History oder an lokal gehaltenem React-State.
+ * They all MUST orient themselves on this projection output — not
+ * on the rendered history or on locally held React state.
  *
- * SICHERHEITSEIGENSCHAFTEN
+ * SAFETY PROPERTIES
  * ────────────────────────
- *   • Deterministisch (N6): nur SQL, keine LLM-Aufrufe.
- *   • Fail-soft: jeder Query in try/catch; bei Fehler → minimaler State
+ *   • Deterministic (N6): only SQL, no LLM calls.
+ *   • Fail-soft: every query in try/catch; on error → minimal state
  *     (workspaceId + generatedAt + nextAllowedUserInput='free-prompt',
- *      Listen leer, Single-Felder null).
- *   • Latenz-Budget: <100ms für realistische Last (gemessen im Performance-
- *     Smoke-Test mit 1000 events + 50 workstreams).
- *   • Read-only: führt NIE INSERTs / UPDATEs aus. Append-only-Disziplin
- *     der Truth-Tabellen wird nicht angetastet.
+ *      lists empty, single fields null).
+ *   • Latency budget: <100ms for realistic load (measured in the performance
+ *     smoke test with 1000 events + 50 workstreams).
+ *   • Read-only: NEVER runs INSERTs / UPDATEs. The append-only discipline
+ *     of the truth tables is left untouched.
  *
- * TRUTH-TABELLEN (Stand 2026-05-29)
+ * TRUTH TABLES (as of 2026-05-29)
  * ─────────────────────────────────
- *   • workstreams                — Migration 0009 + 0040 (parent/role/tokens)
- *   • flow_runs                  — Migration 0112 (Flow Studio P1)
- *   • workstream_plan_steps      — Migration 0094 + 0107 + 0110
- *   • events                     — Migration 0001 (entity_type + payload JSON)
- *   • question_answers           — NOCH NICHT VORHANDEN; P1.AB-Track schreibt
- *                                  diese Tabelle. Wir lesen mit
- *                                  `try { … } catch` — fehlende Tabelle → all
+ *   • workstreams                — migration 0009 + 0040 (parent/role/tokens)
+ *   • flow_runs                  — migration 0112 (Flow Studio P1)
+ *   • workstream_plan_steps      — migration 0094 + 0107 + 0110
+ *   • events                     — migration 0001 (entity_type + payload JSON)
+ *   • question_answers           — NOT YET PRESENT; the P1.AB track writes
+ *                                  this table. We read with
+ *                                  `try { … } catch` — missing table → all
  *                                  questions.answered = false (fail-soft).
  *
- * Stand: 2026-05-29
+ * As of: 2026-05-29
  */
 
 import type { Database as Sqlite } from 'better-sqlite3';
@@ -94,8 +94,8 @@ import type {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Sicheres JSON.parse für event.payload. Liefert `{}` bei jedem Fehler.
- * Niemals werfen — projection darf fail-soft sein.
+ * Safe JSON.parse for event.payload. Returns `{}` on any error.
+ * Never throws — projection must be fail-soft.
  */
 function safeParseJson(raw: string | null | undefined): Record<string, unknown> {
   if (!raw) return {};
@@ -111,8 +111,8 @@ function safeParseJson(raw: string | null | undefined): Record<string, unknown> 
 }
 
 /**
- * Map flow_runs.status → ActiveFlowRunStatus. Bei unbekanntem Wert
- * defaulted auf 'pending' (sicher: blockiert nicht und macht nichts kaputt).
+ * Map flow_runs.status → ActiveFlowRunStatus. On an unknown value
+ * defaults to 'pending' (safe: doesn't block and breaks nothing).
  */
 function mapFlowRunStatus(
   raw: string | null | undefined,
@@ -122,7 +122,7 @@ function mapFlowRunStatus(
     case 'pending':
       return 'pending';
     case 'running': {
-      // Wenn ein blocking Gate offen ist, verfeinern wir später (s. caller).
+      // If a blocking gate is open, we refine later (see caller).
       return hasBlockingGate ? 'needs-coupling' : 'running';
     }
     case 'done':
@@ -136,11 +136,11 @@ function mapFlowRunStatus(
 }
 
 /**
- * Liest verbatim die Frage-Texte (N1: kein .slice). Liefert eine Liste von
+ * Reads the question texts verbatim (N1: no .slice). Returns a list of
  * (workstreamId?, questionSetId, questionId, text, options?, askedAt).
  *
- * Eingabe: ein chat_message-Event mit payload.kind='open-questions' oder
- * 'plan-open-questions'. Payload-Form gemäß lib/chat/surface-parser.ts:
+ * Input: a chat_message event with payload.kind='open-questions' or
+ * 'plan-open-questions'. Payload shape per lib/chat/surface-parser.ts:
  *   { kind, questionSetId, workstreamId?, questions: [{id, text, options?}, …] }
  */
 interface RawQuestion {
@@ -194,7 +194,7 @@ function extractQuestions(
 }
 
 /**
- * Map Surface-kind → BlockingGateKind. Liefert null wenn kein Gate.
+ * Map surface kind → BlockingGateKind. Returns null when no gate.
  */
 function mapBlockingGateKind(kind: unknown): BlockingGateKind | null {
   if (typeof kind !== 'string') return null;
@@ -211,10 +211,10 @@ function mapBlockingGateKind(kind: unknown): BlockingGateKind | null {
       return 'counter-evidence';
     case 'human-decision':
       return 'human-decision';
-    // F18 (2026-05-30): offene Decision/quickchoice/tier-choice → 'decision'.
-    // Bisher fielen diese durch `default → null` und blieben als Karte MITTEN
-    // im Feed (Critic). Jetzt erfasst die Projektion sie als blockingGate, der
-    // ActionDeck pinnt sie unten über dem Chat mit EINER empfohlenen Aktion.
+    // F18 (2026-05-30): open decision/quickchoice/tier-choice → 'decision'.
+    // Previously these fell through `default → null` and stayed as a card IN THE MIDDLE
+    // of the feed (critic). Now the projection captures them as a blockingGate, the
+    // ActionDeck pins them below over the chat with ONE recommended action.
     case 'decision':
     case 'quickchoice':
     case 'tier-choice':
@@ -225,20 +225,20 @@ function mapBlockingGateKind(kind: unknown): BlockingGateKind | null {
 }
 
 /**
- * F18 — extrahiert die Optionen einer Decision/quickchoice/tier-choice aus dem
- * payload (N1: verbatim Labels). Genau eine Option wird als `recommended`
- * markiert: bevorzugt die vom Server gesetzte (`recommended`/`primary`/
- * `recommended_basis`-Flag), sonst die erste Option (deterministischer Default).
+ * F18 — extracts the options of a decision/quickchoice/tier-choice from the
+ * payload (N1: verbatim labels). Exactly one option is marked as `recommended`:
+ * preferring the one set by the server (`recommended`/`primary`/
+ * `recommended_basis` flag), otherwise the first option (deterministic default).
  *
- * Decision-Payload (renderDecision): { headline, options:[{id,label,sublabel?,
+ * Decision payload (renderDecision): { headline, options:[{id,label,sublabel?,
  *   recommended?}] }
- * QuickChoice-Payload (renderQuickChoice): { options:[{id,label,sublabel?,
+ * QuickChoice payload (renderQuickChoice): { options:[{id,label,sublabel?,
  *   primary?}] }
- * Tier-Choice-Payload: serverseitige presets ODER aus tier-presets.ts gebaut;
- *   die Projektion liest defensiv `options`/`presets` falls vorhanden.
+ * Tier-choice payload: server-side presets OR built from tier-presets.ts;
+ *   the projection reads `options`/`presets` defensively if present.
  *
- * Liefert undefined wenn keine validen Optionen vorhanden (dann rendert der Deck
- * die Decision wie ein generisches Gate: nur Verweis auf die Stream-Card).
+ * Returns undefined when no valid options are present (then the deck renders
+ * the decision like a generic gate: only a reference to the stream card).
  */
 function extractGateOptions(
   payload: Record<string, unknown>,
@@ -277,10 +277,10 @@ function extractGateOptions(
   }
   if (out.length === 0) return undefined;
 
-  // Genau EINE empfohlene Option: gibt es keine server-markierte, wird die erste
-  // zur Primär-Aktion (deterministischer Default). Gibt es mehrere, gewinnt die
-  // erste markierte — alle weiteren werden auf nicht-empfohlen zurückgesetzt,
-  // damit der Deck nie zwei „Primär"-Aktionen rendert.
+  // Exactly ONE recommended option: if none is server-marked, the first
+  // becomes the primary action (deterministic default). If there are several, the
+  // first marked one wins — all others are reset to not-recommended,
+  // so the deck never renders two „primary" actions.
   let primarySeen = false;
   for (const o of out) {
     if (o.recommended && !primarySeen) {
@@ -295,10 +295,10 @@ function extractGateOptions(
 }
 
 /**
- * Liest eine Beschreibung aus dem payload (N1: verbatim). Mehrere Pfade
- * werden probiert (description, reason, message, preview), das erste
- * String-Feld gewinnt. Fallback: leerer String — der Konsument muss damit
- * umgehen (Surface zeigt z.B. den kind als Label).
+ * Reads a description from the payload (N1: verbatim). Multiple paths
+ * are tried (description, reason, message, preview), the first
+ * string field wins. Fallback: empty string — the consumer must handle
+ * it (the surface shows e.g. the kind as a label).
  */
 function extractGateDescription(payload: Record<string, unknown>): string {
   const candidates = ['description', 'reason', 'message', 'preview', 'text'];
@@ -310,9 +310,9 @@ function extractGateDescription(payload: Record<string, unknown>): string {
 }
 
 /**
- * Liest den Provider-Slug aus einer credential-request-Gate-Payload. Wird für
- * die Resolution gegen `api_credentials` gebraucht (ist der Key inzwischen im
- * Vault hinterlegt?). Mehrere Pfade, erstes String-Feld gewinnt. '' wenn keiner.
+ * Reads the provider slug from a credential-request gate payload. Needed for
+ * resolution against `api_credentials` (is the key now stored in the
+ * vault?). Multiple paths, the first string field wins. '' if none.
  */
 function extractGateProvider(payload: Record<string, unknown>): string {
   const candidates = ['provider', 'providerSlug', 'connector'];
@@ -324,60 +324,60 @@ function extractGateProvider(payload: Record<string, unknown>): string {
 }
 
 /**
- * ── Gate-Resolution ──────────────────────────────────────────────────────────
+ * ── Gate resolution ──────────────────────────────────────────────────────────
  *
- * BLOCKER 2 (Critic, 2026-05-30): `blockingGates` wurde NIE gegen die
- * Approve/Deny-/Consume-Entscheidung gefiltert. Folge: nach „OK weiter" bleibt
- * das Gate im Deck gepinnt, bis das Event aus dem LIMIT-200-Fenster rollt — der
- * Deck pinnt ein bereits beantwortetes Gate dauerhaft. „Die Region lügt."
+ * BLOCKER 2 (critic, 2026-05-30): `blockingGates` was NEVER filtered against the
+ * approve/deny/consume decision. Consequence: after „OK weiter" the
+ * gate stays pinned in the deck until the event rolls out of the LIMIT-200 window — the
+ * deck pins an already-answered gate permanently. „Die Region lügt."
  *
- * Es gibt KEINE einzelne Gate-Resolution-Tabelle. Die echten Approve-Pfade
- * schreiben in unterschiedliche Truth-Stores (file:line je Card-Handler):
+ * There is NO single gate-resolution table. The real approve paths
+ * write into different truth stores (file:line per card handler):
  *
  *   • live-warn          → POST /api/workspaces/[id]/live-warn-ack
  *                          → `recordLiveWarnAck` (lib/connectors/live-warn.ts:88)
  *                          → workspace_beliefs row, topic='live-warn-acked',
- *                            belief 'ack:…' | 'decline:…'. BEIDE Entscheidungen
- *                            lösen das *aktuelle* one-shot-Gate auf (der Owner
- *                            HAT geantwortet); ein 'decline' lässt die Warnung
- *                            beim nächsten LIVE-Lauf neu erscheinen, das ist ein
- *                            NEUES Gate-Event mit höherem created_at.
+ *                            belief 'ack:…' | 'decline:…'. BOTH decisions
+ *                            resolve the *current* one-shot gate (the owner
+ *                            HAS answered); a 'decline' makes the warning
+ *                            reappear on the next LIVE run, that is a
+ *                            NEW gate event with a higher created_at.
  *
  *   • credential-request → CredentialRequestCard → POST
  *                          /api/connectors/[provider]/credential → `putApiCredential`
  *                          (lib/credentials/vault.ts:414) → api_credentials row
  *                          (scope_kind, scope_id=workspaceId|orgId, provider).
- *                          Liegt für den Provider ein Credential vor, das NACH
- *                          dem Gate angelegt wurde → Gate erledigt.
+ *                          If a credential for the provider exists that was created
+ *                          AFTER the gate → gate done.
  *
  *   • connector-call-preview / counter-evidence / human-decision (decision-brief)
- *                        → KEIN server-seitiger Resolution-Write heute.
- *                          connector-invoke pusht nur eine assistant-Bestätigung;
- *                          decision-brief ist EVENT-ONLY (lokaler State,
- *                          SurfaceRenderer.tsx:5843) → schreibt NICHTS in die DB.
- *                          Für diese Kinds gibt es serverseitig nichts zu joinen;
- *                          die optimistische Consume-Markierung passiert
- *                          client-seitig (useWorkspaceState consumedGateKey) bis
- *                          ein echter Resolution-Write existiert. Ehrlich:
- *                          das ist die Grenze des heutigen Substrats.
+ *                        → NO server-side resolution write today.
+ *                          connector-invoke only pushes an assistant confirmation;
+ *                          decision-brief is EVENT-ONLY (local state,
+ *                          SurfaceRenderer.tsx:5843) → writes NOTHING to the DB.
+ *                          For these kinds there is nothing to join server-side;
+ *                          the optimistic consume marking happens
+ *                          client-side (useWorkspaceState consumedGateKey) until
+ *                          a real resolution write exists. Honestly:
+ *                          that is the limit of today's substrate.
  *
- * Diese Funktion liefert ein Prädikat `(gate) → resolved`, das die zwei ECHTEN
- * DB-Mechanismen joint. Alles fail-soft: fehlende Tabelle / DB-Fehler →
- * Gate gilt als NICHT resolved (lieber over-pin als ein stilles Verschwinden).
+ * This function returns a predicate `(gate) → resolved` that joins the two REAL
+ * DB mechanisms. Everything fail-soft: missing table / DB error →
+ * the gate counts as NOT resolved (prefer over-pin to a silent disappearance).
  */
 interface GateResolutionIndex {
-  /** Jüngster live-warn-acked-Belief-Timestamp (oder -1). */
+  /** Most recent live-warn-acked belief timestamp (or -1). */
   liveWarnAckedAt: number;
-  /** provider(lowercased) → jüngster api_credentials.created_at für diesen WS/Org. */
+  /** provider(lowercased) → most recent api_credentials.created_at for this WS/org. */
   credentialCreatedAt: Map<string, number>;
   /**
-   * F18 (2026-05-30): jüngster User-Reply-Timestamp (chat_message_sent mit
-   * payload.role='user') im Workspace, oder -1. Eine gepinnte Decision/
-   * quickchoice gilt als beantwortet, sobald der User NACH dem Gate eine
-   * Nachricht geschickt hat — der `reply(label)`-Pfad jeder Decision-/
-   * QuickChoice-Card postet genau so eine User-Nachricht. Das ist der EINZIGE
-   * ehrliche DB-Resolution-Mechanismus für Decisions (es gibt keine eigene
-   * decision_answers-Tabelle); analog `readAnsweredKeys` für Fragen.
+   * F18 (2026-05-30): most recent user-reply timestamp (chat_message_sent with
+   * payload.role='user') in the workspace, or -1. A pinned decision/
+   * quickchoice counts as answered once the user has sent a
+   * message AFTER the gate — the `reply(label)` path of every decision/
+   * quickchoice card posts exactly such a user message. This is the ONLY
+   * honest DB resolution mechanism for decisions (there is no dedicated
+   * decision_answers table); analogous to `readAnsweredKeys` for questions.
    */
   lastUserReplyAt: number;
 }
@@ -392,11 +392,11 @@ function buildGateResolutionIndex(
     lastUserReplyAt: -1,
   };
 
-  // ── decision/quickchoice → jüngste User-Reply (chat_message_sent role=user) ──
-  // Eine gepinnte Decision wird beantwortet, indem der User eine Nachricht
-  // schickt (der reply(label)-Pfad der Card). Wir lesen das jüngste solche
-  // Event; jede Decision mit createdAt <= lastUserReplyAt gilt als beantwortet.
-  // payload.role='user' filtert robust auch dann, wenn der actor-String variiert.
+  // ── decision/quickchoice → most recent user reply (chat_message_sent role=user) ──
+  // A pinned decision is answered when the user sends a message
+  // (the reply(label) path of the card). We read the most recent such
+  // event; every decision with createdAt <= lastUserReplyAt counts as answered.
+  // payload.role='user' filters robustly even when the actor string varies.
   try {
     const rows = raw
       .prepare(
@@ -412,11 +412,11 @@ function buildGateResolutionIndex(
       const p = safeParseJson(r.payload);
       if (p.role === 'user') {
         index.lastUserReplyAt = r.created_at;
-        break; // DESC sortiert → erstes user-Event ist das jüngste.
+        break; // DESC sorted → the first user event is the most recent.
       }
     }
   } catch {
-    /* fail-soft: keine Reply-Info → Decision bleibt sichtbar. */
+    /* fail-soft: no reply info → decision stays visible. */
   }
 
   // ── live-warn → workspace_beliefs(topic='live-warn-acked') ────────────────
@@ -436,14 +436,14 @@ function buildGateResolutionIndex(
       if (typeof row?.m === 'number') index.liveWarnAckedAt = row.m;
     }
   } catch {
-    /* fail-soft: keine Resolution-Info → Gate bleibt sichtbar. */
+    /* fail-soft: no resolution info → gate stays visible. */
   }
 
   // ── credential-request → api_credentials(provider, scope) ─────────────────
-  // scope_id ist der workspaceId (workspace-scope) ODER eine orgId (org-scope).
-  // Wir joinen defensiv über BEIDE: ein Credential im Workspace-Scope für den
-  // Provider zählt sicher; org-scope können wir ohne org-Lookup nicht exakt
-  // dem Workspace zuordnen → wir nehmen workspace-scope (der häufige Fall der
+  // scope_id is the workspaceId (workspace scope) OR an orgId (org scope).
+  // We join defensively over BOTH: a credential in the workspace scope for the
+  // provider counts for sure; org scope we cannot map exactly to the workspace
+  // without an org lookup → we take workspace scope (the common case of the
   // CredentialRequestCard, scopeKind default 'workspace').
   try {
     const probe = raw
@@ -473,9 +473,9 @@ function buildGateResolutionIndex(
 }
 
 /**
- * Prädikat: ist dieses Gate durch einen ECHTEN DB-Write aufgelöst? Nur die zwei
- * Kinds mit Resolution-Store werden hier positiv beantwortet — die übrigen
- * geben false zurück (kein serverseitiger Mechanismus; s. Doku oben).
+ * Predicate: is this gate resolved by a REAL DB write? Only the two
+ * kinds with a resolution store are answered positively here — the rest
+ * return false (no server-side mechanism; see the docs above).
  */
 function isGateResolved(
   gate: { kind: BlockingGateKind; createdAt: number; provider: string },
@@ -483,7 +483,7 @@ function isGateResolved(
 ): boolean {
   switch (gate.kind) {
     case 'live-warn':
-      // Der Owner hat geantwortet, NACHDEM das Gate emittiert wurde.
+      // The owner answered AFTER the gate was emitted.
       return index.liveWarnAckedAt >= gate.createdAt;
     case 'credential-request': {
       if (gate.provider.length === 0) return false;
@@ -491,21 +491,21 @@ function isGateResolved(
       return typeof at === 'number' && at >= gate.createdAt;
     }
     case 'decision':
-      // F18: Decision/quickchoice gilt als beantwortet, sobald der User NACH
-      // dem Gate eine Nachricht geschickt hat (reply(label)-Pfad der Card).
-      // Strikt `>` — eine Reply mit gleichem Timestamp wäre dieselbe Surface-
-      // Emission, nicht die Antwort darauf.
+      // F18: decision/quickchoice counts as answered once the user has sent a
+      // message AFTER the gate (reply(label) path of the card).
+      // Strictly `>` — a reply with the same timestamp would be the same surface
+      // emission, not the answer to it.
       return index.lastUserReplyAt > gate.createdAt;
     default:
       // connector-call-preview / counter-evidence / human-decision:
-      // kein serverseitiger Resolution-Write → hier nie als resolved markiert.
+      // no server-side resolution write → never marked as resolved here.
       return false;
   }
 }
 
 /**
- * Liest die Phase aus einem aktiven Plan-Step für currentPhase.
- * SQL-only. Wenn workstream_plan_steps-Tabelle fehlt → undefined.
+ * Reads the phase from an active plan step for currentPhase.
+ * SQL-only. If the workstream_plan_steps table is missing → undefined.
  */
 function readCurrentPhase(
   raw: Sqlite,
@@ -526,8 +526,8 @@ function readCurrentPhase(
 }
 
 /**
- * Liest die letzte updated_at eines Plan-Steps im Workstream — wird
- * verwendet, um den lastEventAt eines flow_runs zu verfeinern.
+ * Reads the last updated_at of a plan step in the workstream — used
+ * to refine the lastEventAt of a flow_run.
  */
 function readWorkstreamLastUpdate(
   raw: Sqlite,
@@ -546,11 +546,11 @@ function readWorkstreamLastUpdate(
 }
 
 /**
- * Liest die Antworten aus question_answers (P1.AB-Track). Wenn die Tabelle
- * nicht existiert, ist das nicht-fatal — die Funktion gibt ein leeres Set
- * zurück. Schema wird minimal angenommen:
+ * Reads the answers from question_answers (P1.AB track). If the table
+ * does not exist, that is non-fatal — the function returns an empty set.
+ * A minimal schema is assumed:
  *   question_answers(question_set_id TEXT, question_id TEXT, …)
- * (Kombi-Key ist der join-Schlüssel — exotische Felder werden ignoriert.)
+ * (The combined key is the join key — exotic fields are ignored.)
  */
 function readAnsweredKeys(
   raw: Sqlite,
@@ -558,7 +558,7 @@ function readAnsweredKeys(
 ): Set<string> {
   const answered = new Set<string>();
   try {
-    // Probe: Existiert die Tabelle?
+    // Probe: does the table exist?
     const probe = raw
       .prepare(
         `SELECT name FROM sqlite_master WHERE type='table' AND name='question_answers'`,
@@ -566,8 +566,8 @@ function readAnsweredKeys(
       .get() as { name?: string } | undefined;
     if (!probe?.name) return answered;
 
-    // P1.AB darf das Schema selbst definieren. Wir lesen defensiv: wenn
-    // workspace_id existiert, filtern wir, sonst nehmen wir alle Antworten.
+    // P1.AB may define the schema itself. We read defensively: if
+    // workspace_id exists, we filter, otherwise we take all answers.
     let rows: Array<{ question_set_id?: string; question_id?: string }> = [];
     try {
       rows = raw
@@ -580,7 +580,7 @@ function readAnsweredKeys(
         question_id?: string;
       }>;
     } catch {
-      // Fallback: kein workspace_id-Spalt → ungeflitert.
+      // Fallback: no workspace_id column → unfiltered.
       try {
         rows = raw
           .prepare(`SELECT question_set_id, question_id FROM question_answers`)
@@ -604,15 +604,15 @@ function readAnsweredKeys(
 }
 
 /**
- * Liefert die jüngste lifecycle-Event-Row mit positivem Outcome für den
- * Workspace, oder null. Vokabular:
+ * Returns the most recent lifecycle event row with a positive outcome for the
+ * workspace, or null. Vocabulary:
  *   - eventType = 'workflow.completed'
- *   - eventType = 'workflow.transitioned' UND payload.outcome === 'success'
+ *   - eventType = 'workflow.transitioned' AND payload.outcome === 'success'
  *   - eventType = 'chat_message_completed'
  *
- * Aus payload.summary / payload.text werden bis zu 280 Zeichen verbatim
- * übernommen (N1: kein .slice auf Ledger-Felder — die 280 ist eine UI-Hint,
- * kein truncation des Wahrheits-Logs).
+ * Up to 280 characters are taken verbatim from payload.summary / payload.text
+ * (N1: no .slice on ledger fields — the 280 is a UI hint,
+ * not a truncation of the truth log).
  */
 function readLastSuccessfulAction(
   raw: Sqlite,
@@ -640,7 +640,7 @@ function readLastSuccessfulAction(
     for (const r of row) {
       const payload = safeParseJson(r.payload);
       if (r.event_type === 'workflow.transitioned') {
-        // Nur als success zählen, wenn payload.outcome explizit success ist.
+        // Only count as success when payload.outcome is explicitly success.
         const out = payload.outcome;
         if (typeof out !== 'string' || out.toLowerCase() !== 'success') continue;
       }
@@ -662,18 +662,18 @@ function readLastSuccessfulAction(
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Hauptfunktion
+// Main function
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Aggregiert den operativen Zustand eines Workspace deterministisch aus DB.
+ * Aggregates the operational state of a workspace deterministically from the DB.
  *
- * @param raw         rohes better-sqlite3 Handle (Test: :memory: · Prod: getDb().$raw)
- * @param workspaceId ManifestCoord workspace_id (entspricht events.segment_id)
- * @returns           ein vollständiger WorkspaceState. Niemals throw — bei
- *                    DB-Fehlern wird ein minimaler State zurückgegeben.
+ * @param raw         raw better-sqlite3 handle (test: :memory: · prod: getDb().$raw)
+ * @param workspaceId ManifestCoord workspace_id (corresponds to events.segment_id)
+ * @returns           a complete WorkspaceState. Never throws — on
+ *                    DB errors a minimal state is returned.
  *
- * Latenz-Budget: <100ms für 1000 events + 50 workstreams (Performance-Smoke).
+ * Latency budget: <100ms for 1000 events + 50 workstreams (performance smoke).
  */
 export function projectWorkspaceState(
   raw: Sqlite,
@@ -681,7 +681,7 @@ export function projectWorkspaceState(
 ): WorkspaceState {
   const generatedAt = Date.now();
 
-  // Defensive minimal-State-Builder: jeder einzelne SELECT in try/catch.
+  // Defensive minimal-state builder: every single SELECT in try/catch.
   const minimal = (): WorkspaceState => ({
     workspaceId,
     generatedAt,
@@ -728,7 +728,7 @@ export function projectWorkspaceState(
   }
 
   // ── 2. Active FlowRun ────────────────────────────────────────────────────
-  // Jüngster flow_run mit status ∈ {pending, running} im Workspace.
+  // Most recent flow_run with status ∈ {pending, running} in the workspace.
   let flowRunRaw:
     | {
         id: string;
@@ -761,14 +761,14 @@ export function projectWorkspaceState(
     flowRunRaw = undefined;
   }
 
-  // Wenn kein non-final flow_run: nimm den jüngsten überhaupt (für lastEventAt-
-  // Anzeige im UI). Wir geben ihn ABER nicht als activeFlowRun zurück, wenn er
-  // schon 'done' / 'failed' / 'cancelled' ist — das wäre History, nicht State.
-  // → activeFlowRun bleibt null.
+  // If no non-final flow_run: take the most recent one at all (for the lastEventAt
+  // display in the UI). BUT we don't return it as activeFlowRun if it
+  // is already 'done' / 'failed' / 'cancelled' — that would be history, not state.
+  // → activeFlowRun stays null.
 
   // ── 3. Open Questions ────────────────────────────────────────────────────
-  // Suche chat_message-Events mit payload.kind ∈ {open-questions,plan-open-questions}
-  // im Workspace, jüngste zuerst, dedupe per (set,id).
+  // Search for chat_message events with payload.kind ∈ {open-questions,plan-open-questions}
+  // in the workspace, most recent first, dedupe per (set,id).
   let openQuestions: OpenQuestionState[] = [];
   try {
     const rows = raw
@@ -818,15 +818,15 @@ export function projectWorkspaceState(
         });
       }
     }
-    // Bereits sortiert nach DESC (durch SQL ORDER BY).
+    // Already sorted DESC (by the SQL ORDER BY).
     openQuestions = collected;
   } catch {
     openQuestions = [];
   }
 
   // ── 4. Blocking Gates ────────────────────────────────────────────────────
-  // chat_message-Surfaces mit Gate-Vokabular. Dedupe per (kind, workstreamId,
-  // description) — gleicher Gate-Surface mehrfach im Verlauf zählt einmal.
+  // chat_message surfaces with gate vocabulary. Dedupe per (kind, workstreamId,
+  // description) — the same gate surface multiple times in the history counts once.
   let blockingGates: BlockingGateState[] = [];
   try {
     const rows = raw
@@ -842,10 +842,10 @@ export function projectWorkspaceState(
       payload: string | null;
       created_at: number;
     }>;
-    // BLOCKER 2 (2026-05-30): Resolution-Index EINMAL bauen (zwei kleine
-    // indexierte Queries) und jedes Gate gegen den echten Approve-Write
-    // filtern, analog `readAnsweredKeys` für Fragen. Ohne das pinnt der Deck
-    // ein bereits beantwortetes Gate dauerhaft.
+    // BLOCKER 2 (2026-05-30): build the resolution index ONCE (two small
+    // indexed queries) and filter every gate against the real approve write,
+    // analogous to `readAnsweredKeys` for questions. Without this the deck pins
+    // an already-answered gate permanently.
     const resolution = buildGateResolutionIndex(raw, workspaceId);
     const seen = new Set<string>();
     const collected: BlockingGateState[] = [];
@@ -858,15 +858,15 @@ export function projectWorkspaceState(
         typeof wsRaw === 'string' && wsRaw.length > 0 ? wsRaw : undefined;
       const description = extractGateDescription(payload);
       const provider = extractGateProvider(payload);
-      // F18: für decision/quickchoice/tier-choice die Optionen verbatim mitziehen
-      // (genau eine wird als recommended markiert). Andere Gate-Kinds → undefined.
+      // F18: for decision/quickchoice/tier-choice carry the options verbatim
+      // (exactly one is marked as recommended). Other gate kinds → undefined.
       const options =
         kind === 'decision' ? extractGateOptions(payload) : undefined;
-      // Headline-Fallback für Decisions: wenn keine description, nimm die
-      // verbatim headline (renderDecision verlangt sie); fehlt auch die
-      // (quickchoice ist option-only), synthetisiere eine stabile Signatur aus
-      // den Option-Labels — damit ActionDeck-Pin und in-feed-Karte über
-      // dieselbe Signatur matchen (Suppression) und der Dedupe greift.
+      // Headline fallback for decisions: if no description, take the
+      // verbatim headline (renderDecision requires it); if that's missing too
+      // (quickchoice is option-only), synthesize a stable signature from
+      // the option labels — so the ActionDeck pin and the in-feed card match
+      // over the same signature (suppression) and the dedupe applies.
       const effectiveDescription =
         description.length > 0
           ? description
@@ -878,14 +878,14 @@ export function projectWorkspaceState(
       const dedupeKey = `${kind}::${ws ?? ''}::${effectiveDescription}`;
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
-      // Resolved-Gate (echter DB-Approve / User-Reply nach dem Gate) → NICHT pinnen.
+      // Resolved gate (real DB approve / user reply after the gate) → do NOT pin.
       if (isGateResolved({ kind, createdAt: r.created_at, provider }, resolution)) {
         continue;
       }
       collected.push({
         kind,
         workstreamId: ws,
-        description: effectiveDescription, // N1: verbatim aus payload
+        description: effectiveDescription, // N1: verbatim from payload
         createdAt: r.created_at,
         ...(options ? { options } : {}),
       });
@@ -895,7 +895,7 @@ export function projectWorkspaceState(
     blockingGates = [];
   }
 
-  // ── 5. Active FlowRun zusammensetzen ─────────────────────────────────────
+  // ── 5. Assemble the active FlowRun ─────────────────────────────────────
   let activeFlowRun: ActiveFlowRunState | null = null;
   if (flowRunRaw) {
     const hasGate = blockingGates.length > 0;
@@ -923,7 +923,7 @@ export function projectWorkspaceState(
   // ── 6. Last Successful Action ────────────────────────────────────────────
   const lastSuccessfulAction = readLastSuccessfulAction(raw, workspaceId);
 
-  // ── 7. Next Allowed User Input — deterministisch abgeleitet ──────────────
+  // ── 7. Next Allowed User Input — derived deterministically ──────────────
   const next: NextAllowedUserInput = deriveNextAllowedUserInput({
     activeFlowRun,
     activeWorkstreams,
@@ -944,19 +944,19 @@ export function projectWorkspaceState(
 }
 
 /**
- * Deterministische Ableitung von `nextAllowedUserInput`:
+ * Deterministic derivation of `nextAllowedUserInput`:
  *
- *   1. Wenn ein blocking Gate offen ist          → 'approve-gate'
- *   2. Sonst, wenn eine unbeantwortete Frage     → 'answer-question'
- *   3. Sonst, wenn FlowRun läuft ODER Workstreams aktiv → 'wait'
- *   4. Sonst                                     → 'free-prompt'
+ *   1. If a blocking gate is open               → 'approve-gate'
+ *   2. Otherwise, if an unanswered question     → 'answer-question'
+ *   3. Otherwise, if a FlowRun runs OR workstreams are active → 'wait'
+ *   4. Otherwise                                → 'free-prompt'
  *
- * Diese Reihenfolge ist absichtlich — Gates haben Vorrang vor Fragen,
- * weil ein Gate (z.B. credential-request) blockiert den Run komplett,
- * eine Frage ist lediglich eine Klarstellung.
+ * This order is deliberate — gates take precedence over questions,
+ * because a gate (e.g. credential-request) blocks the run completely,
+ * a question is merely a clarification.
  *
- * Exportiert für Tests + UI-Konsumenten, die das gleiche Vokabular
- * client-seitig wiederbenutzen wollen.
+ * Exported for tests + UI consumers that want to reuse the same
+ * vocabulary client-side.
  */
 export function deriveNextAllowedUserInput(input: {
   activeFlowRun: ActiveFlowRunState | null;

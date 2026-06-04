@@ -1,26 +1,26 @@
 /**
  * audit-tokens.ts
  *
- * Token-Lint — findet zwei Klassen von Inkonsistenzen:
+ * Token lint — finds two classes of inconsistencies:
  *
- *  1) Tote Tokens — in app/globals.css ODER app/components.css als
- *     `--name: ...` definiert, aber nirgends in lib/ + app/ via `var(--name)`
- *     verwendet (Code-Müll).
+ *  1) Dead tokens — defined in app/globals.css OR app/components.css as
+ *     `--name: ...` but used nowhere in lib/ + app/ via `var(--name)`
+ *     (code cruft).
  *
- *  2) Geister-Tokens — irgendwo via `var(--name)` referenziert, aber NICHT
- *     in einer der zwei CSS-Dateien definiert. Geister sind Token-Lügen —
- *     der Browser rendert sie als invalid (transparent/Default), der Code
- *     suggeriert Theme-Awareness.
+ *  2) Ghost tokens — referenced somewhere via `var(--name)` but NOT
+ *     defined in either of the two CSS files. Ghosts are token lies —
+ *     the browser renders them as invalid (transparent/default), the code
+ *     suggests theme-awareness.
  *
- * Ausnahmen:
- *   - Tailwind-/Browser-Built-ins (--font-*, --color-*, --spacing-*) werden
- *     NICHT als Geister gemeldet, wenn sie in @theme / @theme inline auftauchen.
- *   - var(--xxx, fallback) wird nicht als Geist gewertet, wenn fallback
- *     gesetzt ist UND Definition fehlt (Hinweis statt Fehler).
+ * Exceptions:
+ *   - Tailwind/browser built-ins (--font-*, --color-*, --spacing-*) are
+ *     NOT reported as ghosts when they appear in @theme / @theme inline.
+ *   - var(--xxx, fallback) is not counted as a ghost when a fallback is
+ *     set AND the definition is missing (a hint instead of an error).
  *
  * Output:
- *   Tabellarisch (markdown). Exit 1 bei Geistern (hart), Exit 0 bei nur
- *   toten Tokens (weich, informativ).
+ *   Tabular (markdown). Exit 1 on ghosts (hard), exit 0 on only
+ *   dead tokens (soft, informational).
  *
  * Run:  tsx scripts/audit-tokens.ts
  */
@@ -29,12 +29,12 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '..');
-// Primary token-Defs (semantischer Standard)
+// Primary token defs (the semantic standard)
 const PRIMARY_CSS_FILES = [
   resolve(ROOT, 'app/globals.css'),
   resolve(ROOT, 'app/components.css'),
 ];
-// Sekundäre Defs (dynamisch generiert, z.B. organizations-palette.css)
+// Secondary defs (dynamically generated, e.g. organizations-palette.css)
 const SCAN_ROOTS = [resolve(ROOT, 'lib'), resolve(ROOT, 'app')];
 
 const DEFINE_RE = /^\s*--([a-zA-Z][\w-]*)\s*:/gm;
@@ -134,7 +134,7 @@ function collectDefs(): { primary: Defs; all: Defs } {
     if (PRIMARY_CSS_FILES.includes(f)) continue;
     collectDefsFromFile(f, all);
   }
-  // Runtime-Defs (TopNav etc. setzen Tokens via document.documentElement.style.setProperty)
+  // Runtime defs (TopNav etc. set tokens via document.documentElement.style.setProperty)
   const tsFiles: string[] = [];
   for (const r of SCAN_ROOTS) collectAllTsFiles(r, tsFiles);
   for (const f of tsFiles) collectRuntimeDefsFromTs(f, all);
@@ -209,19 +209,19 @@ function main(): void {
   const primaryDefined = new Set(primary.byName.keys());
   const allDefined = new Set(all.byName.keys());
 
-  // Tote Tokens: defined in PRIMARY (globals.css/components.css) but not used.
-  // Dynamisch generierte Palette-Defs zählen NICHT als "tot" — die werden
-  // teils per Index-Lookup zur Laufzeit referenziert.
+  // Dead tokens: defined in PRIMARY (globals.css/components.css) but not used.
+  // Dynamically generated palette defs do NOT count as "dead" — some are
+  // referenced via an index lookup at runtime.
   const dead: string[] = [];
   for (const name of primaryDefined) {
     if (!usedNames.has(name)) dead.push(name);
   }
-  // Tailwind @theme inline mappings (--color-*) zählen nicht als tot —
-  // werden via Tailwind-Utilities (bg-sheet, text-ink) konsumiert.
+  // Tailwind @theme inline mappings (--color-*) don't count as dead —
+  // they are consumed via Tailwind utilities (bg-sheet, text-ink).
   const deadFiltered = dead.filter((n) => !n.startsWith('color-'));
   deadFiltered.sort();
 
-  // Geister-Tokens: used but NOT defined ANYWHERE (incl. dynamic CSS)
+  // Ghost tokens: used but NOT defined ANYWHERE (incl. dynamic CSS)
   const ghosts: { name: string; uses: Use[] }[] = [];
   const ghostsByName = new Map<string, Use[]>();
   for (const u of uses) {
@@ -234,7 +234,7 @@ function main(): void {
   }
   ghosts.sort((a, b) => a.name.localeCompare(b.name));
 
-  // hart vs weich: hart = mind. 1 use ohne fallback
+  // hard vs soft: hard = at least 1 use without a fallback
   const hardGhosts = ghosts.filter((g) => g.uses.some((u) => !u.hasFallback));
   const softGhosts = ghosts.filter((g) => !g.uses.some((u) => !u.hasFallback));
 

@@ -411,10 +411,10 @@ export function ChatComposer({
         role="presentation"
       >
         <div className="lazyos-composer__field">
-          {/* UX-1 (2026-05-26): auto-grow textarea (rows=1, bis 7 Zeilen).
-              Enter=submit (handleKeyDown), Shift+Enter=Newline (fällt durch,
-              default-Verhalten der Textarea), Cmd/Ctrl+Enter=Interrupt-Send
-              (Queue-Arbeit beibehalten). */}
+          {/* UX-1 (2026-05-26): auto-grow textarea (rows=1, up to 7 lines).
+              Enter=submit (handleKeyDown), Shift+Enter=newline (falls through,
+              the textarea's default behavior), Cmd/Ctrl+Enter=interrupt-send
+              (keeps the queue work). */}
           <textarea
             ref={inputRef}
             rows={1}
@@ -518,7 +518,7 @@ export function ChatComposer({
             {sttListening ? <IconMicActive size={18} /> : <IconMic size={18} />}
           </button>
 
-          {/* Bug-2-Fix: Stop-Button — sichtbar wenn Agent streamt. */}
+          {/* Bug-2-Fix: stop button — visible when the agent is streaming. */}
           {isStreaming && onStop ? (
             <button
               type="button"
@@ -528,14 +528,14 @@ export function ChatComposer({
               title="Antwort stoppen"
               className="lazyos-composer__stop press"
             >
-              {/* Square icon — universelles Stop-Symbol */}
+              {/* Square icon — universal stop symbol */}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
                 <rect x="2" y="2" width="10" height="10" rx="2" />
               </svg>
             </button>
           ) : null}
 
-          {/* Bug-2-Fix: SendNow-Button — Interrupt + sofort senden (Cmd/Ctrl+Enter). */}
+          {/* Bug-2-Fix: send-now button — interrupt + send immediately (Cmd/Ctrl+Enter). */}
           {isStreaming && hasText && onSendNow ? (
             <button
               type="button"
@@ -550,7 +550,7 @@ export function ChatComposer({
             </button>
           ) : null}
 
-          {/* Normal Send — nur wenn nicht streaming */}
+          {/* Normal send — only when not streaming */}
           {!isStreaming && showSend ? (
             <button
               type="submit"
@@ -568,7 +568,7 @@ export function ChatComposer({
   );
 }
 
-// Fallback inline für den Disabled-Case — primäre Styles stehen in CSS.
+// Fallback inline for the disabled case — primary styles live in CSS.
 const micDisabledInlineStyle: CSSProperties = {
   opacity: 0.35,
   cursor: 'not-allowed',

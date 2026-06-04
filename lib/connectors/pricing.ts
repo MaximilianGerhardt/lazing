@@ -121,7 +121,7 @@ const PRICING_TABLE: readonly PricingEntry[] = [
   {
     provider: "higgsfield",
     capability: P5_CAPABILITY_KEYS.higgsfield, // 'video.motion'
-    // ~ 1.5–4 US-Cent pro Sekunde gesehen → ~ 0,013–0,037 € → konservativ.
+    // ~ 1.5–4 US cents per second seen → ~ 0.013–0.037 € → conservative.
     eurMin: 0.01,
     eurMax: 0.04,
     basis: "pro Sekunde Clip",
@@ -132,7 +132,7 @@ const PRICING_TABLE: readonly PricingEntry[] = [
       if (typeof dur === "number" && Number.isFinite(dur) && dur > 0) {
         return dur;
       }
-      return 5; // Default: 5s Clip wenn nichts übergeben.
+      return 5; // Default: 5s clip if nothing is passed.
     },
     defaultScale: 5,
   },
@@ -141,15 +141,15 @@ const PRICING_TABLE: readonly PricingEntry[] = [
   {
     provider: "heygen-avatar",
     capability: P5_CAPABILITY_KEYS.heygenAvatar, // 'video.avatar'
-    // HeyGen rechnet pro Credit (~1 Credit/Min in Pro); Credit ~ 0,30–1,00 €
-    // je Plan-Stufe. Konservative Spanne pro Minute Script.
+    // HeyGen meters per credit (~1 credit/min in Pro); credit ~ 0.30–1.00 €
+    // per plan tier. Conservative range per minute of script.
     eurMin: 0.3,
     eurMax: 1.0,
     basis: "pro Minute Skript",
     note:
       "HeyGen verbraucht Credits pro generiertem Avatar-Video. Die Spanne (0,30–1,00 € / Minute) ist eine Schätzung über die gängigen Plan-Stufen — die echten Credit-Kosten siehst du in deinem HeyGen-Subscription-Tab. Setze dort eine niedrigere Plan-Stufe oder einen Spending-Alert.",
     scale: (args) => {
-      // Versuche eine sinnvolle Minutenzahl aus typischen Feldern abzuleiten.
+      // Try to derive a sensible number of minutes from typical fields.
       const explicit = args?.durationMinutes;
       if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
         return explicit;
@@ -162,7 +162,7 @@ const PRICING_TABLE: readonly PricingEntry[] = [
           return Math.max(0.5, words / 150);
         }
       }
-      return 1; // Default: 1 Minute.
+      return 1; // Default: 1 minute.
     },
     defaultScale: 1,
   },
@@ -252,8 +252,8 @@ function round4(n: number): number {
 }
 
 function formatScale(unit: number, basis: string): string {
-  // Heuristik: bei Sekunden/Minuten-Basis runde auf eine Nachkommastelle;
-  // bei Bild-Anzahlen auf ganze Zahl.
+  // Heuristic: for a seconds/minutes basis round to one decimal place;
+  // for image counts to a whole number.
   if (basis.toLowerCase().includes("sekunde")) {
     return `${unit.toFixed(0)} s`;
   }

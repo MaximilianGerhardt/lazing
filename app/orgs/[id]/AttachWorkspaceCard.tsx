@@ -3,15 +3,15 @@
 /**
  * AttachWorkspaceCard — Phase OS.2
  *
- * Lässt founder/admin Workspaces dieser Org zuordnen, die heute keine Org
- * haben (oder zu einer anderen gehören wo der User auch Rechte hat).
+ * Lets founder/admin assign workspaces to this org that currently have no
+ * org (or belong to another one where the user also has rights).
  *
  * Flow:
- *   1. Fetch /api/workspaces (alle bekannten Workspaces).
+ *   1. Fetch /api/workspaces (all known workspaces).
  *   2. Filter: organizationId !== this.orgId AND archived !== true.
- *   3. Klick auf Workspace → PATCH /api/workspaces/[id] mit { organizationId }.
- *   4. Bei 403 → Inline-Hinweis "fehlende Rechte".
- *   5. Erfolg → router.refresh().
+ *   3. Click on a workspace → PATCH /api/workspaces/[id] with { organizationId }.
+ *   4. On 403 → inline hint "missing rights".
+ *   5. Success → router.refresh().
  */
 
 import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
@@ -90,7 +90,7 @@ export function AttachWorkspaceCard({
         setPending(null);
         return;
       }
-      // Optimistic: aus Kandidaten-Liste entfernen.
+      // Optimistic: remove from the candidate list.
       setWorkspaces((cur) =>
         cur.map((w) => (w.id === wsId ? { ...w, organizationId: orgId } : w)),
       );

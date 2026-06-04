@@ -1,19 +1,19 @@
 /**
  * Push Dedup + Rate-Limit — persistent via SQLite.
  *
- * Warum SQLite statt in-memory Map:
- *   - Vercel Lambda-Cold-Start würde in-memory-Counter verlieren → doppelte
- *     Pushes bei jedem Scale-Out.
- *   - SQLite ist ohnehin da (better-sqlite3). Overhead pro Check < 1ms.
+ * Why SQLite instead of an in-memory Map:
+ *   - A Vercel Lambda cold-start would lose the in-memory counter → duplicate
+ *     pushes on every scale-out.
+ *   - SQLite is here anyway (better-sqlite3). Overhead per check < 1ms.
  *
- * Tabellen (migration 0007_workflow_state.sql):
- *   - push_dedup:   dedup_key → expires_at (5-Min-TTL typisch)
- *   - push_counters: bucket → count (z.B. 'global:day:2026-04-24')
+ * Tables (migration 0007_workflow_state.sql):
+ *   - push_dedup:   dedup_key → expires_at (5-min TTL typical)
+ *   - push_counters: bucket → count (e.g. 'global:day:2026-04-24')
  *
- * TTL-Cleanup: lazy on-read — wir checken `expires_at < now()` bei jedem
- * Zugriff. Kein Cron nötig. Bei hoher Volumetrie ließe sich das mit einem
- * periodischen `DELETE WHERE expires_at < ?` verbessern; für 1-User-MVP
- * reicht lazy-check.
+ * TTL cleanup: lazy on-read — we check `expires_at < now()` on every
+ * access. No cron needed. At high volume this could be improved with a
+ * periodic `DELETE WHERE expires_at < ?`; for the 1-user MVP a
+ * lazy check is enough.
  */
 
 import { getDb } from "../../db/client";
@@ -23,9 +23,9 @@ const DEDUP_WINDOW_MIN = 5;
 export const DEDUP_WINDOW_MS = DEDUP_WINDOW_MIN * 60 * 1000;
 
 /**
- * Global daily cap — überschritten, werden neue Pushes skipped.
- * Override via ENV `LAZYOS_MAX_PUSHES_PER_DAY` möglich (Tests setzen das
- * auf 9999 um die Regel zu umgehen).
+ * Global daily cap — once exceeded, new pushes are skipped.
+ * Override via ENV `LAZYOS_MAX_PUSHES_PER_DAY` possible (tests set it
+ * to 9999 to bypass the rule).
  */
 export function maxPushesPerDay(): number {
   const raw = process.env.LAZYOS_MAX_PUSHES_PER_DAY;
@@ -42,15 +42,15 @@ export function maxPushesPerDay(): number {
 
 export interface DedupResult {
   isDuplicate: boolean;
-  /** Erste-Zeitstempel des existierenden Dedup-Eintrags (falls duplicate). */
+  /** First-seen timestamp of the existing dedup entry (if duplicate). */
   firstSeenAt?: number;
 }
 
 /**
- * Prüft ob ein Push mit diesem Key in den letzten `DEDUP_WINDOW_MS` schon
- * gesendet wurde. Wenn NEIN: registriert den Key atomar und gibt
- * `{isDuplicate: false}` zurück — der Caller darf den Push feuern.
- * Wenn JA: `{isDuplicate: true, firstSeenAt}`, Caller skipped.
+ * Checks whether a push with this key was already sent within the last
+ * `DEDUP_WINDOW_MS`. If NO: registers the key atomically and returns
+ * `{isDuplicate: false}` — the caller may fire the push.
+ * If YES: `{isDuplicate: true, firstSeenAt}`, caller skips.
  */
 export function checkAndRegisterDedup(
   dedupKey: string,
@@ -89,9 +89,9 @@ export function checkAndRegisterDedup(
 // ---------------------------------------------------------------------------
 
 /**
- * Day-bucket key in UTC (Max arbeitet DACH-Zeitzone, aber für Cap-Semantik
- * ist UTC ausreichend — 20/Tag ist grob genug, dass der Zonen-Shift keinen
- * Unterschied macht).
+ * Day-bucket key in UTC (the operator works in the DACH timezone, but for
+ * cap semantics UTC is sufficient — 20/day is coarse enough that the zone
+ * shift makes no difference).
  */
 function dayBucket(now: number): string {
   const d = new Date(now);
@@ -111,8 +111,8 @@ function windowBucket(
 }
 
 /**
- * Global-Cap-Check: liefert `{allowed, count, max}`. Erhöht nicht automatisch
- * — Caller ruft `recordPush(ruleId)` nach erfolgreichem Send.
+ * Global-cap check: returns `{allowed, count, max}`. Does NOT increment
+ * automatically — the caller invokes `recordPush(ruleId)` after a successful send.
  */
 export function checkGlobalCap(now: number = Date.now()): {
   allowed: boolean;
@@ -137,8 +137,8 @@ export function checkGlobalCap(now: number = Date.now()): {
 }
 
 /**
- * Per-Rule Rate-Limit check. `windowMs` + `max` definieren das Fenster.
- * Returns whether the rule is allowed to fire (ohne selbst zu increment'en).
+ * Per-rule rate-limit check. `windowMs` + `max` define the window.
+ * Returns whether the rule is allowed to fire (without incrementing itself).
  */
 export function checkRuleRateLimit(
   ruleId: string,
@@ -161,8 +161,8 @@ export function checkRuleRateLimit(
 }
 
 /**
- * Nach erfolgreichem Push-Send aufrufen: increment'et global-daily-counter
- * und — wenn angegeben — rule-window-counter.
+ * Call after a successful push send: increments the global-daily counter
+ * and — if given — the rule-window counter.
  */
 export function recordPush(
   ruleId: string,
@@ -228,7 +228,7 @@ export function recordAudit(params: {
 }
 
 /**
- * Test-Helper: löscht alle Dedup-/Counter-/Audit-Rows. NUR in Tests aufrufen.
+ * Test helper: deletes all dedup/counter/audit rows. Call ONLY in tests.
  */
 export function __resetPushStateForTests(): void {
   const db = getDb();

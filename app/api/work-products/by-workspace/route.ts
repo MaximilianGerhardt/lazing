@@ -1,10 +1,10 @@
 /**
  * GET /api/work-products/by-workspace?workspaceId=ID&limit=50
  *
- * Listet die letzten N Work-Products pro Workspace, gruppiert nach
- * Ticket-ID. Sub-Plan H2 (Work-Product-First-View).
+ * Lists the latest N work products per workspace, grouped by
+ * ticket ID. Sub-plan H2 (work-product-first view).
  *
- * Privacy-Gate: high-sensitivity-Workspaces 403.
+ * Privacy gate: high-sensitivity workspaces 403.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const db = getDb();
 
-  // 1. Tickets im Workspace finden (via events.entityType='ticket' segmentId=ws)
+  // 1. Find tickets in the workspace (via events.entityType='ticket' segmentId=ws)
   const ticketRows = db
     .select({ entityId: events.entityId })
     .from(events)
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json({ workspaceId, items: [], total: 0 });
   }
 
-  // 2. Work-Products für diese Tickets
+  // 2. Work products for these tickets
   const wpRows = db
     .select()
     .from(workProducts)

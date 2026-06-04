@@ -1,20 +1,20 @@
 'use client';
 
 /**
- * IteratePipelineCard — Sub-Plan 04 Welle 2 (2026-04-29).
+ * IteratePipelineCard — Sub-Plan 04 Wave 2 (2026-04-29).
  *
- * Eine lebende Card pro Workstream während des iterate-Loops V1...V5.
- * Pollt /api/workstreams/[id]/pause-status:
- *   - currentVersion: V1...V5 Track
+ * One living card per workstream during the iterate loop V1...V5.
+ * Polls /api/workstreams/[id]/pause-status:
+ *   - currentVersion: V1...V5 track
  *   - phase: lead-v1 | roast | v2-spawn
- *   - isPaused + remainingMs: Sniper-Pause-Pille mit Countdown
- *   - isFinal: blendet sich aus, wenn Plan fertig — die nachfolgende
- *     ConsensusActionCard übernimmt dann den Rest.
+ *   - isPaused + remainingMs: sniper-pause pill with countdown
+ *   - isFinal: hides itself when the plan is done — the following
+ *     ConsensusActionCard then takes over the rest.
  *
- * Inject-Field inline: User schreibt eine Korrektur, sie wird in die
- * nächste V_n+1 integriert.
+ * Inject field inline: the user writes a correction, it gets integrated
+ * into the next V_n+1.
  *
- * Welle 3.3 — Refactored: Inline-Styles → CSS-Klassen + Token-Bind.
+ * Wave 3.3 — Refactored: inline styles → CSS classes + token bind.
  */
 
 import { memo, useEffect, useState } from 'react';
@@ -29,8 +29,8 @@ interface Props {
   /** Hard-Cap der iterate-Wellen (default 5). */
   maxVersion?: number;
   /**
-   * 2026-05-01 — Optionaler Intent-Marker. Bug-Fix-Iterates sehen
-   * anders aus als Idee-Iterates (Roast).
+   * 2026-05-01 — Optional intent marker. Bug-fix iterates look
+   * different from idea iterates (roast).
    */
   intent?: WorkstreamIntent;
 }
@@ -91,9 +91,9 @@ function IteratePipelineCardImpl({
     };
   }, [workstreamId]);
 
-  // Wenn Plan fertig: Card blendet sich aus — ConsensusActionCard nimmt
-  // den Stab. Wir geben null zurück statt eine "fertig"-Card zu rendern,
-  // weil sonst zwei Cards (iterate + consensus) übereinander stehen.
+  // When the plan is done: the card hides itself — ConsensusActionCard takes
+  // the baton. We return null instead of rendering a "done" card,
+  // because otherwise two cards (iterate + consensus) would stack on top of each other.
   if (status?.isFinal) return null;
 
   const v = status?.currentVersion ?? 0;
@@ -258,7 +258,7 @@ function Dot({
   return <span aria-hidden className={cls} />;
 }
 
-// Sub-Plan E (2026-04-30) — React.memo. Props sind komplett primitiv.
+// Sub-Plan E (2026-04-30) — React.memo. Props are completely primitive.
 function iteratePipelinePropsEqual(prev: Props, next: Props): boolean {
   return (
     prev.workstreamId === next.workstreamId &&

@@ -1,19 +1,19 @@
 /**
  * POST /api/chat/history/[workspaceId]/clear
  *
- * „Verlauf leeren" — server-seitig (2026-06-02). Setzt einen append-only
- * Clear-Marker (`chat_history_cleared`) für den Workspace. Die History-
- * Projektion (`GET /api/chat/history/[workspaceId]`) blendet danach alle
- * `chat_message`-Events VOR dem Marker aus. Es wird NICHTS gelöscht — der
- * Event-Log (Wahrheits-Schicht, append-only) bleibt vollständig; der Clear ist
- * reversibel (Marker entfernen ⇒ History zurück).
+ * „Verlauf leeren" — server-side (2026-06-02). Sets an append-only
+ * clear marker (`chat_history_cleared`) for the workspace. The history
+ * projection (`GET /api/chat/history/[workspaceId]`) then hides all
+ * `chat_message` events BEFORE the marker. NOTHING is deleted — the
+ * event log (truth layer, append-only) stays complete; the clear is
+ * reversible (remove the marker ⇒ history back).
  *
- * Vorher war „Verlauf leeren" rein client-seitig (localStorage) — die History
- * kam beim Reload / auf einem anderen Gerät zurück. Dieser Endpoint macht den
- * Clear cross-device-persistent.
+ * Previously „Verlauf leeren" was purely client-side (localStorage) — the history
+ * came back on reload / on another device. This endpoint makes the
+ * clear cross-device persistent.
  *
- * Auth: Session-Cookie (gleicher Pattern wie GET). Der Marker trägt den
- * verifizierten User als Actor (N8-Audit: wer hat geleert).
+ * Auth: session cookie (same pattern as GET). The marker carries the
+ * verified user as the actor (N8 audit: who cleared).
  */
 
 import { NextResponse } from "next/server";

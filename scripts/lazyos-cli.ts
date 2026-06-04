@@ -293,8 +293,8 @@ async function cmdTicket(cfg: Config, args: ParsedArgs): Promise<void> {
       if (args.flags.status) body.status = args.flags.status;
       const tags = parseTagList(args.flags.tags);
       if (tags) body.tags = tags;
-      // Handoff-Punkt 5: Session-Context-Tracking. Wenn vom workspace-
-      // session gespawnt, ist LAZYOS_SESSION_ID gesetzt.
+      // Handoff point 5: session-context tracking. When spawned by the
+      // workspace session, LAZYOS_SESSION_ID is set.
       const sessionId =
         args.flags.sessionId ?? process.env.LAZYOS_SESSION_ID ?? null;
       if (sessionId) body.sessionId = sessionId;
@@ -346,9 +346,9 @@ async function cmdTicket(cfg: Config, args: ParsedArgs): Promise<void> {
         body.workflowState = args.flags.workflowState;
       const tags = parseTagList(args.flags.tags);
       if (tags) body.tags = tags;
-      // Handoff-Punkt 5: session-tracking (kein update-only-field check —
-      // sessionId alleine soll kein Noop-Update sein, drum unten getestet
-      // BEVOR sessionId hinzugefügt wird).
+      // Handoff point 5: session tracking (no update-only-field check —
+      // sessionId alone should not be a no-op update, so it is tested below
+      // BEFORE sessionId is added).
       if (Object.keys(body).length === 1) {
         die("missing_args", "ticket update requires at least one field to change");
       }
@@ -489,8 +489,8 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
       return;
     }
     case "generate": {
-      // Pdf-from-Markdown — der Hauptweg für Agenten, ein Berichts-PDF
-      // direkt in einen Workspace zu legen + Surface-Markup für Chat.
+      // PDF-from-Markdown — the main way for agents to drop a report PDF
+      // directly into a workspace + surface markup for chat.
       const workspace = args.positional[1] ?? args.flags.workspace;
       if (!workspace) {
         die("missing_args", "cloud generate requires: <workspace>");
@@ -498,9 +498,9 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
       const title =
         args.flags.title ?? `Bericht ${new Date().toISOString().slice(0, 10)}`;
 
-      // Built-In-Skill json-to-xlsx (2026-06-03): Excel-Deliverable aus einer
-      // JSON-Datei { sheets:[{name?,headers[],rows[][]}] }. --xlsx-file ist der
-      // idiomatische Weg für Agenten (lokal, N2/N9-konform, kein Cloud-Sandbox).
+      // Built-in skill json-to-xlsx (2026-06-03): Excel deliverable from a
+      // JSON file { sheets:[{name?,headers[],rows[][]}] }. --xlsx-file is the
+      // idiomatic way for agents (local, N2/N9-compliant, no cloud sandbox).
       const xlsxFile = args.flags["xlsx-file"];
       if (xlsxFile) {
         const fs = await import("node:fs");
@@ -526,8 +526,8 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
         return;
       }
 
-      // Built-In-Skill markdown-to-docx (2026-06-03): Word-Deliverable aus einer
-      // Markdown-Datei. --docx-file = idiomatischer Agenten-Weg.
+      // Built-in skill markdown-to-docx (2026-06-03): Word deliverable from a
+      // Markdown file. --docx-file = idiomatic agent path.
       const docxFile = args.flags["docx-file"];
       if (docxFile) {
         const fs = await import("node:fs");
@@ -543,8 +543,8 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
         return;
       }
 
-      // Built-In-Skill json-to-pptx (2026-06-03): PowerPoint aus JSON
-      // { slides:[{title,bullets[]}], subtitle? }. --pptx-file = Agenten-Weg.
+      // Built-in skill json-to-pptx (2026-06-03): PowerPoint from JSON
+      // { slides:[{title,bullets[]}], subtitle? }. --pptx-file = agent path.
       const pptxFile = args.flags["pptx-file"];
       if (pptxFile) {
         const fs = await import("node:fs");
@@ -560,9 +560,9 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
         return;
       }
 
-      // Design-Deck-Pfad html-to-pdf (2026-06-03): gestaltetes HTML → PDF.
-      // Schönere Pitches/Decks als pptx (Codex-/ImageGen2-Visuals einbettbar).
-      // --landscape für Querformat (Decks).
+      // Design-deck path html-to-pdf (2026-06-03): styled HTML → PDF.
+      // Nicer pitches/decks than pptx (Codex-/ImageGen2 visuals embeddable).
+      // --landscape for landscape orientation (decks).
       const htmlFile = args.flags["html-file"];
       if (htmlFile) {
         const fs = await import("node:fs");
@@ -579,8 +579,8 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
         return;
       }
 
-      // Markdown kann via --md-file=<path> ODER --md=<inline-string> kommen.
-      // --md-file ist der idiomatische Weg für Agenten.
+      // Markdown can come via --md-file=<path> OR --md=<inline-string>.
+      // --md-file is the idiomatic way for agents.
       let markdown = args.flags.md ?? "";
       const mdFile = args.flags["md-file"];
       if (mdFile) {
@@ -617,9 +617,9 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
       return;
     }
     case "upload": {
-      // Lokale Datei als Cloud-Artifact uploaden. Multipart-Form via
-      // Node-fetch + FormData. Dient KI-Pipelines die ein lokal
-      // erzeugtes Asset (Bild, Excel, fertiges PDF) hochladen wollen.
+      // Upload a local file as a cloud artifact. Multipart form via
+      // node-fetch + FormData. Serves AI pipelines that want to upload a
+      // locally generated asset (image, Excel, finished PDF).
       const workspace = args.positional[1] ?? args.flags.workspace;
       const filePath = args.positional[2] ?? args.flags.file;
       if (!workspace || !filePath) {
@@ -643,7 +643,7 @@ async function cmdCloud(cfg: Config, args: ParsedArgs): Promise<void> {
         new Blob([new Uint8Array(buffer)], { type: mime }),
         filename,
       );
-      // Direkt mit fetch (request() ist JSON-only)
+      // Directly with fetch (request() is JSON-only)
       const url = `${cfg.baseUrl}/api/cloud`;
       const res = await fetch(url, {
         method: "POST",
@@ -730,9 +730,9 @@ async function main(): Promise<void> {
   const topLevel = argv[0];
   const sub = parseArgs(argv.slice(1));
 
-  // `skill`-Befehle sind reine lokale FS-Operationen (Store/Sync/Install) — KEIN
-  // Bearer-Token / HTTP nötig. Vor loadConfig() abfangen, damit sie auch ohne
-  // gesetzten Token laufen (OSS: Skills installieren ohne Server-Setup).
+  // `skill` commands are pure local FS operations (store/sync/install) — NO
+  // bearer token / HTTP needed. Intercept before loadConfig() so they also run
+  // without a token set (OSS: install skills without a server setup).
   if (topLevel === "skill") {
     await cmdSkill(sub);
     return;
@@ -771,7 +771,7 @@ async function main(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// skill — Engine-übergreifende Skills (2026-06-03): list | install | sync
+// skill — cross-engine skills (2026-06-03): list | install | sync
 // ---------------------------------------------------------------------------
 
 async function cmdSkill(sub: ReturnType<typeof parseArgs>): Promise<void> {
@@ -833,7 +833,7 @@ async function cmdSkill(sub: ReturnType<typeof parseArgs>): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// system — Phase AR (2026-04-28): Service-Restart mit Audit-Log
+// system — Phase AR (2026-04-28): service restart with audit log
 // ---------------------------------------------------------------------------
 
 async function cmdSystem(

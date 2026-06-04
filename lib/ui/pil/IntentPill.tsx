@@ -3,19 +3,19 @@
 /**
  * lib/ui/pil/IntentPill.tsx
  * --------------------------
- * 2026-05-01 — Workstream-Intent-Marker.
+ * 2026-05-01 — workstream intent marker.
  *
- * Eine schmale Pille mit Icon + Label, die VISUELL signalisiert, ob ein
- * Workstream eine Idee, eine Implementation, ein Bug-Fix, eine Frage oder
- * eine Diskussion ist. Adressiert User-Befund "der unterschied zwischen der
+ * A narrow pill with an icon + label that VISUALLY signals whether a
+ * workstream is an idea, an implementation, a bug fix, a question or
+ * a discussion. Addresses the user finding "der unterschied zwischen der
  * implementierung der ideen noch immer nicht klar".
  *
- * Reuse: stilistisch baut die Pille auf der existierenden `pill`-Familie auf
- * (siehe app/components.css Section G · PIL), nutzt aber eine eigene
- * Modifier-Klasse `intent-pill--<suffix>` für die Akzent-Farbe.
+ * Reuse: stylistically the pill builds on the existing `pill` family
+ * (see app/components.css Section G · PIL), but uses its own
+ * modifier class `intent-pill--<suffix>` for the accent color.
  *
- * Statisch (kein onClick) → <span>. Mit onClick → <button> (z.B. zum
- * Re-Klassifizieren in der Detail-View — Phase 2).
+ * Static (no onClick) → <span>. With onClick → <button> (e.g. for
+ * reclassifying in the detail view — Phase 2).
  */
 
 import type { ReactNode } from 'react';
@@ -27,11 +27,11 @@ import {
 
 export interface IntentPillProps {
   intent: WorkstreamIntent;
-  /** "Idee" / "Implementierung" — default true. False = nur Icon. */
+  /** "Idee" / "Implementierung" — default true. False = icon only. */
   showLabel?: boolean;
-  /** Eigener Sub-Label-Override (für Spezialfälle wie "Idee · Brainstorm"). */
+  /** Custom sub-label override (for special cases like "Idee · Brainstorm"). */
   labelOverride?: string;
-  /** Click → öffnet Re-Klassifikations-Sheet (Phase 2). */
+  /** Click → opens the reclassification sheet (Phase 2). */
   onClick?: () => void;
   className?: string;
 }

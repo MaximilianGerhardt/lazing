@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * app/skills/EngineSkillsCard.tsx — Engine-übergreifende Skills (2026-06-03).
+ * app/skills/EngineSkillsCard.tsx — cross-engine skills (2026-06-03).
  *
- * Browser-Verwaltung der laz.ing-Skill-Schicht: zeigt installierte SKILL.md-
- * Skills + in welche Engines (claude/codex) sie gesynct sind, + Installieren aus
- * Pfad/Git + erneutes Syncen. Nur Design-Tokens, keine Emojis.
+ * Browser management of the laz.ing skill layer: shows installed SKILL.md
+ * skills + which engines (claude/codex) they are synced into, + installing from
+ * path/Git + re-syncing. Design tokens only, no emojis.
  */
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';

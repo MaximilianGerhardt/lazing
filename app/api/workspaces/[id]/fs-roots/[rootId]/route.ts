@@ -1,13 +1,13 @@
 /**
- * DELETE /api/workspaces/[id]/fs-roots/[rootId] — entfernt einen FS-Root.
- * PATCH  /api/workspaces/[id]/fs-roots/[rootId] — { access:'ro'|'rw' } toggelt
- *        die Zugriffspolitik eines FS-Roots (sauberer Toggle statt Re-POST).
+ * DELETE /api/workspaces/[id]/fs-roots/[rootId] — removes an FS root.
+ * PATCH  /api/workspaces/[id]/fs-roots/[rootId] — { access:'ro'|'rw' } toggles
+ *        the access policy of an FS root (clean toggle instead of re-POST).
  *
- * Der Primary-Root (gespiegelter workspaces.path) wird NICHT über DELETE
- * gelöscht — der Editor blendet den Remove-Button dafür aus, und das Repo-Modul
- * (FS-1) lehnt den Versuch zusätzlich ab (defense-in-depth → 409).
+ * The primary root (mirrored workspaces.path) is NOT deleted via DELETE
+ * — the editor hides the remove button for it, and the repo module
+ * (FS-1) additionally rejects the attempt (defense-in-depth → 409).
  *
- * Auth: ≥ member (analog credentials/[credId]/route.ts).
+ * Auth: ≥ member (analogous to credentials/[credId]/route.ts).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -18,7 +18,7 @@ import {
   canEditWorkspaceContent,
   getEffectiveWorkspaceRole,
 } from '@/lib/security/permissions';
-// CONTRACT — Repo baut ein paralleler Agent (FS-1).
+// CONTRACT — the repo is built by a parallel agent (FS-1).
 import {
   removeWorkspaceRoot,
   updateWorkspaceRootAccess,
@@ -52,10 +52,10 @@ export async function DELETE(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   try {
     const db = getDb();
-    // fs-roots-Repo nimmt eine better-sqlite3-Database direkt → db.$raw.
+    // The fs-roots repo takes a better-sqlite3 Database directly → db.$raw.
     const result = removeWorkspaceRoot(db.$raw, rootId);
 
-    // Defense-in-depth (FS-1): das Repo lehnt Primary-Root-Löschung ab.
+    // Defense-in-depth (FS-1): the repo rejects primary-root deletion.
     if (!result.removed && result.reason === 'primary_protected') {
       return NextResponse.json(
         { error: 'primary_protected', message: 'Der primäre Ordner kann nicht entfernt werden.' },
@@ -90,7 +90,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: 'invalid_root_id' }, { status: 400 });
   }
 
-  // Auth identisch zur DELETE-Route (≥ member des Workspace).
+  // Auth identical to the DELETE route (≥ member of the workspace).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, wsId))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
@@ -112,7 +112,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   try {
     const db = getDb();
-    // fs-roots-Repo nimmt eine better-sqlite3-Database direkt → db.$raw.
+    // The fs-roots repo takes a better-sqlite3 Database directly → db.$raw.
     const root: FsRoot | null = updateWorkspaceRootAccess(db.$raw, rootId, access);
     if (!root) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });

@@ -1,15 +1,15 @@
 /**
- * Phase AU.3.5 — Claude-MAX-Plan-Bindung pro User.
+ * Phase AU.3.5 — Claude MAX plan binding per user.
  *
- * GET    /api/users/me/claude-creds — gibt Status zurück (binding info, kein Klartext)
- * POST   /api/users/me/claude-creds { credentialsJson } — eigene credentials.json hochladen
- * DELETE /api/users/me/claude-creds — Bindung lösen, zurück auf "shared"
+ * GET    /api/users/me/claude-creds — returns status (binding info, no plaintext)
+ * POST   /api/users/me/claude-creds { credentialsJson } — upload own credentials.json
+ * DELETE /api/users/me/claude-creds — release binding, back to "shared"
  *
- * Speicherung: AES-256-GCM-encrypted nach `<DATA_DIR>/user-creds/<userId>/credentials.json.enc`.
- * Der Klartext verlässt den Server nie — nur die `oauthAccount.email` wird beim
- * Upload extrahiert + als Diagnose-Feld gespeichert.
+ * Storage: AES-256-GCM-encrypted to `<DATA_DIR>/user-creds/<userId>/credentials.json.enc`.
+ * The plaintext never leaves the server — only the `oauthAccount.email` is
+ * extracted on upload + stored as a diagnostic field.
  *
- * Auth: User muss eingeloggt sein (currentUserIdResolved → echte ULID).
+ * Auth: the user must be logged in (currentUserIdResolved → real ULID).
  */
 
 import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
@@ -52,9 +52,9 @@ export async function GET(req: NextRequest): Promise<Response> {
 }
 
 interface PostBody {
-  /** Inhalt von ~/.claude/.credentials.json als String (User kopiert ihn raus). */
+  /** Contents of ~/.claude/.credentials.json as a string (the user copies it out). */
   credentialsJson?: string;
-  /** „shared" als Default-Toggle ohne File. */
+  /** "shared" as a default toggle without a file. */
   status?: "shared" | "own" | "none";
 }
 
@@ -71,14 +71,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
 
-  // Status-Only-Toggle (shared/none ohne File-Upload)
+  // Status-only toggle (shared/none without file upload)
   if (body.status === "shared" || body.status === "none") {
     setClaudeMaxBinding(userId, {
       status: body.status,
       credsPath: null,
       email: null,
     });
-    // Falls vorher ein File da war: löschen.
+    // If a file was there before: delete it.
     const oldPath = userPath(userId);
     if (existsSync(oldPath)) {
       try {
@@ -97,8 +97,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Schema-Check minimal: muss valides JSON sein und einen oauthAccount.email
-  // enthalten oder zumindest einen access_token.
+  // Minimal schema check: must be valid JSON and contain an oauthAccount.email
+  // or at least an access_token.
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(body.credentialsJson) as Record<string, unknown>;
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Email-Extraktion (für Diagnose). Optional.
+  // Email extraction (for diagnostics). Optional.
   let email: string | null = null;
   const oauth = parsed.oauthAccount as Record<string, unknown> | undefined;
   if (oauth && typeof oauth.email === "string") {

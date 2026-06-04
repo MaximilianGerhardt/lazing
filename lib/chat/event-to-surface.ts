@@ -1,11 +1,11 @@
 /**
- * Event → Surface-Tag Mapping
+ * Event → surface-tag mapping
  *
- * Nimmt ein LazyEvent (aus /api/events/stream) und liefert einen Surface-
- * Tag-String (`<surface:KIND>{json}</surface:KIND>`), der direkt in eine
- * System-Message im Chat gerendert wird.
+ * Takes a LazyEvent (from /api/events/stream) and returns a surface-
+ * tag string (`<surface:KIND>{json}</surface:KIND>`) that is rendered directly into a
+ * system message in the chat.
  *
- * Null = Event ist nicht chat-relevant (z.B. push_sent, interne noise).
+ * Null = the event is not chat-relevant (e.g. push_sent, internal noise).
  */
 
 import type { LazyEventLike } from './useEventStream';
@@ -60,7 +60,7 @@ function approvalSurface(ticketId: string, title: string, sub?: string): string 
 }
 
 // ---------------------------------------------------------------------------
-// Welle 7 (2026-05-01) — Loop-Phase-Surfaces
+// Wave 7 (2026-05-01) — loop-phase surfaces
 // ---------------------------------------------------------------------------
 
 type LoopPhaseKind =
@@ -94,7 +94,7 @@ function loopPhaseSurface(
     workstreamId: wsId,
     workspaceId,
   };
-  // Stage-/Tier-/Roaster-/Vn-spezifische Felder konsolidieren.
+  // Consolidate stage/tier/roaster/Vn-specific fields.
   if (typeof payload.stage === 'string') obj.stage = payload.stage;
   if (typeof payload.tier === 'string') obj.tier = payload.tier;
   if (typeof payload.agentIdx === 'number') obj.agentIdx = payload.agentIdx;
@@ -234,10 +234,10 @@ export function eventToSurface(
   const entityId = ev.entityId ?? '';
   const payload = ev.payload ?? {};
 
-  // --- updated mit transition='auto_dispatch' (Phase AD · 2026-04-26) ---
-  // Sub-Plan 05 Polish (2026-04-29): Pro-Sub-Ticket Toast unterdrückt.
-  // Mit 6 Subs sind das 6 quasi-identische Cards im Stream. Die
-  // LivePipeline-Card zeigt alle Subs in einer einzigen Übersicht.
+  // --- updated with transition='auto_dispatch' (Phase AD · 2026-04-26) ---
+  // Sub-Plan 05 polish (2026-04-29): per-sub-ticket toast suppressed.
+  // With 6 subs these are 6 near-identical cards in the stream. The
+  // LivePipeline card shows all subs in a single overview.
   if (type === 'updated' && entityType === 'ticket') {
     const transition = typeof payload.transition === 'string' ? payload.transition : '';
     if (transition === 'auto_dispatch') {
@@ -283,18 +283,18 @@ export function eventToSurface(
       };
     }
     if (transition === 'pipeline_complete') {
-      // Sub-Plan 05 Polish (2026-04-29): per-Sub-Toast unterdrückt.
-      // Die LivePipeline-Card markiert die Sub-Zeile als abgeschlossen,
-      // sobald alle 3 Stages durchgelaufen sind. Pro-Sub-Toast wäre
-      // doppelte Info im Stream.
+      // Sub-Plan 05 polish (2026-04-29): per-sub toast suppressed.
+      // The LivePipeline card marks the sub row as finished
+      // once all 3 stages have run. A per-sub toast would be
+      // duplicate info in the stream.
       return null;
     }
   }
 
   // --- commented kind=auto-dispatch-stage-retry (Phase 2026-04-26) ---
-  // Sub-Plan 05 Polish (2026-04-29): keine Stream-Toasts mehr.
-  // Die LivePipeline-Card visualisiert Retry-Zustände in der Stage-
-  // Spalte. Sonst sind 3 Subs × Retry × N = chaotisches Spam.
+  // Sub-Plan 05 polish (2026-04-29): no more stream toasts.
+  // The LivePipeline card visualizes retry states in the stage
+  // column. Otherwise 3 subs × retry × N = chaotic spam.
   if (
     type === 'commented' &&
     (payload as Record<string, unknown>).kind === 'auto-dispatch-stage-retry'
@@ -303,8 +303,8 @@ export function eventToSurface(
   }
 
   // --- commented kind=iterate-error (Phase IT · 2026-04-27) ---
-  // Lead-V1 oder Roast oder V2 ist fehlgeschlagen — User soll das sofort
-  // sehen statt minutenlang aufs nichts zu warten.
+  // Lead-V1 or roast or V2 failed — the user should see this immediately
+  // instead of waiting for nothing for minutes.
   if (
     type === 'commented' &&
     (payload as Record<string, unknown>).kind === 'iterate-error'
@@ -325,9 +325,9 @@ export function eventToSurface(
   }
 
   // --- commented kind=auto-dispatch-overview (Phase WSC.1 · 2026-04-26) ---
-  // Auto-Dispatch hat angefangen — emittiere ne Live-Pipeline-Card.
-  // Die Card subscribed selber auf weitere stage-Events. Idempotent
-  // dedup'd uebers event.id im chat-render.
+  // Auto-dispatch has started — emit a live-pipeline card.
+  // The card subscribes itself to further stage events. Idempotently
+  // deduped via the event.id in the chat render.
   if (
     type === 'commented' &&
     (payload as Record<string, unknown>).kind === 'auto-dispatch-overview'
@@ -366,11 +366,11 @@ export function eventToSurface(
   }
 
   // --- commented kind=auto-dispatch-stage (Phase AD · 2026-04-26) ---
-  // Sub-Plan 05 Polish (2026-04-29): keine Stream-Toasts mehr.
-  // 6 Subs × 3 Stages = 18 Toasts erschlagen den Chat. Die existing
-  // LivePipeline-Card subscribed selbst auf diese Events und füllt die
-  // 3-Spalten-Tabelle (senior-dev → reviewer → critic). Doppelte
-  // Visualisierung im Stream + in der Card war Spam.
+  // Sub-Plan 05 polish (2026-04-29): no more stream toasts.
+  // 6 subs × 3 stages = 18 toasts overwhelm the chat. The existing
+  // LivePipeline card subscribes itself to these events and fills the
+  // 3-column table (senior-dev → reviewer → critic). A double
+  // visualization in the stream + in the card was spam.
   if (
     type === 'commented' &&
     (payload as Record<string, unknown>).kind === 'auto-dispatch-stage'
@@ -378,11 +378,11 @@ export function eventToSurface(
     return null;
   }
 
-  // --- bug_fix_pipeline_phase (Welle 2 · 2026-05-03) ---
-  // Live-Card für die 8-Phasen-Bug-Fix-Pipeline. Statt 8 separater Toasts
-  // emittieren wir 1 Surface-Card mit Phase-Stepper. Card subscribed selbst
-  // auf weitere bug_fix_pipeline_phase-Events vom selben workstreamId und
-  // füllt den Stepper progressiv.
+  // --- bug_fix_pipeline_phase (Wave 2 · 2026-05-03) ---
+  // A live card for the 8-phase bug-fix pipeline. Instead of 8 separate toasts
+  // we emit 1 surface card with a phase stepper. The card subscribes itself
+  // to further bug_fix_pipeline_phase events from the same workstreamId and
+  // fills the stepper progressively.
   if (type === 'bug_fix_pipeline_phase') {
     const p = payload as Record<string, unknown>;
     const wsId = typeof p.workstreamId === 'string' ? p.workstreamId : '';
@@ -463,10 +463,10 @@ export function eventToSurface(
       title?: string;
       parentTicketId?: string;
     };
-    // Sub-Plan 05 (2026-04-29) — Sub-Tickets aus Stream filtern.
-    // Wenn parentTicketId gesetzt ist, wurde das Ticket über finalize-Pipeline
-    // als Sub erzeugt und ist bereits in der ConsensusActionCard collapsible
-    // Sub-Tickets-Section sichtbar. Kein zusätzlicher Stream-Spam.
+    // Sub-Plan 05 (2026-04-29) — filter sub-tickets out of the stream.
+    // When parentTicketId is set, the ticket was created as a sub via the
+    // finalize pipeline and is already visible in the ConsensusActionCard's
+    // collapsible sub-tickets section. No additional stream spam.
     if (p.parentTicketId) {
       return null;
     }
@@ -478,7 +478,7 @@ export function eventToSurface(
         href: entityId ? `/tickets/${entityId}` : undefined,
       };
     }
-    // P1/P2 als leiser Toast — nicht so prominent wie P0
+    // P1/P2 as a quiet toast — not as prominent as P0
     return {
       text: `${ticketSurface(ev)}`,
       severity: 'info',
@@ -510,7 +510,7 @@ export function eventToSurface(
         severity: 'warn',
       };
     }
-    return null; // alive/error → nicht im Chat spammen
+    return null; // alive/error → do not spam in the chat
   }
 
   // --- routine_run failure ---
@@ -537,8 +537,8 @@ export function eventToSurface(
     return null;
   }
 
-  // --- error_logged bursts: 5 innerhalb 5 min → toast err ---
-  // (Burst-Detection ist Server-Job; Event kommt mit `payload.burst=true`.)
+  // --- error_logged bursts: 5 within 5 min → toast err ---
+  // (Burst detection is a server job; the event comes with `payload.burst=true`.)
   if (type === 'error_logged' && payload.burst === true) {
     const count =
       typeof payload.count === 'number' ? payload.count : 5;
@@ -555,13 +555,13 @@ export function eventToSurface(
   }
 
   // --- commented kind=git-commit (Phase TB: Terminal-Claude commit-bridge) ---
-  // Ein Agent (typischerweise actor=agent:terminal-claude) hat im
-  // lazyos-Repo committed. Dezenter Toast im Chat, damit Max passive
-  // Sichtbarkeit hat ohne Terminal aufmachen zu müssen.
+  // An agent (typically actor=agent:terminal-claude) committed in the
+  // lazyos repo. A subtle toast in the chat so Max has passive
+  // visibility without having to open a terminal.
   //
-  // Sub-Plan B (2026-04-30): wenn das Commit-Subject `[skip-mirror]`
-  // enthaelt, NICHT in den Chat surfacen. Auto-Dispatch-Sub-Agents
-  // committen mit diesem Footer um Echo-Loops + Chat-Spam zu vermeiden.
+  // Sub-Plan B (2026-04-30): if the commit subject contains `[skip-mirror]`,
+  // do NOT surface in the chat. Auto-dispatch sub-agents
+  // commit with this footer to avoid echo loops + chat spam.
   if (
     type === 'commented' &&
     (payload as Record<string, unknown>).kind === 'git-commit'
@@ -574,7 +574,7 @@ export function eventToSurface(
         ? (payload.messageSubject as string)
         : '';
     if (subjectRaw.includes('[skip-mirror]')) {
-      // Skip — Sub-Agent-Commit, kein Chat-Toast, kein Echo.
+      // Skip — sub-agent commit, no chat toast, no echo.
       return null;
     }
     const subject =
@@ -601,9 +601,9 @@ export function eventToSurface(
     };
   }
 
-  // --- commented kind=synthesis (Workstream-Lead-Synthesizer fertig) ---
-  // PHASE I (User-Wunsch 2026-04-26): Synthesis kommt zurueck in den Chat
-  // als prominente milestone-Card statt System-Toast.
+  // --- commented kind=synthesis (workstream-lead synthesizer done) ---
+  // PHASE I (user wish 2026-04-26): synthesis comes back into the chat
+  // as a prominent milestone card instead of a system toast.
   if (type === 'commented' && (payload as Record<string, unknown>).kind === 'synthesis') {
     const synthText = typeof payload.text === 'string' ? payload.text : '';
     const wsId =
@@ -612,29 +612,29 @@ export function eventToSurface(
       typeof payload.costCents === 'number' ? payload.costCents : 0;
     const nInputs =
       typeof payload.n_inputs === 'number' ? payload.n_inputs : 0;
-    // Erste Headline (## ...) als headline
+    // First headline (## ...) as the headline
     const firstHeadline =
       synthText
         .split('\n')
         .find((l) => /^##\s/.test(l))
         ?.replace(/^##\s+/, '')
         .slice(0, 60) ?? 'Plan-Synthese fertig';
-    // Erste 3 Bullet-Points (- foo) als bullets
+    // First 3 bullet points (- foo) as bullets
     const bullets = synthText
       .split('\n')
       .filter((l) => /^[-*]\s+\S/.test(l))
       .slice(0, 3)
       .map((l) => l.replace(/^[-*]\s+/, '').slice(0, 80));
-    // P11 (2026-05-01): Wenn writeReasoningAudit() für diese Synthesis eine
-    // ID zurückgegeben hat, hängt die der Caller als payload.reasoningAuditId
-    // an. Mapper reicht sie als auditId an die MilestoneCard weiter, die dann
-    // im Footer eine SourceChipRow rendert.
+    // P11 (2026-05-01): if writeReasoningAudit() returned an
+    // ID for this synthesis, the caller attaches it as payload.reasoningAuditId.
+    // The mapper forwards it as auditId to the MilestoneCard, which then
+    // renders a SourceChipRow in the footer.
     const auditIdRaw = (payload as Record<string, unknown>).reasoningAuditId;
     const auditId = typeof auditIdRaw === 'string' ? auditIdRaw : undefined;
-    // Apple-UX (2026-05-30): Plan-Synthese ist eine INFO, kein Triumph.
-    // `variant: 'quiet'` rendert eine ruhige Info-Zeile statt der großen
-    // Keynote-Card — sie darf NIE lauter sein als ein blockierendes Gate.
-    // Info bleibt vollständig erhalten (headline/sub/bullets/href).
+    // Apple-UX (2026-05-30): plan synthesis is an INFO, not a triumph.
+    // `variant: 'quiet'` renders a quiet info line instead of the big
+    // keynote card — it must NEVER be louder than a blocking gate.
+    // The info is fully preserved (headline/sub/bullets/href).
     const milestonePayload: Record<string, unknown> = {
       variant: 'quiet',
       headline: firstHeadline,
@@ -652,8 +652,8 @@ export function eventToSurface(
     };
   }
 
-  // --- commented von tier-spawn-Agent (Workstream-Aktivitaet) ---
-  // Dezent als Toast — User soll Live-Aktivitaet sehen aber nicht ueberschwemmt.
+  // --- commented from a tier-spawn agent (workstream activity) ---
+  // Subtle as a toast — the user should see live activity but not be flooded.
   if (type === 'commented' && typeof ev.actor === 'string' && /^agent:(opus|sonnet|haiku)-/.test(ev.actor)) {
     const role = ev.actor.replace(/^agent:/, '');
     return {
@@ -668,7 +668,7 @@ export function eventToSurface(
     };
   }
 
-  // --- commented mit @max mention ---
+  // --- commented with @max mention ---
   if (type === 'commented') {
     const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
     const includesMax = mentions.some(
@@ -692,9 +692,9 @@ export function eventToSurface(
         href: entityId ? `/tickets/${entityId}` : undefined,
       };
     }
-    return null; // normale comments nicht spammen
+    return null; // do not spam normal comments
   }
 
-  // Alles andere: keine chat-relevante Surface
+  // Everything else: no chat-relevant surface
   return null;
 }

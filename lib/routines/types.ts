@@ -1,31 +1,31 @@
 /**
- * Routines — Typ-Definitionen + Zod-Schemas.
+ * Routines — type definitions + Zod schemas.
  *
- * Pendant zu `lifeos-routine-runner.ts` (example-tool), angepasst auf den lazyOS-
- * Event-Bus. Unterschiede zum Original:
- *   - Delivery-Modi erweitert um `push_send` + `decision_request`.
- *   - `workspace_id` ersetzt `segment`.
- *   - Struktur liegt als YAML-String in `routines.yaml_config` statt
- *     File-System; Dateipfad-Traversal-Guards entfallen daher.
+ * Counterpart to `lifeos-routine-runner.ts` (example-tool), adapted to the lazyOS
+ * event bus. Differences from the original:
+ *   - Delivery modes extended by `push_send` + `decision_request`.
+ *   - `workspace_id` replaces `segment`.
+ *   - The structure lives as a YAML string in `routines.yaml_config` instead of the
+ *     file system; file-path traversal guards therefore drop out.
  */
 
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
-// Delivery-Modi
+// Delivery modes
 // ---------------------------------------------------------------------------
 
 export const DeliverySchema = z.enum([
-  "stdout", // Markdown auf stderr (= Dev-Kanal); immer an
+  "stdout", // Markdown to stderr (= dev channel); always on
   "memory_write", // emitEvent → eventType='created', entityType='note'
-  "ticket_create", // createTicket() in diesem Workspace
-  "push_send", // POST /api/push/send via internen Bearer
+  "ticket_create", // createTicket() in this workspace
+  "push_send", // POST /api/push/send via internal Bearer
   "decision_request", // emitEvent (decision) + push_send (parallel)
 ]);
 export type Delivery = z.infer<typeof DeliverySchema>;
 
 // ---------------------------------------------------------------------------
-// Pipeline-Steps (YAML-List-of-Single-Key-Maps, identisch zu example-tool)
+// Pipeline steps (YAML list-of-single-key-maps, identical to example-tool)
 // ---------------------------------------------------------------------------
 
 export const CollectContextStepSchema = z.object({
@@ -47,9 +47,9 @@ export const DeliveryStepSchema = z.object({
 });
 
 /**
- * Optionaler Deduplication-Schritt — falls gesetzt, prüft der Runner
- * Events des letzten `within_hours`-Fensters und überspringt den Step,
- * wenn ein Event mit dem `key` existiert.
+ * Optional deduplication step — if set, the runner checks
+ * events of the last `within_hours` window and skips the step
+ * if an event with the `key` exists.
  */
 export const DedupStepSchema = z.object({
   dedup: z.object({
@@ -59,9 +59,9 @@ export const DedupStepSchema = z.object({
 });
 
 /**
- * Push-Konfiguration (Titel, Body-Template, Ziel-URL).
- * Template-Vars: `{count}`, `{first_title}` uvm. — werden vom Runner
- * aus dem Collect-Output abgeleitet.
+ * Push configuration (title, body template, target URL).
+ * Template vars: `{count}`, `{first_title}` and more — are derived by the runner
+ * from the collect output.
  */
 export const PushConfigStepSchema = z.object({
   push: z.object({
@@ -82,7 +82,7 @@ export const PipelineStepSchema = z.union([
 ]);
 
 // ---------------------------------------------------------------------------
-// Root-Schema für eine Routine-YAML
+// Root schema for a routine YAML
 // ---------------------------------------------------------------------------
 
 export const RoutineConfigSchema = z.object({
@@ -197,7 +197,7 @@ export function parseJsonArraySafe(raw: string | null | undefined): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Normalised View — einfacher zu konsumieren als Liste-of-Maps
+// Normalised view — easier to consume than a list-of-maps
 // ---------------------------------------------------------------------------
 
 export interface NormalisedRoutine {
@@ -253,13 +253,13 @@ export function normaliseRoutine(config: RoutineConfig): NormalisedRoutine {
     throw new Error(`routine ${config.id}: missing collect_context step`);
   }
   if (outputFormat === null) {
-    outputFormat = "markdown"; // Default — analog example-tool-Runner.
+    outputFormat = "markdown"; // Default — like the example-tool runner.
   }
   if (delivery === null) {
     throw new Error(`routine ${config.id}: missing delivery step`);
   }
 
-  // push_send / decision_request benötigen push-Config.
+  // push_send / decision_request require a push config.
   if ((delivery === "push_send" || delivery === "decision_request") && !push) {
     throw new Error(
       `routine ${config.id}: delivery=${delivery} requires a \`push:\` step`,
@@ -281,13 +281,13 @@ export function normaliseRoutine(config: RoutineConfig): NormalisedRoutine {
 }
 
 // ---------------------------------------------------------------------------
-// Event-Match Predicate (für triggerMode='event')
+// Event-match predicate (for triggerMode='event')
 // ---------------------------------------------------------------------------
 
 export const EventMatchSchema = z.object({
   eventType: z.string().min(1),
   entityType: z.string().optional(),
-  /** Optional key→value-Match auf `event.payload[key]`. */
+  /** Optional key→value match on `event.payload[key]`. */
   payloadMatch: z.record(z.string(), z.unknown()).optional(),
 });
 export type EventMatch = z.infer<typeof EventMatchSchema>;

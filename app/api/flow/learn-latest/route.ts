@@ -1,16 +1,16 @@
 /**
  * POST /api/flow/learn-latest
  *
- * Self-Learning — expliziter Trigger (Owner: „weil man es explizit sagt und
+ * Self-learning — explicit trigger (owner: „weil man es explizit sagt und
  * anmerkt"). Body: { workspaceId: string, name?: string }.
  *
- * Löst den ZULETZT aktualisierten (root-)Workstream des Workspaces auf und
- * kompiliert ihn via compileWorkstreamToFlow in ein wiederverwendbares
- * flow_template — der manuelle Gegenpart zum automatischen Repetition-Detektor
- * (Slice 1). Vom `/learn`-Slash-Command genutzt. Gibt {flowId} zurück →
- * wiederholbar via POST /api/flow/[flowId]/run.
+ * Resolves the MOST RECENTLY updated (root) workstream of the workspace and
+ * compiles it via compileWorkstreamToFlow into a reusable
+ * flow_template — the manual counterpart to the automatic repetition detector
+ * (Slice 1). Used by the `/learn` slash command. Returns {flowId} →
+ * repeatable via POST /api/flow/[flowId]/run.
  *
- * Auth: Workspace-Member (Vorlage: from-workstream/route.ts). Kein Cross-Scope.
+ * Auth: workspace member (template: from-workstream/route.ts). No cross-scope.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -61,8 +61,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  // Zuletzt aktualisierten root-Workstream auflösen (listWorkstreams ordnet
-  // desc(updatedAt)). Kein Workstream → 404 (nichts zu lernen).
+  // Resolve the most recently updated root workstream (listWorkstreams orders
+  // by desc(updatedAt)). No workstream → 404 (nothing to learn).
   const recent = await listWorkstreams({ workspaceId, limit: 1 });
   const latest = recent[0];
   if (!latest) {
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       workspaceId,
       ...(name !== undefined ? { name } : {}),
     });
-    // Auto-Param-Extraktion (Slice 2b-3, fail-soft).
+    // Auto param extraction (Slice 2b-3, fail-soft).
     let params: { key: string; observed: string[] }[] = [];
     let paramsHeuristic = false;
     try {
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       params = ap.params.map((p) => ({ key: p.key, observed: p.observed }));
       paramsHeuristic = ap.heuristic;
     } catch {
-      /* Komfort, kein Pflicht-Schritt */
+      /* Convenience, not a required step */
     }
     return NextResponse.json(
       {

@@ -49,41 +49,41 @@ interface SendOpts {
   workspaceId: string;
   sensitivityFloor?: 'low' | 'med' | 'high';
   /**
-   * Bug-C-RACE Fix 2026-04-26: Client kann pendingPromptId selbst
-   * vorgeben. Wird als Header `X-LazyOS-Pending-Id` an den Server
-   * geschickt — Server nutzt sie statt eigene zu erzeugen. Damit
-   * kann der Client `ownPendingIdsRef` BEVOR dem Submit füllen, und
-   * der Echo-Filter greift auch wenn das chat_message_sent-Event
-   * über useEventStream schneller ankommt als der Response-Header
-   * (Race-Condition: Server emittet Event sofort, Header erst nach
-   * agent-server-Connect).
+   * Bug-C-RACE Fix 2026-04-26: the client can supply pendingPromptId
+   * itself. Sent as the header `X-LazyOS-Pending-Id` to the server
+   * — the server uses it instead of generating its own. This way
+   * the client can fill `ownPendingIdsRef` BEFORE the submit, and
+   * the echo filter takes effect even when the chat_message_sent event
+   * arrives via useEventStream faster than the response header
+   * (race condition: the server emits the event immediately, the header only after the
+   * agent-server connect).
    */
   pendingPromptId?: string;
   /**
-   * Phase MS · 2026-04-26: der Server liefert im allerersten SSE-Frame
-   * die `pendingPromptId` zurueck (Event-Name `pending_id`). Damit kann
-   * der Client sein eigenes `chat_message_sent`-Echo aus dem Live-
-   * Event-Stream erkennen und nicht doppelt rendern. Optional — wenn
-   * nicht gesetzt, wird die ID einfach geschluckt.
+   * Phase MS · 2026-04-26: the server returns the `pendingPromptId` in the very
+   * first SSE frame (event name `pending_id`). This way
+   * the client can recognize its own `chat_message_sent` echo from the live
+   * event stream and not render it twice. Optional — if
+   * not set, the ID is simply swallowed.
    */
   onPendingId?: (id: string) => void;
   /**
-   * Phase MS · 2026-04-26 (P1-2): NACH dem letzten `done`-Event schickt
-   * der Server-Stream einen Frame `result_event_id` mit der echten ULID
-   * des persistierten `chat_message_completed`-Events. Der Caller setzt
-   * diese ID als HistoryItem.id seiner Assistant-Message → Dedup gegen
-   * Live-Event-Stream-Echo matched (Echo-Filter Sender-Device-Doppel).
+   * Phase MS · 2026-04-26 (P1-2): AFTER the last `done` event the
+   * server stream sends a frame `result_event_id` with the real ULID
+   * of the persisted `chat_message_completed` event. The caller sets
+   * this ID as the HistoryItem.id of its assistant message → dedup against
+   * the live-event-stream echo matched (echo filter sender-device double).
    */
   onResultEventId?: (eventId: string) => void;
   /**
-   * 2-Stufen-Modell (Owner 2026-06-03): Normal-Chat antwortet schnell (Opus,
-   * kein `--effort`). Erkennt der deterministische N6-Pre-Screen
-   * (`shouldDecompose`) ein mehrstufiges Vorhaben, setzt der Caller `thinking:
-   * true` → der claude-Spawn bekommt diesen Turn `--effort` (tieferes Denken).
-   * Default false = heutiges schnelles Verhalten (kein Regress bei Smalltalk).
+   * 2-stage model (owner 2026-06-03): normal chat responds fast (Opus,
+   * no `--effort`). If the deterministic N6 pre-screen
+   * (`shouldDecompose`) detects a multi-step endeavor, the caller sets `thinking:
+   * true` → the claude spawn gets `--effort` for this turn (deeper thinking).
+   * Default false = today's fast behavior (no regression on small talk).
    */
   thinking?: boolean;
-  /** `--effort`-Level wenn thinking gesetzt ist. Default 'high' im Server. */
+  /** `--effort` level when thinking is set. Default 'high' in the server. */
   thinkingBudget?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 }
 
@@ -156,9 +156,9 @@ export function useAgentStream(): UseAgentStreamResult {
       };
 
       try {
-        // Bug-C-RACE Fix: opts.pendingPromptId, wenn der Client sie schon
-        // generiert hat, an den Server reichen — sonst rennt das Live-Event
-        // schneller los als der Response-Header zurueckkommt.
+        // Bug-C-RACE Fix: pass opts.pendingPromptId to the server if the client
+        // already generated it — otherwise the live event runs off
+        // faster than the response header comes back.
         const reqHeaders: Record<string, string> = {
           'content-type': 'application/json',
           accept: 'text/event-stream',
@@ -166,17 +166,17 @@ export function useAgentStream(): UseAgentStreamResult {
         if (opts.pendingPromptId) {
           reqHeaders['x-lazyos-pending-id'] = opts.pendingPromptId;
         }
-        // Engine-Mode: synchron aus localStorage lesen (kein async nötig).
-        // Key muss in Sync mit ChatTopBar.tsx LS_ENGINE_KEY ('lazyos.engine.mode') sein.
+        // Engine mode: read synchronously from localStorage (no async needed).
+        // The key must be in sync with ChatTopBar.tsx LS_ENGINE_KEY ('lazyos.engine.mode').
         //
-        // Alle 4 Modi sind jetzt safe für den Chat-Pfad (C6 entgate · 2026-05-25):
-        //   'claude-cli'   — agent-server-Forward (default, destruktiv-sicher via server).
-        //   'ollama'       — HTTP-Text-Chat, kein Spawn, tool-los.
-        //   'parallel-all' — Race, codex läuft intern mit codexMode:'read' (server-seitig erzwungen).
-        //   'codex-cli'    — read-only sandbox (-s read-only -a never), server erzwingt codexMode:'read'.
+        // All 4 modes are now safe for the chat path (C6 un-gate · 2026-05-25):
+        //   'claude-cli'   — agent-server forward (default, destructive-safe via server).
+        //   'ollama'       — HTTP text chat, no spawn, tool-less.
+        //   'parallel-all' — race, codex runs internally with codexMode:'read' (server-side enforced).
+        //   'codex-cli'    — read-only sandbox (-s read-only -a never), server enforces codexMode:'read'.
         //
-        // write-codex ist über diesen Pfad physisch nicht erreichbar: route.ts setzt
-        // codexMode:'read' EXPLIZIT, unabhängig von dem was hier steht.
+        // write-codex is physically unreachable via this path: route.ts sets
+        // codexMode:'read' EXPLICITLY, independent of what is set here.
         const rawEngineMode =
           typeof window !== 'undefined'
             ? (window.localStorage.getItem('lazyos.engine.mode') ?? '')
@@ -194,7 +194,7 @@ export function useAgentStream(): UseAgentStreamResult {
           rawEngineMode === 'codex-cli' ||
           rawEngineMode === 'ultracoding'
             ? rawEngineMode
-            : undefined; // Default-Fall → server wählt claude-cli
+            : undefined; // default case → the server chooses claude-cli
 
         const res = await fetch('/api/chat/stream', {
           method: 'POST',
@@ -203,10 +203,10 @@ export function useAgentStream(): UseAgentStreamResult {
             messages: opts.messages,
             workspaceId: opts.workspaceId,
             sensitivityFloor: opts.sensitivityFloor,
-            // Nur mitsenden wenn explizit gesetzt — sonst server-default (claude-cli).
+            // Only send if explicitly set — otherwise server-default (claude-cli).
             ...(safeEngineMode !== undefined ? { engineMode: safeEngineMode } : {}),
-            // 2-Stufen-Modell: thinking nur mitsenden wenn der Caller Intent
-            // erkannt hat. Fehlt das Feld → Server-Default = schneller Turn.
+            // 2-stage model: only send thinking when the caller has detected
+            // intent. If the field is missing → server-default = fast turn.
             ...(opts.thinking
               ? {
                   thinking: true,
@@ -217,10 +217,10 @@ export function useAgentStream(): UseAgentStreamResult {
           signal: ctl.signal,
         });
 
-        // Phase MS (P1-4): pendingPromptId auch als HTTP-Header — Recovery-
-        // Pfad fuer 5xx wo der SSE-pending_id-Frame nie kommt. Header-Wert
-        // hat Vorrang nicht ueber den SSE-Frame, aber stellt sicher dass
-        // wir die ID in jedem Fall sehen, sobald die Response steht.
+        // Phase MS (P1-4): pendingPromptId also as an HTTP header — recovery
+        // path for 5xx where the SSE pending_id frame never comes. The header value
+        // does not take precedence over the SSE frame, but ensures that
+        // we see the ID in any case as soon as the response is available.
         try {
           const headerPid = res.headers.get('x-lazyos-pending-id');
           if (headerPid) {
@@ -231,7 +231,7 @@ export function useAgentStream(): UseAgentStreamResult {
             }
           }
         } catch {
-          /* headers.get throw waere ungewoehnlich, aber defensiv */
+          /* a headers.get throw would be unusual, but defensive */
         }
 
         if (res.status === 503) {
@@ -273,10 +273,10 @@ export function useAgentStream(): UseAgentStreamResult {
             const frame = buffer.slice(0, idx);
             buffer = buffer.slice(idx).replace(/^(?:\r?\n){1,2}/, '');
 
-            // Phase MS: pending_id ist ein out-of-band Event aus dem
-            // /api/chat/stream-Proxy (NICHT aus dem agent-server). Wird
-            // direkt an den onPendingId-Callback weitergereicht und
-            // erscheint nicht in der AgentEvent-Union.
+            // Phase MS: pending_id is an out-of-band event from the
+            // /api/chat/stream proxy (NOT from the agent-server). It is
+            // passed directly to the onPendingId callback and
+            // does not appear in the AgentEvent union.
             const pendingId = tryParsePendingIdFrame(frame);
             if (pendingId) {
               try {
@@ -287,11 +287,11 @@ export function useAgentStream(): UseAgentStreamResult {
               continue;
             }
 
-            // Phase MS (P1-2): result_event_id ist auch out-of-band —
-            // kommt NACH dem `done`-Event und liefert die echte ULID
-            // des persistierten chat_message_completed-Events. Caller
-            // nutzt sie als HistoryItem.id, damit Live-Event-Echo
-            // dedupt.
+            // Phase MS (P1-2): result_event_id is also out-of-band —
+            // comes AFTER the `done` event and provides the real ULID
+            // of the persisted chat_message_completed event. The caller
+            // uses it as the HistoryItem.id, so the live-event echo
+            // dedupes.
             const resultEventId = tryParseResultEventIdFrame(frame);
             if (resultEventId) {
               try {
@@ -302,10 +302,10 @@ export function useAgentStream(): UseAgentStreamResult {
               continue;
             }
 
-            // 2026-05-01: heartbeat-Frames sind out-of-band Keep-Alive aus
-            // dem /api/chat/stream-Proxy. Sie tragen kein UI-Update (der
-            // existing Status="streaming" reicht), aber sie halten die
-            // Connection alive und sorgen fuer den ersten Byte-Flush.
+            // 2026-05-01: heartbeat frames are out-of-band keep-alives from
+            // the /api/chat/stream proxy. They carry no UI update (the
+            // existing status="streaming" is enough), but they keep the
+            // connection alive and ensure the first byte flush.
             if (isHeartbeatFrame(frame)) continue;
 
             const ev = parseSseFrame(frame);
@@ -317,18 +317,18 @@ export function useAgentStream(): UseAgentStreamResult {
             if (handled === 'ready') {
               if (ev.kind === 'ready') sessionId = ev.payload.sessionId;
             }
-            // Phase MS (P1-2): `done` ist NICHT mehr terminal — wir
-            // warten auf den nachfolgenden `result_event_id`-Frame
-            // (oder Stream-Close, je nachdem was zuerst kommt). Der
-            // Reducer hat working.status bereits gesetzt; wir
-            // sammeln jetzt nur noch ggf. den Result-Event-Id-Frame.
+            // Phase MS (P1-2): `done` is NO longer terminal — we
+            // wait for the following `result_event_id` frame
+            // (or stream close, whichever comes first). The
+            // reducer has already set working.status; we now
+            // only collect the result-event-id frame if any.
             if (handled === 'terminal') {
-              // Set a soft terminal-flag — wir lesen weiter bis der
-              // Server den Stream wirklich schliesst. Fuer Error-Pfade
-              // wo kein result_event_id mehr kommt, haben wir die
-              // ID-fallback-Logik im Caller (nextId).
-              // Kein break — wir lassen die outer-Schleife weiter
-              // laufen bis reader.done.
+              // Set a soft terminal flag — we keep reading until the
+              // server really closes the stream. For error paths
+              // where no result_event_id comes anymore, we have the
+              // ID-fallback logic in the caller (nextId).
+              // No break — we let the outer loop keep
+              // running until reader.done.
             }
           }
         }
@@ -438,8 +438,8 @@ function tryParsePendingIdFrame(frame: string): string | null {
  * Returns the eventId (ULID) on hit, null otherwise.
  */
 /**
- * 2026-05-01: erkennt `event: heartbeat`-Frames aus dem /api/chat/stream-
- * Proxy. Diese sind Keep-Alives — UI muss nichts machen, der Status bleibt
+ * 2026-05-01: recognizes `event: heartbeat` frames from the /api/chat/stream
+ * proxy. These are keep-alives — the UI must do nothing, the status stays
  * `streaming`.
  */
 function isHeartbeatFrame(frame: string): boolean {
@@ -620,14 +620,14 @@ function dispatchEvent(
       if (working.status === 'streaming') {
         if (p.is_error || p.error) {
           working.status = 'error';
-          // Bug 1 Fix (2026-05-30, Owner „Stream-Fehler: Agent-Fehler"):
-          // NICHT mehr generisch 'Agent-Fehler'. Wir versuchen die ECHTE
-          // Ursache aus dem done-Payload zu ziehen — Reihenfolge:
-          //   1. ein bereits gesetzter errorMessage (aus einem `error`-Frame),
-          //   2. der gestreamte Text (Claude erklärt den Fehler oft selbst),
-          //   3. das `result_text` (CLI-Final-Text bei Crash),
-          //   4. der `subtype` (z.B. 'error_max_turns'),
-          //   5. erst als allerletzter Fallback ein menschlicher Hinweis.
+          // Bug 1 Fix (2026-05-30, owner „Stream-Fehler: Agent-Fehler"):
+          // NO longer a generic 'Agent-Fehler'. We try to pull the REAL
+          // cause from the done payload — order:
+          //   1. an already-set errorMessage (from an `error` frame),
+          //   2. the streamed text (Claude often explains the error itself),
+          //   3. the `result_text` (CLI final text on crash),
+          //   4. the `subtype` (e.g. 'error_max_turns'),
+          //   5. only as the very last fallback a human-readable hint.
           working.errorMessage =
             working.errorMessage ??
             extractDoneErrorReason(p) ??
@@ -651,12 +651,12 @@ function dispatchEvent(
 // ---------------------------------------------------------------------------
 
 /**
- * Bug 1 Fix (2026-05-30): zieht eine MENSCHENLESBARE Fehlerursache aus dem
- * `done`-Payload, wenn der Server `is_error`/`error` ohne separates `error`-
- * Frame meldet. Vorher führte das zum nichtssagenden 'Agent-Fehler'. Wir
- * bevorzugen den vom CLI gelieferten Final-Text (`result_text`), sonst den
- * `subtype` (z.B. 'error_max_turns', 'error_during_execution') in eine
- * verständliche Zeile übersetzt. Exportiert für Unit-Tests.
+ * Bug 1 Fix (2026-05-30): pulls a HUMAN-READABLE error cause from the
+ * `done` payload when the server reports `is_error`/`error` without a separate
+ * `error` frame. Previously this led to the meaningless 'Agent-Fehler'. We
+ * prefer the final text delivered by the CLI (`result_text`), otherwise the
+ * `subtype` (e.g. 'error_max_turns', 'error_during_execution') translated into a
+ * comprehensible line. Exported for unit tests.
  */
 export function extractDoneErrorReason(p: {
   result_text?: string;
@@ -672,7 +672,7 @@ export function extractDoneErrorReason(p: {
       case 'error_during_execution':
         return 'Während der Ausführung trat ein Fehler auf.';
       default:
-        // Unbekannter subtype → roh durchreichen (besser als 'Agent-Fehler').
+        // Unknown subtype → pass through raw (better than 'Agent-Fehler').
         return `Agent-Abbruch (${sub})`;
     }
   }

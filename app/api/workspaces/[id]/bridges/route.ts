@@ -1,22 +1,22 @@
 /**
- * POST /api/workspaces/[id]/bridges — Owner gewährt einen Cross-Scope-Grant.
+ * POST /api/workspaces/[id]/bridges — owner grants a cross-scope grant.
  *
- * Workspace-Isolations-Modell (FS-5, Design-Doc §4.3): ein Cross-Scope-Grant
- * ist KEIN neuer Mechanismus — es ist eine `bridges`-Row (N9-Unifikation):
+ * Workspace isolation model (FS-5, design doc §4.3): a cross-scope grant
+ * is NOT a new mechanism — it is a `bridges` row (N9 unification):
  *   from_coord = {kind:'workspace', id:<this-workspace>}
- *   to_coord   = {kind:'project',  path:<toPath>}        // ein anderer Ordner
- *           ODER {kind:'workspace', id:<toWorkspaceId>}  // eine ganze Workspace
+ *   to_coord   = {kind:'project',  path:<toPath>}        // another folder
+ *           OR  {kind:'workspace', id:<toWorkspaceId>}   // a whole workspace
  *
  * Body: { toPath?, toWorkspaceId?, access:'ro'|'rw', expiresAt? }
  *
- * SCOPE dieser Route: NUR die Bridge-Row schreiben. Die Audit-Row
- * (workstream_cross_workspace_audit) + die Sandbox-Profil-Wirkung macht der
- * Integrator (FS-5). Die `access`-Angabe + ggf. Revoke-Logik landen im
- * dsgvo_metadata_jsonb, weil das `bridges`-Schema (0076) keine eigene
- * access-Spalte hat.
+ * SCOPE of this route: write ONLY the bridge row. The audit row
+ * (workstream_cross_workspace_audit) + the sandbox-profile effect is done by the
+ * integrator (FS-5). The `access` value + any revoke logic land in the
+ * dsgvo_metadata_jsonb, because the `bridges` schema (0076) has no own
+ * access column.
  *
- * Auth: Owner-Grant → ≥ admin (canManageWorkspaceStructure). Cross-Scope-Rechte
- * zu vergeben ist eine Struktur-Operation, kein bloßer Content-Write.
+ * Auth: owner grant → ≥ admin (canManageWorkspaceStructure). Granting cross-scope
+ * rights is a structure operation, not a mere content write.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -47,11 +47,11 @@ interface PostBody {
   expiresAt?: unknown;
 }
 
-// Default-Lebensdauer wenn kein expiresAt übergeben wird: 30 Tage (temporär,
-// nicht "permanent" — der Owner kann verlängern indem er eine neue Bridge anlegt;
-// 0076 erlaubt expires_at nur zu REDUZIEREN, nie zu erhöhen).
+// Default lifetime when no expiresAt is passed: 30 days (temporary,
+// not "permanent" — the owner can extend by creating a new bridge;
+// 0076 only allows expires_at to be REDUCED, never increased).
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-// Obergrenze: ~10 Jahre (de-facto "permanent" ohne FOREVER zu codieren).
+// Upper bound: ~10 years (de-facto "permanent" without encoding FOREVER).
 const MAX_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
 export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: 'invalid_workspace_id' }, { status: 400 });
   }
 
-  // Owner-Grant: Cross-Scope-Rechte vergeben → ≥ admin.
+  // Owner grant: granting cross-scope rights → ≥ admin.
   if (!canManageWorkspaceStructure(getEffectiveWorkspaceRole(userId, wsId))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       : null;
   const access: 'ro' | 'rw' = body.access === 'rw' ? 'rw' : 'ro';
 
-  // Genau EINES von toPath / toWorkspaceId.
+  // Exactly ONE of toPath / toWorkspaceId.
   if ((toPath && toWorkspaceId) || (!toPath && !toWorkspaceId)) {
     return NextResponse.json(
       {
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   } else {
     expiresAt = now + DEFAULT_TTL_MS;
   }
-  // CHECK (expires_at > approved_at) im Schema — clampen statt 500 riskieren.
+  // CHECK (expires_at > approved_at) in the schema — clamp instead of risking a 500.
   if (expiresAt <= now) expiresAt = now + DEFAULT_TTL_MS;
   if (expiresAt > now + MAX_TTL_MS) expiresAt = now + MAX_TTL_MS;
 
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     ? JSON.stringify({ kind: 'project', path: toPath })
     : JSON.stringify({ kind: 'workspace', id: toWorkspaceId });
 
-  // CHECK (from_coord <> to_coord) — Selbst-Bridge ablehnen.
+  // CHECK (from_coord <> to_coord) — reject self-bridge.
   if (fromCoord === toCoord) {
     return NextResponse.json(
       { error: 'self_bridge', message: 'Ein Workspace kann sich nicht selbst bridgen.' },
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // access wird im DSGVO-Metadata-Blob mitgeführt (kein eigenes Schema-Feld in 0076).
+  // access is carried in the GDPR metadata blob (no dedicated schema field in 0076).
   const dsgvoMetadata = JSON.stringify({
     art30_purpose: 'cross-scope-fs-grant',
     access,
@@ -142,9 +142,9 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   try {
     const db = getDb();
-    const id = ulid(now); // length(id) = 26 (Schema-CHECK).
+    const id = ulid(now); // length(id) = 26 (schema CHECK).
     // integrator: verify against bridges repo if one exists (FS-5).
-    // Schreibt NUR die Bridge-Row. Audit-Row + Sandbox-Wirkung = Integrator.
+    // Writes ONLY the bridge row. Audit row + sandbox effect = integrator.
     db.$raw
       .prepare(
         `INSERT INTO bridges

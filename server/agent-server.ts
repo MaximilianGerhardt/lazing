@@ -1063,8 +1063,8 @@ if (process.env.LAZYOS_AGENT_TEST_MODE === '1') {
       message: err.message,
       stack: err.stack,
     });
-    // Bei uncaught exception ist der Heap potentiell korrupt — graceful
-    // shutdown statt weiterleben. systemd Restart=always startet neu.
+    // On an uncaught exception the heap is potentially corrupt — graceful
+    // shutdown instead of carrying on. systemd Restart=always restarts.
     shutdown('uncaughtException');
   });
 }

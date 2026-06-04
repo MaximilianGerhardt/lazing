@@ -1,15 +1,15 @@
 /**
  * POST /api/reasoning-audit/[id]/verify
  *
- * Triggert verifyOne(id) synchron — re-spawnt das Original-Prompt-Paar,
- * vergleicht via Embedding-Cosine, schreibt verified_status zurück.
+ * Triggers verifyOne(id) synchronously — re-spawns the original prompt pair,
+ * compares via embedding cosine, writes verified_status back.
  *
- * Auth: Bearer LAZYOS_PUSH_SECRET (für Cron-Trigger) ODER eingeloggter
- * User (für UI-Trigger).
+ * Auth: Bearer LAZYOS_PUSH_SECRET (for the cron trigger) OR a logged-in
+ * user (for the UI trigger).
  *
- * Achtung: kostet echte LLM-Inferenz. Rate-Limit auf Caller-Seite empfohlen.
+ * Note: this costs real LLM inference. A rate limit on the caller side is recommended.
  *
- * Pattern 5 Welle 3 (2026-05-01).
+ * Pattern 5 wave 3 (2026-05-01).
  */
 
 import { NextResponse, type NextRequest } from "next/server";

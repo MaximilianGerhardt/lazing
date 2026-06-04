@@ -3,14 +3,14 @@
  *
  * Body: { workspaceId: string, sources?: 'files' | 'chat' | 'all' }
  *
- * Synchron startet einen RAG-Index-Lauf via lib/rag/indexer. Bei großen
- * Workspaces läuft das mehrere Minuten — UI sollte einen Background-Toast
- * zeigen und dann /api/rag/status pollen.
+ * Synchronously starts a RAG index run via lib/rag/indexer. For large
+ * workspaces this runs several minutes — the UI should show a background toast
+ * and then poll /api/rag/status.
  *
- * Loop-Guard: indexBatch hat eingebaute 60s-Recursion-Debounce +
- * Circuit-Breaker (rag_indexer_state.circuit_open).
+ * Loop guard: indexBatch has a built-in 60s recursion debounce +
+ * circuit breaker (rag_indexer_state.circuit_open).
  *
- * Auth: nur Workspace-Editors.
+ * Auth: workspace editors only.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: false, indexed: 0, hint: 'no-sources' });
   }
 
-  // Synchron — bei großen Workspaces vom UI Background-Toast handhaben.
+  // Synchronous — for large workspaces handle the background toast from the UI.
   const result = await indexBatch(sources);
   return NextResponse.json({
     ok: true,

@@ -1,10 +1,10 @@
 /**
  * POST /api/sessions/[uuid]/resume
  *
- * Markiert die gewählte Claude-Code-Session als aktive Session des
- * aktuellen Workspaces in claude_sessions-Tabelle. Beim nächsten
- * /chat-Request spawnt der Agent dann `claude --resume=<uuid>` statt
- * neuer Session-UUID.
+ * Marks the chosen Claude Code session as the active session of the
+ * current workspace in the claude_sessions table. On the next
+ * /chat request the agent then spawns `claude --resume=<uuid>` instead of
+ * a new session UUID.
  *
  * Body: { workspaceId }
  *
@@ -38,11 +38,11 @@ export async function POST(
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
   const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId : null;
-  // Akzeptiere echte Workspace-IDs (slug-style) UND Pseudo-Workspaces:
-  //   __root__       Cross-Workspace-Modus
-  //   (root) (tmp)…  Sessions die unter /root oder /tmp gestartet wurden
-  //                  und vom registry-Scanner als virtuelle Workspaces
-  //                  ausgewiesen werden.
+  // Accept real workspace IDs (slug-style) AND pseudo workspaces:
+  //   __root__       cross-workspace mode
+  //   (root) (tmp)…  sessions started under /root or /tmp that
+  //                  are reported as virtual workspaces by the
+  //                  registry scanner.
   const isValid =
     typeof workspaceId === 'string' &&
     workspaceId.length > 0 &&
@@ -55,7 +55,7 @@ export async function POST(
   try {
     const db = getDb();
     const now = Date.now();
-    // claude_sessions-Schema (migration 0006): workspace_id PK, session_id,
+    // claude_sessions schema (migration 0006): workspace_id PK, session_id,
     // last_prompt_at NOT NULL, turn_count, last_result, created_at, updated_at
     db.$raw
       .prepare(

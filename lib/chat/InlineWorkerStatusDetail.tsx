@@ -1,37 +1,37 @@
 'use client';
 
 /**
- * InlineWorkerStatusDetail — fokussierte Detail-Sicht zur
- * InlineWorkerStatus-Pill.
+ * InlineWorkerStatusDetail — a focused detail view for the
+ * InlineWorkerStatus pill.
  *
- * OWNER-BEFUND 2026-05-28 (verbatim):
+ * OWNER FINDING 2026-05-28 (verbatim):
  *   „Wenn ich auf die Pill drücke wo 18h 6m steht zum Beispiel […]
  *    dann öffnet sich mobil das Menü und scrollt mich zu den Workspaces.
  *    Das hatten wir bereits Mal aufgeschrieben, wurde nicht gefixt …
  *    Das bringt mir also nicht wirklich was…"
  *
- * Wurzel:
- *   Vorher dispatchte die Pill `lazyos:drawer:open` → MobileDrawer
- *   ging ganz auf → scrollte zu #drawer-section-activity, direkt
- *   ueber der Workspaces-Section → Owner verlor Chat-Kontext und
- *   landete optisch in der Workspaces-Liste.
+ * Root:
+ *   Previously the pill dispatched `lazyos:drawer:open` → the MobileDrawer
+ *   opened fully → scrolled to #drawer-section-activity, directly
+ *   above the workspaces section → the owner lost the chat context and
+ *   landed visually in the workspaces list.
  *
  * Fix:
- *   Klick oeffnet diese fokussierte Detail-Sicht ANSTELLE des Drawers.
- *   Mobile (<640px): Bottom-Sheet, Desktop: Popover unter der Pill.
- *   Inhalt pro Aktivitaet: Workstream-Titel + Step + Dauer + Status +
- *   (falls stuck) Stuck-Signal + „Zum Workstream springen" (Next.js Link
- *   nach /workstreams/[id] — KEIN Drawer, KEIN Scroll-Sprung in andere
- *   UI-Bereiche).
+ *   A click opens this focused detail view INSTEAD of the drawer.
+ *   Mobile (<640px): bottom sheet, desktop: popover under the pill.
+ *   Content per activity: workstream title + step + duration + status +
+ *   (if stuck) a stuck signal + „Zum Workstream springen" (Next.js link
+ *   to /workstreams/[id] — NO drawer, NO scroll jump into other
+ *   UI areas).
  *
- * Designvorgaben (laz.ing Design Manifest):
- *   - Tokens only (kein Hex)
- *   - Touch-Targets ≥ 44px
- *   - kein horizontales Overflow auf 375px
- *   - kein doppelter Hintergrund-Layer (Xcode-Pure-Posture, Owner
- *     2026-05-28 frueher in der Session schon befohlen)
+ * Design requirements (laz.ing Design Manifest):
+ *   - tokens only (no hex)
+ *   - touch targets ≥ 44px
+ *   - no horizontal overflow at 375px
+ *   - no double background layer (Xcode-pure posture, ordered by the owner
+ *     earlier in the session on 2026-05-28)
  *
- * Read-only — kein Mutationsaufruf. Daten kommen vom Caller (Pill).
+ * Read-only — no mutation call. The data comes from the caller (the pill).
  */
 
 import { useEffect, useRef } from 'react';
@@ -44,11 +44,11 @@ export interface DetailActivityItem {
   phase: string | null;
   lastTickMs: number | null;
   workspaceId: string;
-  /** Optional: Status-Marker fuer Detail-Surface (active|paused|stuck). */
+  /** Optional: status marker for the detail surface (active|paused|stuck). */
   status?: 'active' | 'paused' | 'stuck' | null;
-  /** Optional: Sekunden seit letztem Event. Nur fuer 'stuck'-Items relevant. */
+  /** Optional: seconds since the last event. Only relevant for 'stuck' items. */
   stuckSinceMs?: number | null;
-  /** Optional: Stuck-Signal in Worten (z.B. „kein Event seit 18h"). */
+  /** Optional: stuck signal in words (e.g. „kein Event seit 18h"). */
   stuckReason?: string | null;
 }
 
@@ -58,13 +58,13 @@ interface Props {
   now: number;
   onClose: () => void;
   /**
-   * Optional: anchor-Rect der Pill (Desktop-Popover positioniert sich
-   * darunter). Mobile ignoriert das und rendert Bottom-Sheet.
+   * Optional: anchor rect of the pill (the desktop popover positions itself
+   * below it). Mobile ignores it and renders a bottom sheet.
    */
   anchorRect?: DOMRect | null;
   /**
-   * Click-Handler fuer „Zum Workstream springen". Default → Next.js
-   * navigation via `href` im Link. Caller kann override fuer Tests.
+   * Click handler for „Zum Workstream springen". Default → Next.js
+   * navigation via `href` in the link. The caller can override for tests.
    */
   onJumpToWorkstream?: (item: DetailActivityItem) => void;
 }
@@ -108,7 +108,7 @@ export function InlineWorkerStatusDetail({
 }: Props): React.JSX.Element | null {
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  // Esc + Outside-Click schliessen.
+  // Close on Esc + outside click.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent): void => {
@@ -121,8 +121,8 @@ export function InlineWorkerStatusDetail({
       onClose();
     };
     window.addEventListener('keydown', onKey);
-    // mousedown statt click, damit der Pill-Klick selbst nicht direkt
-    // wieder schliesst (Pill-onClick wuerde sonst durchschlagen).
+    // mousedown instead of click, so the pill click itself does not directly
+    // close again (the pill onClick would otherwise pass through).
     window.addEventListener('mousedown', onDocClick);
     return () => {
       window.removeEventListener('keydown', onKey);
@@ -132,18 +132,18 @@ export function InlineWorkerStatusDetail({
 
   if (!open) return null;
 
-  // Desktop-Anchor: standardmäßig UNTER der Pill. Mobile: bottom-sheet
-  // (CSS-mediaquery uebernimmt die Positionierung).
+  // Desktop anchor: by default BELOW the pill. Mobile: bottom sheet
+  // (the CSS media query handles the positioning).
   //
-  // 2026-05-29 (Owner-Befund): Wenn die Pill weit unten im Viewport sitzt, war
-  // das nach unten geöffnete Popover off-screen/nicht einsehbar. Flip-nach-oben:
-  // reicht der Platz unter der Pill nicht für das (max. ~60vh hohe) Popover, UND
-  // ist oberhalb mehr Platz → am `bottom` ankern (öffnet ÜBER der Pill).
+  // 2026-05-29 (owner finding): when the pill sits far down in the viewport, the
+  // downward-opened popover was off-screen/not viewable. Flip upwards:
+  // if the space below the pill is not enough for the (max. ~60vh high) popover, AND
+  // there is more space above → anchor at `bottom` (opens ABOVE the pill).
   const viewportH =
     typeof window !== 'undefined' ? window.innerHeight : 800;
   const spaceBelow = anchorRect != null ? viewportH - anchorRect.bottom : Infinity;
   const spaceAbove = anchorRect != null ? anchorRect.top : 0;
-  // Geschätzte Mindesthöhe, ab der Flippen sinnvoll ist (Header + ein paar Items).
+  // Estimated minimum height from which flipping makes sense (header + a few items).
   const NEEDED = 260;
   const placeUp =
     anchorRect != null && spaceBelow < NEEDED && spaceAbove > spaceBelow;
@@ -152,7 +152,7 @@ export function InlineWorkerStatusDetail({
     anchorRect != null
       ? (placeUp
           ? ({
-              // Ankern am unteren Rand der Pill nach oben hin.
+              // Anchor at the bottom edge of the pill, opening upwards.
               '--detail-anchor-bottom': `${viewportH - anchorRect.top + 8}px`,
               '--detail-anchor-left': `${anchorRect.left}px`,
             } as React.CSSProperties)

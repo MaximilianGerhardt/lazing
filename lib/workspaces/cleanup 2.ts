@@ -1,38 +1,38 @@
 /**
- * Workspace cleanup cascade (owner bug fix 2026-05-29).
+ * Workspace-Cleanup-Cascade (Owner-Bug-Fix 2026-05-29).
  *
- * Background (owner live test 2026-05-29, verbatim N1):
+ * Hintergrund (Owner-Live-Test 2026-05-29, verbatim N1):
  *   „Ich nehme den Namen PA Website 2 und öffne den Chat nach dem neu
  *    erstellen und dann it da der alte Chatverlauf drin…"
  *
- * Empirical (live DB finding):
- *   1) `chat_ledger` was NOT included in an earlier cleanup pass →
- *      stale rows with `coord_key='example-website-2'` stuck around.
- *   2) The workspace ID is slugified from the label → „PA Website 2" → `example-website-2`
- *      → identical to the previously deleted workspace → all stale rows in
- *      tables that join via `coord_key`/`workspace_id` get "adopted".
+ * Empirie (live-DB-Befund):
+ *   1) `chat_ledger` war in einem früheren Cleanup-Pass NICHT enthalten →
+ *      stale Rows mit `coord_key='example-website-2'` blieben stehen.
+ *   2) Workspace-ID wird aus Label slugified → „PA Website 2" → `example-website-2`
+ *      → identisch mit dem zuvor gelöschten Workspace → alle stale Rows in
+ *      Tabellen, die per `coord_key`/`workspace_id` joinen, werden „adoptiert".
  *
- * This helper is fix F1 for the systemic pattern:
- *   - ONE canonical function deletes EVERYTHING bound to a workspace via
- *     `workspace_id` OR `coord_key` OR `segment_id`.
- *   - PRAGMA table_info lookup at build time (per call), NO hard-coded
- *     list that goes stale again as soon as someone adds a migration with a
- *     workspace-binding column.
- *   - Respect N8 append-only triggers: `workstream_decisions` and
- *     `workstream_evidence` have BEFORE-DELETE triggers. Fail-soft: catch+log,
- *     these 2 tables keep their audit trail (design intent) and are
- *     marked as `audit_trail_preserved` in the return value.
- *   - Idempotent (second run is a no-op).
- *   - Transaction with explicit COMMIT/ROLLBACK per table: on an error in
- *     a deletable table → log + continue, don't abort.
+ * Dieser Helper ist Fix F1 für das systemische Pattern:
+ *   - EINE kanonische Funktion löscht ALLES was per `workspace_id` ODER
+ *     `coord_key` ODER `segment_id` an einen Workspace gebunden ist.
+ *   - PRAGMA-table_info-Lookup zur Build-Zeit (per call), KEIN hard-coded
+ *     Liste, die wieder veraltet, sobald jemand eine Migration mit
+ *     workspace-bindender Spalte hinzufügt.
+ *   - N8-append-only-Trigger respektieren: `workstream_decisions` und
+ *     `workstream_evidence` haben BEFORE-DELETE-Trigger. Fail-soft: catch+log,
+ *     diese 2 Tabellen behalten den Audit-Trail (Design-Intent) und werden
+ *     im Return als `audit_trail_preserved` markiert.
+ *   - Idempotent (zweiter Lauf ist No-Op).
+ *   - Transaktion mit explizitem COMMIT/ROLLBACK pro Tabelle: bei Fehler in
+ *     einer löschbaren Tabelle → log + weiter, nicht abbrechen.
  *
- * Non-goal of this helper:
- *   - To delete the workspace itself (`workspaces` row) — the helper leaves
- *     that to the caller, because the caller may want soft-delete (archive)
- *     instead of hard-delete. When `opts.deleteWorkspaceRow=true` is passed,
- *     we also delete the `workspaces` row at the end.
+ * NICHT-Ziel dieses Helpers:
+ *   - Die Workspace selbst (`workspaces`-Row) zu löschen — das überlässt
+ *     der Helper dem Aufrufer, weil der Aufrufer ggf. soft-delete (archive)
+ *     statt hard-delete will. Wenn `opts.deleteWorkspaceRow=true` übergeben
+ *     wird, löschen wir auch die `workspaces`-Row am Ende.
  *
- * Acceptance (see `__tests__/cleanup.test.ts`):
+ * Acceptance (siehe `__tests__/cleanup.test.ts`):
  *   - Löscht workspace-gebundene Rows in: chat_ledger, streaming_snapshots,
  *     workstreams (+kaskadiert workstream_plan_steps, workstream_plan_critics),
  *     workspace_heartbeats, workspace_fs_roots, workspace_credentials,
@@ -43,38 +43,38 @@
  *     flow_templates (+ flow_steps, flow_runs), decision_outcomes, share_tokens,
  *     work_products, claude_sessions, workflow_runs, failed_experiments,
  *     tpm_tracker, client_visibility, cloud_artifacts, cloud_audit, cloud_folders.
- *   - workstream_decisions + workstream_evidence: kept thanks to the N8 trigger;
- *     listed in the return value as `audit_trail_preserved`.
- *   - Idempotent: a second call with the same workspaceId = no-op (counts 0).
+ *   - workstream_decisions + workstream_evidence: bleiben dank N8-Trigger
+ *     erhalten; werden im Return als `audit_trail_preserved` aufgeführt.
+ *   - Idempotent: zweiter Aufruf mit derselben workspaceId = No-Op (counts 0).
  *
- * Usage:
+ * Verwendung:
  *   ```ts
  *   import { cleanupWorkspaceData } from '@/lib/workspaces/cleanup';
  *   const summary = cleanupWorkspaceData(db.$raw, 'example-website-2');
  *   console.log(summary); // { deleted: { chat_ledger: 2, … }, audit_trail_preserved: […], errors: [] }
  *   ```
  *
- * Safety:
- *   - This function is destructive. The caller (route, CLI script) MUST
- *     check permission first (owner/admin of the workspace).
- *   - With `deleteWorkspaceRow=true` the workspaces row itself is also deleted;
- *     without this option it stays untouched (default false).
+ * Sicherheit:
+ *   - Diese Funktion ist destruktiv. Aufrufer (Route, CLI-Script) MUSS
+ *     Permission vorher prüfen (Owner/Admin der Workspace).
+ *   - Bei `deleteWorkspaceRow=true` wird auch die Workspaces-Row selbst gelöscht;
+ *     ohne diese Option bleibt sie unangetastet (default false).
  */
 
-// `import type` only — we stay independent of the concrete Database constructor,
-// so mocks (vitest) and better-sqlite3 (production) both fit.
+// `import type` only — wir bleiben unabhängig vom konkreten Database-Konstruktor,
+// damit Mocks (vitest) und better-sqlite3 (Produktion) beide passen.
 import type DatabaseT from 'better-sqlite3';
 
 /**
- * Minimal database shape this helper needs. This is exactly the
- * subset API that `db.$raw` (better-sqlite3) provides. Vitest mocks
- * implement the same shape.
+ * Minimaler Database-Shape, den dieser Helper braucht. Das ist genau die
+ * Subset-API, die `db.$raw` (better-sqlite3) bereitstellt. Vitest-Mocks
+ * implementieren denselben Shape.
  *
- * Note (TS): `prepare()` is intentionally loosely typed. Better-sqlite3's
- * own statement type is generic (`Statement<BindParams, Result>`) and
- * doesn't fit a "universal callable" directly. We take `any` as the
- * return of prepare and encapsulate the caller types in the local
- * helper functions above.
+ * Hinweis (TS): `prepare()` ist absichtlich locker getypt. Better-sqlite3's
+ * eigener Statement-Type ist generisch (`Statement<BindParams, Result>`) und
+ * passt nicht direkt auf ein „universal callable". Wir nehmen `any` als
+ * Rückgabe von prepare und kapseln die Aufrufer-Typen in den lokalen
+ * Helper-Funktionen oben.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CleanupRawDb = {
@@ -86,21 +86,21 @@ export type CleanupRawDb = {
 };
 
 /**
- * Table list: each entry is the table + the workspace-binding column the
- * cleanup uses. We try MULTIPLE columns per table (workspace_id
- * → coord_key → segment_id); the first match is taken, the rest skipped.
+ * Tabellen-Liste: jeweils die Tabelle + die Workspace-bindende Spalte, die
+ * der Cleanup verwendet. Wir versuchen MEHRERE Spalten pro Tabelle (workspace_id
+ * → coord_key → segment_id), das erste Match wird genommen, der Rest übersprungen.
  *
- * Note: workspace_id-coord_key-segment_id is the set the owner brief
- * explicitly names; NO hard-coded table list — we verify via
- * PRAGMA table_info whether the table exists AND whether it actually
- * carries the column BEFORE issuing the DELETE.
+ * Hinweis: workspace_id-coord_key-segment_id ist der Set, den der Owner-Brief
+ * explizit nennt; KEIN hard-coded Tabelle-Liste — wir verifizieren via
+ * PRAGMA table_info ob die Tabelle existiert UND ob sie die Spalte tatsächlich
+ * trägt, BEVOR wir das DELETE absetzen.
  */
 const CANDIDATE_COLUMNS = ['workspace_id', 'coord_key', 'segment_id'] as const;
 
 /**
- * Tables that allow no DELETE via the N8 trigger — audit-trail design.
- * We attempt the DELETE anyway (the trigger fires), catch the error,
- * and report "audit_trail_preserved" instead of aborting.
+ * Tabellen, die per N8-Trigger keinen DELETE zulassen — Audit-Trail-Design.
+ * Wir versuchen den DELETE trotzdem (Trigger feuert), fangen den Fehler ab
+ * und melden „audit_trail_preserved" anstatt zu abbrechen.
  */
 const N8_AUDIT_PROTECTED_TABLES = new Set([
   'workstream_decisions',
@@ -108,11 +108,11 @@ const N8_AUDIT_PROTECTED_TABLES = new Set([
 ]);
 
 /**
- * Tables that are NOT directly workspace-bound but hang off
- * workstreams/sops/flow_templates via FK. For these we derive the
- * IDs and delete child-wise.
+ * Tabellen die NICHT direkt workspace-gebunden sind, aber via FK an
+ * workstreams/sops/flow_templates hängen. Für diese leiten wir die
+ * IDs ab und löschen kindweise.
  *
- * Mapping: child table → parent table + parent-ID column in child.
+ * Mapping: child-Tabelle → parent-Tabelle + parent-ID-Spalte in Child.
  */
 const DERIVED_CHILD_TABLES: Array<{
   child: string;
@@ -121,7 +121,7 @@ const DERIVED_CHILD_TABLES: Array<{
   parentIdCol: string;
   parentWsCol: string;
 }> = [
-  // workstream_id children:
+  // workstream_id-children:
   {
     child: 'workstream_decisions',
     childParentCol: 'workstream_id',
@@ -156,33 +156,33 @@ const DERIVED_CHILD_TABLES: Array<{
 
 export interface CleanupOptions {
   /**
-   * When true: also delete the `workspaces` row itself at the end.
-   * Default: false (the caller decides — soft-delete vs hard-delete).
+   * Wenn true: löscht am Ende auch die `workspaces`-Row selbst.
+   * Default: false (Aufrufer entscheidet — soft-delete vs hard-delete).
    */
   deleteWorkspaceRow?: boolean;
   /**
-   * Optional logger. Default: console.warn.
+   * Optionaler Logger. Default: console.warn.
    */
   log?: (msg: string, err?: unknown) => void;
   /**
-   * Optional: delete only a subset of tables. Default: all that
-   * carry a workspace-binding column.
+   * Optional: nur eine Untermenge von Tabellen löschen. Default: alle, die
+   * eine workspace-bindende Spalte tragen.
    */
   onlyTables?: ReadonlyArray<string>;
 }
 
 export interface CleanupSummary {
   workspaceId: string;
-  /** Per table: how many rows were deleted. */
+  /** Pro Tabelle: wieviele Rows gelöscht wurden. */
   deleted: Record<string, number>;
   /**
-   * Tables that are protected by an N8 trigger and kept their rows.
+   * Tabellen, die durch N8-Trigger geschützt sind und Rows behielten.
    * Format: `["workstream_decisions:5", "workstream_evidence:0"]`.
    */
   audit_trail_preserved: string[];
-  /** Tables whose DELETE threw an unexpected error (with message). */
+  /** Tabellen, deren DELETE einen unerwarteten Fehler warf (mit Message). */
   errors: Array<{ table: string; message: string }>;
-  /** Whether the `workspaces` row itself was removed. */
+  /** Ob die `workspaces`-Row selbst entfernt wurde. */
   workspace_row_deleted: boolean;
 }
 
@@ -197,7 +197,7 @@ function defaultLog(msg: string, err?: unknown): void {
 }
 
 /**
- * Lists all tables in the current SQLite DB (excl. sqlite_internal).
+ * Listet alle Tabellen in der aktuellen SQLite-DB auf (excl. sqlite_internal).
  */
 function listAllTables(raw: CleanupRawDb): string[] {
   try {
@@ -218,12 +218,12 @@ function listAllTables(raw: CleanupRawDb): string[] {
 }
 
 /**
- * Fetches the column names of a table via PRAGMA table_info.
- * Returns [] when the table does not exist.
+ * Holt die Spalten-Namen einer Tabelle via PRAGMA table_info.
+ * Gibt [] zurück wenn die Tabelle nicht existiert.
  */
 function getColumns(raw: CleanupRawDb, tableName: string): string[] {
   try {
-    // PRAGMA statements can't be bound — we validate the table name strictly.
+    // PRAGMA-Statements lassen sich nicht binden — wir validieren table-Name strikt.
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) return [];
     const rows = raw
       .prepare(`PRAGMA table_info(${tableName})`)
@@ -235,8 +235,8 @@ function getColumns(raw: CleanupRawDb, tableName: string): string[] {
 }
 
 /**
- * Finds the first matching workspace-binding column in a table.
- * Order: workspace_id → coord_key → segment_id.
+ * Findet die erste passende workspace-bindende Spalte in einer Tabelle.
+ * Reihenfolge: workspace_id → coord_key → segment_id.
  */
 function pickWorkspaceColumn(
   cols: string[],
@@ -248,7 +248,7 @@ function pickWorkspaceColumn(
 }
 
 /**
- * CANONICAL cleanup function. Safely idempotent, fail-soft per table.
+ * KANONISCHE Cleanup-Funktion. Sicher idempotent, fail-soft pro Tabelle.
  */
 export function cleanupWorkspaceData(
   raw: CleanupRawDb,
@@ -264,9 +264,9 @@ export function cleanupWorkspaceData(
     workspace_row_deleted: false,
   };
 
-  // Defensive: workspaceId must be harmless. We bind all values as
-  // parameters, but additionally validate to rule out SQL injection on
-  // pragma paths (pragmas can't be bound).
+  // Defensiv: workspaceId muss harmlos sein. Wir binden alle Werte als
+  // Parameter, aber zusätzlich validieren um SQL-Injection auf Pragma-Pfaden
+  // ausschließen zu können (Pragmas lassen sich nicht binden).
   if (!/^[a-zA-Z0-9_@:\-()]+$/.test(workspaceId)) {
     summary.errors.push({
       table: '<input>',
@@ -287,29 +287,29 @@ export function cleanupWorkspaceData(
   const onlyTables = opts.onlyTables ? new Set(opts.onlyTables) : null;
 
   // ───────────────────────────────────────────────────────────────────────
-  // Step 1 (DERIVED CHILDREN FIRST): tables that do NOT directly carry a
-  // workspace-binding column but hang off a parent via `workstream_id` /
-  // `sop_id` / `template_id`, where that parent is workspace-bound.
+  // Schritt 1 (DERIVED CHILDREN FIRST): Tabellen, die NICHT direkt eine
+  // workspace-bindende Spalte tragen, aber über `workstream_id` / `sop_id` /
+  // `template_id` an einen Parent hängen, der workspace-gebunden ist.
   //
-  // Order matters: we MUST delete the children BEFORE the
-  // parents disappear in step 2, otherwise the sub-SELECT finds nothing
-  // and the children stay orphaned.
+  // Reihenfolge ist wichtig: wir MÜSSEN die children löschen BEVOR die
+  // parents in Schritt 2 verschwinden, sonst findet das Sub-SELECT nichts
+  // und die children bleiben verwaist.
   //
-  // For N8-protected children (workstream_decisions/evidence), the
-  // BEFORE-DELETE trigger catches the DELETE → no error bubbles up, we note
-  // `audit_trail_preserved` (design intent: the audit trail is kept).
+  // Für N8-protected children (workstream_decisions/evidence) fängt der
+  // BEFORE-DELETE-Trigger den DELETE → kein Fehler nach oben, wir notieren
+  // `audit_trail_preserved` (Design-Intent: Audit-Trail bleibt erhalten).
   // ───────────────────────────────────────────────────────────────────────
   for (const d of DERIVED_CHILD_TABLES) {
     if (onlyTables && !onlyTables.has(d.child)) continue;
     const childCols = getColumns(raw, d.child);
-    if (childCols.length === 0) continue; // child table does not exist
+    if (childCols.length === 0) continue; // child-Tabelle existiert nicht
 
-    // If the child also carries a direct workspace-binding column,
-    // step 2 handles it anyway — skip this derived pass then to avoid
-    // duplicate work.
+    // Wenn child auch eine workspace-bindende Direkt-Spalte trägt, greift
+    // Schritt 2 sowieso — diese derived-pass dann skippen, um Doppel-Arbeit
+    // zu vermeiden.
     if (pickWorkspaceColumn(childCols) !== null) continue;
 
-    if (!childCols.includes(d.childParentCol)) continue; // wired wrong
+    if (!childCols.includes(d.childParentCol)) continue; // falsch verdrahtet
 
     const isProtected = N8_AUDIT_PROTECTED_TABLES.has(d.child);
     const parentCols = getColumns(raw, d.parent);
@@ -321,9 +321,9 @@ export function cleanupWorkspaceData(
       continue;
     }
 
-    // Number of "expected" rows to delete BEFORE DELETE — only needed for
-    // N8 preservation reporting (otherwise we can read the counts from
-    // `result.changes` after a successful DELETE).
+    // Anzahl der „erwarteten" zu löschenden Rows VOR DELETE — nur für
+    // N8-Preservation-Reporting nötig (sonst können wir nach erfolgreichem
+    // DELETE die counts aus `result.changes` lesen).
     let preCount = 0;
     if (isProtected) {
       try {
@@ -364,21 +364,21 @@ export function cleanupWorkspaceData(
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Step 2: directly-bound tables (workspace_id|coord_key|segment_id).
-  // Now that the derived children are gone, the parents (workstreams,
-  // sops, flow_templates, …) can be safely deleted.
+  // Schritt 2: Direkt-gebundene Tabellen (workspace_id|coord_key|segment_id).
+  // Jetzt wo die derived children weg sind, können die parents (workstreams,
+  // sops, flow_templates, …) sicher gelöscht werden.
   // ───────────────────────────────────────────────────────────────────────
   for (const table of allTables) {
     if (onlyTables && !onlyTables.has(table)) continue;
-    if (table === 'workspaces') continue; // optionally handled separately at the end
-    if (DERIVED_CHILD_TABLES.some((d) => d.child === table)) continue; // already done
+    if (table === 'workspaces') continue; // am Ende optional separat behandelt
+    if (DERIVED_CHILD_TABLES.some((d) => d.child === table)) continue; // schon erledigt
 
     const cols = getColumns(raw, table);
     const wsCol = pickWorkspaceColumn(cols);
     if (!wsCol) continue;
 
     const isProtected = N8_AUDIT_PROTECTED_TABLES.has(table);
-    // Pre-count only for N8-protected — otherwise we use result.changes.
+    // Pre-count nur für N8-protected — sonst nehmen wir result.changes.
     const preCount = isProtected
       ? countRowsByWsCol(raw, table, wsCol, workspaceId)
       : 0;
@@ -400,7 +400,7 @@ export function cleanupWorkspaceData(
     }
   }
 
-  // 3) Optional: delete the workspaces row itself (caller's decision).
+  // 3) Optional: workspaces-Row selbst löschen (Aufrufer-Entscheidung).
   if (opts.deleteWorkspaceRow) {
     try {
       const result = raw
@@ -437,30 +437,30 @@ function countRowsByWsCol(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// F2 — workspace-ID collision protection.
+// F2 — Workspace-ID-Kollisions-Schutz.
 //
-// Prevents the owner scenario where a newly created workspace with the
-// same label (→ same slug) "adopts" audit traces of its predecessor.
+// Verhindert das Owner-Szenario, dass eine neu angelegte Workspace mit
+// gleichem Label (→ gleicher Slug) Audit-Spuren des Vorgängers „adoptiert".
 //
-// Rule:
-//   - We check whether the proposed slug has already left traces in
-//     workspace-bound tables (chat_ledger.coord_key,
+// Regel:
+//   - Wir prüfen ob der vorgeschlagene Slug bereits Spuren in workspace-
+//     gebundenen Tabellen hinterlassen hat (chat_ledger.coord_key,
 //     workstreams.workspace_id, lazyos_permission_modes.workspace_id,
 //     workstream_decisions via workstreams, workstream_evidence via
-//     workstreams) — this covers both directly-deleted workspaces and
-//     audit-trail remnants that can't be deleted (N8).
-//   - On a hit → append a disambiguator: first `-2`, `-3`, … until free.
-//     After 9 attempts, emergency exit: a 4-character random suffix.
-//   - Deterministic when there's no concurrency gap (no extra state).
-//     For the test we verify the first paths (`-2`, `-3`).
+//     workstreams) — das deckt sowohl direkt-gelöschte Workspaces ab als
+//     auch Audit-Trail-Reste, die nicht gelöscht werden können (N8).
+//   - Bei Treffer → Disambiguierer anhängen: erst `-2`, `-3`, … bis frei.
+//     Nach 9 Versuchen Notausgang: 4-stelliger Random-Suffix.
+//   - Deterministisch wenn keine Concurrency-Lücke (kein extra State).
+//     Für den Test verifizieren wir die ersten Pfade (`-2`, `-3`).
 //
-// Idempotency: the function is read-only — it SETS no lock. The caller
-// (POST route) relies on the `INSERT INTO workspaces` right after,
-// and SQLite primary-key uniqueness as the final race protection.
+// Idempotenz: Funktion ist read-only — sie SETZT keinen Lock. Aufrufer
+// (POST-Route) verlässt sich auf den `INSERT INTO workspaces` direkt danach,
+// und SQLite primary-key-uniqueness als finaler Race-Schutz.
 // ──────────────────────────────────────────────────────────────────────────
 
 const STALE_PROBE_TABLES: Array<{ table: string; col: string }> = [
-  { table: 'workspaces', col: 'id' }, // normally already checked by the caller
+  { table: 'workspaces', col: 'id' }, // wird normalerweise vom Aufrufer schon geprüft
   { table: 'chat_ledger', col: 'coord_key' },
   { table: 'workstreams', col: 'workspace_id' },
   { table: 'lazyos_permission_modes', col: 'workspace_id' },
@@ -478,8 +478,9 @@ const STALE_PROBE_TABLES: Array<{ table: string; col: string }> = [
 ];
 
 /**
- * Checks whether the given workspace id ("slug") has already left traces in any
- * of the workspace-bound tables. Returns the table list with counts.
+ * Prüft ob die gegebene workspace-id („Slug") bereits Spuren in irgendeiner
+ * der workspace-gebundenen Tabellen hinterlassen hat. Liefert die Tabellen-
+ * Liste mit Counts.
  */
 export function probeStaleWorkspaceTraces(
   raw: CleanupRawDb,
@@ -496,29 +497,29 @@ export function probeStaleWorkspaceTraces(
 }
 
 /**
- * Disambiguates a slug by appending suffixes `-2`, `-3`, … as long as
- * audit-trail traces exist. Emergency exit: a 4-character random suffix.
+ * Disambiguiert einen Slug, indem Suffixe `-2`, `-3`, … angehängt werden
+ * solange Audit-Trail-Spuren existieren. Notausgang: 4-stelliger Random.
  *
- * @param raw  raw DB handle
- * @param baseSlug  desired slug (e.g. "example-website-2")
- * @param maxTries  how many numeric suffixes are tried (default 9)
- * @returns disambiguated slug (may == baseSlug if free)
+ * @param raw  raw-DB-Handle
+ * @param baseSlug  gewünschter Slug (z.B. „example-website-2")
+ * @param maxTries  wieviele numerische Suffixe versucht werden (default 9)
+ * @returns disambiguierter Slug (kann == baseSlug sein, wenn frei)
  */
 export function disambiguateWorkspaceId(
   raw: CleanupRawDb,
   baseSlug: string,
   maxTries: number = 9,
 ): string {
-  // Pass 1: is baseSlug itself free?
+  // Pass 1: baseSlug selbst frei?
   if (!probeStaleWorkspaceTraces(raw, baseSlug).found) {
     return baseSlug;
   }
 
-  // Pass 2..N: numeric suffix.
+  // Pass 2..N: numerischer Suffix.
   for (let i = 2; i <= maxTries + 1; i++) {
     const candidate = `${baseSlug}-${i}`;
-    // Respect the slug length limit (workspaces.id is TEXT, slugify cap = 60).
-    // We stay under 64 chars to pass the POST-route validator.
+    // Slug-Length-Limit beachten (workspaces.id ist TEXT, slugify cap = 60).
+    // Wir bleiben unter 64 chars um POST-Route-Validator zu passieren.
     if (candidate.length > 60) break;
     if (!probeStaleWorkspaceTraces(raw, candidate).found) {
       return candidate;
@@ -538,16 +539,16 @@ export function disambiguateWorkspaceId(
     }
   }
 
-  // If all 16 random attempts collide, something is very broken —
-  // we return the last candidate and leave it to the INSERT to
-  // respond with a primary-key conflict.
+  // Wenn 16 random-Versuche alle kollidieren ist irgendwas sehr kaputt —
+  // wir geben das letzte Kandidat zurück und überlassen es dem INSERT,
+  // mit primary-key-Conflict zu antworten.
   return `${baseSlug}-x${Date.now().toString(36).slice(-4)}`.slice(0, 60);
 }
 
 /**
- * Type re-export helper for TypeScript consumers (route, tests). Allows
- * `import type { CleanupSummary } from '@/lib/workspaces/cleanup';` without
- * pulling in the other helpers.
+ * Typ-Re-Export-Helper für TypeScript-Konsumenten (Route, Tests). Erlaubt
+ * `import type { CleanupSummary } from '@/lib/workspaces/cleanup';` ohne
+ * dass die anderen Helpers mitgezogen werden.
  */
 // Keep imports referenced to satisfy "noUnusedParameters" if extended later.
 export type { DatabaseT };

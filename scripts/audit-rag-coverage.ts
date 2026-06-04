@@ -1,26 +1,26 @@
 #!/usr/bin/env tsx
 /**
- * audit-rag-coverage.ts — RAG-Index-Coverage-Audit (P12, 2026-05-01).
+ * audit-rag-coverage.ts — RAG index coverage audit (P12, 2026-05-01).
  *
- * Listet pro Source-Type, wie frisch der RAG-Index ist:
+ * Lists per source type how fresh the RAG index is:
  *   - file / chat / ticket / work-product (existing 4 types)
- *   - standard / memory / skill           (Pseudo-Types für externe Quellen,
- *                                          die heute NICHT indexiert werden —
- *                                          ein Audit-Output zeigt die Lücke)
+ *   - standard / memory / skill           (pseudo-types for external sources
+ *                                          that are NOT indexed today —
+ *                                          an audit output shows the gap)
  *
- * Coverage-Status:
+ * Coverage status:
  *   fresh      < 24h
  *   stale      24h ≤ x < 7d
  *   very-stale ≥ 7d
- *   missing    keine Chunks in rag_chunks für diesen Source-Type
+ *   missing    no chunks in rag_chunks for this source type
  *
- * Output: Markdown-Table (Default) oder JSON (`--json`).
+ * Output: a markdown table (default) or JSON (`--json`).
  *
  * Run:
  *   pnpm tsx scripts/audit-rag-coverage.ts
  *   pnpm tsx scripts/audit-rag-coverage.ts --json
  *
- * Performance: Single-Aggregation-Query, < 5s. Kein DB-Lock (read-only).
+ * Performance: a single aggregation query, < 5s. No DB lock (read-only).
  */
 
 import { getDb } from "@/db/client";
@@ -58,17 +58,17 @@ interface DbAggRow {
 }
 
 /**
- * Hauptfunktion. Liefert Coverage pro Source-Type, sortiert nach
+ * Main function. Returns coverage per source type, sorted by
  * (status:missing|very-stale|stale|fresh, sourceType).
  */
 export function getCoverage(now: number = Date.now()): CoverageRow[] {
   const db = getDb();
-  // Drizzle-orm 0.45 + better-sqlite3: $raw vs raw — wir nehmen einen
-  // einfachen sql.execute auf den Driver. Die Tabelle existiert via Migration
-  // 0042 (rag_chunks). Wir aggregieren pro source_type.
+  // Drizzle-orm 0.45 + better-sqlite3: $raw vs raw — we use a
+  // simple sql.execute on the driver. The table exists via migration
+  // 0042 (rag_chunks). We aggregate per source_type.
   let aggRows: DbAggRow[] = [];
   try {
-    // better-sqlite3 raw-Driver — bypassed Drizzle für simple Aggregation
+    // better-sqlite3 raw driver — bypasses Drizzle for a simple aggregation
     const stmt = db.$raw.prepare(
       `SELECT
          source_type as source_type,
@@ -80,7 +80,7 @@ export function getCoverage(now: number = Date.now()): CoverageRow[] {
     );
     aggRows = stmt.all() as DbAggRow[];
   } catch (err) {
-    // rag_chunks-Tabelle fehlt (frische DB) → leeres Aggregat statt Crash
+    // rag_chunks table missing (fresh DB) → empty aggregate instead of a crash
     if (err instanceof Error && /no such table/i.test(err.message)) {
       aggRows = [];
     } else {
@@ -118,7 +118,7 @@ export function getCoverage(now: number = Date.now()): CoverageRow[] {
     });
   }
 
-  // Auch unbekannte Source-Types (zukünftige) anzeigen
+  // Also show unknown source types (future ones)
   for (const [t, agg] of byType.entries()) {
     if ((ALL_TYPES as readonly string[]).includes(t)) continue;
     const ageMs = agg.max_ts !== null ? now - agg.max_ts : null;

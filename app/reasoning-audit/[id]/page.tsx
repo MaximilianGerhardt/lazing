@@ -1,28 +1,28 @@
 /**
- * /reasoning-audit/[id] — Detail-Page für eine einzelne Reasoning-Audit-Row.
+ * /reasoning-audit/[id] — detail page for a single reasoning-audit row.
  *
- * Pattern 5 Welle 4 (2026-05-01).
+ * Pattern 5 Wave 4 (2026-05-01).
  *
- * Server-Component. Lädt direkt via DB (kein round-trip durch /api/...). Zeigt:
- *   - Context-Header (workstream, parent-ticket, phase, role)
- *   - Vollen claim_text
- *   - sourceChunks (sourceType:sourceId Tabelle)
+ * Server component. Loads directly via DB (no round-trip through /api/...). Shows:
+ *   - context header (workstream, parent-ticket, phase, role)
+ *   - full claim_text
+ *   - sourceChunks (sourceType:sourceId table)
  *   - priorOutputs (phase + hash)
- *   - userCorrections (falls vorhanden)
- *   - Meta: prompt_hash, llm_provider/model, costCents, durationMs, outputTokens
+ *   - userCorrections (if present)
+ *   - meta: prompt_hash, llm_provider/model, costCents, durationMs, outputTokens
  *   - verifiedStatus + verifiedAt + verifiedNote
- *   - "Drift-Check jetzt"-Button (Client-Component) → POST /api/reasoning-audit/[id]/verify
+ *   - "Drift-Check jetzt" button (client component) → POST /api/reasoning-audit/[id]/verify
  *
- * Privacy-Gate (V5, 2026-05-01):
- *   1. /reasoning-audit/layout.tsx redirected unauth → /login
- *   2. Diese Page macht zusätzlich currentUserIdResolved-Check
- *      (Defense-in-Depth, falls Layout/Middleware bypassed wird).
- *   3. Workspace-Membership-Check: User braucht ≥viewer-Rolle im
- *      Workspace des Audits. Audits ohne workspaceId sind für alle
- *      eingeloggten User sichtbar (kein workspace-spezifischer Twin-Leak).
- *   4. Der API-Endpoint /api/reasoning-audit/[id] hat seinen eigenen 401-Check.
+ * Privacy gate (V5, 2026-05-01):
+ *   1. /reasoning-audit/layout.tsx redirects unauth → /login
+ *   2. This page additionally does a currentUserIdResolved check
+ *      (defense-in-depth, in case the layout/middleware is bypassed).
+ *   3. Workspace membership check: the user needs ≥viewer role in the
+ *      audit's workspace. Audits without a workspaceId are visible to all
+ *      logged-in users (no workspace-specific twin leak).
+ *   4. The API endpoint /api/reasoning-audit/[id] has its own 401 check.
  *
- * Surface-Library-konform: Inline-styles via CSS-Variablen, keine Overlays.
+ * Surface-Library-compliant: inline styles via CSS variables, no overlays.
  */
 
 import { eq } from 'drizzle-orm';
@@ -81,8 +81,8 @@ export default async function ReasoningAuditDetailPage({
   const { id: rawId } = await params;
   const id = decodeURIComponent(rawId);
 
-  // Privacy-Sprint V5 (2026-05-01): Auth-Gate (redundant zum Layout für
-  // Defense-in-Depth) + Workspace-Membership-Check.
+  // Privacy-Sprint V5 (2026-05-01): auth gate (redundant to the layout for
+  // defense-in-depth) + workspace membership check.
   const h = await headers();
   const userId = currentUserIdResolved({ headers: h });
   if (!userId) {
@@ -98,10 +98,10 @@ export default async function ReasoningAuditDetailPage({
 
   if (!row) notFound();
 
-  // V5: Wenn das Audit zu einem Workspace gehört, muss der User dort
-  // mindestens viewer-Rechte haben. Audits ohne Workspace-Bezug
-  // (Legacy / system-level) sind sichtbar für jeden eingeloggten User
-  // — sie enthalten keinen workspace-spezifischen Twin-Block.
+  // V5: if the audit belongs to a workspace, the user must have at least
+  // viewer rights there. Audits without a workspace reference
+  // (legacy / system-level) are visible to every logged-in user
+  // — they contain no workspace-specific twin block.
   if (row.workspaceId) {
     const role = getEffectiveWorkspaceRole(userId, row.workspaceId);
     if (!canReadWorkspace(role)) {

@@ -3,17 +3,17 @@
 /**
  * lib/chat/ChatHeaderToolbar.tsx
  * ------------------------------
- * Sub-Plan B · 2026-04-29 — History-Toggle.
- * 2026-05-03 Welle C — Schlankheit über alles.
+ * Sub-Plan B · 2026-04-29 — history toggle.
+ * 2026-05-03 Wave C — leanness above all.
  *
- * Verlauf-Pill rechts in der Sticky-Header-Row neben dem `•••`-Trigger.
- * - Bei `archivedCount === 0`: rendert NICHTS. Chat bleibt minimal,
- *   `•••` ist die einzige Header-Aktion.
- * - Off-State: dezent (Mono-Icon ▸ + „Verlauf"-Label, opacity 0.55-Hover-Aufblendung).
- * - On-State: --a-now Akzent + Badge mit archiv-Count.
+ * History pill on the right of the sticky header row next to the `•••` trigger.
+ * - When `archivedCount === 0`: renders NOTHING. The chat stays minimal,
+ *   `•••` is the only header action.
+ * - Off state: subtle (mono icon ▸ + „Verlauf" label, opacity 0.55 hover fade-in).
+ * - On state: --a-now accent + badge with the archive count.
  *
- * KEIN Overlay, KEIN Modal, KEIN sticky-Floating außerhalb des Stream-Containers.
- * Sticky-Layout + Backdrop leben im Parent-Wrapper (`.chat-header-toolbar-row`).
+ * NO overlay, NO modal, NO sticky-floating outside the stream container.
+ * Sticky layout + backdrop live in the parent wrapper (`.chat-header-toolbar-row`).
  */
 
 import { IconChevronDown, IconChevronRight } from '../nav/icons';
@@ -29,8 +29,8 @@ export function ChatHeaderToolbar({
   onToggleHistory,
   archivedCount,
 }: ChatHeaderToolbarProps): React.JSX.Element | null {
-  // Welle C 2026-05-03: nichts rendern wenn nichts archiviert wurde.
-  // Chat ist schlank, nur •••-Trigger zeigt sich.
+  // Wave C 2026-05-03: render nothing when nothing was archived.
+  // The chat is lean, only the ••• trigger shows.
   if (archivedCount <= 0) return null;
 
   const label = showHistory ? 'Verlauf · an' : 'Verlauf';

@@ -1,17 +1,17 @@
 /**
- * Pattern 2 Digital-Twin MVP — Prompt-Formatter.
+ * Pattern 2 Digital-Twin MVP — prompt formatter.
  *
- * Kombiniert owner twin (User) und Domain-Twin (Workspace) in zwei kompakte
- * JSON-Blöcke mit XML-Wrappern, die der Sub-Agent eindeutig parsen kann:
+ * Combines the owner twin (user) and domain twin (workspace) into two compact
+ * JSON blocks with XML wrappers that the sub-agent can parse unambiguously:
  *
  *   <TWIN_USER>{...}</TWIN_USER>
  *   <TWIN_DOMAIN>{...}</TWIN_DOMAIN>
  *
- * Vorher (Sub-Agent las CLAUDE.md+MEMORY.md+Standards): ~10K Tokens.
- * Nachher (validierter JSON-Block): ≤500 Tokens.
+ * Before (sub-agent read CLAUDE.md+MEMORY.md+standards): ~10K tokens.
+ * After (validated JSON block): ≤500 tokens.
  *
- * Fail-soft: bei fehlendem Twin → leerer String (Sub-Spawn fährt ungestört
- * weiter, bekommt halt keinen Twin-Block).
+ * Fail-soft: on a missing twin → empty string (the sub-spawn keeps running
+ * undisturbed, it just gets no twin block).
  */
 
 import { getDomainTwin } from "./domain-twin";
@@ -43,21 +43,21 @@ interface DomainTwinPayload {
 }
 
 /**
- * Schätzung: ~4 Zeichen pro Token für Mixed-Content Englisch+Deutsch.
- * Genau genug für ein Soft-Budget-Assertion in Tests.
+ * Estimate: ~4 characters per token for mixed-content English+German.
+ * Accurate enough for a soft-budget assertion in tests.
  */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
 /**
- * Kombinierter Twin-Block für System-Prompt-Injektion.
- * Liefert leeren String wenn beide Twins null sind.
+ * Combined twin block for system-prompt injection.
+ * Returns an empty string when both twins are null.
  */
 export async function formatTwinsForPrompt(
   workspaceId: string,
 ): Promise<string> {
-  // Parallel laden — beide sind unabhängig.
+  // Load in parallel — both are independent.
   const [ownerTwin, domainTwin] = await Promise.all([
     getOwnerTwin(),
     getDomainTwin(workspaceId),
@@ -66,11 +66,11 @@ export async function formatTwinsForPrompt(
   const blocks: string[] = [];
 
   if (ownerTwin) {
-    // Privacy-Sprint V1 (2026-05-01): Workspace-aware Redaction.
-    // In low-sensitivity-Workspaces (Kunden) werden private Themen +
-    // high-sensitivity-Projekte aus dem Twin entfernt, BEVOR sie an
-    // die LLM-Cloud geschickt werden. high-sensitivity-Workspaces
-    // (User-eigene Trust-Zone) bekommen weiterhin den vollen Twin.
+    // Privacy Sprint V1 (2026-05-01): workspace-aware redaction.
+    // In low-sensitivity workspaces (clients), private topics +
+    // high-sensitivity projects are removed from the twin BEFORE they are sent to
+    // the LLM cloud. High-sensitivity workspaces
+    // (user's own trust zone) still get the full twin.
     const safeTwin = redactOwnerTwinForWorkspace(ownerTwin, domainTwin);
     const payload: UserTwinPayload = {
       stil: {

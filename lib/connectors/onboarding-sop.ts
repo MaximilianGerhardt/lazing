@@ -63,7 +63,7 @@ export interface OnboardingSopStep {
    *   'signup'      — link to provider sign-up / login.
    *   'key'         — owner gets / copies a key in the provider console.
    *   'budget'      — owner sets a provider-side budget (Owner-Direktive #2:
-   *                   Provider-Budget statt eigenes Hard-Cap).
+   *                   provider budget instead of an own hard cap).
    *   'credential'  — open the existing CredentialRequestCard inline.
    *   'info'        — purely informational (e.g. engine-backed: nothing to do).
    */

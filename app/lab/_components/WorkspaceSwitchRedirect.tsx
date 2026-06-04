@@ -1,26 +1,26 @@
 'use client';
 
 /**
- * WorkspaceSwitchRedirect — /lab Companion (2026-05-01).
+ * WorkspaceSwitchRedirect — /lab companion (2026-05-01).
  *
- * Lauscht auf das globale `workspace-change`-CustomEvent (von
- * `useSetWorkspace` dispatched) und navigiert in /lab-Kontext zur
- * dedizierten Workspace-Page (`/workspaces/<id>`). Hintergrund:
+ * Listens for the global `workspace-change` CustomEvent (dispatched by
+ * `useSetWorkspace`) and navigates, within the /lab context, to the
+ * dedicated workspace page (`/workspaces/<id>`). Background:
  *
- * - `useSetWorkspace` persistiert nur in localStorage + dispatcht ein
- *   Event. Auf normalen Workspace-Routen reagiert die Page-Komponente
- *   auf das Event und re-rendert; im /lab-Kontext gibt es jedoch keine
- *   Workspace-spezifische Page, also bleibt der User auf /lab hängen.
+ * - `useSetWorkspace` only persists to localStorage + dispatches an
+ *   event. On normal workspace routes the page component reacts to the
+ *   event and re-renders; in the /lab context, however, there is no
+ *   workspace-specific page, so the user stays stuck on /lab.
  *
- * - Lösung: in /lab-Layouts dieses Komponente einbinden. Sie macht den
- *   `router.push` als seiteneffekt-Reaktion auf das Event.
+ * - Solution: include this component in /lab layouts. It performs the
+ *   `router.push` as a side-effect reaction to the event.
  *
- * Spezialfälle:
- * - `__root__` und `__org_root__:<id>` sind virtuelle Roots — kein
- *   Redirect, der User soll im /lab-Kontext bleiben.
- * - Kein Loop-Risiko: `router.push` zur fremden Route triggert kein
- *   weiteres `workspace-change` (Event entsteht nur durch
- *   `useSetWorkspace`-Aufrufe, nicht durch Navigation).
+ * Special cases:
+ * - `__root__` and `__org_root__:<id>` are virtual roots — no
+ *   redirect, the user should stay in the /lab context.
+ * - No loop risk: `router.push` to the other route triggers no
+ *   further `workspace-change` (the event only arises from
+ *   `useSetWorkspace` calls, not from navigation).
  */
 
 import { useRouter } from 'next/navigation';
@@ -36,7 +36,7 @@ export function WorkspaceSwitchRedirect(): React.JSX.Element | null {
       const detail = (ev as CustomEvent<WorkspaceChangeDetail>).detail;
       const wsId = detail?.workspace?.id;
       if (!wsId) return;
-      // Virtuelle Root-Workspaces: in /lab bleiben.
+      // Virtual root workspaces: stay in /lab.
       if (wsId === '__root__') return;
       if (wsId.startsWith('__org_root__:')) return;
       router.push(`/workspaces/${encodeURIComponent(wsId)}`);

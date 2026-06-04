@@ -20,11 +20,11 @@ export const proactiveSuggestions = sqliteTable(
     subchatId: text('subchat_id').notNull(),
     /** Scope (N9) + RAG-Isolation (N2). */
     workspaceId: text('workspace_id').notNull(),
-    /** N1: VERBATIM operator-facing Vorschlagstext, nie truncated. */
+    /** N1: VERBATIM operator-facing suggestion text, never truncated. */
     suggestion: text('suggestion').notNull(),
     /** Epoch ms. */
     createdAt: integer('created_at').notNull(),
-    /** Epoch ms, NULL = aktiv. Gesetzt bei Übernehmen/Verwerfen. */
+    /** Epoch ms, NULL = active. Set on accept/discard. */
     dismissedAt: integer('dismissed_at'),
   },
   (table) => ({

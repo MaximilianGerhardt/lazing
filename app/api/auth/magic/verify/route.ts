@@ -1,17 +1,17 @@
 /**
  * GET /api/auth/magic/verify?token=<raw>
  *
- * Verifiziert + konsumiert den Magic-Token (single-use). Bei Success:
- *   1. ensureUserFromEmail (User-Row anlegen oder finden)
- *   2. Wenn intent='invite-org' → org_memberships upsert
- *   3. Wenn intent='invite-workspace' → workspace_memberships upsert
- *   4. Session-Cookie issuen mit echter user.id als Claim
- *   5. Redirect zu /onboarding (wenn Email-noch-nicht-verified) oder /
+ * Verifies + consumes the magic token (single-use). On success:
+ *   1. ensureUserFromEmail (create or find the user row)
+ *   2. If intent='invite-org' → upsert org_memberships
+ *   3. If intent='invite-workspace' → upsert workspace_memberships
+ *   4. Issue a session cookie with the real user.id as the claim
+ *   5. Redirect to /onboarding (if email not yet verified) or /
  *
- * Failure-Cases:
+ * Failure cases:
  *   - invalid-token / expired / consumed → redirect /login?error=...
  *
- * Auth: KEIN Auth-Check (Magic-Token IST der Auth-Mechanismus selbst).
+ * Auth: NO auth check (the magic token IS the auth mechanism itself).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -69,8 +69,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     displayName: email.split("@")[0] ?? "User",
   });
 
-  // 2a. Login-Intent (kein Invite): garantiere mindestens viewer-Membership
-  // in der Default-Org, damit /orgs nicht leer ist.
+  // 2a. Login intent (no invite): guarantee at least viewer membership
+  // in the default org, so /orgs is not empty.
   if (tokenRow.intent === "login") {
     try {
       const { DEFAULT_ORG_ID } = await import("@/lib/orgs/constants");
@@ -84,11 +84,11 @@ export async function GET(req: NextRequest): Promise<Response> {
         });
       }
     } catch {
-      /* nicht-fatal — User bekommt halt nur Solo-Mode */
+      /* non-fatal — the user just gets solo mode */
     }
   }
 
-  // 2. Membership-Upsert je nach Intent.
+  // 2. Membership upsert depending on intent.
   if (tokenRow.intent === "invite-org" && tokenRow.intentOrgId) {
     upsertOrgMembership({
       userId: user.id,
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     });
   }
 
-  // 3. Session-Cookie issuen.
+  // 3. Issue the session cookie.
   const cfg = readSessionConfig();
   if (!cfg) {
     return NextResponse.json(
@@ -143,8 +143,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     userAgent: ua,
   });
 
-  // 4. Redirect-Ziel: Onboarding für Erst-Einlöser, sonst /.
-  // Public-URL aus Forwarded-Headers (Cloudflare-Tunnel hides 127.0.0.1).
+  // 4. Redirect target: onboarding for first-time redeemers, otherwise /.
+  // Public URL from the forwarded headers (the Cloudflare tunnel hides 127.0.0.1).
   const onboardingDone = !!user.onboardingCompletedAt;
   const redirectTo = onboardingDone ? "/" : "/onboarding";
   const redirectUrl = new URL(redirectTo, publicOrigin(req));
@@ -243,7 +243,7 @@ function upsertWorkspaceMembership(input: UpsertWsMemberInput): void {
       userId: input.userId,
       workspaceId: input.workspaceId,
       role: input.role,
-      inheritsFromOrg: false, // explicit override beim Workspace-Invite
+      inheritsFromOrg: false, // explicit override on the workspace invite
       invitedByUserId: input.invitedByUserId ?? null,
       joinedAt: now,
       updatedAt: now,

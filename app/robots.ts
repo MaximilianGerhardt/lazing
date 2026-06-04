@@ -1,16 +1,16 @@
 /**
  * robots.txt — Privacy-Sprint H3 (2026-05-01).
  *
- * lazyOS hostet potenziell sensible interne Daten (Audits, Workstreams,
- * Org-Strukturen, API-Routes). Bei Public-Domain-Deploy oder OSS-Launch
- * dürfen diese Pfade NICHT in Suchmaschinen-Indizes landen.
+ * lazyOS hosts potentially sensitive internal data (audits, workstreams,
+ * org structures, API routes). On public-domain deploy or OSS launch
+ * these paths must NOT land in search-engine indexes.
  *
- * Defense-in-Depth zusätzlich zu Auth:
- *   1. Auth-Gate (Middleware) blockt unauth-Requests bereits.
- *   2. robots.txt verhindert dass Bots überhaupt crawlen versuchen.
- *   3. <meta name="robots" content="noindex,nofollow"> im Root-Layout
- *      stellt sicher dass auch User-Agent-Bypasses oder Cache-Snapshots
- *      nicht indexiert werden.
+ * Defense-in-depth in addition to auth:
+ *   1. The auth gate (middleware) already blocks unauth requests.
+ *   2. robots.txt prevents bots from even attempting to crawl.
+ *   3. <meta name="robots" content="noindex,nofollow"> in the root layout
+ *      ensures that even user-agent bypasses or cache snapshots
+ *      are not indexed.
  */
 import type { MetadataRoute } from "next";
 

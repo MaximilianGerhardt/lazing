@@ -1,29 +1,29 @@
 'use client';
 
 /**
- * BridgeApproveCard — der Cross-Scope-Approve-Moment.
+ * BridgeApproveCard — the cross-scope approve moment.
  *
- * Owner-Leitprinzip (verbatim): „Bei Bedarf EINMAL: »Ja, dieser Agent darf auch
- * dort rein« (ein Tap auf einer Karte)." Dies ist GENAU dieser eine Tap.
+ * Owner guiding principle (verbatim): „Bei Bedarf EINMAL: »Ja, dieser Agent darf auch
+ * dort rein« (ein Tap auf einer Karte)." This is EXACTLY that one tap.
  *
- * Wenn das R2-Gate `requiresBridge:true` liefert (execution-policy.ts), zeigt
- * diese Karte den verbatim-Grund (NICHT paraphrasiert — N1) prominent, plus
- * EINE primäre Aktion (Erlauben, brand-gradient) und eine sekundäre (Ablehnen).
- * Klar, ruhig, ein Tap — kein Sicherheits-/Sandbox-Vokabular.
+ * When the R2 gate returns `requiresBridge:true` (execution-policy.ts), this
+ * card shows the verbatim reason (NOT paraphrased — N1) prominently, plus
+ * ONE primary action (Erlauben, brand gradient) and one secondary (Ablehnen).
+ * Clear, calm, one tap — no security/sandbox vocabulary.
  *
- * Stil: laz.ing Design Manifest v1.0 — Pitch-Black, SF Pro Display, brand-gradient
- * (--a-now) NUR auf der primären Aktion, 240ms cubic-bezier. Kein Hex direkt in
- * TSX. Keine Emojis. Vorbild: lib/chat/EnginePill.tsx.
+ * Style: laz.ing Design Manifest v1.0 — Pitch-Black, SF Pro Display, brand gradient
+ * (--a-now) ONLY on the primary action, 240ms cubic-bezier. No hex directly in
+ * TSX. No emojis. Model: lib/chat/EnginePill.tsx.
  */
 
 import { useRef, useState, type CSSProperties } from 'react';
 
 interface Props {
-  /** Verbatim-Grund aus dem R2-Gate, NICHT paraphrasieren (N1). */
+  /** Verbatim reason from the R2 gate, do NOT paraphrase (N1). */
   reason: string;
-  /** Workspace, der den Zugriff anfragt (from_coord). */
+  /** Workspace requesting the access (from_coord). */
   fromWorkspaceId: string;
-  /** Ziel-Pfad, auf den zugegriffen werden soll (to_coord project.path). */
+  /** Target path to be accessed (to_coord project.path). */
   targetPath: string;
   access: 'ro' | 'rw';
   onApprove: () => void;
@@ -38,9 +38,9 @@ export function BridgeApproveCard({
   onApprove,
   onDeny,
 }: Props): React.JSX.Element {
-  // Verhindert Doppel-Tap; sobald entschieden, sperren wir beide Aktionen.
-  // Ref-Guard greift SOFORT (synchron), unabhängig vom Re-Render — der
-  // disabled-State ist nur die visuelle Bestätigung danach.
+  // Prevents a double tap; once decided, we lock both actions.
+  // The ref guard takes effect IMMEDIATELY (synchronously), independent of the
+  // re-render — the disabled state is only the visual confirmation afterwards.
   const [decided, setDecided] = useState(false);
   const decidedRef = useRef(false);
 
@@ -63,7 +63,7 @@ export function BridgeApproveCard({
         Übergreifender Zugriff
       </div>
 
-      {/* Verbatim-Grund — prominent, unverändert (N1). */}
+      {/* Verbatim reason — prominent, unchanged (N1). */}
       <p style={reasonStyle} data-test="bridge-reason">
         {reason}
       </p>
@@ -90,7 +90,7 @@ export function BridgeApproveCard({
       </dl>
 
       <div style={actionsStyle}>
-        {/* EINE primäre Aktion — brand-gradient. */}
+        {/* ONE primary action — brand gradient. */}
         <button
           type="button"
           onClick={approve}

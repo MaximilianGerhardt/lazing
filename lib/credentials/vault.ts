@@ -1,26 +1,26 @@
 /**
- * Generic API-Credential-Vault (ACL-1, Migration 0100).
+ * Generic API credential vault (ACL-1, Migration 0100).
  *
  * Server-only. Raw better-sqlite3 prepared statements via getDb().$raw
- * (gleiches Muster wie lib/github/org-repo.ts).
+ * (same pattern as lib/github/org-repo.ts).
  *
- * Kernfunktionen:
- *   putApiCredential  — Upsert + verschlüsseln + Audit-Row.
- *   resolveApiCredential — D2-Policy-Resolution mit credential_isolation.
- *   deleteApiCredential — Löschen + Audit-Row.
- *   decryptApiSecret  — Best-effort Decrypt, NIEMALS geloggt.
+ * Core functions:
+ *   putApiCredential  — upsert + encrypt + audit row.
+ *   resolveApiCredential — D2 policy resolution with credential_isolation.
+ *   deleteApiCredential — delete + audit row.
+ *   decryptApiSecret  — best-effort decrypt, NEVER logged.
  *
- * D2-Resolution-Policy:
- *   1. Auth-Gate: canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, wsId))
- *      → null (kein Fehler-Leak) bei Deny.
- *   2. Workspace-eigenes Credential zuerst (scope_kind='workspace').
- *   3. Org-Fallback NUR wenn credential_isolation='inherit' (oder Feld fehlt — default 'inherit').
- *      Bei 'isolated' → KEIN Org-Fallback (externe Kunden-Isolation).
- *   4. Jedes resolve() schreibt eine Audit-Row (success oder deny).
+ * D2 resolution policy:
+ *   1. Auth gate: canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, wsId))
+ *      → null (no error leak) on deny.
+ *   2. Workspace-own credential first (scope_kind='workspace').
+ *   3. Org fallback ONLY when credential_isolation='inherit' (or the field is missing — default 'inherit').
+ *      For 'isolated' → NO org fallback (external customer isolation).
+ *   4. Every resolve() writes an audit row (success or deny).
  *
- * N8  — Audit-Row bei jedem write/resolve/delete.
- * N9  — scope_kind + scope_id als Isolation-Anker auf jeder Query.
- * N10 — content_hash SHA-256 über canonical JSON (tamper-evident).
+ * N8  — audit row on every write/resolve/delete.
+ * N9  — scope_kind + scope_id as the isolation anchor on every query.
+ * N10 — content_hash SHA-256 over canonical JSON (tamper-evident).
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -49,9 +49,9 @@ export interface PutApiCredentialInput {
   scopeId: string;
   provider: string;
   kind: CredentialKind;
-  /** Plaintext — wird sofort verschlüsselt, niemals gespeichert. */
+  /** Plaintext — encrypted immediately, never stored. */
   secret: string;
-  /** Optionale Provider-Metadaten (baseUrl, version, scope). */
+  /** Optional provider metadata (baseUrl, version, scope). */
   config?: Record<string, unknown> | null;
 }
 
@@ -64,11 +64,11 @@ export interface ResolvedApiCredential {
   id: string;
   provider: string;
   kind: CredentialKind;
-  /** Entschlüsseltes Secret — NIEMALS in Response-Body oder Logs. */
+  /** Decrypted secret — NEVER in a response body or logs. */
   secret: string;
   config: Record<string, unknown> | null;
   lastValidatedAt: number | null;
-  /** Woher das Credential kommt: 'workspace-cred' | 'org-fallback'. */
+  /** Where the credential comes from: 'workspace-cred' | 'org-fallback'. */
   source: "workspace-cred" | "org-fallback";
 }
 
@@ -88,9 +88,9 @@ interface ApiCredRaw {
   updated_at: number;
 }
 
-// ─── Auth-Helpers (Vault-eigene Gates, Security-Critic B-2 / M-3) ─────────────
+// ─── Auth helpers (vault-own gates, Security-Critic B-2 / M-3) ────────────────
 
-/** Rang-Tabelle gespiegelt aus lib/security/permissions.ts. */
+/** Rank table mirrored from lib/security/permissions.ts. */
 const ORG_ROLE_RANK: Record<MembershipRole, number> = {
   founder: 5,
   admin: 4,
@@ -100,10 +100,10 @@ const ORG_ROLE_RANK: Record<MembershipRole, number> = {
 };
 
 /**
- * userId-basierter Org-Admin-Check (kein RequestLike — Vault wird auch von
- * Nicht-HTTP-Callern aufgerufen, ACL-4/ACL-5). Liefert true wenn der User
- * mindestens `admin` in der Org ist. Org-Credentials (write/delete) sind
- * Struktur-Operationen → Admin-Schwelle, nicht member.
+ * userId-based org-admin check (no RequestLike — the vault is also called by
+ * non-HTTP callers, ACL-4/ACL-5). Returns true when the user
+ * is at least `admin` in the org. Org credentials (write/delete) are
+ * structural operations → admin threshold, not member.
  */
 function isOrgAdmin(userId: string, orgId: string): boolean {
   const membership = findUserOrgMembership(userId, orgId);
@@ -113,14 +113,14 @@ function isOrgAdmin(userId: string, orgId: string): boolean {
 }
 
 /**
- * Zentrale Write/Delete-Authorisierung für den Vault.
+ * Central write/delete authorization for the vault.
  *
  * - scope_kind='workspace' → canEditWorkspaceContent(getEffectiveWorkspaceRole).
- *   Caller MUSS scopeId = workspaceId übergeben.
+ *   The caller MUST pass scopeId = workspaceId.
  * - scope_kind='org' → isOrgAdmin(userId, scopeId=orgId).
  *
- * Gibt true zurück wenn erlaubt. Schreibt KEINE Audit-Row (das macht der
- * Caller deterministisch mit dem korrekten action-Wert).
+ * Returns true when allowed. Writes NO audit row (the caller does that
+ * deterministically with the correct action value).
  */
 function isVaultWriteAllowed(
   scopeKind: ScopeKind,
@@ -135,9 +135,9 @@ function isVaultWriteAllowed(
 }
 
 /**
- * Provider-Validierung (Security-Critic N-1). Verhindert dreckige
- * Audit-/DB-Werte. Lowercase-alphanumerisch + '-' '_', max 64 Zeichen,
- * muss mit Buchstabe starten.
+ * Provider validation (Security-Critic N-1). Prevents dirty
+ * audit/DB values. Lowercase alphanumeric + '-' '_', max 64 chars,
+ * must start with a letter.
  */
 const PROVIDER_RE = /^[a-z][a-z0-9_-]{0,63}$/;
 
@@ -156,8 +156,8 @@ function makeLogId(): string {
 }
 
 /**
- * N10: SHA-256 über canonical JSON der Row.
- * Canonical = alphabetisch sortierte Keys, kein content_hash-Feld selbst.
+ * N10: SHA-256 over the row's canonical JSON.
+ * Canonical = alphabetically sorted keys, no content_hash field itself.
  */
 function computeCredHash(fields: {
   scopeKind: string;
@@ -280,15 +280,15 @@ function fetchCredRow(
 // ─── Internal: read credential_isolation from workspace ───────────────────────
 
 /**
- * Liest `credential_isolation` defensiv und FAIL-CLOSED (Security-Critic B-1).
+ * Reads `credential_isolation` defensively and FAIL-CLOSED (Security-Critic B-1).
  *
- * NUR der explizite String 'inherit' ergibt 'inherit'. Alles andere — null,
- * Garbage, fehlende Spalte (catch), Workspace existiert nicht — ergibt
- * 'isolated'. Begründung: ein faktisch-externer Workspace darf NIEMALS aus
- * Versehen Org-Credentials erben. Bestehende Workspaces haben DB-DEFAULT
- * 'inherit' (Migration ACL-3) → unverändert; nur Unbekanntes wird isoliert.
+ * ONLY the explicit string 'inherit' yields 'inherit'. Everything else — null,
+ * garbage, a missing column (catch), the workspace does not exist — yields
+ * 'isolated'. Rationale: a de-facto external workspace must NEVER
+ * inherit org credentials by accident. Existing workspaces have the DB DEFAULT
+ * 'inherit' (Migration ACL-3) → unchanged; only the unknown gets isolated.
  *
- * N6: deterministisch. Fail-safe Richtung = MEHR Isolation (sichere Seite).
+ * N6: deterministic. Fail-safe direction = MORE isolation (the safe side).
  */
 function readCredentialIsolation(workspaceId: string): "inherit" | "isolated" {
   const db = getDb();
@@ -300,10 +300,10 @@ function readCredentialIsolation(workspaceId: string): "inherit" | "isolated" {
       .get(workspaceId) as { credential_isolation?: string | null } | undefined;
 
     const val = row?.credential_isolation;
-    // FAIL-CLOSED: nur explizit 'inherit' erlaubt Org-Fallback.
+    // FAIL-CLOSED: only an explicit 'inherit' permits the org fallback.
     return val === "inherit" ? "inherit" : "isolated";
   } catch {
-    // Spalte existiert noch nicht (ACL-3 nicht gelandet) → fail-closed isoliert.
+    // Column does not exist yet (ACL-3 not landed) → fail-closed isolated.
     return "isolated";
   }
 }
@@ -311,23 +311,23 @@ function readCredentialIsolation(workspaceId: string): "inherit" | "isolated" {
 // ─── putApiCredential ─────────────────────────────────────────────────────────
 
 /**
- * Upsert eines API-Credentials für scope+provider.
+ * Upsert of an API credential for scope+provider.
  *
- * Auth-Gate (Security-Critic M-3): workspace-scope → canEditWorkspaceContent,
- * org-scope → isOrgAdmin. Deny → KEIN Write + deny-Audit + return null.
- * Provider-Validierung (N-1): ungültiger Provider → kein Write + deny-Audit.
+ * Auth gate (Security-Critic M-3): workspace-scope → canEditWorkspaceContent,
+ * org-scope → isOrgAdmin. Deny → NO write + deny audit + return null.
+ * Provider validation (N-1): invalid provider → no write + deny audit.
  *
- * Verschlüsselt das Secret sofort mit encryptCredential (AES-256-GCM).
- * Schreibt eine Audit-Row ('put'). Gibt die Row-ID zurück, oder null bei Deny.
+ * Encrypts the secret immediately with encryptCredential (AES-256-GCM).
+ * Writes an audit row ('put'). Returns the row ID, or null on deny.
  *
- * N9: scope_kind + scope_id sind der Isolation-Anker.
- * N10: content_hash wird über die Row berechnet.
+ * N9: scope_kind + scope_id are the isolation anchor.
+ * N10: content_hash is computed over the row.
  */
 export function putApiCredential(
   input: PutApiCredentialInput,
   actor: PutActor,
 ): string | null {
-  // ── N-1: Provider-Validierung (vor jedem DB-Zugriff) ──────────────────────
+  // ── N-1: provider validation (before any DB access) ───────────────────────
   if (!isValidProvider(input.provider)) {
     writeAuditRow({
       scopeKind: input.scopeKind,
@@ -342,7 +342,7 @@ export function putApiCredential(
     return null;
   }
 
-  // ── M-3: Auth-Gate ─────────────────────────────────────────────────────────
+  // ── M-3: auth gate ─────────────────────────────────────────────────────────
   if (!isVaultWriteAllowed(input.scopeKind, input.scopeId, actor.userId)) {
     writeAuditRow({
       scopeKind: input.scopeKind,
@@ -447,32 +447,32 @@ export function putApiCredential(
 // ─── resolveApiCredential ─────────────────────────────────────────────────────
 
 /**
- * D2-Policy-Resolution:
+ * D2 policy resolution:
  *
- *   1. Auth-Gate via canEditWorkspaceContent(getEffectiveWorkspaceRole).
- *      Nicht-Member → null (kein Error-Leak) + deny-Audit-Row.
- *   2. Workspace-eigenes Credential (scope_kind='workspace', scope_id=workspaceId).
- *      Workspace-eigenes Credential lesen: bestehender Gate (Workspace-Editor darf).
- *   3. Org-Fallback — NUR wenn credential_isolation='inherit' (defensiver default).
- *      Bei 'isolated' → KEIN Org-Fallback, null wenn kein WS-Credential.
- *      Org-Fallback (scope='org'): zusätzlich ECHTE Org-/Workspace-Membership via
- *      hasRealWorkspaceMembership verlangen — `solo-implicit-founder` allein reicht
- *      NICHT (Security-Critic P0-C1: Read-Asymmetrie-Fix 2026-05-25).
- *   4. Audit-Row bei jedem Aufruf (success + reason ODER deny + reason).
+ *   1. Auth gate via canEditWorkspaceContent(getEffectiveWorkspaceRole).
+ *      Non-member → null (no error leak) + deny audit row.
+ *   2. Workspace-own credential (scope_kind='workspace', scope_id=workspaceId).
+ *      Read the workspace-own credential: existing gate (a workspace editor may).
+ *   3. Org fallback — ONLY when credential_isolation='inherit' (defensive default).
+ *      For 'isolated' → NO org fallback, null when there is no WS credential.
+ *      Org fallback (scope='org'): additionally require a REAL org/workspace membership via
+ *      hasRealWorkspaceMembership — `solo-implicit-founder` alone is
+ *      NOT enough (Security-Critic P0-C1: read-asymmetry fix 2026-05-25).
+ *   4. Audit row on every call (success + reason OR deny + reason).
  *
- * Gibt ResolvedApiCredential zurück oder null (bei Auth-Deny, nicht-gefunden,
- * Decrypt-Fehler). Niemals Exceptions nach oben werfen.
+ * Returns ResolvedApiCredential or null (on auth deny, not found,
+ * decrypt error). Never throws exceptions upward.
  *
- * N2: kein global-fallback — Org-Fallback ist explizit scope-gated.
- * N8: Audit-Row pro Aufruf.
- * N9: Scope-Anker auf jeder Query.
+ * N2: no global fallback — the org fallback is explicitly scope-gated.
+ * N8: audit row per call.
+ * N9: scope anchor on every query.
  */
 export function resolveApiCredential(
   workspaceId: string,
   userId: string,
   provider: string,
 ): ResolvedApiCredential | null {
-  // ── 1. Auth-Gate ───────────────────────────────────────────────────────────
+  // ── 1. Auth gate ───────────────────────────────────────────────────────────
   const role = getEffectiveWorkspaceRole(userId, workspaceId);
   if (!canEditWorkspaceContent(role)) {
     writeAuditRow({
@@ -488,7 +488,7 @@ export function resolveApiCredential(
     return null;
   }
 
-  // ── 2. Workspace-eigenes Credential ───────────────────────────────────────
+  // ── 2. Workspace-own credential ───────────────────────────────────────────
   const wsRow = fetchCredRow("workspace", workspaceId, provider);
   if (wsRow) {
     const secret = safeDecrypt(wsRow.encrypted_secret);
@@ -528,10 +528,10 @@ export function resolveApiCredential(
     };
   }
 
-  // ── 3. Org-Fallback — nur wenn credential_isolation='inherit' ─────────────
+  // ── 3. Org fallback — only when credential_isolation='inherit' ────────────
   const isolation = readCredentialIsolation(workspaceId);
   if (isolation === "isolated") {
-    // Externe Kunden-Isolation: kein Fallback, kein Leak.
+    // External customer isolation: no fallback, no leak.
     writeAuditRow({
       scopeKind: "workspace",
       scopeId: workspaceId,
@@ -545,14 +545,14 @@ export function resolveApiCredential(
     return null;
   }
 
-  // isolation='inherit' → Org-Membership-Gate (Security-Critic P0-C1).
+  // isolation='inherit' → org-membership gate (Security-Critic P0-C1).
   //
-  // canEditWorkspaceContent() gibt auch bei 'solo-implicit-founder' true zurück —
-  // das ist ein impliziter Bootstrap-Fallback ohne nachgewiesene Zugehörigkeit.
-  // Für den Org-Fallback-Read verlangen wir eine ECHTE Membership:
-  //   (A) explizites workspace_memberships-Row, ODER
-  //   (B) org_memberships-Row für die Org des Workspace.
-  // Ohne echte Membership: deny + Audit + null (kein Secret-Leak).
+  // canEditWorkspaceContent() also returns true for 'solo-implicit-founder' —
+  // that is an implicit bootstrap fallback without proven membership.
+  // For the org-fallback read we require a REAL membership:
+  //   (A) an explicit workspace_memberships row, OR
+  //   (B) an org_memberships row for the workspace's org.
+  // Without a real membership: deny + audit + null (no secret leak).
   if (!hasRealWorkspaceMembership(userId, workspaceId)) {
     writeAuditRow({
       scopeKind: "workspace",
@@ -567,7 +567,7 @@ export function resolveApiCredential(
     return null;
   }
 
-  // Echte Membership bestätigt → Org-Lookup
+  // Real membership confirmed → org lookup
   const org = findOrgForWorkspace(workspaceId);
   if (!org) {
     writeAuditRow({
@@ -614,8 +614,8 @@ export function resolveApiCredential(
   }
 
   writeAuditRow({
-    // Audit referenziert den Workspace-Kontext (wo die Resolution stattfand),
-    // nicht die Org-Scope (um N9-Scope-Klarheit zu erhalten).
+    // Audit references the workspace context (where the resolution took place),
+    // not the org scope (to preserve N9 scope clarity).
     scopeKind: "workspace",
     scopeId: workspaceId,
     provider,
@@ -640,15 +640,15 @@ export function resolveApiCredential(
 // ─── deleteApiCredential ──────────────────────────────────────────────────────
 
 /**
- * Löscht ein Credential (scope_kind + scope_id + provider).
+ * Deletes a credential (scope_kind + scope_id + provider).
  *
- * Auth-Gate (Security-Critic B-2): workspace-scope → canEditWorkspaceContent,
- * org-scope → isOrgAdmin. Deny → KEIN Delete + deny-Audit + return false.
- * Vault verlässt sich NICHT mehr auf den Caller.
+ * Auth gate (Security-Critic B-2): workspace-scope → canEditWorkspaceContent,
+ * org-scope → isOrgAdmin. Deny → NO delete + deny audit + return false.
+ * The vault no longer relies on the caller.
  *
- * Schreibt immer eine Audit-Row.
+ * Always writes an audit row.
  *
- * N9: Löschen nur über alle drei Isolation-Schlüssel möglich.
+ * N9: deletion is only possible via all three isolation keys.
  */
 export function deleteApiCredential(
   scopeKind: ScopeKind,
@@ -656,7 +656,7 @@ export function deleteApiCredential(
   provider: string,
   actor: PutActor,
 ): boolean {
-  // ── B-2: Auth-Gate ─────────────────────────────────────────────────────────
+  // ── B-2: auth gate ─────────────────────────────────────────────────────────
   if (!isVaultWriteAllowed(scopeKind, scopeId, actor.userId)) {
     writeAuditRow({
       scopeKind,
@@ -697,56 +697,56 @@ export function deleteApiCredential(
 // ─── decryptApiSecret (best-effort) ──────────────────────────────────────────
 
 /**
- * Entschlüsselt einen encrypted_secret-Wert.
+ * Decrypts an encrypted_secret value.
  *
- * NIEMALS das Ergebnis in Logs, HTTP-Responses oder Trace-Rows schreiben.
- * Gibt null zurück bei Decrypt-Fehler (statt Exception).
+ * NEVER write the result into logs, HTTP responses or trace rows.
+ * Returns null on a decrypt error (instead of an exception).
  */
 export function decryptApiSecret(encryptedSecret: string): string | null {
   return safeDecrypt(encryptedSecret);
 }
 
-// ─── credentialExists (decrypt-free Existenz/Scope-Check, ACL-5-D-Härtung) ─────
+// ─── credentialExists (decrypt-free existence/scope check, ACL-5-D hardening) ──
 
 /**
- * Ergebnis von credentialExists — decrypt-FREI.
+ * Result of credentialExists — decrypt-FREE.
  *
- * Enthält NIEMALS das (entschlüsselte) Secret. Es wird KEIN decrypt ausgeführt —
- * nur ein Existenz-Lookup + Scope-Ableitung + die Länge des verschlüsselten
- * Blobs (NICHT die Klartext-Länge, NICHT der Klartext).
+ * NEVER contains the (decrypted) secret. NO decrypt is performed —
+ * only an existence lookup + scope derivation + the length of the encrypted
+ * blob (NOT the plaintext length, NOT the plaintext).
  */
 export interface CredentialExistence {
-  /** true wenn ein Credential für scope+provider (oder Org-Fallback) existiert. */
+  /** true if a credential exists for scope+provider (or org fallback). */
   exists: boolean;
   /**
-   * Woher das Credential käme: 'workspace-cred' | 'org-fallback' | null.
-   * null wenn keins existiert.
+   * Where the credential would come from: 'workspace-cred' | 'org-fallback' | null.
+   * null if none exists.
    */
   source: "workspace-cred" | "org-fallback" | null;
-  /** Menschenlesbares Scope-Label, z.B. 'workspace:ws-1' oder 'org-fallback'. */
+  /** Human-readable scope label, e.g. 'workspace:ws-1' or 'org-fallback'. */
   scopeLabel: string;
 }
 
 /**
- * Decrypt-FREIER Existenz- und Scope-Check für ein API-Credential.
+ * Decrypt-FREE existence and scope check for an API credential.
  *
- * ACL-5-D-Härtung (Security-Critic Finding 3): previewCall darf NICHT bei jeder
- * keyword-matchenden Chat-Nachricht das echte Secret entschlüsseln. Diese
- * Funktion ermittelt NUR ob ein Credential existiert und in welchem Scope —
- * OHNE decryptCredential() aufzurufen. Kein Klartext-Secret wird je berührt.
+ * ACL-5-D hardening (Security-Critic Finding 3): previewCall must NOT decrypt
+ * the real secret on every keyword-matching chat message. This
+ * function determines ONLY whether a credential exists and in which scope —
+ * WITHOUT calling decryptCredential(). No plaintext secret is ever touched.
  *
- * Spiegelt die D2-Resolution-Reihenfolge von resolveApiCredential (Workspace
- * zuerst, Org-Fallback nur bei credential_isolation='inherit') — aber OHNE
- * decrypt und OHNE Auth-Gate-Audit-Row (es ist ein billiger, lese-only,
- * nicht-offenbarender Check, kein 'resolve'-Event).
+ * Mirrors the D2 resolution order of resolveApiCredential (workspace
+ * first, org fallback only when credential_isolation='inherit') — but WITHOUT
+ * decrypt and WITHOUT an auth-gate audit row (it is a cheap, read-only,
+ * non-revealing check, not a 'resolve' event).
  *
- * @returns CredentialExistence (exists, source, scopeLabel) — nie ein Secret.
+ * @returns CredentialExistence (exists, source, scopeLabel) — never a secret.
  */
 export function credentialExists(
   workspaceId: string,
   provider: string,
 ): CredentialExistence {
-  // 1. Workspace-eigenes Credential.
+  // 1. Workspace-own credential.
   const wsRow = fetchCredRow("workspace", workspaceId, provider);
   if (wsRow) {
     return {
@@ -756,7 +756,7 @@ export function credentialExists(
     };
   }
 
-  // 2. Org-Fallback — nur bei credential_isolation='inherit' (fail-closed).
+  // 2. Org fallback — only when credential_isolation='inherit' (fail-closed).
   const isolation = readCredentialIsolation(workspaceId);
   if (isolation === "isolated") {
     return { exists: false, source: null, scopeLabel: `workspace:${workspaceId}` };
@@ -782,13 +782,13 @@ export function credentialExists(
 // ─── recordRevealAudit (Security-Critic L-1) ──────────────────────────────────
 
 /**
- * Schreibt eine 'reveal'-Audit-Row (N8). Jede Klartext-Offenbarung eines
- * Credentials — egal über welche Route oder welches Vault — MUSS audit-iert
- * werden, nicht nur via last_revealed_at.
+ * Writes a 'reveal' audit row (N8). Every plaintext revelation of a
+ * credential — regardless of which route or which vault — MUST be audited,
+ * not only via last_revealed_at.
  *
- * Wrapper über den internen writeAuditRow-Mechanismus damit HTTP-Routes
- * (die KEINEN Zugriff auf den privaten Helper haben) konsistente Reveal-Rows
- * mit korrektem content_hash (N10) schreiben.
+ * Wrapper over the internal writeAuditRow mechanism so that HTTP routes
+ * (which have NO access to the private helper) write consistent reveal rows
+ * with a correct content_hash (N10).
  */
 export function recordRevealAudit(entry: {
   scopeKind: ScopeKind;

@@ -3,22 +3,22 @@
 /**
  * ChatWorkspaceInlineSwitcher
  * ---------------------------
- * Kompakter Zweit-Access-Point zum Workspace-Wechsel, direkt LINKS vom
- * Chat-Input platziert. Der primäre Switcher im Header (rechts) bleibt
- * bestehen — diese Variante ist explizit auf das Chat-Eingabefeld
- * optimiert, damit Max im Tippfluss wechseln kann ohne die Maus/den
- * Blick zur Top-Bar zu bewegen.
+ * A compact second access point for the workspace switch, placed directly to the
+ * LEFT of the chat input. The primary switcher in the header (right) stays
+ * in place — this variant is explicitly optimized for the chat input field
+ * so Max can switch in the typing flow without moving the mouse/the
+ * gaze to the top bar.
  *
- * Verhalten:
- * - Trigger = Pill mit Accent-Dot + Label (max-width 180px via ellipsis)
- * - Click → Inline-Popover mit Liste (max-height 240px, scrollbar)
- * - Klick auf Workspace → useSetWorkspace() triggert Event
- *   (Header-Switcher + Body-Class + ChatShell-Effekt ziehen nach)
- * - Click-outside / ESC schließt
- * - Archivierte Workspaces werden gefiltert (analog WorkspaceSwitcher)
+ * Behavior:
+ * - trigger = pill with accent dot + label (max-width 180px via ellipsis)
+ * - click → inline popover with a list (max-height 240px, scrollbar)
+ * - click on a workspace → useSetWorkspace() triggers an event
+ *   (header switcher + body class + ChatShell effect follow)
+ * - click-outside / ESC closes
+ * - archived workspaces are filtered out (analogous to WorkspaceSwitcher)
  *
- * Diese Component ist bewusst OHNE Suche/Filter gehalten — der Header
- * hat die volle Variante. Hier ist Schnellwechsel primus.
+ * This component is deliberately kept WITHOUT search/filter — the header
+ * has the full variant. Here a quick switch is primary.
  */
 
 import {
@@ -51,7 +51,7 @@ export function ChatWorkspaceInlineSwitcher(): React.JSX.Element {
   const popoverRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Sichtbare Zeilen: alle nicht-archivierten; Private nur wenn bereits aktiv.
+  // Visible rows: all non-archived; private only when already active.
   const rows = useMemo<Workspace[]>(() => {
     return workspaces.filter((w) => {
       if (w.archived) return false;
@@ -86,9 +86,9 @@ export function ChatWorkspaceInlineSwitcher(): React.JSX.Element {
     };
   }, [open]);
 
-  // activeIndex wird rein imperativ in `openPopover` / handlePopoverKeyDown
-  // gesetzt. Kein Sync-Effect nötig — rows sind für die Dauer eines
-  // geöffneten Popovers stabil genug (fetch hydriert sie einmalig via
+  // activeIndex is set purely imperatively in `openPopover` / handlePopoverKeyDown.
+  // No sync effect needed — rows are stable enough for the duration of an
+  // open popover (fetch hydrates them once via
   // useWorkspaces).
 
   // Scroll active row into view.

@@ -3,13 +3,13 @@
  *
  * Design: docs/plans/2026-06-03_group-chat-question-spinning-design.md §5.2.
  *
- * Setzt offene Sub-Chat-Fragen automatisch auf 'resolved', wenn sie im Chat-
- * Verlauf bereits (lexical) beantwortet/überholt wurden — über den BESTEHENDEN
- * deterministischen Resolver `detectResolvedAndStaleQuestions` (N6/N7, kein LLM).
- * So „untergehen" beantwortete Fragen nicht ewig in der Pille.
+ * Automatically sets open sub-chat questions to 'resolved' when they have already
+ * been (lexically) answered/superseded in the chat history — via the EXISTING
+ * deterministic resolver `detectResolvedAndStaleQuestions` (N6/N7, no LLM).
+ * That way answered questions do not „get lost" forever in the pill.
  *
- * Wird vom rag-auto-indexer-Sweep aufgerufen (boot + Intervall) — kein eigener
- * Timer. Best-effort, wirft nicht. resolved_by='auto:stale'.
+ * Called by the rag-auto-indexer sweep (boot + interval) — no separate
+ * timer. Best-effort, does not throw. resolved_by='auto:stale'.
  */
 
 import { getDb } from '@/db/client';
@@ -26,11 +26,11 @@ export interface SweepResult {
 }
 
 /**
- * Sweep über alle Sub-Chats mit offenen Fragen. Pro Sub-Chat werden die offenen
- * Fragen + die jüngste Nachrichten-History an den lexical Resolver gegeben; die
- * zurückgemeldeten IDs werden auf 'resolved' gesetzt.
+ * Sweep over all sub-chats with open questions. Per sub-chat, the open
+ * questions + the most recent message history are given to the lexical resolver; the
+ * returned IDs are set to 'resolved'.
  *
- * @param opts.nowMs Test-Injektion für „jetzt".
+ * @param opts.nowMs Test injection for „now".
  */
 export function sweepStaleSubchatQuestions(opts: { nowMs?: number } = {}): SweepResult {
   const raw = getDb().$raw;
@@ -69,9 +69,9 @@ export function sweepStaleSubchatQuestions(opts: { nowMs?: number } = {}): Sweep
     if (qs.length === 0) continue;
     scanned += qs.length;
 
-    // Mapping: subchat_question → OpenQuestion (Enrichment optional);
-    // subchat_message → SourceItem (alle Teilnehmer als 'user' — der Resolver
-    // prüft lexical, unabhängig von der Rolle).
+    // Mapping: subchat_question → OpenQuestion (enrichment optional);
+    // subchat_message → SourceItem (all participants as 'user' — the resolver
+    // checks lexically, independent of the role).
     const questions = qs.map((q) => ({ id: q.id, text: q.text }) as OpenQuestion);
     const history: OpenQuestionsSourceItem[] = msgs.map((m) => ({
       role: 'user' as const,

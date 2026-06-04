@@ -1,9 +1,9 @@
 /**
- * RAG-Auto-Indexer für alle nicht-archivierten Workspaces (außer high-sensitivity).
- * Läuft via systemd-timer alle 30 min.
+ * RAG auto-indexer for all non-archived workspaces (except high-sensitivity).
+ * Runs via systemd timer every 30 min.
  *
- * Loop-Guard: indexBatch hat 60s-Recursion-Debounce + Circuit-Breaker.
- * Workspaces werden seriell indiziert (nicht parallel) — sonst ONNX-Memory-Spike.
+ * Loop guard: indexBatch has a 60s recursion debounce + circuit breaker.
+ * Workspaces are indexed serially (not in parallel) — otherwise an ONNX memory spike.
  */
 
 import { getDb } from '@/db/client';

@@ -1,8 +1,8 @@
 /**
  * POST /api/subchats/[subchatId]/questions/suggest-ai
- *   → { suggestions: [{text, options}] }  (KI schlägt Rückfragen vor; NICHT gespinnt)
+ *   → { suggestions: [{text, options}] }  (AI proposes follow-up questions; NOT spun)
  *
- * KI-auto-anspinnen (2026-06-03). Auth: Workspace-Member.
+ * AI auto-spin (2026-06-03). Auth: workspace member.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

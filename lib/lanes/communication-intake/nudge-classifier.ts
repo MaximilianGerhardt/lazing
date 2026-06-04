@@ -9,31 +9,31 @@
  * Master-Briefing §7.3 Schritt 3 (verbatim, N1):
  *   „Klassifizieren."
  *
- * Deterministisch (N6) — regex- und keyword-basierte Klassifikation in DE+EN.
- * KEIN LLM. Wenn mehrere Klassen treffen, gilt diese Priorität (verbatim):
+ * Deterministic (N6) — regex- and keyword-based classification in DE+EN.
+ * NO LLM. When multiple classes match, this priority applies (verbatim):
  *
  *     urgent  >  decision-needed  >  info-only  >  noise
  *
- * Die Priorität reflektiert den Schadens-Verlauf: wir wollen lieber einen
- * „noise"-Eintrag fälschlich als „urgent" klassifizieren (User-Aufmerksamkeit
- * verbraucht) als eine echte Notfall-Meldung als „info-only" überhören.
+ * The priority reflects the damage profile: we would rather misclassify a
+ * „noise" entry as „urgent" (consuming user attention) than miss a real
+ * emergency message as „info-only".
  *
- * Keywords sind VERBATIM Substrings (lower-cased compare). Sie sind absichtlich
- * konservativ klein gehalten — Lane B (Expertise-Compiler) wird über LLM
- * tiefer reinhören; Lane A liefert nur das Bottom-Line-Signal.
+ * Keywords are VERBATIM substrings (lower-cased compare). They are deliberately
+ * kept conservatively small — Lane B (Expertise-Compiler) will listen in more
+ * deeply via LLM; Lane A only delivers the bottom-line signal.
  */
 
 import type { NudgeClass, SourceEnvelope } from "./types";
 
 // ───────────────────────────────────────────────────────────────────────────
-// Keyword-Listen (verbatim Substrings, lower-cased compare)
+// Keyword lists (verbatim substrings, lower-cased compare)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * URGENT — Notfall/Deadline-Marker (DE+EN). Substring-Match.
- * Achtung: bewusst kein einzelnes "now" — das wäre ein zu starker
- * False-Positive-Magnet. „jetzt sofort" / „right now" sind die enger
- * gefassten Varianten.
+ * URGENT — emergency/deadline markers (DE+EN). Substring match.
+ * Note: deliberately no single "now" — that would be too strong a
+ * false-positive magnet. „jetzt sofort" / „right now" are the more narrowly
+ * scoped variants.
  */
 const URGENT_KEYWORDS: readonly string[] = [
   "urgent",
@@ -53,8 +53,8 @@ const URGENT_KEYWORDS: readonly string[] = [
 ] as const;
 
 /**
- * DECISION-NEEDED — Entscheidungs-/Approval-Marker. Substring-Match.
- * Es genügt EINE dieser Phrasen ODER ein Fragezeichen (siehe regex unten).
+ * DECISION-NEEDED — decision/approval markers. Substring match.
+ * ONE of these phrases OR a question mark (see regex below) suffices.
  */
 const DECISION_KEYWORDS: readonly string[] = [
   "entscheid", // entscheid·ung / entscheid·en
@@ -69,17 +69,17 @@ const DECISION_KEYWORDS: readonly string[] = [
   "bitte bestätig", // matches „bitte bestätige", „bitte bestätigen Sie"
   "please confirm",
   "please approve",
-  "soll ich", // typische deutsche Entscheidungs-Anfrage
+  "soll ich", // typical German decision request
   "should i",
   "should we",
 ] as const;
 
 /**
- * Action-Verben (DE+EN), die ein Imperativ-/Aktions-Signal tragen — wird
- * für die info-only-vs-noise-Disambiguation gebraucht.
+ * Action verbs (DE+EN) that carry an imperative/action signal — needed
+ * for the info-only-vs-noise disambiguation.
  *
- * Substring-Match. Diese Liste ist absichtlich klein; Edge-Cases werden
- * lieber als info-only klassifiziert als als noise.
+ * Substring match. This list is deliberately small; edge cases are
+ * classified as info-only rather than noise.
  */
 const ACTION_VERBS: readonly string[] = [
   "send",
@@ -103,17 +103,17 @@ const ACTION_VERBS: readonly string[] = [
 ] as const;
 
 // ───────────────────────────────────────────────────────────────────────────
-// Regex-Indikatoren
+// Regex indicators
 // ───────────────────────────────────────────────────────────────────────────
 
-/** Mindestens ein Fragezeichen → Decision-/Question-Indikator. */
+/** At least one question mark → decision/question indicator. */
 const QUESTION_MARK_RE = /\?/;
 
-/** Wort-Tokenizer für length-Heuristiken (≥ 3 chars zählt als Wort). */
+/** Word tokenizer for length heuristics (≥ 3 chars counts as a word). */
 const WORD_RE = /\b[\p{L}\p{N}'_-]{3,}\b/gu;
 
 // ───────────────────────────────────────────────────────────────────────────
-// Hilfsfunktionen
+// Helper functions
 // ───────────────────────────────────────────────────────────────────────────
 
 function lower(s: string): string {
@@ -135,40 +135,40 @@ function countWords(text: string): number {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// classify — Hauptfunktion
+// classify — main function
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Klassifiziert ein envelope deterministisch in eine NudgeClass.
+ * Classifies an envelope deterministically into a NudgeClass.
  *
- * Implementiert die Priorität:
+ * Implements the priority:
  *   urgent > decision-needed > info-only > noise
  *
- * Heuristik in Worten:
- *   1. Wenn URGENT_KEYWORDS matchen → 'urgent'.
- *   2. Sonst, wenn ein '?' im Text steht ODER DECISION_KEYWORDS matchen →
+ * Heuristic in words:
+ *   1. If URGENT_KEYWORDS match → 'urgent'.
+ *   2. Otherwise, if a '?' is in the text OR DECISION_KEYWORDS match →
  *      'decision-needed'.
- *   3. Sonst, wenn der Text ≥ 3 Wörter HAT UND mindestens ein Action-Verb
- *      trägt → 'info-only' (er trägt zwar keine Frage, aber etwas
- *      Beobachtbares/Imperativisches). Auch reine deklarative Sätze ohne
- *      Verb gelten als info-only, sobald sie ≥ 5 Wörter sind (eine echte
- *      Aussage, kein Filler).
- *   4. Sonst → 'noise'.
+ *   3. Otherwise, if the text HAS ≥ 3 words AND carries at least one action
+ *      verb → 'info-only' (it carries no question, but something
+ *      observable/imperative). Pure declarative sentences without
+ *      a verb also count as info-only once they are ≥ 5 words (a real
+ *      statement, not filler).
+ *   4. Otherwise → 'noise'.
  *
- * Eingabe ist ein SourceEnvelope; die Klassifikation berücksichtigt nur
- * `rawContent` (sensitivity, dataSource etc. werden bewusst nicht hier
- * gemixt — sie sind Substrat, nicht Signal).
+ * The input is a SourceEnvelope; the classification considers only
+ * `rawContent` (sensitivity, dataSource etc. are deliberately not mixed in
+ * here — they are substrate, not signal).
  *
- * Niemals werfen — fail-soft. Leerer / nicht-Text-Inhalt → 'noise'.
+ * Never throws — fail-soft. Empty / non-text content → 'noise'.
  */
 export function classify(envelope: SourceEnvelope): NudgeClass {
   if (!envelope || typeof envelope !== "object") return "noise";
   const raw = envelope.rawContent;
   if (typeof raw !== "string" || raw.length === 0) return "noise";
-  // Nicht-text-Content-Types: wir HABEN keinen aussagekräftigen Text
-  // (Audio/Video/Image wären transkribiert; sonst sehen wir nur eine URL).
-  // Trotzdem klassifizieren wir den begleitenden Caption-Text — falls keiner
-  // da ist, fällt es unten auf noise zurück.
+  // Non-text content types: we HAVE no meaningful text
+  // (audio/video/image would be transcribed; otherwise we only see a URL).
+  // We still classify the accompanying caption text — if there is none,
+  // it falls back to noise below.
 
   // (1) URGENT
   if (anyKeywordMatches(raw, URGENT_KEYWORDS)) {
@@ -180,7 +180,7 @@ export function classify(envelope: SourceEnvelope): NudgeClass {
     return "decision-needed";
   }
 
-  // (3) INFO-ONLY oder NOISE
+  // (3) INFO-ONLY or NOISE
   const wc = countWords(raw);
   const hasActionVerb = anyKeywordMatches(raw, ACTION_VERBS);
   if (wc >= 3 && hasActionVerb) return "info-only";
@@ -190,8 +190,8 @@ export function classify(envelope: SourceEnvelope): NudgeClass {
 }
 
 /**
- * Re-export der Keyword-Listen für externe Konsumenten (Tests, Lane-Contract).
- * Konstanten sind read-only.
+ * Re-export of the keyword lists for external consumers (tests, lane contract).
+ * The constants are read-only.
  */
 export const NUDGE_KEYWORDS = {
   urgent: URGENT_KEYWORDS,

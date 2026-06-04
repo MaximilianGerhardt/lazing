@@ -157,7 +157,7 @@ function isActorAllowed(
     case "request_approval":
     case "execute":
     case "close":
-      return true; // user ODER agent
+      return true; // user OR agent
     default: {
       // Exhaustiveness check
       const _never: never = transition;

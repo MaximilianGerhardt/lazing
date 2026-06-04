@@ -1,12 +1,12 @@
 /**
  * GET /api/rag/freshness
  *
- * Liefert Coverage-Stats des RAG-Index pro Source-Type — analog
- * `pnpm tsx scripts/audit-rag-coverage.ts --json`. Useful für Health-
- * Dashboard.
+ * Returns coverage stats of the RAG index per source type — analogous to
+ * `pnpm tsx scripts/audit-rag-coverage.ts --json`. Useful for the health
+ * dashboard.
  *
- * Auth: requireSession ODER Bearer $LAZYOS_PUSH_SECRET (für Health-
- * Check-Cron).
+ * Auth: requireSession OR Bearer $LAZYOS_PUSH_SECRET (for the health
+ * check cron).
  *
  * P12 (2026-05-01).
  */

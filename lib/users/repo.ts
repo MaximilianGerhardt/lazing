@@ -1,8 +1,8 @@
 /**
- * Users-Repository (Phase ORG SP-2).
+ * Users repository (phase ORG SP-2).
  *
- * Reine DB-Operationen — kein Auth, keine Email, keine Magic-Link. Service-
- * Layer (`lib/users/service.ts`) wraps das mit Business-Logic.
+ * Pure DB operations — no auth, no email, no magic link. The service
+ * layer (`lib/users/service.ts`) wraps this with business logic.
  */
 
 import { and, eq, isNull } from "drizzle-orm";
@@ -76,8 +76,8 @@ export function createUser(input: CreateUserInput): UserRow {
 }
 
 /**
- * Idempotent: Wenn User mit der Email existiert → return ihn. Sonst
- * lege einen neuen mit übergebener ID + displayName an.
+ * Idempotent: if a user with the email exists → return them. Otherwise
+ * create a new one with the provided ID + displayName.
  */
 export function ensureUser(input: CreateUserInput): UserRow {
   const existing = findUserByEmail(input.email);
@@ -111,12 +111,12 @@ export function listActiveUsers(): UserRow[] {
 }
 
 /**
- * Phase AU.0/AU.4 — liefert die ULID des ältesten aktiven Users mit
- * Founder-Rolle (über alle Orgs). Genutzt für:
- *   - Cookie-Migration: Bootstrap-Cookies werden auf diesen User remapped.
- *   - Login-Fallback: wenn LAZYOS_OWNER_EMAIL nicht gesetzt ist.
+ * Phase AU.0/AU.4 — returns the ULID of the oldest active user with the
+ * founder role (across all orgs). Used for:
+ *   - Cookie migration: bootstrap cookies are remapped to this user.
+ *   - Login fallback: when LAZYOS_OWNER_EMAIL is not set.
  *
- * Returns null wenn DB noch keinen Founder hat.
+ * Returns null when the DB has no founder yet.
  */
 export function findFirstFounderUserId(): string | null {
   const db = getDb();
@@ -136,11 +136,11 @@ export function findFirstFounderUserId(): string | null {
 }
 
 /**
- * Phase MU.1 — Claude-MAX-Status pro User.
+ * Phase MU.1 — Claude-MAX status per user.
  *
- * `getClaudeMaxBinding` liefert den aktuellen Bindungsstatus inkl. Pfad.
- * `setClaudeMaxBinding` schreibt eine neue Konfig (Status + Pfad + Email).
- * Beide rein DB-Layer — Encryption + File-IO machen Caller (Service/Route).
+ * `getClaudeMaxBinding` returns the current binding status incl. path.
+ * `setClaudeMaxBinding` writes a new config (status + path + email).
+ * Both are pure DB layer — encryption + file IO are done by the caller (service/route).
  */
 export interface ClaudeMaxBinding {
   status: "shared" | "own" | "none";

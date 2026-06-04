@@ -52,15 +52,15 @@ interface Props {
   onChange?: (fullAccess: boolean) => void;
 }
 
-/** Modi, die als „Vollzugriff AN" gelten (server/workspace-session.ts-Parität). */
+/** Modes that count as „Vollzugriff AN" (server/workspace-session.ts parity). */
 const FULL_ACCESS_MODES: ReadonlySet<string> = new Set<PermissionMode>([
   'freerein',
   'freerein-with-audit',
 ]);
 
-/** Mode, der beim Aktivieren gesetzt wird (Vollzugriff). */
+/** Mode set when activating (full access). */
 const MODE_ON: PermissionMode = 'freerein';
-/** Mode, der beim Deaktivieren gesetzt wird (sicher, fragt nach). */
+/** Mode set when deactivating (safe, asks first). */
 const MODE_OFF: PermissionMode = 'ask';
 
 interface ModeResponse {
@@ -93,7 +93,7 @@ export function AllAccessToggle({
   //   auth bypass, NO weakening of the permission gates.
   const synthetic = isRootWorkspace(workspaceId);
 
-  // null = noch nicht geladen (Mount-GET pending) → Toggle ist neutral/disabled.
+  // null = not yet loaded (mount GET pending) → toggle is neutral/disabled.
   const [fullAccess, setFullAccess] = useState<boolean | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [riskAccepted, setRiskAccepted] = useState(false);
@@ -166,7 +166,7 @@ export function AllAccessToggle({
         setFullAccess(FULL_ACCESS_MODES.has(wsMode));
         return;
       }
-      // Workspace hat keinen expliziten Mode → User-Default konsultieren.
+      // Workspace has no explicit mode → consult the user default.
       const userDefault = await readUserDefault();
       if (cancelled) return;
       const on = userDefault != null && FULL_ACCESS_MODES.has(userDefault);
@@ -192,13 +192,13 @@ export function AllAccessToggle({
     return () => document.removeEventListener('mousedown', handler);
   }, [showDisclaimer]);
 
-  // PATCH-Schreiber mit optimistischem UI + Rollback.
+  // PATCH writer with optimistic UI + rollback.
   const writeMode = useCallback(
     async (mode: PermissionMode, optimistic: boolean): Promise<void> => {
       const previous = fullAccess;
       setBusy(true);
       setError(null);
-      // Optimistic: sofort umschalten.
+      // Optimistic: switch immediately.
       setFullAccess(optimistic);
       try {
         const resp = await fetch(
@@ -224,14 +224,14 @@ export function AllAccessToggle({
     [workspaceId, fullAccess, onChange],
   );
 
-  // Klick auf die Pill.
+  // Click on the pill.
   const onPillClick = useCallback(() => {
     if (busy || fullAccess === null) return;
     if (fullAccess) {
       // ON→OFF: direct, no disclaimer.
       void writeMode(MODE_OFF, false);
     } else {
-      // AUS→AN: zuerst Disclaimer, KEIN sofortiges Schalten.
+      // OFF→ON: disclaimer first, NO immediate switch.
       setError(null);
       setRiskAccepted(false);
       setShowDisclaimer(true);
@@ -282,10 +282,10 @@ export function AllAccessToggle({
         }
         data-test="all-access-trigger"
       >
-        {/* Phase C3 (UI/UX 2026-06-03): Icon-only Lock-Toggle — kein „Vollzugriff"-
-            Text mehr auf der Composer-Zeile. Der Shield/Schloss-Glyph encodiert
-            den Zustand via Form (zu/offen) + Warn-Farbe; aria-label/title tragen
-            die Bedeutung. Ruhigere Zeile (Owner: „komplett zu viel"). */}
+        {/* Phase C3 (UI/UX 2026-06-03): icon-only lock toggle — no more „Vollzugriff"
+            text on the composer line. The shield/lock glyph encodes
+            the state via form (closed/open) + warn color; aria-label/title carry
+            the meaning. Calmer line (owner: „komplett zu viel"). */}
         <ShieldGlyph on={isOn} />
       </button>
 
@@ -350,12 +350,12 @@ export function AllAccessToggle({
 }
 
 // ---------------------------------------------------------------------------
-// Glyphs — schlichte SVGs, KEINE Emojis (Design Manifest v1.0)
+// Glyphs — plain SVGs, NO emojis (Design Manifest v1.0)
 // ---------------------------------------------------------------------------
 
 function ShieldGlyph({ on }: { on: boolean }): React.JSX.Element {
-  // AN = offenes Schloss (Zugriff offen) im Warn-Akzent; AUS = geschlossenes
-  // Schild in neutralem Ton.
+  // ON = open lock (access open) in the warn accent; OFF = closed
+  // shield in a neutral tone.
   return (
     <svg
       width="16"
@@ -370,13 +370,13 @@ function ShieldGlyph({ on }: { on: boolean }): React.JSX.Element {
       style={{ color: on ? 'var(--a-warn, #FFD60A)' : 'var(--ink-3, #636366)' }}
     >
       {on ? (
-        // Offenes Schloss
+        // Open lock
         <>
           <rect x="5" y="11" width="14" height="9" rx="2" />
           <path d="M8 11V7a4 4 0 0 1 7.5-2" />
         </>
       ) : (
-        // Geschlossenes Schild
+        // Closed shield
         <>
           <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
           <path d="M9.5 12l1.8 1.8L15 10" />
@@ -408,7 +408,7 @@ function WarnGlyph(): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Styles — Pitch-Black + Warn-Akzent (NICHT --a-now), 240ms cubic-bezier
+// Styles — Pitch-Black + warn accent (NOT --a-now), 240ms cubic-bezier
 // ---------------------------------------------------------------------------
 
 const SPRING = 'cubic-bezier(0.16, 1, 0.3, 1)';
@@ -432,7 +432,7 @@ function pillStyle(on: boolean, disabled: boolean): CSSProperties {
     border: on
       ? '0.5px solid color-mix(in oklab, var(--a-warn, #FFD60A) 55%, var(--line-2, #1f1f1f))'
       : '0.5px solid var(--line-2, #1f1f1f)',
-    // AN nutzt BEWUSST den amber Warn-Akzent, NICHT --a-now (lime = positiv).
+    // ON DELIBERATELY uses the amber warn accent, NOT --a-now (lime = positive).
     background: on
       ? 'color-mix(in oklab, var(--a-warn, #FFD60A) 12%, var(--sheet-2, #0e0e0e))'
       : 'var(--sheet-2, #0e0e0e)',

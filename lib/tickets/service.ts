@@ -1,16 +1,16 @@
 /**
- * Ticket-Service — Event-Sourced CRUD-Facade.
+ * Ticket service — event-sourced CRUD facade.
  *
- * Alle Write-Operationen gehen durch `emitEvent` (append-only), alle Reads
- * durch die Projections aus `lib/events/project.ts`. Kein direkter DB-Zugriff.
+ * All write operations go through `emitEvent` (append-only), all reads
+ * through the projections from `lib/events/project.ts`. No direct DB access.
  *
- * Die API-Routes (`/api/tickets/*`) delegieren ausschliesslich hierher, damit
- * die gleiche Logik auch von Server Components (z.B. `/tickets/[id]` Detail-
- * Seite) ohne HTTP-Roundtrip genutzt werden kann.
+ * The API routes (`/api/tickets/*`) delegate exclusively here, so that
+ * the same logic can also be used by server components (e.g. the `/tickets/[id]`
+ * detail page) without an HTTP roundtrip.
  *
- * Ticket-IDs: ULID mit `TCK-` Praefix, damit sie in der UI konsistent zum
- * Seed ("TCK-DEMO-001") aussehen. Base32-ULIDs sortieren weiterhin lexikogra-
- * phisch korrekt, der Praefix ist rein kosmetisch.
+ * Ticket IDs: ULID with a `TCK-` prefix, so they look consistent with the
+ * seed ("TCK-DEMO-001") in the UI. Base32 ULIDs still sort lexicogra-
+ * phically correctly, the prefix is purely cosmetic.
  */
 
 import { emitEvent } from "../events/emit";
@@ -29,7 +29,7 @@ import type {
 import { ulid } from "../ulid";
 
 // ---------------------------------------------------------------------------
-// Input-Shapes — von den API-Routes via Zod validiert, hier nur strukturiert.
+// Input shapes — validated by the API routes via Zod, here only structured.
 // ---------------------------------------------------------------------------
 
 export interface CreateTicketInput {
@@ -42,13 +42,13 @@ export interface CreateTicketInput {
   assignee?: string;
   status?: TicketStatus;
   workflowState?: string;
-  /** Ueberschreibt den Default-Actor (`user:max`). */
+  /** Overrides the default actor (`user:max`). */
   actor?: ActorType;
-  /** Claude-Session-UUID (Handoff-Punkt 5) — landet als payload.sessionId. */
+  /** Claude session UUID (handoff point 5) — lands as payload.sessionId. */
   sessionId?: string;
-  /** Workstream-Container (Phase W). */
+  /** Workstream container (Phase W). */
   workstreamId?: string;
-  /** Parent-Ticket (Phase H). */
+  /** Parent ticket (Phase H). */
   parentTicketId?: string;
 }
 
@@ -61,27 +61,27 @@ export interface UpdateTicketInput {
   assignee?: string;
   status?: TicketStatus;
   workflowState?: string;
-  /** Ueberschreibt den Default-Actor (`user:max`). */
+  /** Overrides the default actor (`user:max`). */
   actor?: ActorType;
-  /** Claude-Session-UUID (Handoff-Punkt 5) — landet als payload.sessionId. */
+  /** Claude session UUID (handoff point 5) — lands as payload.sessionId. */
   sessionId?: string;
-  /** Workstream-Container (Phase W). */
+  /** Workstream container (Phase W). */
   workstreamId?: string;
-  /** Parent-Ticket (Phase H). */
+  /** Parent ticket (Phase H). */
   parentTicketId?: string;
 }
 
 export interface ListTicketsInput {
   workspaceId?: WorkspaceId;
   /**
-   * Phase IA.5 — Org-Filter. Wenn gesetzt, werden nur Tickets aus
-   * Workspaces dieser Org zurückgegeben.
+   * Phase IA.5 — org filter. If set, only tickets from
+   * workspaces of this org are returned.
    */
   orgId?: string;
   status?: TicketStatus | "all";
   limit?: number;
   offset?: number;
-  /** Volltext-Suche ueber title + body. */
+  /** Full-text search over title + body. */
   query?: string;
 }
 
@@ -94,24 +94,24 @@ export interface CommentInput {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// Phase ORG (2026-04-27): Default ist `system`, NICHT mehr `user:max`.
-// API-Route-Caller MUSS explizit `actor: currentActor(req)` setzen wenn
-// die Action User-attribuiert sein soll, sonst landet sie als System-
-// Action im Audit-Log (DSGVO-konformer als hardcoded fake-User).
+// Phase ORG (2026-04-27): default is `system`, NO longer `user:max`.
+// The API route caller MUST explicitly set `actor: currentActor(req)` if
+// the action should be user-attributed, otherwise it lands as a system
+// action in the audit log (more GDPR-compliant than a hardcoded fake user).
 const DEFAULT_ACTOR: ActorType = "system";
 
 /**
- * Erzeugt eine neue Ticket-ID im Format `TCK-<ULID>`. Der Prefix ist
- * kosmetisch; der ULID-Teil bleibt sortierbar.
+ * Creates a new ticket ID in the format `TCK-<ULID>`. The prefix is
+ * cosmetic; the ULID part stays sortable.
  */
 export function newTicketId(now: number = Date.now()): string {
   return `TCK-${ulid(now)}`;
 }
 
 /**
- * Nutzt den `workspaceId`-Parameter als `segmentId` im Event-Schema.
- * Der Event-Log speichert weiterhin unter dem Feld-Namen `segmentId`
- * (siehe `lib/events/types.ts` Kommentar).
+ * Uses the `workspaceId` parameter as `segmentId` in the event schema.
+ * The event log still stores under the field name `segmentId`
+ * (see the comment in `lib/events/types.ts`).
  */
 function asSegment(workspaceId: WorkspaceId): WorkspaceId {
   return workspaceId;
@@ -127,8 +127,8 @@ export async function createTicket(
   const id = newTicketId();
   const actor = input.actor ?? DEFAULT_ACTOR;
 
-  // Clean payload — nur definierte Felder weiterreichen, damit projection
-  // nicht unnoetig "undefined"-Overrides verarbeitet.
+  // Clean payload — only pass through defined fields, so the projection
+  // doesn't unnecessarily process "undefined" overrides.
   const payload: Record<string, unknown> = {
     title: input.title,
   };
@@ -155,14 +155,14 @@ export async function createTicket(
 
   const projection = await projectTicket(id);
   if (!projection) {
-    // Sollte nicht passieren — emitEvent ist sync DB-Insert. Defensive.
+    // Should not happen — emitEvent is a sync DB insert. Defensive.
     throw new Error(`createTicket: projection missing for ${id}`);
   }
   return projection;
 }
 
 // ---------------------------------------------------------------------------
-// Update — emittiert je nach Patch `updated` und/oder `status_changed`.
+// Update — emits `updated` and/or `status_changed` depending on the patch.
 // ---------------------------------------------------------------------------
 
 export async function updateTicket(
@@ -177,8 +177,8 @@ export async function updateTicket(
   const actor = patch.actor ?? DEFAULT_ACTOR;
   const segment = current.segmentId;
 
-  // Status-Changes bekommen ein eigenes, semantisch reines Event,
-  // damit Timelines "status_changed" als first-class Signal anzeigen.
+  // Status changes get their own, semantically clean event,
+  // so timelines show "status_changed" as a first-class signal.
   if (patch.status && patch.status !== current.status) {
     await emitEvent({
       segmentId: segment,
@@ -194,9 +194,9 @@ export async function updateTicket(
     });
   }
 
-  // Alles andere (inkl. workflowState, assignee, title, body, prio, due, tags)
-  // landet in einem gesammelten `updated`-Event. Wenn der Patch nur ein
-  // Status-Change war, schreiben wir KEIN zusaetzliches leeres `updated`.
+  // Everything else (incl. workflowState, assignee, title, body, prio, due, tags)
+  // lands in a single collected `updated` event. If the patch was only a
+  // status change, we write NO additional empty `updated`.
   const updatePayload: Record<string, unknown> = {};
   if (patch.title !== undefined && patch.title !== current.title) {
     updatePayload.title = patch.title;
@@ -261,7 +261,7 @@ export async function closeTicket(
   const current = await projectTicket(id);
   if (!current) throw new TicketNotFoundError(id);
   if (current.status === "done") {
-    // Bereits geschlossen — idempotent, kein weiteres Event.
+    // Already closed — idempotent, no further event.
     return current;
   }
 
@@ -295,7 +295,7 @@ export async function listTickets(
 
   let filtered = all;
   if (opts.orgId) {
-    // Phase IA.5 — Org-Scope. Nur Tickets aus Workspaces dieser Org.
+    // Phase IA.5 — org scope. Only tickets from workspaces of this org.
     const { getDb } = await import("@/db/client");
     const db = getDb();
     const wsRows = db.$raw

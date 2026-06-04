@@ -1,24 +1,24 @@
 'use client';
 
 /**
- * ChatOpenQuestionsPill — UX-1 (2026-05-26, Codex-Stil Bottom-Action-UX).
+ * ChatOpenQuestionsPill — UX-1 (2026-05-26, Codex-style bottom-action UX).
  *
- * Q/A-Pill ÜBER dem Composer. Ersetzt den inline-Stepper im Nachrichtenstrom
- * als PRIMÄREN Antwort-Flow für `## Offene Fragen`-Sections.
+ * Q/A pill ABOVE the composer. Replaces the inline stepper in the message stream
+ * as the PRIMARY answer flow for `## Offene Fragen` sections.
  *
- * Zwei Zustände:
- *  - **ausgeklappt** (`expanded`): aktuelle Frage + Antwort-Optionen
- *    (Klick = Antwort) + Fortschritt „n/total" + Vor/Zurück + Collapse-Button.
- *    Eine bereits gewählte Antwort wird als Badge angezeigt.
- *  - **eingeklappt** (`!expanded`): Chip „n offene Fragen" (Klick = ausklappen).
+ * Two states:
+ *  - **expanded** (`expanded`): current question + answer options
+ *    (click = answer) + progress „n/total" + forward/back + collapse button.
+ *    An already chosen answer is shown as a badge.
+ *  - **collapsed** (`!expanded`): chip „n offene Fragen" (click = expand).
  *
- * State + Submit-Logik leben im PARENT (ChatShell) — diese Komponente ist
- * controlled. Der eigentliche Antwort-Flow (Options-Klick, Freitext-Enter
- * über den Chat-Input, finaler `reply`) wird von ChatShell orchestriert, damit
- * die submit-Reihenfolge (streaming→Queue zuerst) intakt bleibt.
+ * State + submit logic live in the PARENT (ChatShell) — this component is
+ * controlled. The actual answer flow (option click, free-text Enter
+ * via the chat input, final `reply`) is orchestrated by ChatShell so that
+ * the submit order (streaming→queue first) stays intact.
  *
- * Die Pill ist absichtlich erweiterbar gehalten ("needs-action unten") —
- * später können hier auch Approval/Connector/Permission-Surfaces landen.
+ * The pill is deliberately kept extensible ("needs-action at the bottom") —
+ * later approval/connector/permission surfaces can also land here.
  */
 
 import { useState } from 'react';
@@ -31,20 +31,20 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 // ---------------------------------------------------------------------------
-// Pure Routing-Logik (testbar ohne ChatShell-Mount)
+// Pure routing logic (testable without a ChatShell mount)
 // ---------------------------------------------------------------------------
 
 /**
- * MAJOR 3a (2026-05-26): Frage-IDs deduplizieren.
+ * MAJOR 3a (2026-05-26): deduplicate question IDs.
  *
- * `parsePlanQuestions` baut `id = hashString(text)` — zwei textgleiche offene
- * Fragen kollidieren damit auf derselben ID. Das bricht die Pill: `allAnswered`
- * würde nach EINER Antwort true, der reply enthielte die Antwort doppelt, und
- * der Options-Klick-`findIndex` springt immer auf die erste Bubble zurück
- * (Navigations-Stuck). Diese Funktion vergibt der n-ten Wiederholung einer ID
- * ein `-n`-Suffix (`q1`, `q1-1`, `q1-2`, …), sodass jede Bubble separat
- * navigier- und beantwortbar bleibt. `parsePlanQuestions` selbst bleibt
- * unverändert (die Plan-Pipeline nutzt es).
+ * `parsePlanQuestions` builds `id = hashString(text)` — two text-identical open
+ * questions thus collide on the same ID. That breaks the pill: `allAnswered`
+ * would become true after ONE answer, the reply would contain the answer twice, and
+ * the option-click `findIndex` always jumps back to the first bubble
+ * (navigation stuck). This function gives the n-th repetition of an ID
+ * a `-n` suffix (`q1`, `q1-1`, `q1-2`, …) so each bubble stays separately
+ * navigable and answerable. `parsePlanQuestions` itself stays
+ * unchanged (the plan pipeline uses it).
  */
 export function dedupeQuestionIds(
   questions: ReadonlyArray<PlanQuestion>,
@@ -58,21 +58,21 @@ export function dedupeQuestionIds(
 }
 
 export interface PillAnswerRouteResult {
-  /** Antworten inklusive der gerade gesetzten. */
+  /** Answers including the one just set. */
   nextAnswers: Record<string, string>;
-  /** Sind danach ALLE Fragen beantwortet? (→ finaler reply). */
+  /** Are ALL questions answered afterwards? (→ final reply). */
   allAnswered: boolean;
-  /** Falls nicht alle: Index der nächsten noch unbeantworteten Frage. */
+  /** If not all: index of the next still-unanswered question. */
   nextIndex: number;
 }
 
 /**
- * UX-1 (2026-05-26): Berechnet das Folge-Pill-State für EINE Antwort auf die
- * Frage `targetId`. Setzt die Antwort, prüft Vollständigkeit und ermittelt die
- * nächste offene Frage (vorwärts ab `currentIndex`, dann wrap-around).
+ * UX-1 (2026-05-26): computes the follow-up pill state for ONE answer to the
+ * question `targetId`. Sets the answer, checks completeness and determines the
+ * next open question (forward from `currentIndex`, then wrap-around).
  *
- * Wird sowohl vom Freitext-Enter-Routing (im ChatShell-submit-Handler) als auch
- * vom Options-Klick benutzt → identische Antwort-Logik, ein einziger Pfad.
+ * Used both by the free-text Enter routing (in the ChatShell submit handler) and
+ * by the option click → identical answer logic, a single path.
  */
 export function routePillAnswer(
   questions: ReadonlyArray<PlanQuestion>,
@@ -86,8 +86,8 @@ export function routePillAnswer(
   if (allAnswered || questions.length === 0) {
     return { nextAnswers, allAnswered: true, nextIndex: currentIndex };
   }
-  // Startpunkt: Index der gerade beantworteten Frage (falls auffindbar),
-  // sonst der currentIndex.
+  // Starting point: index of the just-answered question (if findable),
+  // otherwise currentIndex.
   const baseIdx = questions.findIndex((q) => q.id === targetId);
   const from = baseIdx >= 0 ? baseIdx : currentIndex;
   let nextIndex = from;
@@ -102,44 +102,44 @@ export function routePillAnswer(
 }
 
 export interface ChatOpenQuestionsPillProps {
-  /** Die offenen Fragen des aktuellen Q/A-Sets (leer → nichts rendern).
-   *  2026-05-28: erweiterter Typ `OpenQuestion` (PlanQuestion + optionale
-   *  Enrichment-Felder context/pros/cons/recommendation/evidence). Alt-
-   *  Aufrufer mit reinem PlanQuestion[] funktionieren unverändert weiter. */
+  /** The open questions of the current Q/A set (empty → render nothing).
+   *  2026-05-28: extended type `OpenQuestion` (PlanQuestion + optional
+   *  enrichment fields context/pros/cons/recommendation/evidence). Old
+   *  callers with a plain PlanQuestion[] keep working unchanged. */
   questions: Array<PlanQuestion | OpenQuestion>;
-  /** Bereits gegebene Antworten (Frage-ID → Antwort-Text). */
+  /** Answers already given (question ID → answer text). */
   answers: Record<string, string>;
-  /** Index der aktuell sichtbaren Frage (0-basiert). */
+  /** Index of the currently visible question (0-based). */
   currentIndex: number;
-  /** Ausgeklappt = primärer Antwort-Flow; eingeklappt = Chip. */
+  /** Expanded = primary answer flow; collapsed = chip. */
   expanded: boolean;
-  /** Options-Klick → Antwort auf die aktuelle Frage setzen (delegiert an Parent). */
+  /** Option click → set the answer on the current question (delegated to the parent). */
   onSelectOption: (qId: string, option: string) => void;
-  /** Vor/Zurück-Navigation. */
+  /** Forward/back navigation. */
   onNavigate: (index: number) => void;
-  /** Expand/Collapse-Toggle. */
+  /** Expand/collapse toggle. */
   onToggleExpand: (expanded: boolean) => void;
   /**
-   * Finaler Submit (alle beantworteten Fragen → EIN reply). Wird vom
-   * "Antworten absenden"-Button getriggert; ChatShell baut den Q&A-Text.
+   * Final submit (all answered questions → ONE reply). Triggered by the
+   * "Antworten absenden" button; ChatShell builds the Q&A text.
    */
   onSubmitAll: () => void;
   /**
-   * Workstream 4b (2026-05-27): Läuft der zugehörige Run gerade noch
-   * (ask-but-proceed)? Dann zeigt die Pill ein dezentes Label, dass die Antwort
-   * den NÄCHSTEN Schritt verfeinert — die Frage wirkt so nicht sinnlos, während
-   * parallel weitergearbeitet wird. Default false (Run idle / Frage steht still).
+   * Workstream 4b (2026-05-27): is the associated run still running
+   * (ask-but-proceed)? Then the pill shows a subtle label that the answer
+   * refines the NEXT step — so the question doesn't feel pointless while work
+   * continues in parallel. Default false (run idle / question stands still).
    */
   runActive?: boolean;
   /**
-   * 2026-05-28 (Owner-Spec D): manueller Dismiss pro Frage. Wenn gesetzt,
-   * rendert die Pill ein dezentes ×-Symbol mit ≥32px Hit-Area neben der
-   * aktuellen Frage; Klick ruft onDismiss(qId). ChatShell dispatched ein
-   * `dismissed`-Event in den Lifecycle-Reducer + (falls Workspace-Context da)
-   * optional einen workstream_decisions-Eintrag „question-dismissed".
+   * 2026-05-28 (Owner spec D): manual dismiss per question. When set,
+   * the pill renders a subtle × symbol with a ≥32px hit area next to the
+   * current question; clicking calls onDismiss(qId). ChatShell dispatches a
+   * `dismissed` event into the lifecycle reducer + (if a workspace context exists)
+   * optionally a workstream_decisions entry „question-dismissed".
    *
-   * Wenn `undefined`, wird der Dismiss-Button NICHT gerendert (zurück-
-   * kompatibel zu bestehenden Tests/Call-Sites).
+   * When `undefined`, the dismiss button is NOT rendered (backwards-
+   * compatible with existing tests/call sites).
    */
   onDismiss?: (qId: string) => void;
 }
@@ -156,12 +156,12 @@ export function ChatOpenQuestionsPill({
   runActive = false,
   onDismiss,
 }: ChatOpenQuestionsPillProps): React.JSX.Element | null {
-  // 2026-05-28 (Owner-Spec C): per-Frage „Details ausklappen"-State. Lebt
-  // KOMPONENTEN-LOKAL — die Detail-Sichtbarkeit ist reine View-State und muss
-  // sich nicht in ChatShell verewigen. Default eingeklappt: die Frage selbst
-  // bleibt 1-Zeilen-Summary, Pro/Kontra/Empfehlung/Kontext erscheinen erst auf
-  // Klick. Nur Fragen, die TATSÄCHLICH Enrichment-Felder haben, zeigen den
-  // Toggle (sonst wirkt der Button sinnlos).
+  // 2026-05-28 (Owner spec C): per-question „Details ausklappen" state. Lives
+  // COMPONENT-LOCAL — the detail visibility is pure view state and need not
+  // be immortalized in ChatShell. Default collapsed: the question itself
+  // stays a 1-line summary, pros/cons/recommendation/context appear only on
+  // click. Only questions that ACTUALLY have enrichment fields show the
+  // toggle (otherwise the button feels pointless).
   const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({});
 
   if (questions.length === 0) return null;
@@ -176,8 +176,8 @@ export function ChatOpenQuestionsPill({
   const openCount = total - answeredCount;
   const canSubmit = answeredCount > 0;
 
-  // Hat die AKTUELLE Frage Enrichment-Felder? (context/pros/cons/recommendation/
-  // evidence). Wenn ja → Toggle anzeigen. Owner-Spec C: „pro Frage ausklappbar".
+  // Does the CURRENT question have enrichment fields? (context/pros/cons/recommendation/
+  // evidence). If so → show the toggle. Owner spec C: „pro Frage ausklappbar".
   const hasEnrichment =
     typeof current.context === 'string' ||
     typeof current.recommendation === 'string' ||
@@ -187,7 +187,7 @@ export function ChatOpenQuestionsPill({
   const isDetailOpen = detailsOpen[current.id] === true;
 
   // -------------------------------------------------------------------
-  // Eingeklappt: kompakter Chip "n offene Fragen"
+  // Collapsed: compact chip "n offene Fragen"
   // -------------------------------------------------------------------
   if (!expanded) {
     return (
@@ -206,7 +206,7 @@ export function ChatOpenQuestionsPill({
   }
 
   // -------------------------------------------------------------------
-  // Ausgeklappt: Frage + Optionen + Fortschritt + Nav + Submit
+  // Expanded: question + options + progress + nav + submit
   // -------------------------------------------------------------------
   return (
     <div className="oq-pill oq-pill--expanded" role="group" aria-label="Offene Fragen">
@@ -230,9 +230,9 @@ export function ChatOpenQuestionsPill({
         </div>
       </div>
 
-      {/* Workstream 4b (2026-05-27): ask-but-proceed-Signal. Nur wenn der Run
-          noch aktiv ist — sonst wirkt die Frage sinnlos, während parallel
-          gearbeitet wird. Dezent, eine Zeile, kein eigenes Surface. */}
+      {/* Workstream 4b (2026-05-27): ask-but-proceed signal. Only when the run
+          is still active — otherwise the question feels pointless while work
+          continues in parallel. Subtle, one line, no own surface. */}
       {runActive && (
         <div className="oq-pill-live-note" role="status">
           <span className="oq-pill-live-dot" aria-hidden="true" />
@@ -248,9 +248,9 @@ export function ChatOpenQuestionsPill({
               {currentAnswer}
             </span>
           )}
-          {/* 2026-05-28 (Owner-Spec C): „Details"-Toggle pro Frage — nur wenn
-              tatsächlich Enrichment-Felder vorhanden. Sonst nichts rendern,
-              damit die Pill nicht mit toten Buttons vollgepflastert ist. */}
+          {/* 2026-05-28 (Owner spec C): „Details" toggle per question — only when
+              enrichment fields are actually present. Otherwise render nothing,
+              so the pill is not plastered with dead buttons. */}
           {hasEnrichment && (
             <button
               type="button"
@@ -265,10 +265,10 @@ export function ChatOpenQuestionsPill({
               {isDetailOpen ? 'Details ▴' : 'Details ▾'}
             </button>
           )}
-          {/* 2026-05-28 (Owner-Spec D): manueller Dismiss („beantwortet" / „nicht
-              mehr relevant"). Nur wenn der Parent einen Handler durchreicht;
-              sonst nicht im DOM (Backward-Compat zu bestehenden Tests). Hit-
-              Area ≥32×32 — HIG-konform. */}
+          {/* 2026-05-28 (Owner spec D): manual dismiss („beantwortet" / „nicht
+              mehr relevant"). Only when the parent passes a handler through;
+              otherwise not in the DOM (backwards-compat with existing tests). Hit
+              area ≥32×32 — HIG-compliant. */}
           {onDismiss && (
             <button
               type="button"
@@ -282,11 +282,11 @@ export function ChatOpenQuestionsPill({
           )}
         </div>
 
-        {/* 2026-05-28 (Owner-Spec C): Detail-Panel pro Frage. Reihenfolge:
-            Kontext → Empfehlung (hervorgehoben) → Pro/Kontra → Evidenz. Reines
-            Lesen — keine Aktionen darin (Antwort-Aktion bleibt unten in den
-            Options/Composer). Auf 375px-Viewports stapelt sich alles vertikal,
-            kein horizontales Overflow. */}
+        {/* 2026-05-28 (Owner spec C): detail panel per question. Order:
+            context → recommendation (highlighted) → pros/cons → evidence. Pure
+            reading — no actions in it (the answer action stays below in the
+            options/composer). On 375px viewports everything stacks vertically,
+            no horizontal overflow. */}
         {hasEnrichment && isDetailOpen && (
           <div
             className="oq-pill-details"
@@ -337,12 +337,12 @@ export function ChatOpenQuestionsPill({
         )}
 
         {hasOptions ? (
-          /* Bug 2 Fix (2026-05-30, Owner „es muss IMMER die Möglichkeit geben,
-             auch darauf zu antworten"): Optionen sind ein ANGEBOT, kein Zwang.
-             Auch mit Optionen ist Freitext über den Composer ein vollwertiger
-             Antwort-Pfad — ChatShell routet ihn via routePillAnswer auf
-             dieselbe Frage. Die Hinweis-Zeile macht das sichtbar, sonst wirkt
-             die Frage wie eine reine Auswahl. */
+          /* Bug 2 Fix (2026-05-30, owner „es muss IMMER die Möglichkeit geben,
+             auch darauf zu antworten"): options are an OFFER, not a constraint.
+             Even with options, free text via the composer is a full-fledged
+             answer path — ChatShell routes it via routePillAnswer to
+             the same question. The hint line makes this visible, otherwise
+             the question looks like a pure selection. */
           <>
             <div className="oq-pill-opts" role="group" aria-label={current.text}>
               {(current.options ?? []).map((opt, i) => (
@@ -368,9 +368,9 @@ export function ChatOpenQuestionsPill({
             </div>
           </>
         ) : (
-          /* Freitext-Fragen: KEINE eigene Textarea — der Chat-Input ist das
-             Antwortfeld (ChatShell verzweigt im submit-Handler). Hinweis-Zeile
-             damit der User weiß, wohin er tippt. */
+          /* Free-text questions: NO own textarea — the chat input is the
+             answer field (ChatShell branches in the submit handler). A hint line
+             so the user knows where to type. */
           <div
             className="oq-pill-freetext-hint"
             data-test="oq-pill-freetext-hint"

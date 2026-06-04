@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * VerifyButton — Triggert manuelle Drift-Verifikation einer Audit-Row.
+ * VerifyButton — triggers manual drift verification of an audit row.
  *
- * Pattern 5 Welle 4 (2026-05-01).
+ * Pattern 5 Wave 4 (2026-05-01).
  *
- * Achtung: Re-Spawn kostet echte LLM-Inferenz. Button hat 3-Sekunden-
- * Confirm-State um Doppel-Klicks zu verhindern.
+ * Note: re-spawn costs real LLM inference. The button has a 3-second
+ * confirm state to prevent double-clicks.
  */
 
 import { useState, useTransition, type CSSProperties } from 'react';

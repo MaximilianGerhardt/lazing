@@ -28,9 +28,9 @@ interface ToolStepCardProps {
  * language: `var(--card)` base, 0.5px `var(--line-2)` border, optional
  * `var(--a-now)` glow while running.
  *
- * Welle 4 (2026-05-01): Inline-Styles auf `.srf-tool*` CSS-Klassen
- * verlagert (siehe `app/components.css` Block B''). Token-bind, kein
- * Inline-Layout.
+ * Wave 4 (2026-05-01): inline styles moved to `.srf-tool*` CSS classes
+ * (see `app/components.css` block B''). Token bind, no
+ * inline layout.
  */
 export function ToolStepCard({ step, index }: ToolStepCardProps): JSX.Element {
   const [open, setOpen] = useState(false);

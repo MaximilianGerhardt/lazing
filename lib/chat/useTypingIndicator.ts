@@ -1,29 +1,29 @@
 /**
- * useTypingIndicator — Single-Source-of-Truth fuer den "Agent arbeitet"-Status.
+ * useTypingIndicator — single source of truth for the "agent is working" status.
  *
- * Welle 1 · 2026-05-03 · Sub-Plan dazzling-quilt.
+ * Wave 1 · 2026-05-03 · Sub-Plan dazzling-quilt.
  * --------------------------------------------------------------------------
- * Konsolidiert die DREI bisher unabhaengigen Phase-Label-Funktionen:
+ * Consolidates the THREE previously independent phase-label functions:
  *
  *   1. `StreamingAssistant.describePhase`         (lib/chat/ChatShell.tsx)
- *   2. stream-footer Inline-Logik                 (lib/chat/ChatShell.tsx)
+ *   2. stream-footer inline logic                 (lib/chat/ChatShell.tsx)
  *   3. `InlineWorkerStatus.describePhase`         (lib/chat/InlineWorkerStatus.tsx)
  *
- * User-Frust 2026-05-03: "auf app.laz.ing ist immer noch redundant" — der
- * stream-footer dupliziert die Phase-Information die schon in der
- * StreamingAssistant-Bubble steht. Caret + Dots + drei verschiedene
- * "Schreibt …"-Strings nebeneinander.
+ * User frustration 2026-05-03: "auf app.laz.ing ist immer noch redundant" — the
+ * stream footer duplicates the phase information that is already in the
+ * StreamingAssistant bubble. Caret + dots + three different
+ * "Schreibt …" strings side by side.
  *
- * **Pure-Funktion, kein Polling, kein State, kein Effect.** Alle Inputs
- * fliessen rein, ein deterministischer State raus. Damit ist Testen
- * trivial und es gibt nur EINEN Entscheidungs-Pfad fuer das Label.
+ * **Pure function, no polling, no state, no effect.** All inputs
+ * flow in, a deterministic state comes out. This makes testing
+ * trivial and there is only ONE decision path for the label.
  *
- * Konsumenten:
- *   - `StreamingAssistant` (Bubble-Phase-Label)
- *   - jede zukuenftige Anzeige die "Agent arbeitet?" wissen muss
+ * Consumers:
+ *   - `StreamingAssistant` (bubble phase label)
+ *   - every future display that needs to know "is the agent working?"
  *
- * **Nicht Aufgabe** dieses Hooks: Cross-Workstream-Status. Dafuer ist
- * der Activity-Endpoint + `InlineWorkerStatus` zustaendig.
+ * **Not the job** of this hook: cross-workstream status. The
+ * activity endpoint + `InlineWorkerStatus` is responsible for that.
  */
 
 import { useMemo } from 'react';
@@ -39,18 +39,18 @@ export interface TypingIndicatorTool {
 }
 
 export interface TypingIndicatorState {
-  /** Diskriminator fuer die Anzeige-Variante. */
+  /** Discriminator for the display variant. */
   readonly kind: TypingKind;
-  /** Nur gesetzt wenn kind='streaming'. */
+  /** Only set when kind='streaming'. */
   readonly phase?: TypingPhase;
-  /** Tool-Name in der tool-Phase (fuer Debug + lab-Mocks). */
+  /** Tool name in the tool phase (for debug + lab mocks). */
   readonly toolName?: string;
   /**
-   * User-faces Label, z.B. "Liest deine Frage …" oder "Schreibt …".
-   * Bei kind='none' leerer String.
+   * User-facing label, e.g. "Liest deine Frage …" or "Schreibt …".
+   * Empty string when kind='none'.
    */
   readonly label: string;
-  /** Wird durchgereicht damit Konsumenten filtern koennen. */
+  /** Passed through so consumers can filter. */
   readonly workstreamId?: string;
 }
 
@@ -72,9 +72,9 @@ export interface UseTypingIndicatorArgs {
 }
 
 /**
- * Mapping Tool-Name → User-Sprache. Robust gegen Claude-Code-CLI-Naming.
- * Identisch zur `toolPhaseLabel`-Funktion in ChatShell.tsx — die wird in
- * Welle 1.5 dort entfernt und durch `import { toolPhaseLabel }` ersetzt.
+ * Maps a tool name → user language. Robust against Claude-Code-CLI naming.
+ * Identical to the `toolPhaseLabel` function in ChatShell.tsx — that one is
+ * removed there in Wave 1.5 and replaced by `import { toolPhaseLabel }`.
  */
 export function toolPhaseLabel(name: string, inputPreview: string): string {
   const n = name.toLowerCase();
@@ -93,8 +93,8 @@ export function toolPhaseLabel(name: string, inputPreview: string): string {
 }
 
 /**
- * Pure-Funktion. Gleiche Inputs → gleicher Output. Tests muessen das
- * direkt aufrufen koennen ohne React zu mounten.
+ * Pure function. Same inputs → same output. Tests must be able to call this
+ * directly without mounting React.
  */
 export function computeTypingIndicator(
   args: UseTypingIndicatorArgs,
@@ -108,7 +108,7 @@ export function computeTypingIndicator(
     agentStatus,
   } = args;
 
-  // Streaming hat Vorrang vor allem anderen.
+  // Streaming takes precedence over everything else.
   if (isStreaming) {
     const text = agentTurn?.text ?? '';
     const tools = agentTurn?.tools ?? [];
@@ -144,7 +144,7 @@ export function computeTypingIndicator(
     };
   }
 
-  // Mock- oder Server-Pending OHNE aktiven Stream → leichter Pending-State.
+  // Mock or server pending WITHOUT an active stream → light pending state.
   if (isMockPending || serverStreamPending) {
     return {
       kind: 'pending',
@@ -153,24 +153,23 @@ export function computeTypingIndicator(
     };
   }
 
-  // Nichts laeuft im aktuellen Turn.
+  // Nothing is running in the current turn.
   return { kind: 'none', label: '', workstreamId };
 }
 
 /**
- * React-Hook-Wrapper um `computeTypingIndicator`. Memoized den State auf
- * stabilen Inputs damit Konsumenten ohne zusaetzliche `useMemo` rendern
- * koennen.
+ * React hook wrapper around `computeTypingIndicator`. Memoizes the state on
+ * stable inputs so consumers can render without an additional `useMemo`.
  */
 export function useTypingIndicator(
   args: UseTypingIndicatorArgs,
 ): TypingIndicatorState {
   return useMemo(
     () => computeTypingIndicator(args),
-    // Wir wollen referenzielle Stabilitaet ueber die Werte, nicht
-    // Identitaet von `args` — agentTurn-Objekte werden bei jedem
-    // Token-Tick neu erzeugt, aber ihre relevanten Felder aendern sich
-    // nicht zwingend.
+    // We want referential stability over the values, not the
+    // identity of `args` — agentTurn objects are recreated on every
+    // token tick, but their relevant fields do not necessarily
+    // change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       args.workstreamId,

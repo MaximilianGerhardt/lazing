@@ -1,8 +1,8 @@
 /**
- * Experiment-Tracker — Echter Pattern 9 "Unlearning" (2026-05-01).
+ * Experiment tracker — true pattern 9 "Unlearning" (2026-05-01).
  *
- * Kontext:
- *   Anne (Legaly-AI-Transkript): "to unlearn... immer wieder zu vergessen,
+ * Context:
+ *   Anne (Legaly-AI transcript): "to unlearn... immer wieder zu vergessen,
  *   was man eigentlich gerade dachte, zu wissen und sich neu drauf
  *   einzulassen... selbst wenn jetzt z.B. ein Prozessschritt noch nicht
  *   funktioniert oder ein Ergebnis noch nicht so ist, wie ich es mir
@@ -11,20 +11,20 @@
  *   genug, sondern es nächste Woche wieder zu probieren und einfach sehr
  *   viel zu experimentieren."
  *
- * Diese Datei ist der Speicher dafür: failedExperiments-DB-Tabelle, in die
- * Sub-Spawn-Failures, manuell markierte Versuche und Quality-Notes
- * geschrieben werden. Der Weekly-Retry-Sniper (scripts/weekly-retry-
- * sniper.ts) lädt unresolved Experiments und probiert sie neu.
+ * This file is the store for it: the failedExperiments DB table, into which
+ * sub-spawn failures, manually flagged attempts, and quality notes are
+ * written. The weekly-retry sniper (scripts/weekly-retry-
+ * sniper.ts) loads unresolved experiments and retries them.
  *
- * Fail-soft: alle Writes try/catch → niemals den Caller blocken (analog
- * `writeReasoningAudit` aus lib/audit/reasoning.ts).
+ * Fail-soft: all writes try/catch → never block the caller (analogous to
+ * `writeReasoningAudit` from lib/audit/reasoning.ts).
  *
- * Zwei wichtige Vorgaben aus der Spec:
- *  1. KEIN Auto-Apply der Resolutions ohne User-Klick — der Sniper
- *     erzeugt Sub-Tickets statt Code direkt zu ändern.
- *  2. Hypotheses werden NICHT gehasht — Kollisionen sind erlaubt
- *     (mehrere Experimente mit identischer Hypothesis können parallel
- *     laufen).
+ * Two important requirements from the spec:
+ *  1. NO auto-apply of resolutions without a user click — the sniper
+ *     creates sub-tickets instead of changing code directly.
+ *  2. Hypotheses are NOT hashed — collisions are allowed
+ *     (multiple experiments with an identical hypothesis can run
+ *     in parallel).
  */
 
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
@@ -42,19 +42,19 @@ const TRUNC_MARK = "[truncated]";
 
 export interface RecordFailedExperimentInput {
   workspaceId?: string | null;
-  /** Was wurde versucht (max 500 Zeichen, längere werden mit `[truncated]` gekürzt). */
+  /** What was attempted (max 500 chars; longer ones are truncated with `[truncated]`). */
   hypothesis: string;
-  /** Warum es fehlgeschlagen ist (Free-Text, Quality-Note, Error-Excerpt). */
+  /** Why it failed (free text, quality note, error excerpt). */
   failureReason?: string;
-  /** Modell-ID zum Zeitpunkt des Originalversuchs (z.B. claude-opus-4-7). */
+  /** Model ID at the time of the original attempt (e.g. claude-opus-4-7). */
   modelUsed?: string;
   workstreamId?: string | null;
   ticketId?: string | null;
 }
 
 /**
- * Schreibt ein Failed-Experiment. Returns die neue ID oder `null` bei Fehler.
- * Niemals throws — fail-soft.
+ * Writes a failed experiment. Returns the new ID or `null` on error.
+ * Never throws — fail-soft.
  */
 export function recordFailedExperiment(
   input: RecordFailedExperimentInput,
@@ -91,8 +91,8 @@ export function recordFailedExperiment(
 }
 
 /**
- * Lädt alle unresolved Experiments älter als `maxAgeDays`.
- * Sortiert: ältestes zuerst (FIFO — älteste Frust zuerst auflösen).
+ * Loads all unresolved experiments older than `maxAgeDays`.
+ * Sorted: oldest first (FIFO — resolve the oldest frustration first).
  */
 export function loadUnresolvedExperiments(
   maxAgeDays: number,
@@ -122,11 +122,11 @@ export function loadUnresolvedExperiments(
 }
 
 /**
- * Markiert ein Experiment als aufgelöst.
+ * Marks an experiment as resolved.
  *
- * Idempotent: zweiter Call mit demselben id ueberschreibt resolution_note +
- * resolved_at. Das ist gewollt — wenn ein Sniper-Run das Experiment löst und
- * der User später eine bessere Resolution hinzufügt, wins die letztere.
+ * Idempotent: a second call with the same id overwrites resolution_note +
+ * resolved_at. This is intentional — if a sniper run resolves the experiment
+ * and the user later adds a better resolution, the latter wins.
  */
 export function markResolved(id: string, note: string): void {
   try {
@@ -144,8 +144,8 @@ export function markResolved(id: string, note: string): void {
 }
 
 /**
- * Zählt retry_count um eins hoch und setzt last_retry_at = now.
- * Wird vom Weekly-Retry-Sniper bei jedem Re-Try aufgerufen.
+ * Increments retry_count by one and sets last_retry_at = now.
+ * Called by the weekly-retry sniper on every retry.
  */
 export function incrementRetryCount(id: string): void {
   try {
@@ -166,11 +166,11 @@ export function incrementRetryCount(id: string): void {
 }
 
 /**
- * Truncate hypothesis auf MAX. Exportiert für Tests.
+ * Truncate hypothesis to MAX. Exported for tests.
  *
- * Pattern: behalte den TRUNC_MARK *innerhalb* des Limits, damit das gespeicherte
- * Feld ≤ MAX bleibt (DB-Schema legt keine Length-Constraint, aber UI rendert
- * mit harten Cap).
+ * Pattern: keep the TRUNC_MARK *within* the limit so the stored
+ * field stays ≤ MAX (the DB schema sets no length constraint, but the UI
+ * renders with a hard cap).
  */
 export function truncateHypothesis(s: string): string {
   if (s.length <= HYPOTHESIS_MAX) return s;

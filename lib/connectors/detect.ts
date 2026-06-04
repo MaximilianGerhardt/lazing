@@ -1,31 +1,31 @@
 /**
- * Connector-Detection — ACL5-A · 2026-05-24.
+ * Connector detection — ACL5-A · 2026-05-24.
  *
- * Erkennt aus einer Chat-Anfrage, welche externe API/Connection gebraucht wird.
+ * Detects from a chat request which external API/connection is needed.
  *
- * Design-Prinzipien:
+ * Design principles:
  *
  *   N6 (Deterministic validators precede symbolic reasoning):
- *     `detectConnector()` ist PURE und deterministisch. Kein LLM, kein I/O,
- *     kein async. Gleicher Input → immer gleicher Output.
- *     Der optionale LLM-Fallback ist als SEPARATE Funktion `classifyWithLlmFallback`
- *     ausgelagert — der Caller ruft sie bewusst auf, nicht der Hot-Path-Default.
+ *     `detectConnector()` is PURE and deterministic. No LLM, no I/O,
+ *     no async. Same input → always the same output.
+ *     The optional LLM fallback is factored out as a SEPARATE function
+ *     `classifyWithLlmFallback` — the caller invokes it deliberately, not the hot-path default.
  *
  *   N8 (Trace is evidence):
- *     Das `rationale`-Feld beschreibt den Entscheidungspfad verbatim —
- *     N8-tauglich als "why did we decide this?"-Zeile in einem Audit-Row.
+ *     The `rationale` field describes the decision path verbatim —
+ *     N8-suitable as a "why did we decide this?" line in an audit row.
  *
- *   Sicherheits-Posture:
- *     - Keine Credentials werden gelesen, entschlüsselt oder geloggt.
- *     - `hasCredential(provider, workspaceId)` ist ein reiner Existenz-Check
- *       (COUNT-Query ohne Decrypt). Er ist als separater Helfer dokumentiert
- *       und dem Caller überlassen (siehe unten: "Credential-Check-Hinweis").
- *     - Dieses Modul importiert die DB NUR für `listConnectors()` / `getConnectorProfile()`
- *       (platform-globaler Katalog, keine sensitiven Daten, D1).
+ *   Security posture:
+ *     - No credentials are read, decrypted or logged.
+ *     - `hasCredential(provider, workspaceId)` is a pure existence check
+ *       (COUNT query without decrypt). It is documented as a separate helper
+ *       and left to the caller (see below: "Credential check note").
+ *     - This module imports the DB ONLY for `listConnectors()` / `getConnectorProfile()`
+ *       (platform-global catalog, no sensitive data, D1).
  *
- * Abhängigkeiten:
+ * Dependencies:
  *   lib/connectors/catalog.ts — listConnectors, getConnectorProfile, listCapabilities.
- *   Keine weiteren Imports (kein vault, kein LLM, kein I/O im Default-Pfad).
+ *   No further imports (no vault, no LLM, no I/O in the default path).
  */
 
 import {
@@ -36,25 +36,25 @@ import {
 import type { ConnectorCatalogRow, ConnectorCapabilityRow } from "@/db/schema/connectors";
 
 // ---------------------------------------------------------------------------
-// Öffentliche Typen
+// Public types
 // ---------------------------------------------------------------------------
 
 /**
- * Ergebnis von `detectConnector`.
+ * Result of `detectConnector`.
  *
- * - `provider`           : gematchter Katalog-Provider-Slug (z.B. 'heygen'), oder null.
- * - `neededCapabilities` : grob aus der Anfrage abgeleitete Capability-Namen.
- * - `confidence`         : 0..1 — deterministisch aus Match-Art berechnet:
- *                            1.0 = exakter Provider-Name/Alias-Match im Katalog
- *                            0.7 = Keyword-Heuristik trifft auf Katalog-Provider
- *                            0.3 = Keyword-Heuristik ohne Katalog-Match ('no-connector')
- *                            0.0 = kein Signal
- * - `missing`            : Status des Providers/Credentials:
- *                            'none'          — Profil + Credential vorhanden (laut Caller-Context).
- *                            'credential'    — Profil bekannt, Credential unbekannt (Vault-Check fehlt).
- *                            'profile'       — Provider erkannt (Name/Alias gemeint), aber kein Katalog-Eintrag.
- *                            'no-connector'  — kein Connector-Bezug erkannt.
- * - `rationale`          : N8-taugliche Begründung (verbatim, kein Paraphrasieren).
+ * - `provider`           : matched catalog provider slug (e.g. 'heygen'), or null.
+ * - `neededCapabilities` : capability names roughly derived from the request.
+ * - `confidence`         : 0..1 — computed deterministically from the match type:
+ *                            1.0 = exact provider-name/alias match in the catalog
+ *                            0.7 = keyword heuristic hits a catalog provider
+ *                            0.3 = keyword heuristic without a catalog match ('no-connector')
+ *                            0.0 = no signal
+ * - `missing`            : status of the provider/credentials:
+ *                            'none'          — profile + credential present (per caller context).
+ *                            'credential'    — profile known, credential unknown (vault check missing).
+ *                            'profile'       — provider recognized (name/alias meant), but no catalog entry.
+ *                            'no-connector'  — no connector reference recognized.
+ * - `rationale`          : N8-suitable justification (verbatim, no paraphrasing).
  */
 export interface ConnectorDetection {
   provider: string | null;
@@ -65,16 +65,16 @@ export interface ConnectorDetection {
 }
 
 /**
- * Caller-Context für `detectConnector`.
+ * Caller context for `detectConnector`.
  *
- * - `workspaceId`  : Pflicht — für zukünftige Credential-Checks (ACL5-B/C).
- * - `hasCredential`: optionaler injizierter Check (empfohlen für ACL5-C-Integration).
- *                   Wenn nicht übergeben, wird `missing` konservativ als 'credential'
- *                   gesetzt (kein Credential-Wissen → fail-closed ≠ 'none').
+ * - `workspaceId`  : required — for future credential checks (ACL5-B/C).
+ * - `hasCredential`: optional injected check (recommended for the ACL5-C integration).
+ *                   If not passed, `missing` is set conservatively to 'credential'
+ *                   (no credential knowledge → fail-closed ≠ 'none').
  *
- * Credential-Check-Hinweis:
- *   Der Caller kann einen leichten "hasCredential(provider, workspaceId)"-Check
- *   injizieren. Dieser DARF NICHT entschlüsseln — nur Existenz prüfen:
+ * Credential check note:
+ *   The caller can inject a lightweight "hasCredential(provider, workspaceId)" check.
+ *   It MUST NOT decrypt — only check existence:
  *
  *     const result = detectConnector(prompt, {
  *       workspaceId,
@@ -90,9 +90,9 @@ export interface ConnectorDetection {
  *       },
  *     });
  *
- *   Das intentionale Design: `detect.ts` selbst macht keinen DB-Call auf api_credentials
- *   (vault). Damit bleibt das Modul ohne Abhängigkeit auf den Credential-Pfad und ist
- *   in Tests ohne vault-Mock benutzbar.
+ *   The intentional design: `detect.ts` itself makes no DB call on api_credentials
+ *   (vault). This keeps the module free of any dependency on the credential path and
+ *   usable in tests without a vault mock.
  */
 export interface DetectContext {
   workspaceId: string;
@@ -100,39 +100,39 @@ export interface DetectContext {
 }
 
 // ---------------------------------------------------------------------------
-// Keyword → Capability-Heuristik-Tabelle
+// Keyword → capability heuristic table
 //
-// Bildet generische Domänen-Begriffe (DE + EN) auf grobe Capability-Namen ab.
-// Diese Heuristik ist DETERMINISTISCH — keine Gewichtung, kein LLM.
-// Die Capability-Namen hier sind kanonische Beispiele; `detectConnector` gleicht
-// sie NICHT gegen den Katalog ab (das ist Sache des Callers via validateCoverage).
+// Maps generic domain terms (DE + EN) onto coarse capability names.
+// This heuristic is DETERMINISTIC — no weighting, no LLM.
+// The capability names here are canonical examples; `detectConnector` does NOT
+// reconcile them against the catalog (that is the caller's job via validateCoverage).
 //
-// Reihenfolge: spezifischere Patterns oben.
+// Order: more specific patterns first.
 // ---------------------------------------------------------------------------
 
 interface KeywordRule {
-  /** Regex-Pattern (case-insensitive, global-Flag wird intern gesetzt). */
+  /** Regex pattern (case-insensitive, the global flag is set internally). */
   pattern: RegExp;
-  /** Capability-Namen die dieses Keyword impliziert. */
+  /** Capability names this keyword implies. */
   capabilities: string[];
-  /** Optional: Provider-Hint — wenn gesetzt, wird dieser als Provider-Kandidat geprüft. */
+  /** Optional: provider hint — if set, it is checked as a provider candidate. */
   providerHint?: string;
 }
 
 const KEYWORD_RULES: KeywordRule[] = [
-  // Video-Rendering / Avatare
+  // Video rendering / avatars
   {
     pattern: /\b(video|render|avatar|heygen|talking.head|sprechender?\s+kopf)\b/i,
     capabilities: ["render_video", "list_avatars"],
     providerHint: "heygen",
   },
-  // Bild-Generierung
+  // Image generation
   {
     pattern:
       /\b(image.gen|bild.generi|dall-?e|midjourney|stable.diffusion|generate.image|bild.erstell)\b/i,
     capabilities: ["generate_image"],
   },
-  // E-Mail-Versand
+  // Email sending
   {
     pattern: /\b(send.mail|e.?mail.senden|email.send|smtp|sendgrid|mailgun|resend)\b/i,
     capabilities: ["send_email"],
@@ -154,13 +154,13 @@ const KEYWORD_RULES: KeywordRule[] = [
     capabilities: ["post_tweet"],
     providerHint: "twitter",
   },
-  // Social Media — allgemein
+  // Social media — general
   {
     pattern:
       /\b(social.media|poste.auf|post.to|veröffentliche.auf|schedule.post|content.planen)\b/i,
     capabilities: ["post_media"],
   },
-  // Payment / Zahlungen
+  // Payment
   {
     pattern: /\b(payment|zahlung|stripe|invoice|rechnung|checkout|subscription)\b/i,
     capabilities: ["create_payment", "list_invoices"],
@@ -173,12 +173,12 @@ const KEYWORD_RULES: KeywordRule[] = [
     capabilities: ["create_event", "list_events"],
     providerHint: "google-calendar",
   },
-  // Storage / Dateien
+  // Storage / files
   {
     pattern: /\b(upload|datei.hochlad|file.upload|s3|storage|bucket)\b/i,
     capabilities: ["upload_file", "list_files"],
   },
-  // CRM / Kontakte
+  // CRM / contacts
   {
     pattern: /\b(crm|kontakt|contact|hubspot|salesforce|lead|deal)\b/i,
     capabilities: ["create_contact", "list_contacts"],
@@ -201,7 +201,7 @@ const KEYWORD_RULES: KeywordRule[] = [
     capabilities: ["send_message"],
     providerHint: "slack",
   },
-  // Google Sheets / Tabellen
+  // Google Sheets / spreadsheets
   {
     pattern: /\b(google.sheet|spreadsheet|tabelle|google.docs|sheets.api)\b/i,
     capabilities: ["read_sheet", "write_sheet"],
@@ -221,30 +221,30 @@ const KEYWORD_RULES: KeywordRule[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Haupt-Funktion: detectConnector (N6 deterministisch — kein LLM, kein async)
+// Main function: detectConnector (N6 deterministic — no LLM, no async)
 // ---------------------------------------------------------------------------
 
 /**
- * Erkennt deterministisch, welcher externe Connector/Provider für einen
- * Chat-Prompt gebraucht wird.
+ * Deterministically detects which external connector/provider is needed for a
+ * chat prompt.
  *
- * Ablauf:
- *   1. Normalisierung: lowercase-Trim des Prompts.
- *   2. Provider-Name/Alias-Match: Prüft, ob ein Katalog-Provider-Slug oder
- *      `displayName` direkt im Prompt vorkommt (exakter Match, word-boundary).
- *      Bei Treffer: confidence = 1.0.
- *   3. Keyword-Heuristik: Prüft alle KEYWORD_RULES gegen den Prompt.
- *      Bei Treffer: `providerHint` gegen Katalog; confidence = 0.7 (Katalog-Hit)
- *      oder 0.3 (kein Katalog-Hit).
- *   4. Kein Signal: provider = null, missing = 'no-connector', confidence = 0.
+ * Flow:
+ *   1. Normalization: lowercase-trim of the prompt.
+ *   2. Provider-name/alias match: checks whether a catalog provider slug or
+ *      `displayName` appears directly in the prompt (exact match, word boundary).
+ *      On a hit: confidence = 1.0.
+ *   3. Keyword heuristic: checks all KEYWORD_RULES against the prompt.
+ *      On a hit: `providerHint` against the catalog; confidence = 0.7 (catalog hit)
+ *      or 0.3 (no catalog hit).
+ *   4. No signal: provider = null, missing = 'no-connector', confidence = 0.
  *
- * N6: deterministisch — gleicher Input → gleicher Output (keine Stochastik).
- * N8: `rationale` dokumentiert den Entscheidungspfad verbatim.
- * Kein LLM, kein I/O auf api_credentials (kein Vault-Zugriff).
+ * N6: deterministic — same input → same output (no stochasticity).
+ * N8: `rationale` documents the decision path verbatim.
+ * No LLM, no I/O on api_credentials (no vault access).
  *
- * @param prompt  - Der rohe Chat-Prompt (beliebige Länge, DE oder EN).
- * @param ctx     - Caller-Context: workspaceId + optionaler hasCredential-Check.
- * @returns       ConnectorDetection (immer ein Wert, nie null/undefined).
+ * @param prompt  - The raw chat prompt (any length, DE or EN).
+ * @param ctx     - Caller context: workspaceId + optional hasCredential check.
+ * @returns       ConnectorDetection (always a value, never null/undefined).
  */
 export function detectConnector(
   prompt: string,
@@ -252,14 +252,14 @@ export function detectConnector(
 ): ConnectorDetection {
   const normalized = prompt.toLowerCase().trim();
 
-  // ── 1. Provider-Name/Alias-Match gegen listConnectors() ──────────────────
+  // ── 1. Provider-name/alias match against listConnectors() ────────────────
   //
-  // Lädt alle Katalog-Einträge (platform-global, kein scope, kein Credential).
-  // Prüft ob provider-Slug oder displayName (lowercase) als Word-Boundary im
-  // normalisierten Prompt vorkommt.
+  // Loads all catalog entries (platform-global, no scope, no credential).
+  // Checks whether the provider slug or displayName (lowercase) appears as a
+  // word boundary in the normalized prompt.
   //
-  // Vorteil: providerHint-Heuristik braucht den Katalog nur einmal.
-  // Performance: listConnectors() nutzt getDb() → synchron, kein Netzwerk.
+  // Benefit: the providerHint heuristic needs the catalog only once.
+  // Performance: listConnectors() uses getDb() → synchronous, no network.
 
   const catalogRows = loadCatalogSafe();
 
@@ -268,7 +268,7 @@ export function detectConnector(
     const displayPattern = buildWordBoundaryPattern(row.displayName.toLowerCase());
 
     if (slugPattern.test(normalized) || displayPattern.test(normalized)) {
-      // Exakter Katalog-Match
+      // Exact catalog match
       const neededCapabilities = extractCapabilitiesFromCatalog(row.provider);
       const missing = resolveMissingStatus(row.provider, ctx, "catalogHit");
 
@@ -286,10 +286,10 @@ export function detectConnector(
     }
   }
 
-  // ── 2. Keyword-Heuristik ──────────────────────────────────────────────────
+  // ── 2. Keyword heuristic ──────────────────────────────────────────────────
   //
-  // Prüft KEYWORD_RULES in Reihenfolge (spezifischste zuerst).
-  // Erster Treffer gewinnt (konservativ: kein Multi-Match fan-out).
+  // Checks KEYWORD_RULES in order (most specific first).
+  // First hit wins (conservative: no multi-match fan-out).
 
   for (const rule of KEYWORD_RULES) {
     const re = new RegExp(rule.pattern.source, "gi");
@@ -299,11 +299,11 @@ export function detectConnector(
       const matchedText = match[0];
       const hintProvider = rule.providerHint ?? null;
 
-      // Prüfe ob der providerHint im Katalog existiert
+      // Check whether the providerHint exists in the catalog
       const catalogRow = hintProvider ? getCatalogRowSafe(hintProvider) : null;
 
       if (catalogRow !== null) {
-        // Keyword + Katalog-Hit: confidence 0.7
+        // Keyword + catalog hit: confidence 0.7
         const neededCapabilities = mergeCapabilities(
           rule.capabilities,
           extractCapabilitiesFromCatalog(catalogRow.provider),
@@ -324,7 +324,7 @@ export function detectConnector(
       }
 
       if (hintProvider !== null) {
-        // Provider-Hint erkannt aber NICHT im Katalog: missing='profile'
+        // Provider hint recognized but NOT in the catalog: missing='profile'
         return {
           provider: hintProvider,
           neededCapabilities: rule.capabilities,
@@ -338,7 +338,7 @@ export function detectConnector(
         };
       }
 
-      // Keyword ohne Provider-Hint: kein konkreter Provider, aber Capability-Signal
+      // Keyword without a provider hint: no concrete provider, but a capability signal
       return {
         provider: null,
         neededCapabilities: rule.capabilities,
@@ -353,7 +353,7 @@ export function detectConnector(
     }
   }
 
-  // ── 3. Kein Signal ────────────────────────────────────────────────────────
+  // ── 3. No signal ──────────────────────────────────────────────────────────
 
   return {
     provider: null,
@@ -367,14 +367,14 @@ export function detectConnector(
 }
 
 // ---------------------------------------------------------------------------
-// Interne Hilfsfunktionen (pure, keine Seiteneffekte außer DB-Reads)
+// Internal helper functions (pure, no side effects except DB reads)
 // ---------------------------------------------------------------------------
 
 /**
- * Lädt alle Katalog-Zeilen sicher. Gibt leeres Array zurück wenn die DB
- * nicht erreichbar ist (z.B. in Unit-Tests ohne DB-Mock).
+ * Loads all catalog rows safely. Returns an empty array if the DB
+ * is unreachable (e.g. in unit tests without a DB mock).
  *
- * N6: fail-safe — kein Crash wenn DB nicht verfügbar.
+ * N6: fail-safe — no crash if the DB is unavailable.
  */
 function loadCatalogSafe(): ConnectorCatalogRow[] {
   try {
@@ -385,8 +385,8 @@ function loadCatalogSafe(): ConnectorCatalogRow[] {
 }
 
 /**
- * Holt einen einzelnen Katalog-Eintrag sicher.
- * Gibt null zurück bei Fehler oder fehlendem Eintrag.
+ * Fetches a single catalog entry safely.
+ * Returns null on error or a missing entry.
  */
 function getCatalogRowSafe(provider: string): ConnectorCatalogRow | null {
   try {
@@ -397,8 +397,8 @@ function getCatalogRowSafe(provider: string): ConnectorCatalogRow | null {
 }
 
 /**
- * Extrahiert Capability-Namen für einen Provider aus dem Katalog.
- * Gibt leeres Array zurück bei Fehler oder fehlendem Eintrag.
+ * Extracts capability names for a provider from the catalog.
+ * Returns an empty array on error or a missing entry.
  */
 function extractCapabilitiesFromCatalog(provider: string): string[] {
   try {
@@ -410,23 +410,23 @@ function extractCapabilitiesFromCatalog(provider: string): string[] {
 }
 
 /**
- * Baut ein Word-Boundary-Pattern für einen Begriff.
- * Escapet Regex-Sonderzeichen im Begriff (z.B. für "google-calendar").
+ * Builds a word-boundary pattern for a term.
+ * Escapes regex special characters in the term (e.g. for "google-calendar").
  *
- * Anmerkung: Word-Boundary \b funktioniert nicht zuverlässig bei Sonderzeichen
- * wie Bindestrichen. Daher: (?<![a-z0-9]) + Begriff + (?![a-z0-9]) als
- * alternatives Boundary-Muster für Provider-Slugs mit Bindestrichen.
+ * Note: the word boundary \b does not work reliably with special characters
+ * like hyphens. Therefore: (?<![a-z0-9]) + term + (?![a-z0-9]) as an
+ * alternative boundary pattern for provider slugs with hyphens.
  */
 function buildWordBoundaryPattern(term: string): RegExp {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  // Für Provider-Slugs mit Bindestrichen: keine echten Wortgrenzen nötig,
-  // wir suchen nur ob der Begriff als Substring (kontextuell isoliert) vorkommt.
+  // For provider slugs with hyphens: no real word boundaries are needed,
+  // we only check whether the term appears as a (contextually isolated) substring.
   return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, "i");
 }
 
 /**
- * Mergt zwei Capability-Listen ohne Duplikate (Reihenfolge: heuristisch zuerst,
- * dann Katalog-Caps die noch nicht in der heuristischen Liste sind).
+ * Merges two capability lists without duplicates (order: heuristic first,
+ * then catalog caps not yet in the heuristic list).
  */
 function mergeCapabilities(heuristic: string[], catalog: string[]): string[] {
   const seen = new Set(heuristic);
@@ -441,13 +441,13 @@ function mergeCapabilities(heuristic: string[], catalog: string[]): string[] {
 }
 
 /**
- * Bestimmt den `missing`-Status deterministisch.
+ * Determines the `missing` status deterministically.
  *
- * - Wenn `ctx.hasCredential` injiziert ist: prüft Existenz via Callback.
- * - Wenn `ctx.hasCredential` NICHT injiziert ist: konservativ 'credential'
- *   (wir wissen nicht ob ein Credential existiert → fail-closed, kein 'none').
+ * - If `ctx.hasCredential` is injected: checks existence via the callback.
+ * - If `ctx.hasCredential` is NOT injected: conservatively 'credential'
+ *   (we do not know whether a credential exists → fail-closed, not 'none').
  *
- * N6: deterministisch, kein I/O direkt in diesem Modul.
+ * N6: deterministic, no I/O directly in this module.
  */
 function resolveMissingStatus(
   provider: string,
@@ -457,49 +457,49 @@ function resolveMissingStatus(
   if (ctx.hasCredential !== undefined) {
     return ctx.hasCredential(provider) ? "none" : "credential";
   }
-  // Kein hasCredential-Callback: konservativ 'credential' (wir wissen es nicht)
+  // No hasCredential callback: conservatively 'credential' (we do not know)
   return "credential";
 }
 
 // ---------------------------------------------------------------------------
-// Optionaler LLM-Fallback — SEPARATE Funktion, NICHT im Hot-Path-Default.
+// Optional LLM fallback — SEPARATE function, NOT in the hot-path default.
 //
-// Diese Funktion wird von `detectConnector()` NICHT aufgerufen.
-// Der Caller muss sie explizit aufrufen, wenn die deterministische Erkennung
-// unzureichend ist (confidence < Schwelle oder missing='no-connector').
+// This function is NOT called by `detectConnector()`.
+// The caller must invoke it explicitly when the deterministic detection
+// is insufficient (confidence < threshold or missing='no-connector').
 //
-// WICHTIG: Diese Funktion ist ein Stub. Die tatsächliche LLM-Integration
-// (via lazyOS-Orchestrator / Codex) liegt außerhalb dieses Moduls.
-// Sie ist hier ausschließlich als klar benannter Einstiegspunkt dokumentiert,
-// damit künftige Implementierungen ihn finden und die Trennung Hot-Path vs.
-// LLM-Fallback nicht versehentlich aufheben.
+// IMPORTANT: this function is a stub. The actual LLM integration
+// (via the lazyOS orchestrator / Codex) lives outside this module.
+// It is documented here solely as a clearly named entry point, so that
+// future implementations find it and do not accidentally undo the
+// hot-path vs. LLM-fallback separation.
 // ---------------------------------------------------------------------------
 
 /**
- * Optionaler LLM-Klassifikations-Fallback.
+ * Optional LLM classification fallback.
  *
- * NICHT im Hot-Path von detectConnector(). Nur aufrufen wenn:
- *   1. detectConnector() liefert missing='no-connector' oder confidence < 0.5.
- *   2. Der Caller kann auf LLM-Kosten verzichten.
+ * NOT in the hot path of detectConnector(). Only call it when:
+ *   1. detectConnector() returns missing='no-connector' or confidence < 0.5.
+ *   2. The caller can afford the LLM cost.
  *
- * Stub: gibt denselben `fallback`-Wert zurück den der Caller übergibt.
- * Ersetze den Body durch echten LLM-Call wenn ACL5-E die Chat-Wiring
- * implementiert.
+ * Stub: returns the same `fallback` value the caller passes.
+ * Replace the body with a real LLM call once ACL5-E implements the chat
+ * wiring.
  *
- * @param _prompt   - Der originale Prompt.
- * @param fallback  - Ergebnis aus `detectConnector()` als Ausgangsbasis.
- * @param _ctx      - Caller-Context (workspaceId, hasCredential).
- * @returns         ConnectorDetection — der LLM kann `provider` und
- *                  `neededCapabilities` verfeinern; `rationale` MUSS
- *                  "LLM-Fallback: " als Präfix tragen (N8-tauglich).
+ * @param _prompt   - The original prompt.
+ * @param fallback  - Result from `detectConnector()` as a starting point.
+ * @param _ctx      - Caller context (workspaceId, hasCredential).
+ * @returns         ConnectorDetection — the LLM may refine `provider` and
+ *                  `neededCapabilities`; `rationale` MUST carry
+ *                  "LLM-Fallback: " as a prefix (N8-suitable).
  */
 export function classifyWithLlmFallback(
   _prompt: string,
   fallback: ConnectorDetection,
   _ctx: DetectContext,
 ): ConnectorDetection {
-  // STUB — echte LLM-Integration hier eintragen.
-  // Bis zur Implementierung: deterministisches Ergebnis unverändert zurück.
+  // STUB — plug the real LLM integration in here.
+  // Until implemented: return the deterministic result unchanged.
   return {
     ...fallback,
     rationale: `LLM-Fallback (stub, nicht implementiert): ${fallback.rationale}`,

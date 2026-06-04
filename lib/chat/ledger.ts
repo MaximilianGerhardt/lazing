@@ -34,7 +34,7 @@ import {
 
 /** Append payload — the caller provides everything except id+content_hash+created_at. */
 export interface AppendLedgerInput {
-  /** ManifestCoord encoded — mindestens workspace_id. */
+  /** ManifestCoord encoded — at least workspace_id. */
   readonly coordKey: string;
   /** Closed enum, validated. */
   readonly role: ChatLedgerRole;
@@ -124,11 +124,11 @@ export function appendLedgerRow(
     toolCallsJson,
     parentMessageId: input.parentMessageId ?? null,
     conversationThreadId: input.conversationThreadId,
-    // created_at NICHT in den Hash, damit Idempotency-Replay denselben Hash gibt.
+    // created_at NOT in the hash, so that idempotency replay yields the same hash.
   };
   const hash = contentHash(hashPayload);
 
-  // Idempotency: gleiches thread + gleicher hash = no-op.
+  // Idempotency: same thread + same hash = no-op.
   const dup = db
     .prepare(
       `SELECT id, coord_key, workstream_id, role, content_full, content_hash,
@@ -183,8 +183,8 @@ export function appendLedgerRow(
 }
 
 /**
- * Lies eine ganze Konversation in created_at-Order. Read-only — kein .slice
- * auf content_full (N1).
+ * Reads a whole conversation in created_at order. Read-only — no .slice
+ * on content_full (N1).
  */
 export function readLedgerThread(
   db: BetterSqliteDatabase,
@@ -205,7 +205,7 @@ export function readLedgerThread(
 }
 
 /**
- * Read by-id — z.B. für surface-hydration eines spezifischen messages.
+ * Read by-id — e.g. for surface hydration of a specific message.
  */
 export function readLedgerById(
   db: BetterSqliteDatabase,

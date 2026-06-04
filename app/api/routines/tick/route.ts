@@ -1,15 +1,15 @@
 /**
  * POST /api/routines/tick
  *
- * Vom systemd-Timer aufgerufen (Bearer $LAZYOS_CRON_KEY). Führt alle
- * fälligen aktiven Cron-Routinen aus.
+ * Called by the systemd timer (Bearer $LAZYOS_CRON_KEY). Runs all
+ * due active cron routines.
  *
- * Bewusst POST statt GET, damit Browser-Preloader/URL-Scanner die
- * Routinen nicht ausversehen feuern.
+ * Deliberately POST instead of GET, so browser preloaders/URL scanners do not
+ * fire the routines by accident.
  *
- * Dieser Endpoint ist public in middleware.ts — Authorization erfolgt
- * hier inline via Bearer-Token. Anti-CSRF reicht aus, weil POST ohne
- * Body verlangt wird.
+ * This endpoint is public in middleware.ts — authorization happens
+ * here inline via a Bearer token. Anti-CSRF is sufficient, because POST without
+ * a body is required.
  */
 
 import { NextResponse, type NextRequest } from "next/server";

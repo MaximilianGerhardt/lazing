@@ -6,41 +6,41 @@
  * Body: { intent: string, workspaceId: string, autoRun?: boolean,
  *         styleChoices?: Record<string,string> }
  *
- * Ablauf (lib/flow/compose-and-run.ts::composeAndRun):
+ * Flow (lib/flow/compose-and-run.ts::composeAndRun):
  *   1. composeFlowFromIntent → flow_template + flow_steps + missingTools.
- *   2. Stream B2 (Stil-Wahl): hat ein Medien-Schritt (tool:image|video|avatar)
- *      noch KEINE Owner-Stil-Wahl in `styleChoices` → 200 { status:
+ *   2. Stream B2 (style choice): a media step (tool:image|video|avatar) still has
+ *      NO owner style choice in `styleChoices` → 200 { status:
  *      'needs-style-choice', flowId, styleChoices:[{step,styleChoiceKey,payload}…] }
- *      — die /flow-Front-Door zeigt pro Schritt eine quickchoice-Surface, sammelt
- *      die Wahl(en) und RE-POSTet denselben Intent MIT `styleChoices`, keyed auf
- *      den KANONISCHEN, re-compose-stabilen `styleChoiceKey` (`media:<kind>:<n>`,
- *      Robustheits-Fix 2026-05-29). Dieser Schlüssel übersteht den
- *      NICHT-DETERMINISTISCHEN Opus-Decompose, bei dem sowohl die ULID-stepId als
- *      auch der absolute idx beim Re-Compose wechseln können. Alt-Schlüssel
- *      (stepId, String(idx)) bleiben fail-soft akzeptiert. KEIN dispatch.
- *   3. missingTools ≠ ∅ (und nicht autoRun) → 200 { status:'needs-coupling',
- *      flowId, missingTools } — die Credential-Kopplungs-Surface übernimmt.
- *   4. sonst (oder autoRun) → dispatchFlow + Execution-Trigger (der BESTEHENDE
- *      executePlan-Background-Run) → 200 { status:'running', flowId, runId,
+ *      — the /flow front door shows a quickchoice surface per step, collects
+ *      the choice(s) and RE-POSTs the same intent WITH `styleChoices`, keyed on
+ *      the CANONICAL, re-compose-stable `styleChoiceKey` (`media:<kind>:<n>`,
+ *      robustness fix 2026-05-29). This key survives the
+ *      NON-DETERMINISTIC Opus decompose, where both the ULID stepId and
+ *      the absolute idx can change on re-compose. Legacy keys
+ *      (stepId, String(idx)) remain fail-soft accepted. NO dispatch.
+ *   3. missingTools ≠ ∅ (and not autoRun) → 200 { status:'needs-coupling',
+ *      flowId, missingTools } — the credential-coupling surface takes over.
+ *   4. otherwise (or autoRun) → dispatchFlow + execution trigger (the EXISTING
+ *      executePlan background run) → 200 { status:'running', flowId, runId,
  *      workstreamId }.
  *
- * Warum Re-POST statt eigenem apply-style-Endpunkt (minimal-invasiv, auth-gleich):
- *   composeAndRun akzeptiert `styleChoices` BEREITS als Input + der Re-Compose-Pfad
- *   über den kanonischen `media:<kind>:<n>`-Schlüssel ist explizit dafür gebaut
+ * Why re-POST instead of a dedicated apply-style endpoint (minimal-invasive, same auth):
+ *   composeAndRun ALREADY accepts `styleChoices` as input + the re-compose path
+ *   via the canonical `media:<kind>:<n>` key is built explicitly for it
  *   (lib/flow/compose-and-run.ts::computeMediaOrdinalKeys + lookupStyleChoice).
- *   Ein eigener Endpunkt müsste den persistierten Flow neu laden +
- *   missingTools/mediaSteps rekonstruieren — mehr Code, dieselbe Auth. Der
- *   Re-POST teilt Auth-Gate + Engine-Wahl 1:1 mit dem Erst-Compose.
+ *   A dedicated endpoint would have to reload the persisted flow +
+ *   reconstruct missingTools/mediaSteps — more code, same auth. The
+ *   re-POST shares auth gate + engine choice 1:1 with the first compose.
  *
- * Auth: Workspace-Member (Subject-Gate kopiert aus
- *   app/api/workspaces/[id]/credentials/route.ts — 401 → 403). KEIN cross-scope.
+ * Auth: workspace member (subject gate copied from
+ *   app/api/workspaces/[id]/credentials/route.ts — 401 → 403). NO cross-scope.
  *
- * Engine: der Default-Decompose nutzt den bestehenden Plan-Proposer
- *   (proposePlan via makeRecursivePlanDecompose). Wir wählen die Engine wie
- *   lib/plan-first/plan-dispatch.ts — codex AUSGESCHLOSSEN (Code-Mode-Agent),
- *   claude-cli/ollama genügen für reines Plan-JSON.
+ * Engine: the default decompose uses the existing plan proposer
+ *   (proposePlan via makeRecursivePlanDecompose). We pick the engine like
+ *   lib/plan-first/plan-dispatch.ts — codex EXCLUDED (code-mode agent),
+ *   claude-cli/ollama suffice for pure plan JSON.
  *
- * ADDITIV: keine bestehende Route berührt, kein next build/start, :4200 bleibt.
+ * ADDITIVE: no existing route touched, no next build/start, :4200 stays.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -73,11 +73,11 @@ interface PostBody {
   workspaceId?: unknown;
   autoRun?: unknown;
   /**
-   * Stream B2: Owner-getroffene Stil-Wahlen pro Medien-Schritt. Map von
-   * SCHRITT-SCHLÜSSEL → MediaStyleOption.id. Der bevorzugte Schlüssel ist der
-   * KANONISCHE, re-compose-stabile `media:<kind>:<n>` (styleChoiceKey aus der
-   * needs-style-choice-Antwort, Robustheits-Fix 2026-05-29). flow_steps.id und
-   * String(step.idx) bleiben fail-soft akzeptiert. 1:1 an composeAndRun.
+   * Stream B2: owner-made style choices per media step. Map of
+   * STEP KEY → MediaStyleOption.id. The preferred key is the
+   * CANONICAL, re-compose-stable `media:<kind>:<n>` (styleChoiceKey from the
+   * needs-style-choice response, robustness fix 2026-05-29). flow_steps.id and
+   * String(step.idx) remain fail-soft accepted. Passed 1:1 to composeAndRun.
    */
   styleChoices?: unknown;
 }
@@ -87,11 +87,11 @@ function isValidWorkspaceId(id: string): boolean {
 }
 
 /**
- * Validiert + normalisiert den optionalen styleChoices-Body-Param zu einem
- * `Record<string,string>`. Nur nicht-leere String-Schlüssel mit nicht-leeren
- * String-Werten werden übernommen (N6: deterministisch, fail-soft — fremde/leere
- * Einträge werden still verworfen, NICHT der ganze Request abgelehnt). Liefert
- * undefined, wenn nichts Brauchbares dabei ist (= verhält sich wie der Erst-Compose).
+ * Validates + normalizes the optional styleChoices body param into a
+ * `Record<string,string>`. Only non-empty string keys with non-empty
+ * string values are kept (N6: deterministic, fail-soft — foreign/empty
+ * entries are silently dropped, NOT the whole request rejected). Returns
+ * undefined when there is nothing usable (= behaves like the first compose).
  */
 function parseStyleChoices(
   raw: unknown,
@@ -109,9 +109,9 @@ function parseStyleChoices(
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
-  // Track-D (2026-05-29) — Request-Korrelation. Generiert vor allem
-  // Auth/Body-Validation, damit JEDER Log-Eintrag (auch 401/403/400) die
-  // reqId trägt. Owner-Verifikations-Pfad: `tail -f /tmp/lazyos-prod-4200.log
+  // Track-D (2026-05-29) — request correlation. Generated before any
+  // auth/body validation, so EVERY log entry (including 401/403/400) carries
+  // the reqId. Owner verification path: `tail -f /tmp/lazyos-prod-4200.log
   // | grep "compose-and-run req="`.
   const reqId = makeRequestId();
   const startedAt = Date.now();
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     path: req.nextUrl?.pathname ?? "/api/flow/compose-and-run",
   });
 
-  // 1. Auth-Gate (member-or-higher) — Vorlage credentials/route.ts.
+  // 1. Auth gate (member-or-higher) — template credentials/route.ts.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     logComposeAndRunStep(reqId, "route response", {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 2. Body parsen.
+  // 2. Parse body.
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 3. Workspace-Permission (member-or-higher; Viewer/fremde User → 403).
+  // 3. Workspace permission (member-or-higher; viewer/foreign user → 403).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     logComposeAndRunStep(reqId, "route response", {
       status: 403,
@@ -190,8 +190,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: "forbidden", reqId }, { status: 403 });
   }
 
-  // 4. Engine für den Default-Decompose wählen (codex ausgeschlossen — wie
-  //    plan-dispatch.ts). Ohne Engine → 503 (kein Plan komponierbar).
+  // 4. Pick the engine for the default decompose (codex excluded — like
+  //    plan-dispatch.ts). Without an engine → 503 (no plan composable).
   const selection = await detectEngines();
   // PII vault: wrap at the engine boundary — the resolved pick is claude-cli
   // (cloud) and the decompose embeds the user intent verbatim (N1).
@@ -207,18 +207,18 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 503 },
     );
   }
-  // Root-Cause-Fix (Track-D · 2026-05-29): die claude-cli-Engine hat
-  // DEFAULT_TIMEOUT_MS = 60_000 (lib/llm/engines/claude-cli.ts:28). Ein
-  // realer Decompose („Ich möchte eine Website erstellen …") braucht über die
-  // MAX-Plan-Keychain-Route empirisch 38–57s PRO LLM-Call — und der
-  // Recursive-Plan-Decompose (makeRecursivePlanDecompose) kettet MEHRERE
-  // Calls (Root-Plan + Sub-Plans). Erfolgreiche Runs lagen bei 38s/57s, alle
-  // die >60s brauchten kippten in `claude-cli timeout after 60000ms` → 500 →
-  // flow_runs blieb auf `pending` (22/22 Runs nie `done`). Wir geben dem
-  // Compose-Call darum explizit Headroom (kein Default-60s). Die Engine killt
-  // den Subprozess weiterhin nach diesem Limit (kein Leak), nur eben groß
-  // genug für die kaskadierende Plan-Komposition. Analog zu
-  // plan-dispatch.ts::PLANNER_CALL_TIMEOUT_MS, aber höher: compose kettet Calls.
+  // Root-cause fix (Track-D · 2026-05-29): the claude-cli engine has
+  // DEFAULT_TIMEOUT_MS = 60_000 (lib/llm/engines/claude-cli.ts:28). A
+  // real decompose („Ich möchte eine Website erstellen …") empirically needs
+  // 38–57s PER LLM call over the MAX-plan keychain route — and the
+  // recursive plan decompose (makeRecursivePlanDecompose) chains MULTIPLE
+  // calls (root plan + sub-plans). Successful runs landed at 38s/57s, all
+  // that needed >60s tipped into `claude-cli timeout after 60000ms` → 500 →
+  // flow_runs stayed at `pending` (22/22 runs never `done`). So we give the
+  // compose call explicit headroom (no default-60s). The engine still kills
+  // the subprocess after this limit (no leak), just large
+  // enough for the cascading plan composition. Analogous to
+  // plan-dispatch.ts::PLANNER_CALL_TIMEOUT_MS, but higher: compose chains calls.
   const COMPOSE_ENGINE_TIMEOUT_MS = 180_000;
   const callEngine = async (prompt: string): Promise<string> => {
     const r = await engine.chat({
@@ -228,11 +228,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     return r.text;
   };
 
-  // 4b. A3 (Self-Learning/WHY): frühere Begründungen + aktive Beliefs dieses
-  //     Workspace als Decompose-Kontext voranstellen → konsistente, begründete
-  //     Komposition ("wir haben X gewählt, weil … letztes Mal"). Strikt fail-soft:
-  //     ein Fehler beim Read-Back darf die Komposition NIE kippen (leerer Block ⇒
-  //     bit-identisch zum Verhalten ohne WHY). Lesen ist workspace-gescoped (N9).
+  // 4b. A3 (self-learning/WHY): prepend earlier rationales + active beliefs of this
+  //     workspace as decompose context → consistent, reasoned
+  //     composition ("we chose X because … last time"). Strictly fail-soft:
+  //     an error on read-back must NEVER tip the composition (empty block ⇒
+  //     bit-identical to the behaviour without WHY). Reading is workspace-scoped (N9).
   let whyContext: string | undefined;
   try {
     const rendered = renderWhyContextForPrompt(
@@ -246,10 +246,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 5. Compose → branch → (dispatch + trigger). Der Default-Trigger ruft den
-  //    bestehenden executePlan-Background-Run (makeDefaultTrigger).
-  //    Track-D: reqId wird durchgereicht, damit composeAndRun denselben
-  //    Korrelations-Faden in DB + Log + Response trägt.
+  // 5. Compose → branch → (dispatch + trigger). The default trigger calls the
+  //    existing executePlan background run (makeDefaultTrigger).
+  //    Track-D: reqId is passed through, so composeAndRun carries the same
+  //    correlation thread in DB + log + response.
   try {
     const result = await composeAndRun(getDb().$raw, {
       intent, // N1: verbatim
@@ -257,10 +257,10 @@ export async function POST(req: NextRequest): Promise<Response> {
       autoRun,
       callEngine,
       reqId,
-      // A3: WHY-Kontext (leer ⇒ nicht gesetzt ⇒ bit-identisch).
+      // A3: WHY context (empty ⇒ not set ⇒ bit-identical).
       ...(whyContext ? { whyContext } : {}),
-      // Stream B2: nur setzen, wenn brauchbar — sonst bleibt der Erst-Compose
-      // bit-identisch zum Verhalten vor dieser Verdrahtung.
+      // Stream B2: only set when usable — otherwise the first compose stays
+      // bit-identical to the behaviour before this wiring.
       ...(styleChoices ? { styleChoices } : {}),
     });
     logComposeAndRunStep(reqId, "route response", {

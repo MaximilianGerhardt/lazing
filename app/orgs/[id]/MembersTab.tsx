@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Org Members Tab — Liste + Invite-Dialog.
+ * Org Members Tab — list + invite dialog.
  */
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
@@ -122,7 +122,7 @@ export function OrgMembersTab({
     await refresh();
   };
 
-  /** Zeigt Inline-Confirm-Row für memberId. */
+  /** Shows the inline confirm row for memberId. */
   const requestRemove = (memberId: string): void => {
     setRemoveConfirmId(memberId);
   };

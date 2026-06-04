@@ -1,24 +1,24 @@
 /**
- * Auto-Dispatch (Phase AD · 2026-04-26).
+ * Auto-dispatch (Phase AD · 2026-04-26).
  *
- * Reagiert auf 'updated'-Events:
- *   1. Master-Approval (workflowState='approved' + parent IS NULL +
- *      Sub-Tickets vorhanden) -> dispatch alle Sub-Tickets in
- *      executing-state, spawn 3-Stage-Pipeline pro Sub.
- *   2. Sub-Closed (workflowState='closed' + parent IS NOT NULL) ->
- *      pruefe ob alle Geschwister auch closed sind. Wenn ja:
- *      Master auf workflowState='closed' setzen.
+ * Reacts to 'updated' events:
+ *   1. Master approval (workflowState='approved' + parent IS NULL +
+ *      sub-tickets present) -> dispatch all sub-tickets to
+ *      executing state, spawn a 3-stage pipeline per sub.
+ *   2. Sub closed (workflowState='closed' + parent IS NOT NULL) ->
+ *      check whether all siblings are also closed. If so:
+ *      set master to workflowState='closed'.
  *
- * Loop-Guards:
+ * Loop guards:
  *   - LAZYOS_DISABLE_AUTO_DISPATCH=1 -> hard skip
- *   - payload.transition === 'auto_dispatch' -> Echo, skip
- *   - payload.transition === 'auto_close_after_subs' -> Echo, skip
- *   - max 50 Sub-Tickets pro Master (runaway-cap)
+ *   - payload.transition === 'auto_dispatch' -> echo, skip
+ *   - payload.transition === 'auto_close_after_subs' -> echo, skip
+ *   - max 50 sub-tickets per master (runaway cap)
  *
- * Wird aus emit.ts via queueMicrotask aufgerufen, NIE blocking.
- * Niemals aus auto-dispatch heraus eine Funktion aufrufen die selbst
- * synchron emitEvent feuert und somit erneut maybeAutoDispatch
- * triggert ohne transition-Marker.
+ * Called from emit.ts via queueMicrotask, NEVER blocking.
+ * Never call a function from within auto-dispatch that itself
+ * synchronously fires emitEvent and thereby triggers maybeAutoDispatch
+ * again without a transition marker.
  */
 
 import { and, asc, eq, gte, like } from 'drizzle-orm';
@@ -47,9 +47,9 @@ function asString(v: unknown): string | undefined {
 }
 
 /**
- * ULID-Validator: 26-Zeichen Crockford Base32. Wird genutzt um IDs zu
- * sanitizen bevor sie in LIKE-Klauseln eingebaut werden — verhindert
- * LIKE-Injection (% / _ / \) bei Re-Run-Idempotenz-Checks.
+ * ULID validator: 26-character Crockford Base32. Used to
+ * sanitize IDs before they are built into LIKE clauses — prevents
+ * LIKE injection (% / _ / \) in re-run idempotency checks.
  *
  * Sub-Plan A Critic Finding 1 (2026-04-29).
  */
@@ -64,17 +64,17 @@ function isAutoDispatchDisabled(): boolean {
 }
 
 /**
- * Sub-Plan B (2026-04-30) — [skip-mirror]-Echo-Guard.
+ * Sub-Plan B (2026-04-30) — [skip-mirror] echo guard.
  *
- * Wenn ein `commented`/`created`-Event einen `[skip-mirror]`-Marker im Body
- * (text/messageSubject/body/commitMessage) traegt, ist es ein vom
- * Sub-Agent-Spawner ausgeloester Auto-Mirror-Echo (z.B. ein git-Watcher
- * der Commits ins Chat spiegelt). Diese Events DUERFEN keine Auto-Dispatch-
- * Logik triggern — sonst entsteht ein Loop:
+ * If a `commented`/`created` event carries a `[skip-mirror]` marker in the body
+ * (text/messageSubject/body/commitMessage), it is an auto-mirror echo
+ * triggered by the sub-agent spawner (e.g. a git watcher
+ * that mirrors commits into the chat). These events MUST NOT trigger any
+ * auto-dispatch logic — otherwise a loop arises:
  *   senior-dev commit -> watcher emit -> auto-dispatch -> spawn -> ...
  *
- * Pure defensive — der Marker wird vom senior-dev-Build-Mode-Prompt
- * vorgegeben (`git commit -m "[skip-mirror] ..."`).
+ * Purely defensive — the marker is set by the senior-dev build-mode prompt
+ * (`git commit -m "[skip-mirror] ..."`).
  */
 function hasSkipMirrorMarker(payload: Record<string, unknown>): boolean {
   const candidates: unknown[] = [
@@ -92,8 +92,8 @@ function hasSkipMirrorMarker(payload: Record<string, unknown>): boolean {
 }
 
 /**
- * Public Helper: pruefen ob ein Event den [skip-mirror]-Marker traegt.
- * Wird auch in tests genutzt; export-Surface bewusst klein.
+ * Public helper: check whether an event carries the [skip-mirror] marker.
+ * Also used in tests; export surface deliberately small.
  */
 export function isSkipMirrorEvent(event: LazyEvent): boolean {
   if (event.eventType !== 'commented' && event.eventType !== 'created') {
@@ -104,11 +104,11 @@ export function isSkipMirrorEvent(event: LazyEvent): boolean {
 }
 
 /**
- * Liest die letzte (per createdAt) Projection eines Tickets aus dem
- * Event-Log: workflowState, parentTicketId, sub-Title, Body. Wir
- * nutzen einen schmalen Eigen-Path statt der vollen projectTicket
- * weil wir hier nur 4 Felder brauchen und nicht den ganzen
- * Sub-Aggregations-Lookup.
+ * Reads the latest (by createdAt) projection of a ticket from the
+ * event log: workflowState, parentTicketId, sub-title, body. We
+ * use a narrow custom path instead of the full projectTicket
+ * because here we only need 4 fields and not the whole
+ * sub-aggregation lookup.
  */
 function readTicketSnapshot(ticketId: string): {
   workflowState?: string;
@@ -171,9 +171,9 @@ function readTicketSnapshot(ticketId: string): {
 }
 
 /**
- * Findet Sub-Tickets eines Masters via JSON-LIKE auf payload —
- * konsistent mit projectTicket().subTicketIds-Logik.
- * Filtert closed/done aus.
+ * Finds sub-tickets of a master via JSON LIKE on payload —
+ * consistent with projectTicket().subTicketIds logic.
+ * Filters out closed/done.
  */
 function findSubTickets(
   masterTicketId: string,
@@ -199,7 +199,7 @@ function findSubTickets(
     if (!snap) continue;
     if (snap.closed) continue;
     if (snap.workflowState === 'closed') continue;
-    if (snap.workflowState === 'executing') continue; // schon dispatched
+    if (snap.workflowState === 'executing') continue; // already dispatched
 
     subs.push({
       id,
@@ -223,28 +223,28 @@ async function resolveWorkspacePath(workspaceId: string): Promise<string> {
     const ws = await getWorkspace(workspaceId);
     if (ws?.path) return ws.path;
   } catch {
-    // ignore — Fallback unten
+    // ignore — fallback below
   }
   const { defaultWorkspacePath } = await import("@/lib/workspaces/projects-root");
   return defaultWorkspacePath(workspaceId);
 }
 
 /**
- * Trigger-Bedingung Master-Approval:
+ * Trigger condition master approval:
  *   - eventType === 'updated'
  *   - payload.workflowState === 'approved'
- *   - kein parent_ticket_id
- *   - mindestens 1 Sub-Ticket vorhanden
- *   - kein 'auto_dispatch'-Echo
+ *   - no parent_ticket_id
+ *   - at least 1 sub-ticket present
+ *   - no 'auto_dispatch' echo
  *
- * Bei Match: Sub-Tickets dispatchen + Pipelines spawnen.
+ * On match: dispatch sub-tickets + spawn pipelines.
  */
 export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
   if (isAutoDispatchDisabled()) return;
   if (event.entityType !== 'ticket') return;
-  // Sub-Plan B: skip-mirror-Echo-Guard fuer commented/created-Events.
-  // Auch wenn der Hauptpfad nur 'updated' verarbeitet, ein generischer
-  // Guard ist Defense-In-Depth fuer kuenftige Erweiterungen.
+  // Sub-Plan B: skip-mirror echo guard for commented/created events.
+  // Even though the main path only processes 'updated', a generic
+  // guard is defense-in-depth for future extensions.
   if (isSkipMirrorEvent(event)) return;
   if (event.eventType !== 'updated') return;
 
@@ -252,17 +252,17 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
   const workflowState = asString(payload.workflowState);
   if (workflowState !== 'approved') return;
 
-  // Echo-Schutz: dieses Update kommt von uns selbst (auto_dispatch transition)
+  // Echo protection: this update comes from ourselves (auto_dispatch transition)
   const transition = asString(payload.transition);
   if (transition === 'auto_dispatch' || transition === 'auto_close_after_subs') {
     return;
   }
 
-  // Sub-Plan G (2026-04-30): Lock-Token-Check. Wenn der Event einen
-  // `dispatchLockToken` mitführt, prüfen wir ob er noch dem aktuellen
-  // Workstream-Lock entspricht. Mismatch = ein neuerer Dispatch hat den
-  // Lock erworben oder der Lock wurde gecleart (Master geschlossen) —
-  // dieser Event ist stale, skip damit wir nicht doppelt spawnen.
+  // Sub-Plan G (2026-04-30): lock-token check. If the event carries a
+  // `dispatchLockToken`, we check whether it still matches the current
+  // workstream lock. Mismatch = a newer dispatch acquired the
+  // lock or the lock was cleared (master closed) —
+  // this event is stale, skip so we don't spawn twice.
   const payloadLockToken = asString(payload.dispatchLockToken);
   const payloadWorkstreamId = asString(payload.workstreamId);
   if (payloadLockToken && payloadWorkstreamId) {
@@ -282,7 +282,7 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
         );
         return;
       }
-      // currentToken === null → Lock wurde gecleart (Master closed) → skip.
+      // currentToken === null → lock was cleared (master closed) → skip.
       if (!currentToken) {
         console.log(
           `[auto-dispatch] cleared-lock-skip ws=${payloadWorkstreamId} payload=${payloadLockToken.slice(0, 6)}`,
@@ -290,14 +290,14 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
         return;
       }
     } catch {
-      // Lock-Check ist nicht-fatal — bei DB-Edge-Fehler weiterlaufen.
+      // Lock check is non-fatal — on a DB edge error, keep going.
     }
   }
 
   const masterTicketId = event.entityId;
   const masterSnap = readTicketSnapshot(masterTicketId);
   if (!masterSnap) return;
-  // Nur Master (kein parent)
+  // Master only (no parent)
   if (masterSnap.parentTicketId) return;
 
   const subs = findSubTickets(masterTicketId, event.segmentId);
@@ -314,25 +314,25 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
     `[auto-dispatch] Master ${masterTicketId} approved — dispatching ${subs.length} Sub-Tickets`,
   );
 
-  // Phase WSC.1 (2026-04-26): EIN Overview-Event am Master damit der Chat
-  // eine Live-Pipeline-Card rendert. Pro-Sub-Ticket-Toasts (auto_dispatch
-  // transition) bleiben — die Card konsumiert die als Live-Updates.
+  // Phase WSC.1 (2026-04-26): ONE overview event on the master so the chat
+  // renders a live-pipeline card. Per-sub-ticket toasts (auto_dispatch
+  // transition) remain — the card consumes them as live updates.
   //
-  // Sub-Plan A (2026-04-29) — LIKE-Idempotenz analog zu
-  // emitIteratePipelineCardIfAbsent: wenn in den letzten 24h bereits eine
-  // auto-dispatch-overview-comment fuer denselben (workstreamId,
-  // masterTicketId)-Coord existiert, skippen wir das Emit. So entstehen
-  // bei Re-Runs (z.B. nach Stage-Failure-Retry) nicht stapelweise neue
-  // live-pipeline-Cards im Chat.
+  // Sub-Plan A (2026-04-29) — LIKE idempotency analogous to
+  // emitIteratePipelineCardIfAbsent: if an
+  // auto-dispatch-overview comment for the same (workstreamId,
+  // masterTicketId) coord already exists in the last 24h, we skip the emit. This
+  // way, re-runs (e.g. after a stage-failure retry) don't pile up new
+  // live-pipeline cards in the chat.
   const overviewWorkstreamId = subs[0]?.workstreamId ?? '';
   if (overviewWorkstreamId) {
     try {
       const dbForCheck = getDb();
       const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-      // Sub-Plan A Finding 1 (2026-04-29): Splitte LIKE auf zwei separate
-      // Klauseln (JSON-Key-Reihenfolge-robust) und sanitize beide IDs als
-      // ULID bevor sie in den LIKE-Pattern wandern. Bei ungueltigem
-      // Format: skip Idempotency-Check (= emit normal, kein Block).
+      // Sub-Plan A Finding 1 (2026-04-29): split LIKE into two separate
+      // clauses (robust to JSON-key order) and sanitize both IDs as
+      // ULID before they go into the LIKE pattern. On invalid
+      // format: skip the idempotency check (= emit normally, no block).
       const wsIdSafe = safeUlid(overviewWorkstreamId);
       const masterIdSafe = safeUlid(masterTicketId);
       let skipDueToIdempotency = false;
@@ -385,8 +385,8 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
       );
     }
   } else {
-    // Workstream-less master (sollte selten sein) — emit ohne Idempotenz-
-    // Check, weil die LIKE-Coord ohne workstreamId nicht eindeutig waere.
+    // Workstream-less master (should be rare) — emit without an idempotency
+    // check, because the LIKE coord without workstreamId would not be unique.
     await emitEvent({
       segmentId: event.segmentId,
       entityType: 'ticket',
@@ -411,13 +411,13 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
     });
   }
 
-  // Phase RA.4 — Sniper-Hook in Auto-Dispatch: bevor wir die Sub-Spawns
-  // starten, geben wir dem User ein Pause-Window zum Inject. Default 25s,
-  // via ENV LAZYOS_AUTODISPATCH_PAUSE_MS überschreibbar (=0 deaktiviert).
+  // Phase RA.4 — sniper hook in auto-dispatch: before we start the sub-spawns,
+  // we give the user a pause window to inject. Default 25s,
+  // overridable via ENV LAZYOS_AUTODISPATCH_PAUSE_MS (=0 disables).
   //
-  // V3 Wire-Punkt 3 (2026-05-01): in Sandbox-Workspaces überspringen wir
-  // die Pause komplett. Sandbox = „freie Hand IM Spielfeld" → kein
-  // 25s-Friction-Schritt, Sub-Pipelines starten direkt.
+  // V3 wire-point 3 (2026-05-01): in sandbox workspaces we skip
+  // the pause entirely. Sandbox = "free hand ON the playing field" → no
+  // 25s friction step, sub-pipelines start directly.
   const pauseMsRaw = (process.env.LAZYOS_AUTODISPATCH_PAUSE_MS ?? '25000').trim();
   let pauseMs = Math.max(0, Math.min(120000, parseInt(pauseMsRaw, 10) || 0));
   try {
@@ -425,7 +425,7 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
       pauseMs = 0;
     }
   } catch {
-    // Sandbox-Check ist nicht-fatal — bei DB-Edge-Fehler Standardpause.
+    // Sandbox check is non-fatal — on a DB edge error, default pause.
   }
   if (pauseMs > 0) {
     const pauseStartedAt = Date.now();
@@ -455,9 +455,9 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
       pauseMs,
     );
     if (corrections > 0) {
-      // User hat „Trotzdem stoppen" oder Inject gedrückt → Auto-Dispatch
-      // STOPPEN. Sub-Spawns nicht mehr starten. User kann Master neu
-      // approven oder die Subs manuell triggern.
+      // User pressed "stop anyway" or inject → STOP auto-dispatch.
+      // Don't start the sub-spawns anymore. User can re-approve the
+      // master or trigger the subs manually.
       await emitEvent({
         segmentId: subs[0]?.workspaceId ?? 'lazyos',
         entityType: 'ticket',
@@ -476,10 +476,10 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
     }
   }
 
-  // Pipelines parallel pro Sub-Ticket starten. Innerhalb einer Pipeline
-  // laufen die 3 Stages sequentiell (siehe spawnSubTicketPipeline).
-  // Jede Pipeline ist tmux-isoliert, kein Promise.all-Awaiting im
-  // Caller noetig — wir feuern und vergessen mit Error-Catch.
+  // Start pipelines in parallel per sub-ticket. Within a pipeline
+  // the 3 stages run sequentially (see spawnSubTicketPipeline).
+  // Each pipeline is tmux-isolated, no Promise.all awaiting in the
+  // caller needed — we fire and forget with an error catch.
   for (const sub of subs.slice(0, MAX_SUB_TICKETS_PER_MASTER)) {
     void spawnSubTicketPipeline({
       workspaceId: sub.workspaceId,
@@ -499,13 +499,13 @@ export async function maybeAutoDispatch(event: LazyEvent): Promise<void> {
 }
 
 /**
- * Master-Auto-Close nach allen Sub-Tickets closed.
- *   - eventType === 'updated' UND payload.workflowState === 'closed'
- *   - Ticket hat parent_ticket_id
- *   - kein 'auto_close_after_subs'-Echo
+ * Master auto-close after all sub-tickets are closed.
+ *   - eventType === 'updated' AND payload.workflowState === 'closed'
+ *   - ticket has a parent_ticket_id
+ *   - no 'auto_close_after_subs' echo
  *
- * Bei Match: Master des Sub-Tickets pruefen, ob alle Geschwister closed
- * sind. Wenn ja: Master auf workflowState='closed' setzen mit
+ * On match: check the master of the sub-ticket whether all siblings are
+ * closed. If so: set the master to workflowState='closed' with
  * transition='auto_close_after_subs'.
  */
 export async function maybeAutoCloseMaster(event: LazyEvent): Promise<void> {
@@ -525,14 +525,14 @@ export async function maybeAutoCloseMaster(event: LazyEvent): Promise<void> {
   const subSnap = readTicketSnapshot(subTicketId);
   if (!subSnap) return;
   const masterTicketId = subSnap.parentTicketId;
-  if (!masterTicketId) return; // kein Sub
+  if (!masterTicketId) return; // not a sub
 
-  // Master-State pruefen — wenn er bereits 'closed' ist, nichts zu tun
+  // Check the master state — if it is already 'closed', nothing to do
   const masterSnap = readTicketSnapshot(masterTicketId);
   if (!masterSnap) return;
   if (masterSnap.workflowState === 'closed' || masterSnap.closed) return;
 
-  // Alle Geschwister-Subs holen, pruefen ob ALLE closed
+  // Fetch all sibling subs, check whether ALL are closed
   const allSubs = findAllSubTicketSnapshots(masterTicketId);
   if (allSubs.length === 0) return;
   const allClosed = allSubs.every(
@@ -562,9 +562,9 @@ export async function maybeAutoCloseMaster(event: LazyEvent): Promise<void> {
     console.error('[auto-dispatch] master auto-close emit failed:', err);
   });
 
-  // Sub-Plan G (2026-04-30): Lock auf dem Workstream clearen — sonst hängt
-  // ein zukünftiger Re-Run für 60 s fest. Idempotent: Workstream ohne Lock
-  // wird einfach übersprungen.
+  // Sub-Plan G (2026-04-30): clear the lock on the workstream — otherwise
+  // a future re-run hangs for 60 s. Idempotent: a workstream without a lock
+  // is simply skipped.
   if (subSnap.workstreamId) {
     try {
       const db = getDb();
@@ -580,8 +580,8 @@ export async function maybeAutoCloseMaster(event: LazyEvent): Promise<void> {
 }
 
 /**
- * Snapshots aller Sub-Tickets eines Masters (auch closed) — fuer
- * Auto-Close-Check.
+ * Snapshots of all sub-tickets of a master (including closed) — for the
+ * auto-close check.
  */
 function findAllSubTicketSnapshots(
   masterTicketId: string,

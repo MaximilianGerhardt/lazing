@@ -1,18 +1,18 @@
 'use client';
 
 /**
- * SourceChipRow — Container für mehrere SourceChips.
+ * SourceChipRow — container for multiple SourceChips.
  *
- * P11 (2026-05-01). Lädt zur gegebenen `auditId` die volle Audit-Row
- * (sourceChunksJson, priorOutputsJson) und rendert daraus eine kompakte
- * Chip-Row direkt im Surface (Synthesis-Card im Chat, SniperInjectCard
- * im Workstream-Detail). Max 5 Chips visible, Rest hinter "+N more".
+ * P11 (2026-05-01). Loads the full audit row for the given `auditId`
+ * (sourceChunksJson, priorOutputsJson) and renders a compact
+ * chip row from it directly in the surface (synthesis card in the chat,
+ * SniperInjectCard in the workstream detail). Max 5 chips visible, the rest behind "+N more".
  *
- * Rules (siehe MEMORY "KEINE Overlays"):
- *   - Drawer mit Quote-Snippet rendert INLINE unterhalb der Row
- *   - kein Modal, kein floating Overlay
- *   - Click "+N more" linkt auf /reasoning-audit/[id] (Detail-Page) statt
- *     auf-Klappen einer großen Liste
+ * Rules (see MEMORY "KEINE Overlays"):
+ *   - drawer with quote snippet renders INLINE below the row
+ *   - no modal, no floating overlay
+ *   - clicking "+N more" links to /reasoning-audit/[id] (detail page) instead
+ *     of expanding a large list
  */
 
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -43,13 +43,13 @@ export interface AuditRowLike {
 }
 
 interface SourceChipRowProps {
-  /** Lädt full audit-row via GET /api/reasoning-audit/[id]. */
+  /** Loads the full audit row via GET /api/reasoning-audit/[id]. */
   auditId?: string;
-  /** Schon geladene Row — überspringt fetch. */
+  /** Already-loaded row — skips the fetch. */
   auditRow?: AuditRowLike;
-  /** Max Chips visible (Default 5). */
+  /** Max chips visible (default 5). */
   maxVisible?: number;
-  /** Wenn truthy → "+N more" als Link auf reasoning-audit-Detail. */
+  /** When truthy → "+N more" as a link to the reasoning-audit detail. */
   detailHref?: string;
 }
 
@@ -120,8 +120,8 @@ export function SourceChipRow({
   maxVisible = 5,
   detailHref,
 }: SourceChipRowProps): React.JSX.Element | null {
-  // Initial-State direkt aus props/cache ableiten — vermeidet
-  // setState-in-Effect-Kaskade (react-hooks/set-state-in-effect).
+  // Derive the initial state directly from props/cache — avoids the
+  // setState-in-effect cascade (react-hooks/set-state-in-effect).
   const initialRow: AuditRowLike | null =
     auditRow ?? (auditId ? (FETCH_LRU.get(auditId) ?? null) : null);
   const [row, setRow] = useState<AuditRowLike | null>(initialRow);
@@ -131,10 +131,10 @@ export function SourceChipRow({
   useEffect(() => {
     if (auditRow) return;
     if (!auditId) return;
-    // Cache-Hit wurde bereits via initialRow konsumiert. Wenn row noch null
-    // ist und der Cache mittlerweile einen Eintrag hat (z.B. weil ein
-    // Sibling den Wert geladen hat), reicht uns der nächste Re-Render durch
-    // den State-Setter unten — wir setzen nur bei Network-Resultat.
+    // A cache hit was already consumed via initialRow. If row is still null
+    // and the cache now has an entry (e.g. because a
+    // sibling loaded the value), the next re-render through
+    // the state setter below is enough — we only set on a network result.
     let cancelled = false;
     const load = async (): Promise<void> => {
       try {

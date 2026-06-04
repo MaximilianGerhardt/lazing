@@ -1,29 +1,29 @@
 /**
  * scripts/e2e-build-small-website.ts
  * ------------------------------------
- * Voll-System-Acceptance-Test: "plane und baue eine kleine Landing-Page-Website"
+ * Full-system acceptance test: "plan and build a small landing-page website"
  *
- * Treibt die ECHTEN Pipeline-Funktionen durch 8 Stufen:
- *   1. Decompose-Gate (N6) — shouldDecompose()
- *   2. Recursive Plan       — proposeRecursivePlan()
+ * Drives the REAL pipeline functions through 8 stages:
+ *   1. Decompose gate (N6) — shouldDecompose()
+ *   2. Recursive plan       — proposeRecursivePlan()
  *   3. SOP                  — expandSopToPlanNodes()
  *   4. RAG                  — indexBatch + retrieve (rrf) + buildContext
- *   5. Engines/Parallel     — detectEngines + orchestrate (real oder Mock)
- *   6. Text-Executor        — executePlan() Stufe simuliert (non-destruktiv)
- *   7. Artefakt             — index.html + style.css in e2e-output/small-website/
- *   8. Trace/Audit (N8)     — Workstream-Row + Plan-Steps + decision/evidence Rows
+ *   5. Engines/parallel     — detectEngines + orchestrate (real or mock)
+ *   6. Text executor        — executePlan() stage simulated (non-destructive)
+ *   7. Artifact             — index.html + style.css in e2e-output/small-website/
+ *   8. Trace/audit (N8)     — workstream row + plan steps + decision/evidence rows
  *
- * REAL vs MOCK (dokumentiert pro Stufe im Lauf):
- *   - Stufe 1,2,3,4,8: REAL (echte Funktionen, echte DB, dedizierter Test-Workspace)
- *   - Stufe 5: REAL wenn claude-cli/ollama live; MOCK-Engine wenn keine Engine verfügbar
- *   - Stufe 6: REAL plan-repo + policy-gate; LLM-Calls durch deterministische Mock-Engine
- *              (non-destruktiv: kein File-Write außerhalb e2e-output/)
- *   - Stufe 7: Artefakt aus Plan-Step-Texten assembliert → e2e-output/small-website/
+ * REAL vs MOCK (documented per stage during the run):
+ *   - Stage 1,2,3,4,8: REAL (real functions, real DB, dedicated test workspace)
+ *   - Stage 5: REAL when claude-cli/ollama is live; MOCK engine when no engine available
+ *   - Stage 6: REAL plan-repo + policy-gate; LLM calls via a deterministic mock engine
+ *              (non-destructive: no file write outside e2e-output/)
+ *   - Stage 7: artifact assembled from plan-step texts → e2e-output/small-website/
  *
  * Constraints:
- *   - Eigener Test-Workspace-ID + dedizierter Test-DB-Pfad via LAZYOS_DB_PATH
- *   - KEINE Live-Daten verschmutzen
- *   - Bei Wiederholung deterministisch grün
+ *   - Own test workspace ID + dedicated test DB path via LAZYOS_DB_PATH
+ *   - Do NOT pollute live data
+ *   - Deterministically green on repeat
  *
  * Run:
  *   set -a && source .env.local && set +a
@@ -31,7 +31,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Bootstrap — cwd auf Repo-Root setzen damit @/* Aliase + DB-Pfad stimmen.
+// Bootstrap — set cwd to the repo root so @/* aliases + DB path are correct.
 // ---------------------------------------------------------------------------
 
 import path from 'node:path';
@@ -42,7 +42,7 @@ const __dirname = path.dirname(__filename);
 process.chdir(path.join(__dirname, '..'));
 
 // ---------------------------------------------------------------------------
-// Imports nach cwd-Fixup
+// Imports after the cwd fixup
 // ---------------------------------------------------------------------------
 
 import { randomUUID } from 'node:crypto';
@@ -94,7 +94,7 @@ import { workspaces } from '../db/schema/workspaces.js';
 import { eq } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
-// Test-DB: dedizierter Temp-Pfad — keine Live-Daten.
+// Test DB: dedicated temp path — no live data.
 // ---------------------------------------------------------------------------
 const TEST_DB_DIR = path.join(os.tmpdir(), 'lazyos-e2e-test');
 mkdirSync(TEST_DB_DIR, { recursive: true });
@@ -105,7 +105,7 @@ process.env.LAZYOS_TEST_DISABLE_FK = '1';
 __resetDbCacheForTests();
 
 // ---------------------------------------------------------------------------
-// Output-Dir für das Website-Artefakt
+// Output dir for the website artifact
 // ---------------------------------------------------------------------------
 const OUTPUT_DIR = path.join(process.cwd(), 'e2e-output', 'small-website');
 mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
 }
 
 // ===========================================================================
-// STUFE 1: Decompose-Gate (N6) — REAL
+// STAGE 1: Decompose gate (N6) — REAL
 // ===========================================================================
 console.log('\n=== STUFE 1: Decompose-Gate (N6) [REAL] ===');
 real('shouldDecompose() — deterministisch, kein LLM');
@@ -236,7 +236,7 @@ assert(
   typeof gateResult.reason === 'string' && gateResult.reason.length > 0,
 );
 
-// Negativ-Test: einfache Frage sollte NICHT decompose.
+// Negative test: a simple question should NOT decompose.
 const simpleQ = shouldDecompose('Wie spät ist es?');
 assert(
   '1.7 simple question "Wie spät ist es?" → decompose=false',
@@ -248,14 +248,14 @@ console.log(`\n  INFO  Gate: decompose=${gateResult.decompose} score=${gateResul
 console.log(`  INFO  reason: ${gateResult.reason}`);
 
 // ===========================================================================
-// STUFE 2: Recursive Plan — REAL (Template-Match oder Stub-Engine)
+// STAGE 2: Recursive plan — REAL (template match or stub engine)
 // ===========================================================================
 console.log('\n=== STUFE 2: Recursive Plan [REAL proposeRecursivePlan + template/stub] ===');
 
-// Wir injizieren eine deterministische Stub-Engine damit kein LLM-Call
-// nötig ist (falls kein claude-cli / ollama verfügbar). proposeRecursivePlan
-// nutzt matchTemplate() zuerst; nur wenn kein Template greift, ruft es die
-// callEngine. Der Stub ist daher nur Fallback.
+// We inject a deterministic stub engine so no LLM call is needed (in case
+// no claude-cli / ollama is available). proposeRecursivePlan uses
+// matchTemplate() first; only when no template matches does it call
+// callEngine. The stub is therefore only a fallback.
 const CAFE_PLAN_STUB = JSON.stringify({
   estimatedComplexity: 'M',
   steps: [
@@ -349,7 +349,7 @@ try {
     `complexity=${rootPlan.estimatedComplexity}`,
   );
 
-  // subplanTrigger: architect-Steps mit langem title+rationale triggern
+  // subplanTrigger: architect steps with a long title+rationale trigger
   const architectStep = rootPlan.steps.find(
     (s) => s.subagentRole === 'architect' || s.subagentRole === 'coder',
   );
@@ -373,7 +373,7 @@ try {
     total++; passed++;
   }
 
-  // Terminal-Step (reviewer/tester) darf NICHT triggern
+  // Terminal step (reviewer/tester) must NOT trigger
   const terminalStep = rootPlan.steps.find(
     (s) => s.subagentRole === 'reviewer' || s.subagentRole === 'tester',
   );
@@ -388,7 +388,7 @@ try {
     total++; passed++;
   }
 
-  // Depth-1-Children
+  // Depth-1 children
   const childCount = recursivePlan.root.children.size;
   console.log(`  INFO  depth-1 children: ${childCount}`);
   if (childCount > 0) {
@@ -415,13 +415,13 @@ try {
 }
 
 // ===========================================================================
-// STUFE 3: SOP — REAL expandSopToPlanNodes
+// STAGE 3: SOP — REAL expandSopToPlanNodes
 // ===========================================================================
 console.log('\n=== STUFE 3: SOP — expandSopToPlanNodes [REAL] ===');
 real('expandSopToPlanNodes (pure function, deterministisch, N6)');
 
-// Wir bauen eine minimale In-Memory-SopWithSteps für eine "Landing-Page-Pipeline".
-// Keine DB-Abfrage nötig — expandSopToPlanNodes ist pure (kein I/O).
+// We build a minimal in-memory SopWithSteps for a "landing-page pipeline".
+// No DB query needed — expandSopToPlanNodes is pure (no I/O).
 const MOCK_SOP: SopWithSteps = {
   id: `SOP-E2E-CAFE-${TEST_TS}`,
   name: 'Café Landing Page SOP',
@@ -534,14 +534,14 @@ assert(
 console.log(`  INFO  SOP-Nodes: ${sopNodes.length} (${sopNodes.map((n) => n.plan.steps[0]?.subagentRole ?? 'undefined').join(', ')})`);
 
 // ===========================================================================
-// STUFE 4: RAG — indexBatch + retrieve (rrf) + buildContext [REAL]
+// STAGE 4: RAG — indexBatch + retrieve (rrf) + buildContext [REAL]
 // ===========================================================================
 console.log('\n=== STUFE 4: RAG — index + retrieve + buildContext [REAL] ===');
 real('RAG indexBatch (lokaler HF-Embedder Xenova/all-MiniLM-L6-v2)');
 real('retrieve (lexical-first FTS5 → cosine-rerank → RRF-fusion)');
 real('buildContext (token-budgeted, cited, N1/N6)');
 
-// Kleine Café-Briefing-Chunks für den Test-Workspace.
+// Small café-briefing chunks for the test workspace.
 const CAFE_BRIEFING_SOURCES: IndexableSource[] = [
   {
     workspaceId: TEST_WORKSPACE_ID,
@@ -588,7 +588,7 @@ try {
     '4.1 indexBatch läuft ohne Fehler',
     true,
   );
-  // Beim ersten Run: alle indexiert; beim zweiten: alle skipped (idempotenz).
+  // On the first run: all indexed; on the second: all skipped (idempotency).
   assert(
     '4.2 indexed + skipped == Anzahl Sources (keine verlorenen Chunks)',
     ragIndexResult.indexed + ragIndexResult.skipped === CAFE_BRIEFING_SOURCES.length,
@@ -601,15 +601,15 @@ try {
   );
   ragStage4Pass = true;
 } catch (err) {
-  // RAG-Indexer kann scheitern wenn HuggingFace-Modell nicht lädt.
-  // Das ist ein echter Befund — dokumentieren, nicht verstecken.
+  // The RAG indexer can fail if the HuggingFace model does not load.
+  // That is a real finding — document it, do not hide it.
   const msg = err instanceof Error ? err.message : String(err);
   mock(`indexBatch FEHLGESCHLAGEN — Embedder nicht verfügbar: ${msg}`);
   assert('4.1 indexBatch läuft ohne Fehler', false, msg);
   console.warn(`  BEFUND  RAG-Indexer: ${msg} — Stage 4 übernimmt Fallback-Pfad`);
 }
 
-// Retrieve — nur wenn indexieren gelungen
+// Retrieve — only if indexing succeeded
 let ragResult: Awaited<ReturnType<typeof retrieve>> | null = null;
 if (ragStage4Pass) {
   try {
@@ -640,7 +640,7 @@ if (ragStage4Pass) {
       ragResult.hits.every((h) => (h as { sensitivity?: string }).sensitivity !== 'high'),
     );
 
-    // Isolation: ein anderer Workspace darf KEINE Treffer aus TEST_WORKSPACE_ID erhalten
+    // Isolation: another workspace must NOT receive any hits from TEST_WORKSPACE_ID
     const otherResult = await retrieve({
       workspaceId: 'isolation-check-other',
       query: 'Café Landing Page Hero Menü Kontakt',
@@ -652,7 +652,7 @@ if (ragStage4Pass) {
       `leakage hits: ${JSON.stringify(otherResult.hits.map((h) => h.workspaceId))}`,
     );
 
-    // RagWorkspaceRequiredError bei leerem workspaceId
+    // RagWorkspaceRequiredError on an empty workspaceId
     let ragErrorThrown = false;
     try {
       await retrieve({ workspaceId: '', query: 'test' });
@@ -694,7 +694,7 @@ if (ragStage4Pass) {
     const msg = err instanceof Error ? err.message : String(err);
     mock(`retrieve FEHLGESCHLAGEN: ${msg}`);
     assert('4.4 retrieve gibt RetrievalResult zurück', false, msg);
-    total += 9; passed += 0; // pad restliche Stage-4 asserts als fail
+    total += 9; passed += 0; // pad the remaining stage-4 asserts as fail
     console.warn(`  BEFUND  RAG-Retriever: ${msg}`);
   }
 } else {
@@ -705,8 +705,8 @@ if (ragStage4Pass) {
 }
 
 // ===========================================================================
-// STUFE 5: Engines/Parallel — REAL detectEngines, orchestrate
-//           (Mock-Engine injiziert wenn keine echte Engine verfügbar)
+// STAGE 5: Engines/parallel — REAL detectEngines, orchestrate
+//           (mock engine injected when no real engine is available)
 // ===========================================================================
 console.log('\n=== STUFE 5: Engines/Parallel [REAL detectEngines + orchestrate] ===');
 real('detectEngines (probt claude-cli / codex-cli / ollama)');
@@ -727,7 +727,7 @@ assert(
   `length=${engineSelection.available.length}`,
 );
 
-// Codex-Exclusion aus dem Pick (Sicherheits-Gate B1)
+// Codex exclusion from the pick (security gate B1)
 const engineWithoutCodex = pickEngine(engineSelection, ['codex-cli']);
 assert(
   '5.3 pickEngine mit skip=[codex-cli] gibt niemals codex zurück',
@@ -736,8 +736,8 @@ assert(
 );
 
 // orchestrate parallel-all:
-// Wenn echte Engine verfügbar: echter Aufruf.
-// Wenn keine Engine verfügbar: Mock-Engine über engineSelection.available patching.
+// If a real engine is available: real call.
+// If no engine is available: mock engine by patching engineSelection.available.
 const TEST_PROMPT_ENGINE =
   'Du planst eine Café-Landing-Page. Antworte in 2 Sätzen: was ist der wichtigste erste Schritt?';
 
@@ -763,7 +763,7 @@ if (availableEngines.length > 0) {
 if (!orchestrateResult) {
   mock('orchestrate — kein Engine live, injiziere Mock-Engine');
   engineWasMock = true;
-  // Mock-Engine-Antwort deterministisch simulieren.
+  // Deterministically simulate the mock engine response.
   orchestrateResult = {
     text: 'Der wichtigste erste Schritt ist die Strukturdefinition mit Hero-, Menü- und Kontakt-Sektionen. Danach folgt das HTML-Grundgerüst.',
     engine: 'claude-cli' as EngineId,
@@ -804,8 +804,8 @@ assert(
 );
 assert(
   '5.8 codexMode=read in parallel-all Race (kein write-codex) [Spec-Assert]',
-  true, // Die Orchestrator-Implementierung setzt codexMode='read' intern (Zeile 144 orchestrator.ts).
-  // Wir prüfen das Invariant-Level: kein attempt.engine === "codex-cli" bei parallel-all ohne explizite Engine.
+  true, // The orchestrator implementation sets codexMode='read' internally (line 144 orchestrator.ts).
+  // We check the invariant level: no attempt.engine === "codex-cli" in parallel-all without an explicit engine.
 );
 
 const winningAttempt = finalOrchestrateResult.attempts.find((a) => a.won);
@@ -820,8 +820,8 @@ console.log(`  INFO  Engine-Antwort (${realOrMockLabel}): "${finalOrchestrateRes
 console.log(`  INFO  Winning engine: ${winningAttempt?.engine ?? 'none'} (${winningAttempt?.latencyMs}ms)`);
 
 // ===========================================================================
-// STUFE 6: Text-Executor (non-destruktiv) — REAL plan-repo + policy-gate
-//           LLM-Calls durch Mock-Engine
+// STAGE 6: Text executor (non-destructive) — REAL plan-repo + policy-gate
+//           LLM calls via the mock engine
 // ===========================================================================
 console.log('\n=== STUFE 6: Text-Executor [REAL plan-repo+policy; Mock-Engine] ===');
 real('createWorkstream (echte DB, Test-Workspace)');
@@ -830,7 +830,7 @@ real('listRootPlanSteps (echte DB)');
 real('setPlanStepStatus + enforceExecutionStep (echte policy-gate)');
 mock('engine.chat() — Mock-Text-Responses (non-destruktiv)');
 
-// Workstream anlegen
+// Create workstream
 let testWorkstreamId = '';
 let testPlanId = '';
 
@@ -852,7 +852,7 @@ try {
 
   const coordKey = `${TEST_WORKSPACE_ID}/${testWorkstreamId}`;
 
-  // Plan persistieren
+  // Persist plan
   const insertedRows = insertProposedPlan({
     workstreamId: testWorkstreamId,
     plan: rootPlan,
@@ -880,7 +880,7 @@ try {
     insertedRows.every((r) => r.status === 'pending'),
   );
 
-  // Steps lesen
+  // Read steps
   const dbSteps = listRootPlanSteps(testWorkstreamId);
   assert(
     '6.6 listRootPlanSteps gibt insertedRows.length zurück',
@@ -888,10 +888,10 @@ try {
     `dbSteps=${dbSteps.length} inserted=${insertedRows.length}`,
   );
 
-  // Simulated non-destructive execution: mock-text-responses pro Step
+  // Simulated non-destructive execution: mock text responses per step
   const stepOutputs: Array<{ stepId: string; title: string; text: string; status: string }> = [];
 
-  // Mock-LLM-Antworten pro Rolle
+  // Mock LLM responses per role
   function mockLlmResponse(role: string | null, title: string): string {
     const r = role ?? 'coder';
     const roleResponses: Record<string, string> = {
@@ -917,7 +917,7 @@ try {
     // Status → active
     setPlanStepStatus(step.id, 'active');
 
-    // Mock-Text-Response (non-destruktiv)
+    // Mock text response (non-destructive)
     const mockText = mockLlmResponse(step.subagentRole, step.title);
 
     // Status → done
@@ -955,12 +955,12 @@ try {
   console.log(`  INFO  ${stepOutputs.length} Steps ausgeführt (Mock-Engine, text-only)`);
 
   // ===========================================================================
-  // STUFE 7: Greifbares Artefakt — index.html + style.css assemblieren
+  // STAGE 7: Tangible artifact — assemble index.html + style.css
   // ===========================================================================
   console.log('\n=== STUFE 7: Artefakt assemblieren [index.html + style.css] ===');
   real('Artefakt aus Plan-Step-Texten assembliert (kein File-Write in lazyos-Source)');
 
-  // HTML aus Step-Outputs zusammenbauen
+  // Assemble HTML from the step outputs
   const heroText = stepOutputs.find((s) => s.title.toLowerCase().includes('html') ||
     s.title.toLowerCase().includes('struktur') ||
     s.title.toLowerCase().includes('grundger'))?.text ?? stepOutputs[1]?.text ?? '';
@@ -969,7 +969,7 @@ try {
   const reviewText = stepOutputs.find((s) => s.title.toLowerCase().includes('review') ||
     s.title.toLowerCase().includes('qualit'))?.text ?? stepOutputs[stepOutputs.length - 1]?.text ?? '';
 
-  // Café-Briefing-Kontext aus RAG injizieren falls verfügbar
+  // Inject café-briefing context from RAG if available
   const cafeHeroTagline = ragResult?.hits.find((h) => h.text.includes('La Crème'))
     ? 'Wo jeder Morgen nach Zuhause schmeckt.'
     : 'Willkommen in Ihrem Lieblingscafé.';
@@ -1174,7 +1174,7 @@ address {
 }
 `;
 
-  // Schreibe Artefakt-Dateien nach e2e-output/ (AUSSERHALB lazyos-Source)
+  // Write artifact files to e2e-output/ (OUTSIDE the lazyos source)
   const htmlPath = path.join(OUTPUT_DIR, 'index.html');
   const cssPath = path.join(OUTPUT_DIR, 'style.css');
 
@@ -1185,7 +1185,7 @@ address {
   console.log(`  INFO    HTML: ${htmlPath} (${htmlContent.length} Zeichen)`);
   console.log(`  INFO    CSS:  ${cssPath} (${cssContent.length} Zeichen)`);
 
-  // Assertions Artefakt
+  // Artifact assertions
   assert(
     '7.1 index.html existiert in e2e-output/small-website/',
     existsSync(htmlPath),
@@ -1243,12 +1243,12 @@ address {
   );
 
   // ===========================================================================
-  // STUFE 8: Trace/Audit (N8) — Workstream-Row + Plan-Steps + decision-Rows
+  // STAGE 8: Trace/audit (N8) — workstream row + plan steps + decision rows
   // ===========================================================================
   console.log('\n=== STUFE 8: Trace/Audit (N8) [REAL] ===');
   real('writeEvidence + writeDecision (best-effort, raw SQL)');
 
-  // Workstream-Row prüfen
+  // Check workstream row
   const db = getDb();
   const wsRow = db
     .select()
@@ -1267,7 +1267,7 @@ address {
     `description="${wsRow[0]?.description}"`,
   );
 
-  // Plan-Steps in DB
+  // Plan steps in DB
   const planRows = db
     .select()
     .from(workstreamPlanSteps)
@@ -1289,7 +1289,7 @@ address {
     planRows.every((r) => typeof r.contentHash === 'string' && r.contentHash.length === 64),
   );
 
-  // N8-Trace: Evidence + Decision schreiben
+  // N8 trace: write evidence + decision
   // (coordKey already declared above at line 837)
   const evidenceId = writeEvidence({
     workspaceId: TEST_WORKSPACE_ID,
@@ -1406,7 +1406,7 @@ if (failures.length > 0) {
   }
 }
 
-// Artefakt-Zusammenfassung
+// Artifact summary
 console.log('\n--- ARTEFAKT (e2e-output/small-website/) ---');
 const htmlPath = path.join(OUTPUT_DIR, 'index.html');
 const cssPath = path.join(OUTPUT_DIR, 'style.css');

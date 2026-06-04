@@ -1,13 +1,13 @@
 /**
- * GET  /api/subchats/external/[token]  — Sub-Chat über Share-Token auflösen
- *                                        (öffentlich, KEIN Login) + Nachrichten.
- * POST /api/subchats/external/[token]  — als externer Gast posten (Name + Text).
+ * GET  /api/subchats/external/[token]  — resolve sub-chat via share token
+ *                                        (public, NO login) + messages.
+ * POST /api/subchats/external/[token]  — post as an external guest (name + text).
  *
- * Der Token IST die Autorisierung (gehasht in der DB). Externe sehen NIE die
- * KI. Jede Nachricht fließt in die Workspace-RAG (via postMessage → ingest).
- * Public-Route — in middleware.ts unter PUBLIC_PREFIXES `/api/subchats/external/`.
+ * The token IS the authorization (hashed in the DB). External parties NEVER see
+ * the AI. Every message flows into the workspace RAG (via postMessage → ingest).
+ * Public route — in middleware.ts under PUBLIC_PREFIXES `/api/subchats/external/`.
  *
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Gathering-Intelligence goal (2026-06-02).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -46,12 +46,12 @@ export async function GET(_req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: 'invalid_or_expired' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
   const messages = listMessages(sc.id).map(serialize);
-  // Nur das, was ein externer Gast sehen darf — KEINE internen IDs/Token.
+  // Only what an external guest is allowed to see — NO internal IDs/tokens.
   return NextResponse.json(
     {
       subchat: { id: sc.id, title: sc.title },
       messages,
-      // dezenter Transparenz-Hinweis (DSGVO/Trust, vom Owner bestätigt).
+      // subtle transparency notice (GDPR/trust, confirmed by the owner).
       notice: 'Diese Konversation wird für die Projektbearbeitung gespeichert.',
     },
     { headers: { 'Cache-Control': 'no-store' } },

@@ -1,8 +1,8 @@
 /**
- * Orgs-Repository (Phase ORG SP-5).
+ * Orgs repository (Phase ORG SP-5).
  *
- * DB-Operationen für `organizations` + Membership-Lookups. Service-
- * Layer (`service.ts`) wrapped mit Auth + Audit.
+ * DB operations for `organizations` + membership lookups. The service
+ * layer (`service.ts`) wraps these with auth + audit.
  */
 
 import { and, asc, eq, sql } from "drizzle-orm";
@@ -21,7 +21,7 @@ import {
 import { users, type UserRow } from "@/db/schema/users";
 
 /* ------------------------------------------------------------------ */
-/* Types — extended Org mit Brand/Legal-Feldern aus Migration 0025    */
+/* Types — extended org with brand/legal fields from migration 0025  */
 /* ------------------------------------------------------------------ */
 
 export interface OrgFull {
@@ -32,7 +32,7 @@ export interface OrgFull {
   paletteIndex: number;
   description: string | null;
   archived: boolean;
-  // Brand/Legal aus Migration 0025 + 0033
+  // Brand/legal from migration 0025 + 0033
   logoUrl: string | null;
   wordmarkUrl: string | null;
   brandColors: string[] | null;
@@ -43,7 +43,7 @@ export interface OrgFull {
   responsibleUserId: string | null;
   canonicalDomain: string | null;
   emailFrom: string | null;
-  // Phase 2026-04-28 — rechtliche Pflichtfelder
+  // Phase 2026-04-28 — mandatory legal fields
   legalName: string | null;
   registrationNo: string | null;
   phone: string | null;
@@ -161,10 +161,10 @@ export function listOrgsForUser(userId: string): OrgFull[] {
 }
 
 /**
- * Phase IA-Konsolidierung 2026-04-29: für TopNav-OrgSwitcher nur die
- * Top-Level-Orgs (parent_id IS NULL) zeigen. Sub-Orgs (z.B. Energie
- * Heimat als Kunde von Example Company) sind in /orgs/[id]
- * sichtbar, nicht im Switcher.
+ * Phase IA consolidation 2026-04-29: for the TopNav OrgSwitcher show only the
+ * top-level orgs (parent_id IS NULL). Sub-orgs (e.g. Energie
+ * Heimat as a customer of Example Company) are
+ * visible in /orgs/[id], not in the switcher.
  */
 export function listTopLevelOrgsForUser(userId: string): OrgFull[] {
   const db = getDb();
@@ -182,7 +182,7 @@ export function listTopLevelOrgsForUser(userId: string): OrgFull[] {
 }
 
 /**
- * Phase IA-Konsolidierung 2026-04-29: alle Sub-Orgs einer Top-Level-Org.
+ * Phase IA consolidation 2026-04-29: all sub-orgs of a top-level org.
  */
 export function listSubOrgs(parentOrgId: string): OrgFull[] {
   const db = getDb();
@@ -296,7 +296,7 @@ export function countFoundersInOrg(orgId: string): number {
 /* ------------------------------------------------------------------ */
 
 export interface UpdateOrgBrandInput {
-  // Core-Felder
+  // Core fields
   name?: string;
   description?: string | null;
   type?: string;
@@ -326,7 +326,7 @@ export function updateOrgBrand(orgId: string, patch: UpdateOrgBrandInput): void 
   const db = getDb();
   const now = Date.now();
   const set: Array<{ col: string; value: unknown }> = [];
-  // Core-Felder
+  // Core fields
   if (patch.name !== undefined && patch.name.trim().length >= 2) {
     set.push({ col: "name", value: patch.name.trim().slice(0, 120) });
   }
@@ -410,7 +410,7 @@ export function deleteOrgMembership(membershipId: string): void {
 }
 
 /* ------------------------------------------------------------------ */
-/* Brand-Inheritance-Read (für SP-6)                                   */
+/* Brand-inheritance read (for SP-6)                                   */
 /* ------------------------------------------------------------------ */
 
 export function findOrgForWorkspace(workspaceId: string): OrgFull | null {

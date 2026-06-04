@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * StartRunButton — Client-Komponente.
+ * StartRunButton — client component.
  *
- * Pattern 4 Welle 2.2 (2026-05-01).
+ * Pattern 4 Wave 2.2 (2026-05-01).
  *
- * Posted POST /api/workflows mit { workflowId } und navigiert nach Erfolg
- * zu /workflows/runs/[runId]. Loading-State gedämpft via opacity, Press-
- * Feedback via --press-scale.
+ * Sends POST /api/workflows with { workflowId } and navigates on success
+ * to /workflows/runs/[runId]. Loading state dimmed via opacity, press
+ * feedback via --press-scale.
  */
 
 import { useRouter } from 'next/navigation';

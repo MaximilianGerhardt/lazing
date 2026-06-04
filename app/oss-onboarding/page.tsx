@@ -1,14 +1,14 @@
 /**
- * /oss-onboarding — Lazing-Style First-Run OSS-Wizard (Phase OSS-WIZ.1).
+ * /oss-onboarding — Lazing-style first-run OSS wizard (Phase OSS-WIZ.1).
  *
- * Server-Component. Liest current-user (oder redirected zu /login),
- * läd OSS-Wizard-State aus Migration-0054-Spalte, redirected zu / wenn
- * schon abgeschlossen.
+ * Server component. Reads the current user (or redirects to /login),
+ * loads the OSS wizard state from the migration-0054 column, redirects to /
+ * if already completed.
  *
- * Existiert parallel zu /onboarding — bewusst nicht ersetzt, weil
- * /onboarding die Cloud/SaaS-Erst-Reise (Org/Workspace/MAX-Plan) ist und
- * /oss-onboarding die OSS-Server-Inbetriebnahme (Engine/Repo/Push) ist.
- * In der V2 können die zwei zusammengeschoben werden.
+ * Exists in parallel to /onboarding — intentionally not replaced, because
+ * /onboarding is the cloud/SaaS first journey (org/workspace/MAX plan) and
+ * /oss-onboarding is OSS server commissioning (engine/repo/push).
+ * In V2 the two can be merged together.
  */
 
 import { redirect } from "next/navigation";
@@ -38,7 +38,7 @@ export default async function OssOnboardingPage() {
     redirect("/login?reason=user-not-found");
   }
 
-  // Lese OSS-State direkt — Drizzle-Schema kennt die Spalten noch nicht.
+  // Read OSS state directly — the Drizzle schema does not know the columns yet.
   const db = getDb();
   const row = db
     .select({

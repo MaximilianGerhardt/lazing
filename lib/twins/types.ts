@@ -1,13 +1,13 @@
 /**
- * Pattern 2 Digital-Twin MVP — Type-Definitionen.
+ * Pattern 2 Digital-Twin MVP — type definitions.
  *
- * Twins sind strukturierte JSON-Blöcke (owner twin = User-Profil,
- * Domain-Twin = Workspace-Snapshot), die als kompakter `<TWIN_*>{...}</TWIN_*>`
- * Block in den System-Prompt jedes Sub-Agents injiziert werden.
+ * Twins are structured JSON blocks (owner twin = user profile,
+ * domain twin = workspace snapshot) that are injected as a compact
+ * `<TWIN_*>{...}</TWIN_*>` block into the system prompt of every sub-agent.
  *
- * Vorher: jeder Sub-Agent las CLAUDE.md+MEMORY.md+Standards (~10K Tokens).
- * Nachher: ein einziger validierter JSON-Block (~500 Tokens), der alle
- * relevanten Regeln/Vetos/Sensitivity-Themen kompakt transportiert.
+ * Before: every sub-agent read CLAUDE.md+MEMORY.md+standards (~10K tokens).
+ * After: a single validated JSON block (~500 tokens) that carries all
+ * relevant rules/vetoes/sensitivity topics compactly.
  */
 
 import { z } from "zod";

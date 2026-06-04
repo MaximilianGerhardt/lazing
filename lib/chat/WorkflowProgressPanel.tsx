@@ -1,20 +1,20 @@
 'use client';
 
 /**
- * WorkflowProgressPanel — User-Wunsch 2026-04-29: „Heatmap persistent im
+ * WorkflowProgressPanel — user request 2026-04-29: „Heatmap persistent im
  * Chat damit ich Fortschritt sehe, nicht nur dass etwas passiert."
  *
- * Zeigt für den aktuellen Workstream im aktiven Workspace:
- *   - V1 ... V5 Pipeline mit Status (done / current / pending)
- *   - Aktive Phase (Lead, Roaster, Pause)
- *   - Pause-Countdown wenn Pause läuft
- *   - Inject-Hint wenn Korrektur möglich
+ * Shows, for the current workstream in the active workspace:
+ *   - V1 ... V5 pipeline with status (done / current / pending)
+ *   - Active phase (Lead, Roaster, Pause)
+ *   - Pause countdown while a pause is running
+ *   - Inject hint when correction is possible
  *
- * Pollt /api/workstreams/[id]/pause-status alle 2 s solange aktiv.
- * Re-fetched workstreams + iterate-version-events bei jeder Welle.
+ * Polls /api/workstreams/[id]/pause-status every 2 s while active.
+ * Re-fetches workstreams + iterate-version-events on every wave.
  *
- * Position: sticky zwischen ActiveWorkstreamBanner und Chat-Stream.
- * Sichtbar nur wenn ≥ 1 Workstream im currentWorkspace active/stuck/paused.
+ * Position: sticky between ActiveWorkstreamBanner and chat stream.
+ * Visible only when ≥ 1 workstream in the currentWorkspace is active/stuck/paused.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -41,7 +41,7 @@ interface PauseStatus {
 interface ProgressState {
   ws: ActiveWs | null;
   pause: PauseStatus | null;
-  lastVersion: number; // letzter iterate-version-Event
+  lastVersion: number; // last iterate-version event
   loading: boolean;
 }
 
@@ -66,7 +66,7 @@ export function WorkflowProgressPanel({
 
     const tick = async (): Promise<void> => {
       try {
-        // 1) aktive WS finden (active + stuck + paused)
+        // 1) find active WS (active + stuck + paused)
         const [activeR, stuckR] = await Promise.all([
           fetch(
             `/api/workstreams?workspaceId=${encodeURIComponent(workspaceId)}&status=active&limit=5`,
@@ -87,21 +87,21 @@ export function WorkflowProgressPanel({
           setState({ ws: null, pause: null, lastVersion: 0, loading: false });
           return;
         }
-        // 2) pause-status für diesen WS
+        // 2) pause-status for this WS
         const pauseR = await fetch(
           `/api/workstreams/${encodeURIComponent(ws.id)}/pause-status`,
           { cache: 'no-store' },
         ).then((r) => (r.ok ? r.json() : null));
         if (cancelled) return;
-        // 3) letzten iterate-version aus events lesen — pause-status hat
-        //    keine direkte Info, aber wir können die `phase` als Indikator
-        //    nehmen. Genauer: Endpoint liefern ist out-of-scope, wir
-        //    leiten lastVersion grob aus phase ab:
-        //    - phase='lead-v1' → lastVersion=0 (V1 läuft)
+        // 3) read the last iterate-version from events — pause-status has
+        //    no direct info, but we can use the `phase` as an indicator.
+        //    More precisely: providing the endpoint is out-of-scope, so we
+        //    derive lastVersion roughly from phase:
+        //    - phase='lead-v1' → lastVersion=0 (V1 running)
         //    - phase='roast' → lastVersion=1 (V1 done, Roaster)
         //    - phase='v2-spawn' → lastVersion=2
         //    - pauseKind='auto-dispatch-pause' → lastVersion=5 (final)
-        // Für korrekte Anzeige nutzen wir den existing `after`-Marker im
+        // For correct display we use the existing `after` marker in
         // pauseRow.payload.
         let lastVersion = 0;
         const phase = pauseR?.phase;
@@ -187,7 +187,7 @@ export function WorkflowProgressPanel({
           className="workflow-progress-bar"
           aria-label="Pause-Countdown"
           style={{
-            // Bar shrinks von 100% auf 0% während der Pause
+            // Bar shrinks from 100% to 0% during the pause
             ['--remaining' as string]:
               state.pause?.durationMs && state.pause.durationMs > 0
                 ? `${Math.max(0, ((state.pause.remainingMs ?? 0) / state.pause.durationMs) * 100)}%`

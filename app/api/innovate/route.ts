@@ -1,39 +1,39 @@
 /**
- * POST /api/innovate — Innovation-Mode-Engine erreichbar gemacht
+ * POST /api/innovate — Innovation-mode engine made reachable
  * (Lane-D · 2026-05-30 · Opus 4.8).
  *
- * ── WAS SICH GEÄNDERT HAT ─────────────────────────────────────────────────
- * Bis 2026-05-29 war POST ein 501-Marketing-Stub (Vertrag in
- * `lib/innovate/contract.ts`). Die ECHTE Engine — `runInnovate` — war gebaut,
- * getestet und deployed, aber per Live-Chat NICHT erreichbar. Diese Route
- * verdrahtet sie jetzt OWNER-GETRIGGERT (kein auto-run, §7.2): jeder POST ist
- * ein expliziter Aufruf.
+ * ── WHAT CHANGED ──────────────────────────────────────────────────────────
+ * Until 2026-05-29, POST was a 501 marketing stub (contract in
+ * `lib/innovate/contract.ts`). The REAL engine — `runInnovate` — was built,
+ * tested and deployed, but NOT reachable via live chat. This route
+ * now wires it up OWNER-TRIGGERED (no auto-run, §7.2): every POST is
+ * an explicit call.
  *
- * Der GET-Handler + die Marketing-Mockup-Page (`app/innovate/[scope]/page.tsx`)
- * bleiben funktional: page.tsx importiert nur `PERSONA_DESCRIPTIONS`,
- * `SCOPE_LABELS`, `InnovatePersona`, `InnovateScope` aus dem CONTRACT (nicht aus
- * dieser Route) und ruft die Route NICHT auf — der neue POST-Vertrag bricht sie
- * also nicht. Die alten Typen `InnovateRequest`/`InnovatePending` bleiben im
- * Contract exportiert (kein Import wird entfernt).
+ * The GET handler + the marketing mockup page (`app/innovate/[scope]/page.tsx`)
+ * stay functional: page.tsx imports only `PERSONA_DESCRIPTIONS`,
+ * `SCOPE_LABELS`, `InnovatePersona`, `InnovateScope` from the CONTRACT (not from
+ * this route) and does NOT call the route — so the new POST contract does not
+ * break it. The old types `InnovateRequest`/`InnovatePending` stay exported in
+ * the contract (no import is removed).
  *
- * ── VERTRAG (neu) ─────────────────────────────────────────────────────────
+ * ── CONTRACT (new) ────────────────────────────────────────────────────────
  *   POST { workspaceId: string, rawText: string }
- *   → member-auth (401 → 403 wie compose-and-run)
- *   → Engine-Adapter aus detectEngines()/pickEngine() (codex AUSGESCHLOSSEN
- *     wie plan-dispatch.ts — reines LLM-Text-JSON, kein Code-Mode)
+ *   → member auth (401 → 403 like compose-and-run)
+ *   → engine adapter from detectEngines()/pickEngine() (codex EXCLUDED
+ *     like plan-dispatch.ts — pure LLM text JSON, no code mode)
  *   → runInnovate(db.$raw, { workspaceId, rawText, callEngine })
  *   → 200 { assumptions, reframes, roasts, counterEvidenceSurfaces, counts }
  *
- * N1: rawText wird VERBATIM (kein slice) an runInnovate gereicht.
- * Fail-soft: Engine-Fehler → klare 5xx mit reqId; runInnovate selbst ist je
- * Stufe fail-soft (eine malformte LLM-Antwort kippt den Run nicht).
+ * N1: rawText is passed VERBATIM (no slice) to runInnovate.
+ * Fail-soft: engine error → clear 5xx with reqId; runInnovate itself is
+ * fail-soft per stage (a malformed LLM response does not tip the run).
  *
- * Welche Chat-/Client-Geste das später aufruft (NICHT in diesem Scope): der
- * „Innovation"-Button auf einem Ist-Zustand/Plan (§10.2) bzw. eine Chat-Card,
- * die den aktuellen Plan-Text als rawText schickt und die counter-evidence-
- * Surfaces (R5: visuell getrennt, KEIN Antwort-Zwang) rendert.
+ * Which chat/client gesture calls this later (NOT in this scope): the
+ * „Innovation" button on a current-state/plan (§10.2) or a chat card
+ * that sends the current plan text as rawText and renders the counter-evidence
+ * surfaces (R5: visually separated, NO forced answer).
  *
- * ADDITIV: keine Kern-Flow-Datei berührt, kein next build/start.
+ * ADDITIVE: no core flow file touched, no next build/start.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -52,9 +52,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Kleine Request-Korrelations-ID (Stil compose-and-run, ohne Extra-Import).
- * JEDER Response — auch 401/403/400 — trägt sie, damit Owner-Logs korrelierbar
- * bleiben.
+ * Small request correlation ID (style compose-and-run, without an extra import).
+ * EVERY response — including 401/403/400 — carries it, so owner logs stay
+ * correlatable.
  */
 function makeReqId(): string {
   return `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -70,8 +70,8 @@ interface PostBody {
 }
 
 /**
- * GET bleibt die dokumentierende Preview-Antwort. Nicht mehr 501 — POST ist
- * jetzt live — aber weiterhin auth-gated + informativ.
+ * GET stays the documenting preview response. No longer 501 — POST is
+ * now live — but still auth-gated + informative.
  */
 export async function GET(req: NextRequest): Promise<Response> {
   const userId = currentUserIdResolved(req);
@@ -88,13 +88,13 @@ export async function GET(req: NextRequest): Promise<Response> {
 export async function POST(req: NextRequest): Promise<Response> {
   const reqId = makeReqId();
 
-  // 1. Auth-Gate (member-or-higher) — Vorlage compose-and-run.
+  // 1. Auth gate (member-or-higher) — template compose-and-run.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required', reqId }, { status: 401 });
   }
 
-  // 2. Body parsen.
+  // 2. Parse body.
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;
@@ -104,8 +104,8 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const workspaceId =
     typeof body.workspaceId === 'string' ? body.workspaceId : '';
-  // N1: rawText VERBATIM übernehmen — kein trim/slice. Nur die
-  // Leer-/Typ-Validierung nutzt einen getrimmten Blick.
+  // N1: take rawText VERBATIM — no trim/slice. Only the
+  // empty/type validation uses a trimmed view.
   const rawText = typeof body.rawText === 'string' ? body.rawText : '';
 
   if (!isValidWorkspaceId(workspaceId)) {
@@ -121,13 +121,13 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 3. Workspace-Permission (member-or-higher; Viewer/fremde User → 403).
+  // 3. Workspace permission (member-or-higher; viewer/foreign user → 403).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: 'forbidden', reqId }, { status: 403 });
   }
 
-  // 4. Engine wählen — codex ausgeschlossen (wie plan-dispatch.ts). Ohne
-  //    Engine → 503 (Innovation-Pipeline braucht ein LLM).
+  // 4. Pick engine — codex excluded (like plan-dispatch.ts). Without an
+  //    engine → 503 (the innovation pipeline needs an LLM).
   const selection = await detectEngines();
   // PII vault: wrap at the engine boundary — pickEngine(…,['codex-cli']) resolves
   // to claude-cli (cloud), and runInnovate embeds the user's rawText verbatim.
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 503 },
     );
   }
-  // runInnovate erwartet callEngine: (prompt: string) => Promise<string>.
+  // runInnovate expects callEngine: (prompt: string) => Promise<string>.
   const callEngine = async (prompt: string): Promise<string> => {
     const r = await engine.chat({
       messages: [{ role: 'user', content: prompt }],
@@ -146,8 +146,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     return r.text;
   };
 
-  // 5. Engine ausführen. runInnovate ist je Stufe fail-soft; ein harter
-  //    Fehler (DB/Engine-Adapter) → 500 mit reqId.
+  // 5. Run the engine. runInnovate is fail-soft per stage; a hard
+  //    error (DB/engine adapter) → 500 with reqId.
   try {
     const result = await runInnovate(getDb().$raw, {
       workspaceId,

@@ -1,14 +1,14 @@
 /**
- * Token-Resolution für GitHub-Operationen im Workspace-Kontext.
+ * Token resolution for GitHub operations in the workspace context.
  *
- * Priorität:
- *   1. Org-Token — wenn der Workspace einer Org zugeordnet ist UND die Org
- *      eine `org_github_credentials`-Row hat.
- *   2. User-Token — Fallback auf `github_credentials` des Users (bestehender
- *      Pfad für org-lose Workspaces oder Orgs ohne GitHub-Verbindung).
- *   3. null — keine GitHub-Verbindung vorhanden.
+ * Priority:
+ *   1. Org token — when the workspace is assigned to an org AND the org
+ *      has an `org_github_credentials` row.
+ *   2. User token — fallback to the user's `github_credentials` (existing
+ *      path for org-less workspaces or orgs without a GitHub connection).
+ *   3. null — no GitHub connection present.
  *
- * Server-only. Token NIEMALS in Logs oder HTTP-Responses schreiben.
+ * Server-only. NEVER write the token to logs or HTTP responses.
  */
 
 import { decryptOrgToken } from "@/lib/github/org-repo";
@@ -18,43 +18,43 @@ import { findOrgForWorkspace } from "@/lib/orgs/repo";
 
 export interface ResolvedToken {
   token: string;
-  /** 'org' wenn das Org-Token genutzt wird, 'user' beim User-Token-Fallback. */
+  /** 'org' when the org token is used, 'user' on the user-token fallback. */
   source: "org" | "user";
 }
 
 /**
- * Löst das für einen Workspace-Kontext zu verwendende GitHub-Token auf.
+ * Resolves the GitHub token to use for a workspace context.
  *
- * Isolation-Invariante:
- *   - Org-Token wird nur genutzt wenn `findOrgForWorkspace` eine Org für
- *     den Workspace liefert UND `decryptOrgToken(orgId)` ein Token zurückgibt.
- *   - Ein User, der NICHT Member der zugehörigen Org ist, darf diesen
- *     Endpoint gar nicht erreichen (Caller-Pflicht: Auth-Check vor Aufruf).
- *   - Der Caller darf das zurückgegebene Token NIEMALS in Response-Body
- *     oder Logs schreiben.
+ * Isolation invariant:
+ *   - The org token is only used when `findOrgForWorkspace` returns an org for
+ *     the workspace AND `decryptOrgToken(orgId)` returns a token.
+ *   - A user who is NOT a member of the associated org must not reach this
+ *     endpoint at all (caller's duty: auth check before the call).
+ *   - The caller must NEVER write the returned token to the response body
+ *     or logs.
  *
- * @param workspaceId  ID des Workspaces (aus URL-Param `[id]`).
- * @param userId       ID des authentifizierten Users (currentUserIdResolved).
- * @returns ResolvedToken oder null wenn keine Verbindung vorhanden.
+ * @param workspaceId  ID of the workspace (from the URL param `[id]`).
+ * @param userId       ID of the authenticated user (currentUserIdResolved).
+ * @returns ResolvedToken or null when no connection is present.
  */
 export function resolveGithubTokenForWorkspace(
   workspaceId: string,
   userId: string,
 ): ResolvedToken | null {
-  // Schritt 1: Prüfe ob der Workspace einer Org zugeordnet ist.
+  // Step 1: check whether the workspace is assigned to an org.
   const org = findOrgForWorkspace(workspaceId);
 
   if (org) {
-    // Schritt 2: Prüfe ob die Org ein GitHub-Token hat.
-    // "token-resolver" als N8-Zweck für die Audit-Row.
+    // Step 2: check whether the org has a GitHub token.
+    // "token-resolver" as the N8 purpose for the audit row.
     const orgToken = decryptOrgToken(org.id, "token-resolver");
     if (orgToken) {
       return { token: orgToken, source: "org" };
     }
   }
 
-  // Schritt 3: Fallback auf User-Token (backward-compat für org-lose Workspaces
-  // und Orgs ohne GitHub-Verbindung).
+  // Step 3: fallback to the user token (backward-compat for org-less workspaces
+  // and orgs without a GitHub connection).
   const cred = findCredentialForUser(userId);
   if (!cred) {
     return null;
@@ -64,7 +64,7 @@ export function resolveGithubTokenForWorkspace(
   try {
     userToken = decryptGithubToken(cred.encrypted_token);
   } catch {
-    // Decrypt-Fehler (z.B. falscher Key) — behandle als "nicht verbunden".
+    // Decrypt error (e.g. wrong key) — treat as "not connected".
     return null;
   }
 

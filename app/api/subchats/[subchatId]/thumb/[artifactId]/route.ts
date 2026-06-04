@@ -1,11 +1,11 @@
 /**
  * GET /api/subchats/[subchatId]/thumb/[artifactId]
- * Member-gegatete kleine Bild-Vorschau (256px cover) für die INTERNE Sub-Chat-Ansicht.
- * Sicherheitsgrenze: das Artifact muss in DIESEM Sub-Chat referenziert sein (N2).
- * Best-effort: non-image / sharp-fail → Original-Bytes streamen.
- * EXTERN ist NICHT hier — externe Gäste nutzen .../external/[token]/media (parallel session).
+ * Member-gated small image preview (256px cover) for the INTERNAL sub-chat view.
+ * Security boundary: the artifact must be referenced in THIS sub-chat (N2).
+ * Best-effort: non-image / sharp-fail → stream original bytes.
+ * EXTERNAL is NOT here — external guests use .../external/[token]/media (parallel session).
  *
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Gathering-Intelligence goal (2026-06-02).
  */
 import { type NextRequest } from 'next/server';
 import sharp from 'sharp';
@@ -24,7 +24,7 @@ const THUMB_PX = 256;
 async function bufferStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const c of stream) {
-    // Node-Streams liefern string ODER Buffer/Uint8Array — beide robust normalisieren.
+    // Node streams yield string OR Buffer/Uint8Array — normalize both robustly.
     chunks.push(Buffer.isBuffer(c) ? c : typeof c === 'string' ? Buffer.from(c) : Buffer.from(c as Uint8Array));
   }
   return Buffer.concat(chunks);
@@ -47,7 +47,7 @@ export async function GET(
     return new Response('forbidden', { status: 403 });
   }
 
-  // N2-Grenze: das Artifact muss in DIESEM Sub-Chat hängen.
+  // N2 boundary: the artifact must belong to THIS sub-chat.
   if (!subchatReferencesArtifact(subchatId, artifactId)) {
     return new Response('not found', { status: 404 });
   }
@@ -57,7 +57,7 @@ export async function GET(
   try {
     const out = await streamArtifactUnchecked(artifactId);
     row = out.row;
-    // Defense-in-depth: streamArtifactUnchecked umgeht Membership absichtlich.
+    // Defense-in-depth: streamArtifactUnchecked bypasses membership on purpose.
     if (row.workspaceId !== sc.workspaceId) return new Response('not found', { status: 404 });
     raw = await bufferStream(out.stream);
   } catch (err) {
@@ -69,7 +69,7 @@ export async function GET(
   const mime = row.mime || 'application/octet-stream';
   const isImage = mime.startsWith('image/') && mime !== 'image/svg+xml';
 
-  // Best-effort: nur Bilder thumbnailen; sonst Original streamen.
+  // Best-effort: only thumbnail images; otherwise stream the original.
   if (isImage) {
     try {
       const thumb = await sharp(raw)
@@ -81,7 +81,7 @@ export async function GET(
         status: 200,
         headers: {
           'Content-Type': 'image/jpeg',
-          // Long cache: artifactId ist immutabel (content-addressed Upload).
+          // Long cache: artifactId is immutable (content-addressed upload).
           'Cache-Control': 'private, max-age=31536000, immutable',
           'X-Content-Type-Options': 'nosniff',
           'Content-Security-Policy': "default-src 'none'; sandbox",
@@ -94,7 +94,7 @@ export async function GET(
     }
   }
 
-  // Fallback: Original-Bytes (non-image ODER sharp-fail).
+  // Fallback: original bytes (non-image OR sharp-fail).
   return new Response(raw as unknown as ArrayBuffer, {
     status: 200,
     headers: {

@@ -1,19 +1,19 @@
 'use client';
 
 /**
- * SurfaceSkeleton — ruhige Form-Vorzeichnung der kommenden Surface-Card.
+ * SurfaceSkeleton — calm form pre-sketch of the upcoming surface card.
  *
- * Erkennung in `renderChatText`: wenn im Tail-Text ein `<surface:KIND>`
- * ohne entsprechenden `</surface:KIND>` auftaucht, rendert der Renderer
- * statt der unfertigen JSON-Garbage einen Skeleton-Block. Die Höhe/Form
- * orientiert sich am Surface-Kind, damit das Layout nicht springt wenn
- * die echte Card kurz danach reinkommt.
+ * Detection in `renderChatText`: when a `<surface:KIND>` appears in the tail
+ * text without a corresponding `</surface:KIND>`, the renderer renders
+ * a skeleton block instead of the unfinished JSON garbage. The height/form
+ * follows the surface kind, so the layout does not jump when
+ * the real card comes in shortly after.
  *
- * Apple-HIG (2026-05-30): KEIN „… streamt"-Text mehr im Produkt. Statt
- * eines technischen Status-Worts zeichnen wir die STRUKTUR der kommenden
- * Card vor — ein paar Phase-Outline-Pills + eine dünne Brand-Hairline
- * (var(--a-now)) als Progress-Geste. Ruhig, eine Akzent-Linie, der Shimmer
- * trägt die „in Arbeit"-Bedeutung (motion-meaning) statt eines Labels.
+ * Apple-HIG (2026-05-30): NO more „… streamt" text in the product. Instead
+ * of a technical status word, we pre-sketch the STRUCTURE of the upcoming
+ * card — a few phase-outline pills + a thin brand hairline
+ * (var(--a-now)) as a progress gesture. Calm, one accent line, the shimmer
+ * carries the „in progress" meaning (motion-meaning) instead of a label.
  */
 
 import type { CSSProperties } from 'react';
@@ -73,11 +73,11 @@ export function SurfaceSkeleton({ kind }: Props) {
         height,
       }}
     >
-      {/* Brand-Progress-Hairline (oben) — die einzige Akzent-Geste. */}
+      {/* Brand progress hairline (top) — the only accent gesture. */}
       <div style={hairlineStyle} aria-hidden="true" />
 
-      {/* Form-Vorzeichnung: strukturelle Outline der kommenden Card.
-          Phase-Outline-Pills (Header-Row) + ruhige Inhalts-Zeilen. */}
+      {/* Form pre-sketch: structural outline of the upcoming card.
+          Phase-outline pills (header row) + calm content lines. */}
       <div style={outlineStyle} aria-hidden="true">
         <div style={pillRowStyle}>
           <span style={{ ...pillStyle, width: 56 }} />
@@ -99,14 +99,14 @@ const wrapStyle: CSSProperties = {
   maxWidth: 520,
   borderRadius: 14,
   border: '0.5px solid var(--line-2)',
-  // Opaque (war 70%/transparent) — Parent-Bleed-Fix (Sweep 2026-05-01)
+  // Opaque (was 70%/transparent) — parent-bleed fix (Sweep 2026-05-01)
   background: 'var(--sheet-2)',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
 };
 
-// Dünne Brand-Hairline oben — Progress-Geste statt Status-Wort.
+// Thin brand hairline at the top — progress gesture instead of a status word.
 const hairlineStyle: CSSProperties = {
   position: 'absolute',
   top: 0,
@@ -121,7 +121,7 @@ const hairlineStyle: CSSProperties = {
   zIndex: 2,
 };
 
-// Strukturelle Form-Vorzeichnung der kommenden Card.
+// Structural form pre-sketch of the upcoming card.
 const outlineStyle: CSSProperties = {
   position: 'relative',
   display: 'flex',

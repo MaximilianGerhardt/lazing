@@ -1,23 +1,23 @@
 /**
- * GitHub REST-Client für laz.ing.
+ * GitHub REST client for laz.ing.
  *
- * Zwei Modi:
- *   - PAT (Personal Access Token) — primary path. User pasted das Token
- *     einmal, wir speichern es AES-256-GCM-verschlüsselt (re-use von
+ * Two modes:
+ *   - PAT (Personal Access Token) — primary path. User pastes the token
+ *     once, we store it AES-256-GCM-encrypted (re-use of
  *     `lib/security/credentials.ts:encryptCredential`).
- *   - OAuth — secondary. Nur wenn `LAZYOS_GITHUB_CLIENT_ID` +
- *     `LAZYOS_GITHUB_CLIENT_SECRET` gesetzt sind. Siehe `oauth.ts`.
+ *   - OAuth — secondary. Only when `LAZYOS_GITHUB_CLIENT_ID` +
+ *     `LAZYOS_GITHUB_CLIENT_SECRET` are set. See `oauth.ts`.
  *
- * Backport aus Lazing-V2 `packages/adapters/src/github/transports/`
- * — wir extrahieren nur die Funktionen die wir hier brauchen (validate,
- * list-repos). Issue/PR/Comment-Surface ist Agent 4-7 (Realtime).
+ * Backport from Lazing-V2 `packages/adapters/src/github/transports/`
+ * — we extract only the functions we need here (validate,
+ * list-repos). The issue/PR/comment surface is Agent 4-7 (Realtime).
  *
- * Designentscheidung: kein Octokit-Dep. Plain `fetch` reicht für die
- * 3 Endpunkte die wir hier ansprechen (GET /user, GET /user/repos,
- * GET /repos/:owner/:repo). Spart 1.8MB bundle + transitive deps.
+ * Design decision: no Octokit dep. Plain `fetch` suffices for the
+ * 3 endpoints we hit here (GET /user, GET /user/repos,
+ * GET /repos/:owner/:repo). Saves 1.8MB bundle + transitive deps.
  *
- * Rate-Limit: GitHub erlaubt 5000 Calls/h für authenticated requests.
- * Wir cachen NICHT — jede Liste fetched live (für UI „Sync" Button).
+ * Rate limit: GitHub allows 5000 calls/h for authenticated requests.
+ * We do NOT cache — every list fetches live (for the UI "Sync" button).
  */
 
 import { decryptCredential } from "@/lib/security/credentials";

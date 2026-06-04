@@ -30,9 +30,9 @@ export async function GET(req: NextRequest): Promise<Response> {
       { status: 401 },
     );
   }
-  // Phase IA-Konsolidierung 2026-04-29: Default = Top-Level-Orgs only,
-  // damit der TopNav-Switcher nicht 10 Sub-Orgs aufzeigt. Wer Sub-Orgs
-  // braucht, fragt mit ?include=all.
+  // Phase IA consolidation 2026-04-29: default = top-level orgs only,
+  // so the TopNav switcher does not list 10 sub-orgs. Whoever needs sub-orgs
+  // asks with ?include=all.
   const url = new URL(req.url);
   const includeAll = url.searchParams.get("include") === "all";
   const orgs = includeAll ? listOrgsForUser(userId) : listTopLevelOrgsForUser(userId);
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       : "client";
 
   const db = getDb();
-  // Conflict-Check
+  // Conflict check
   const existing = db
     .select({ id: organizations.id })
     .from(organizations)
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     })
     .run();
 
-  // Auto-membership: erstellender User als founder.
+  // Auto-membership: creating user as founder.
   db.insert(orgMemberships)
     .values({
       id: `om_${ulid()}`,
@@ -150,15 +150,15 @@ export async function POST(req: NextRequest): Promise<Response> {
     })
     .run();
 
-  // Owner setzen.
+  // Set owner.
   db.$raw
     .prepare(
       "UPDATE organizations SET responsible_user_id = ?, updated_at = ? WHERE id = ?",
     )
     .run(userId, now.getTime(), id);
 
-  // Phase IA.4 — pro neuer Org direkt einen Org-Root-Pseudo-Workspace
-  // anlegen, damit der Org-Switcher sofort einen scoped Chat hat.
+  // Phase IA.4 — for each new org create an org-root pseudo-workspace
+  // directly, so the org switcher immediately has a scoped chat.
   const rootWsId = `__org_root__:${id}`;
   db.$raw
     .prepare(

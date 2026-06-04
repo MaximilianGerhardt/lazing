@@ -1,17 +1,17 @@
 /**
  * audit-hex-in-tsx.ts
  *
- * Findet `#RGB`/`#RRGGBB`/`#RRGGBBAA`-Hex-Farben in *.tsx-Dateien
- * (lib/ + app/). Hex-Farben in Components sind Token-Lügen — sie
- * umgehen das Theme-System.
+ * Finds `#RGB`/`#RRGGBB`/`#RRGGBBAA` hex colors in *.tsx files
+ * (lib/ + app/). Hex colors in components are token lies — they
+ * bypass the theme system.
  *
  * Allowlist:
- *   - // audit-hex-ignore   (auf der Zeile darüber)
- *   - SVG/Path-Color-Attribute in inline JSX werden mitgezählt; wer das
- *     nicht will, setzt den Marker.
+ *   - // audit-hex-ignore   (on the line above)
+ *   - SVG/path color attributes in inline JSX are counted; whoever doesn't
+ *     want that sets the marker.
  *
- * Output: Liste + count.
- * Exit: 0 (informativ, NICHT blocking).
+ * Output: list + count.
+ * Exit: 0 (informational, NOT blocking).
  *
  * Run:  tsx scripts/audit-hex-in-tsx.ts
  */
@@ -65,7 +65,7 @@ function scan(files: string[]): Hit[] {
       HEX_RE.lastIndex = 0;
       let m: RegExpExecArray | null;
       while ((m = HEX_RE.exec(line)) !== null) {
-        // Filter: tatsächliche Hex-Farbe (3, 4, 6, 8 chars hinter #)
+        // Filter: an actual hex color (3, 4, 6, 8 chars after #)
         const hex = m[0];
         const len = hex.length - 1;
         if (![3, 4, 6, 8].includes(len)) continue;

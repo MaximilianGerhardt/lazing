@@ -1,16 +1,16 @@
 /**
- * Drift-Audit → StageDescriptor[]-Adapter (Sub-Plan 5 Welle 2, 2026-05-01).
+ * Drift-Audit → StageDescriptor[] adapter (Sub-Plan 5 Wave 2, 2026-05-01).
  *
  * Stages:
- *   1. select-targets — Welche Tickets/Workstreams werden re-evaluiert
- *   2. re-run         — Alte Reasoning-Verify-Aufrufe wiederholen
- *   3. compare        — Original vs. Re-Run, Drift quantifizieren
- *   4. report         — Drift-Report persistieren / pushen
+ *   1. select-targets — Which tickets/workstreams get re-evaluated
+ *   2. re-run         — Repeat old reasoning-verify calls
+ *   3. compare        — Original vs. re-run, quantify drift
+ *   4. report         — Persist / push the drift report
  *
- * Mapping ähnelt dem RAG-Adapter:
- *   - phase=done → alle done
- *   - phase=failed → active failed, Rest skipped
- *   - active-Stage progressPct = (processedTargets / totalTargets) * 100
+ * Mapping resembles the RAG adapter:
+ *   - phase=done → all done
+ *   - phase=failed → active failed, rest skipped
+ *   - active-stage progressPct = (processedTargets / totalTargets) * 100
  */
 
 import type { StageDescriptor, EtaBucket } from '@/lib/ui/pip';

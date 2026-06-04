@@ -1,25 +1,25 @@
 'use client';
 
 /**
- * LoopPhaseCard — Welle 7 (2026-05-01)
+ * LoopPhaseCard — Wave 7 (2026-05-01)
  *
- * Generic Card für Loop-Phase-Events des 3-Tier-Coding-Loops:
- *   - auto-dispatch-stage          (Stage executed: senior-dev/reviewer/critic)
- *   - auto-dispatch-stage-retry    (Stage retry nach Rate-Limit)
- *   - auto-dispatch-overview       (Loop gestartet, n Sub-Tickets gequeued)
- *   - auto-dispatch-pause          (Loop pausiert wegen TPM-Budget)
- *   - tier-output                  (Agent eines Tiers liefert Output)
- *   - iterate-resumed              (Loop nach Sniper-Inject fortgesetzt)
- *   - sniper-pause-start           (Pause vor Vn+1 für User-Inject)
+ * Generic card for loop-phase events of the 3-tier coding loop:
+ *   - auto-dispatch-stage          (stage executed: senior-dev/reviewer/critic)
+ *   - auto-dispatch-stage-retry    (stage retry after rate limit)
+ *   - auto-dispatch-overview       (loop started, n sub-tickets queued)
+ *   - auto-dispatch-pause          (loop paused due to TPM budget)
+ *   - tier-output                  (agent of a tier delivers output)
+ *   - iterate-resumed              (loop resumed after sniper inject)
+ *   - sniper-pause-start           (pause before Vn+1 for user inject)
  *
- * User-Befund 2026-05-01: 10 von 13 Demo Fitness-Loop-Kinds hatten KEINE
- * dedizierte Surface — nur Toast-Ersatz oder null. Diese Card schließt die
- * Coverage-Lücke. Pro Kind ein eigenes Phase-Glyph + Phase-Label, gemeinsame
- * Layout-Struktur (Header-Pill + Body + optionale Meta-Zeile).
+ * User finding 2026-05-01: 10 of 13 demo fitness-loop kinds had NO
+ * dedicated surface — only a toast substitute or null. This card closes the
+ * coverage gap. Per kind its own phase glyph + phase label, shared
+ * layout structure (header pill + body + optional meta line).
  *
- * Token-bind, Apple-Pure: keine Inline-Styles, alle Farben/Radien aus
- * --line-2/--sheet-2/--ink/--a-now Tokens. Mount-Animation via srf-pop
- * (siehe app/components.css B' · SRF).
+ * Token bind, Apple-pure: no inline styles, all colors/radii from
+ * --line-2/--sheet-2/--ink/--a-now tokens. Mount animation via srf-pop
+ * (see app/components.css B' · SRF).
  */
 
 import type { ReactElement } from 'react';
@@ -37,17 +37,17 @@ interface Props {
   kind: LoopPhaseKind;
   workstreamId?: string;
   workspaceId?: string;
-  /** z.B. 'senior-dev', 'code-reviewer', 'critic'. */
+  /** e.g. 'senior-dev', 'code-reviewer', 'critic'. */
   stage?: string;
-  /** z.B. 'opus' / 'sonnet' / 'haiku'. */
+  /** e.g. 'opus' / 'sonnet' / 'haiku'. */
   tier?: string;
-  /** Index innerhalb des Tiers (0..N-1). */
+  /** Index within the tier (0..N-1). */
   agentIdx?: number;
-  /** Stage-Index in der Master-Pipeline (0,1,2). */
+  /** Stage index in the master pipeline (0,1,2). */
   stageIdx?: number;
   attempt?: number;
   maxAttempts?: number;
-  /** Wartezeit in ms bei Retry/Pause. */
+  /** Wait time in ms on retry/pause. */
   waitMs?: number;
   versionN?: number;
   text?: string;

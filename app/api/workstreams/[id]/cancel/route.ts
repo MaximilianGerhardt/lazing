@@ -1,10 +1,10 @@
 /**
  * POST /api/workstreams/[id]/cancel — Sub-Plan 01c (2026-04-29).
  *
- * User-Trigger: hängenden oder unerwünschten Workstream sauber als done
- * markieren mit Audit-Event „cancelled-by-user". KEIN Process-Kill — wenn
- * noch Spawns laufen, beenden sie sich selbst (events danach werden
- * weiterhin emittiert, sind aber nicht mehr „aktiv" UI-seitig).
+ * User trigger: cleanly mark a hanging or unwanted workstream as done
+ * with an audit event "cancelled-by-user". NO process kill — if
+ * spawns are still running, they terminate themselves (events after that are
+ * still emitted, but are no longer "active" on the UI side).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

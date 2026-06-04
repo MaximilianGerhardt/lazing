@@ -1,8 +1,8 @@
 /**
  * DELETE /api/tickets/[id]/delete-hard
  *
- * Echtes Löschen: emit ticket_deleted event. Projection filtert Ticket danach
- * komplett aus der Liste. Events bleiben im Log (Audit-Trail).
+ * Real deletion: emit ticket_deleted event. The projection then filters the
+ * ticket out of the list entirely. Events remain in the log (audit trail).
  */
 
 import { NextResponse } from 'next/server';

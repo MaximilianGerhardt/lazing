@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * SubchatComposer — geteilter Composer (extern + intern).
- * WhatsApp-Standard: Anhang-Button (Fotos/Medien/Dokumente), Staging-Vorschau mit
- * Entfernen, autogrow-Textarea, runder Send-Button (SVG, keine Emojis). Der
- * Upload-Transport liegt beim Parent: onSend liefert Text + rohe Files; der Parent
- * lädt hoch und postet. Nur laz.ing-Tokens. Gathering-Intelligence (2026-06-02).
+ * SubchatComposer — shared composer (external + internal).
+ * WhatsApp standard: attach button (photos/media/documents), staging preview with
+ * remove, autogrow textarea, round send button (SVG, no emojis). The
+ * upload transport lives in the parent: onSend delivers text + raw files; the parent
+ * uploads and posts. Only laz.ing tokens. Gathering-Intelligence (2026-06-02).
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -20,22 +20,22 @@ const ACCEPT =
   'image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip';
 
 /**
- * Uploader (Progress-Modus): lädt EINE Datei hoch, meldet Fortschritt 0..100 und
- * resolved auf den fertigen Artefakt-Eintrag (oder wirft). Der Parent (z.B.
- * InternalSubchat) implementiert den Transport (XHR mit upload.onprogress).
+ * Uploader (progress mode): uploads ONE file, reports progress 0..100 and
+ * resolves to the finished artifact entry (or throws). The parent (e.g.
+ * InternalSubchat) implements the transport (XHR with upload.onprogress).
  */
 export type Uploader = (file: File, onProgress: (pct: number) => void) => Promise<UiAttachment>;
 
 interface Staged {
   file: File;
-  url: string | null; // objectURL nur für Bilder (Vorschau)
+  url: string | null; // objectURL only for images (preview)
   pct?: number;
   status?: 'idle' | 'uploading' | 'done' | 'error';
-  audioDurationMs?: number; // nur für aufgenommene Sprachnachrichten gesetzt
+  audioDurationMs?: number; // only set for recorded voice messages
 }
 
-// Sprachnachricht-MIME-Kandidaten (lokale Kopie aus useMediaRecorderStt.pickMime;
-// der private Helper wird bewusst NICHT importiert — Composer ist self-contained).
+// Voice-message MIME candidates (local copy from useMediaRecorderStt.pickMime;
+// the private helper is deliberately NOT imported — composer is self-contained).
 function pickAudioMime(): string {
   if (typeof MediaRecorder === 'undefined') return '';
   const candidates = [
@@ -77,26 +77,26 @@ export function SubchatComposer({
   enableVoiceMessage = false,
 }: {
   /**
-   * Legacy-Upload-Pfad (ExternalSubchat): Composer übergibt Text + rohe Files,
-   * der Parent lädt hoch & postet. Optional, weil der Progress-Modus
-   * (uploader + onSendUploaded) onSend nicht aufruft.
+   * Legacy upload path (ExternalSubchat): composer passes text + raw files,
+   * the parent uploads & posts. Optional, because progress mode
+   * (uploader + onSendUploaded) does not call onSend.
    */
   onSend?: (text: string, files: File[]) => Promise<void> | void;
   placeholder: string;
   busy?: boolean;
   topSlot?: React.ReactNode;
-  /** Text von außen in den Composer setzen (z.B. KI-Vorschlag-Chip). nonce>0 triggert. */
+  /** Set text into the composer from outside (e.g. AI-suggestion chip). nonce>0 triggers. */
   seed?: { text: string; nonce: number };
-  /** Throttled (>=1/2s) bei jedem Tastendruck, solange der Entwurf nicht leer ist. */
+  /** Throttled (>=1/2s) on each keystroke, as long as the draft is not empty. */
   onTyping?: () => void;
-  /** Wenn gesetzt: Composer treibt Per-Datei-Upload + Fortschritt und übergibt Artefakte an onSendUploaded. */
+  /** When set: composer drives per-file upload + progress and passes artifacts to onSendUploaded. */
   uploader?: Uploader;
-  /** Mit uploader genutzt: erhält Text + fertige Anhänge (statt onSend(text, files)). */
+  /** Used with uploader: receives text + finished attachments (instead of onSend(text, files)). */
   onSendUploaded?: (text: string, attachments: UiAttachment[]) => Promise<void> | void;
-  /** Mic-Button (Diktat in das Textfeld). Default false. Self-gated via STT-Support. */
+  /** Mic button (dictation into the text field). Default false. Self-gated via STT support. */
   enableVoice?: boolean;
-  /** Sprachnachricht-Aufnahme (raw audio → staged attachment). Default false.
-   *  Erfordert Progress-Modus (uploader + onSendUploaded). Self-gated via getUserMedia/MediaRecorder. */
+  /** Voice-message recording (raw audio → staged attachment). Default false.
+   *  Requires progress mode (uploader + onSendUploaded). Self-gated via getUserMedia/MediaRecorder. */
   enableVoiceMessage?: boolean;
 }): React.ReactElement {
   const [draft, setDraft] = useState('');
@@ -110,14 +110,14 @@ export function SubchatComposer({
   const lastTypingRef = useRef(0);
   const attachWrapRef = useRef<HTMLDivElement>(null);
 
-  // Progress-Modus aktiv, wenn Parent beide Upload-Hooks liefert.
+  // Progress mode active when the parent provides both upload hooks.
   const progressMode = !!uploader && !!onSendUploaded;
 
-  // Sprach-Diktat — STT Dual-Path (2026-06-03, Owner-Befund „transkribiert nicht"):
-  // on-device Web-Speech-API ZUERST (iOS-Safari/Chrome über HTTPS, KEIN Backend),
-  // sonst MediaRecorder+Server-Whisper als Fallback — identisch zum Haupt-Composer
-  // (lib/chat/ChatShell.tsx). Vorher nutzte der Subchat NUR Whisper → ohne
-  // :4202-Daemon stumm. Das unified `stt`-Objekt lässt alle Aufrufer unverändert.
+  // Voice dictation — STT dual-path (2026-06-03, owner finding "does not transcribe"):
+  // on-device Web Speech API FIRST (iOS Safari/Chrome over HTTPS, NO backend),
+  // otherwise MediaRecorder+server Whisper as fallback — identical to the main composer
+  // (lib/chat/ChatShell.tsx). Previously the subchat used ONLY Whisper → silent without
+  // the :4202 daemon. The unified `stt` object leaves all callers unchanged.
   const sttOnFinal = useCallback((t: string) => {
     const clean = t.trim();
     if (clean) setDraft((d) => (d ? `${d} ${clean}` : clean));
@@ -134,10 +134,10 @@ export function SubchatComposer({
     stop: () => (useWebSpeech ? ws.stop() : mr.stop()),
   };
 
-  // ---- Sprachnachricht-Aufnahme (raw audio → staged attachment) ----
-  // Eigene MediaRecorder-Instanz (NICHT useMediaRecorderStt, das die Blob
-  // hochlädt + verwirft). Modelliert nach dessen pickMime/getUserMedia/
-  // recorder.start(1000)/onstop-Muster, resolved aber zu einer Blob.
+  // ---- Voice-message recording (raw audio → staged attachment) ----
+  // Own MediaRecorder instance (NOT useMediaRecorderStt, which uploads the blob
+  // + discards it). Modelled after its pickMime/getUserMedia/
+  // recorder.start(1000)/onstop pattern, but resolves to a blob.
   const [recording, setRecording] = useState(false);
   const [recElapsedMs, setRecElapsedMs] = useState(0);
   const [audioHydrated, setAudioHydrated] = useState(false);
@@ -189,7 +189,7 @@ export function SubchatComposer({
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      return; // Mic verweigert/nicht gefunden → still nichts tun (kein Modal-Spam).
+      return; // Mic denied/not found → silently do nothing (no modal spam).
     }
     audioStreamRef.current = stream;
     audioChunksRef.current = [];
@@ -218,7 +218,7 @@ export function SubchatComposer({
       const blob = new Blob(chunks, { type: usedMime });
       setRecording(false);
       setRecElapsedMs(0);
-      // Stille/zu kurz → still verwerfen (nichts stagen).
+      // Silence/too short → silently discard (stage nothing).
       if (blob.size < 500) return;
       const ext = usedMime.includes('mp4') ? 'm4a' : usedMime.includes('ogg') ? 'ogg' : 'webm';
       const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
@@ -253,7 +253,7 @@ export function SubchatComposer({
     recTickRef.current = setInterval(() => {
       setRecElapsedMs(Date.now() - recStartRef.current);
     }, 250);
-    // Hard-Cap 90s — schützt gegen vergessene Aufnahme.
+    // Hard cap 90s — protects against a forgotten recording.
     recMaxTimerRef.current = setTimeout(() => {
       const r = audioRecorderRef.current;
       if (r && r.state !== 'inactive') {
@@ -270,7 +270,7 @@ export function SubchatComposer({
     const r = audioRecorderRef.current;
     if (r && r.state !== 'inactive') {
       try {
-        r.stop(); // triggert onstop → staging
+        r.stop(); // triggers onstop → staging
       } catch {
         clearRecTimers();
         stopAudioTracks();
@@ -281,7 +281,7 @@ export function SubchatComposer({
     }
   }, [clearRecTimers, stopAudioTracks]);
 
-  // ObjectURLs aufräumen + Audio-Aufnahme stoppen (Mic-Tracks + Timer).
+  // Clean up objectURLs + stop audio recording (mic tracks + timer).
   useEffect(() => {
     return () => {
       staged.forEach((s2) => s2.url && URL.revokeObjectURL(s2.url));
@@ -323,14 +323,14 @@ export function SubchatComposer({
     setStaged((prev) => [...prev, ...next].slice(0, 10));
   }, []);
 
-  // Anhang-Quelle (Kamera / Fotos / Datei) anstoßen + Popover schließen.
+  // Trigger the attachment source (camera / photos / file) + close the popover.
   const pickSource = useCallback((src: AttachSource) => {
     setSourceOpen(false);
     const el = src === 'camera' ? cameraRef.current : src === 'gallery' ? galleryRef.current : fileRef.current;
     el?.click();
   }, []);
 
-  // Popover bei Außen-Tap schließen.
+  // Close the popover on an outside tap.
   useEffect(() => {
     if (!sourceOpen) return;
     const onDoc = (e: PointerEvent) => {
@@ -357,7 +357,7 @@ export function SubchatComposer({
     ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
   }, []);
 
-  // Externer Seed (KI-Vorschlag-Chip → Composer füllen + fokussieren).
+  // External seed (AI-suggestion chip → fill the composer + focus).
   useEffect(() => {
     if (!seed || seed.nonce <= 0) return;
     setDraft(seed.text);
@@ -377,7 +377,7 @@ export function SubchatComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed?.nonce]);
 
-  // Tipp-Signal throttled (>=2s), nur solange Entwurf nicht leer ist.
+  // Typing signal throttled (>=2s), only while the draft is not empty.
   const fireTyping = useCallback(
     (value: string) => {
       if (!onTyping) return;
@@ -407,7 +407,7 @@ export function SubchatComposer({
     if (!canSend) return;
     const text = draft.trim();
 
-    // Progress-Modus: Per-Datei-Upload mit Fortschritt, dann onSendUploaded.
+    // Progress mode: per-file upload with progress, then onSendUploaded.
     if (progressMode && uploader && onSendUploaded) {
       const snapshot = staged;
       setUploadError(false);
@@ -425,8 +425,8 @@ export function SubchatComposer({
                 ),
               );
             });
-            // kind:'audio' muss die Message erreichen — der Uploader leitet kind
-            // nur aus image/* vs. file ab. Bei Audio-Dateien lokal überschreiben.
+            // kind:'audio' must reach the message — the uploader derives kind
+            // only from image/* vs. file. For audio files, override locally.
             const fixed: UiAttachment = snapshot[i].file.type.startsWith('audio/')
               ? { ...art, kind: 'audio' }
               : art;
@@ -435,7 +435,7 @@ export function SubchatComposer({
               prev.map((it, idx) => (idx === i ? { ...it, status: 'done', pct: 100 } : it)),
             );
           } catch {
-            // N1: Datei bleibt gestaged, Entwurf bleibt erhalten; token-only Fehler.
+            // N1: file stays staged, draft is preserved; token-only error.
             setStaged((prev) =>
               prev.map((it, idx) => (idx === i ? { ...it, status: 'error' } : it)),
             );
@@ -449,7 +449,7 @@ export function SubchatComposer({
       return;
     }
 
-    // Legacy-Modus (ExternalSubchat, unverändert): rohe Files an onSend.
+    // Legacy mode (ExternalSubchat, unchanged): raw files to onSend.
     if (!onSend) return;
     const files = staged.map((s2) => s2.file);
     staged.forEach((s2) => s2.url && URL.revokeObjectURL(s2.url));
@@ -517,7 +517,7 @@ export function SubchatComposer({
       ) : null}
 
       <div style={s.composerInputRow}>
-        {/* Drei explizite Quellen: Kamera, Galerie, Datei — alle versteckt. */}
+        {/* Three explicit sources: camera, gallery, file — all hidden. */}
         <input
           ref={cameraRef}
           type="file"
@@ -548,7 +548,7 @@ export function SubchatComposer({
           style={{ display: 'none' }}
           onChange={(e) => {
             addFiles(e.target.files);
-            e.target.value = ''; // gleiche Datei erneut wählbar
+            e.target.value = ''; // same file selectable again
           }}
         />
 
@@ -614,7 +614,7 @@ export function SubchatComposer({
             style={stt.isListening ? s.micBtnActive : s.micBtn}
             aria-label={stt.isListening ? 'Aufnahme stoppen' : 'Sprachnachricht diktieren'}
             aria-pressed={stt.isListening}
-            // Push-to-record: gedrückt halten = aufnehmen, loslassen = transkribieren.
+            // Push-to-record: hold = record, release = transcribe.
             onPointerDown={(e) => {
               e.preventDefault();
               stt.start();
@@ -635,7 +635,7 @@ export function SubchatComposer({
             style={recording ? s.micBtnActive : s.micBtn}
             aria-label={recording ? 'Sprachnachricht-Aufnahme stoppen' : 'Sprachnachricht aufnehmen'}
             aria-pressed={recording}
-            // Push-to-record: gedrückt halten = aufnehmen, loslassen = als Anhang stagen.
+            // Push-to-record: hold = record, release = stage as an attachment.
             onPointerDown={(e) => {
               e.preventDefault();
               void startAudio();

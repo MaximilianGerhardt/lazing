@@ -4,7 +4,7 @@
  * EnginePill — compact pill below the chat composer for switching the
  * runtime-engine for the next message (Track 2 of "Engine-Pill 2026-05-23").
  *
- * Direktive (User, 2026-05-23):
+ * Directive (user, 2026-05-23):
  *   "über die Engine Pill im Chat unten per Dropdown auswählen können, um
  *    ggf. zu wechseln"
  *
@@ -46,8 +46,8 @@ interface EngineOption {
   detail: string;
 }
 
-// C6 entgate (2026-05-25): alle vier Modi wählbar, keine Gating-Logik.
-// Keine Emojis — laz.ing Design Manifest v1.0, clean typographic pill.
+// C6 un-gate (2026-05-25): all four modes selectable, no gating logic.
+// No emojis — laz.ing Design Manifest v1.0, a clean typographic pill.
 const OPTIONS: EngineOption[] = [
   {
     mode: 'parallel-all',

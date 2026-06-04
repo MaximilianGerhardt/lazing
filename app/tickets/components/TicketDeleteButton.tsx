@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * TicketDeleteButton — Hart-Delete mit Confirm-Dialog.
+ * TicketDeleteButton — hard delete with a confirm dialog.
  *
- * Ruft POST /api/tickets/:id/delete-hard (emits `ticket_deleted`-Event,
- * entfernt Projection). Navigiert danach zu /tickets.
+ * Calls POST /api/tickets/:id/delete-hard (emits a `ticket_deleted` event,
+ * removes the projection). Navigates to /tickets afterwards.
  */
 
 import { useState, type CSSProperties } from 'react';

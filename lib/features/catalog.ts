@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Maximilian Gerhardt
 //
-// lib/features/catalog — Feature-Katalog der laz.ing-Aufpfropfungen auf
-// Claude Code / Codex (Research-First, file:line-belegt).
+// lib/features/catalog — feature catalog of the laz.ing add-ons on top of
+// Claude Code / Codex (research-first, file:line-backed).
 //
-// Diese Datei ist PURE DATEN (kein I/O, kein LLM, keine DB). Sie ist der
-// kanonische Index dessen, was laz.ing ON-TOP von raw `claude` / `codex` an
-// Feature-Schichten gebaut hat. Jeder Eintrag trägt:
-//   - Function (was es tut)
-//   - Mechanism (wie es arbeitet, file:line-belegt)
-//   - Improves (was es gegenüber dem raw CLI verbessert)
-//   - useCases (konkrete Owner-Szenarien)
-//   - beforeAfter ODER prosCons (1 klare Gegenüberstellung)
-//   - refs[] (file:line-Verlinkungen für Tiefen-Recherche)
+// This file is PURE DATA (no I/O, no LLM, no DB). It is the
+// canonical index of what laz.ing has built ON TOP of raw `claude` / `codex`
+// in terms of feature layers. Each entry carries:
+//   - Function (what it does)
+//   - Mechanism (how it works, file:line-backed)
+//   - Improves (what it improves over the raw CLI)
+//   - useCases (concrete owner scenarios)
+//   - beforeAfter OR prosCons (1 clear contrast)
+//   - refs[] (file:line links for deep research)
 //   - status (live | dev | planned | deferred | owner-gated)
 //   - onTop (claude-code | codex | both | standalone)
 //
-// Disziplin:
-//   - N1 (Detail preservation): keine Texte gekürzt; rationale verbatim.
-//   - N6 (Determinismus): pure Daten — gleicher Build → gleicher Catalog.
-//   - N4 (Recovery before reinvent): file:line-Refs zeigen exakt auf den
-//     bestehenden Code, der diese Feature-Schicht trägt; nichts erfunden.
+// Discipline:
+//   - N1 (Detail preservation): no texts shortened; rationale verbatim.
+//   - N6 (determinism): pure data — same build → same catalog.
+//   - N4 (Recovery before reinvent): file:line refs point exactly at the
+//     existing code that carries this feature layer; nothing invented.
 //
-// Sortierreihenfolge innerhalb einer Category bewusst gewählt:
+// Sort order within a category deliberately chosen:
 //   live > owner-gated > dev > planned > deferred.
 
 // ---------------------------------------------------------------------------
@@ -47,9 +47,9 @@ export type FeatureCategory =
 export type FeatureOnTop = 'claude-code' | 'codex' | 'both' | 'standalone';
 
 export interface FeatureRef {
-  /** Menschliches Label, z.B. `spawnInTmux` oder `SURFACE_KINDS`. */
+  /** Human-readable label, e.g. `spawnInTmux` or `SURFACE_KINDS`. */
   readonly label: string;
-  /** Relativer Repo-Pfad, optional mit `:<line>`-Suffix. */
+  /** Relative repo path, optionally with a `:<line>` suffix. */
   readonly path: string;
 }
 
@@ -64,26 +64,26 @@ export interface FeatureProsCons {
 }
 
 export interface Feature {
-  /** Slug — stabil, kebab-case, eindeutig. */
+  /** Slug — stable, kebab-case, unique. */
   readonly id: string;
-  /** Verbatim Name, wie im Code/Doc auftauchend (N1). */
+  /** Verbatim name, as it appears in the code/doc (N1). */
   readonly name: string;
   readonly category: FeatureCategory;
   readonly status: FeatureStatus;
   readonly onTop: FeatureOnTop;
-  /** Was tut es. 1-3 Sätze. */
+  /** What it does. 1-3 sentences. */
   readonly function: string;
-  /** Wie arbeitet es, mit file:line-Belegen im Fließtext. */
+  /** How it works, with file:line references in the prose. */
   readonly mechanism: string;
-  /** Was verbessert es gegenüber dem raw CLI / dem Vor-Stand. */
+  /** What it improves over the raw CLI / the previous state. */
   readonly improves: string;
-  /** Konkrete Owner-Szenarien. */
+  /** Concrete owner scenarios. */
   readonly useCases: readonly string[];
-  /** Wenn Vorher/Nachher klarer ist. */
+  /** When before/after is clearer. */
   readonly beforeAfter?: FeatureBeforeAfter;
-  /** Wenn Pro/Kontra klarer ist (sich nicht ausschließen mit beforeAfter). */
+  /** When pros/cons is clearer (not mutually exclusive with beforeAfter). */
   readonly prosCons?: FeatureProsCons;
-  /** Mindestens 1 Ref. */
+  /** At least 1 ref. */
   readonly refs: readonly FeatureRef[];
 }
 
@@ -93,7 +93,7 @@ export interface Feature {
 
 export const FEATURE_CATALOG: readonly Feature[] = [
   // =========================================================================
-  // CLI-on-Top — wie laz.ing den raw `claude` / `codex` einbettet
+  // CLI-on-Top — how laz.ing embeds the raw `claude` / `codex`
   // =========================================================================
   {
     id: 'claude-cli-stream-json-session',
@@ -228,7 +228,7 @@ export const FEATURE_CATALOG: readonly Feature[] = [
   },
 
   // =========================================================================
-  // Chat-Surfaces — die XML-ish Surface-Tag-Sprache + Renderer
+  // Chat-Surfaces — the XML-ish surface-tag language + renderer
   // =========================================================================
   {
     id: 'surface-tag-protocol',
@@ -722,7 +722,7 @@ export const FEATURE_CATALOG: readonly Feature[] = [
   },
 
   // =========================================================================
-  // Self-Learning / WARUM-Engine (Stream A, 2026-05-27)
+  // Self-Learning / WHY engine (Stream A, 2026-05-27)
   // =========================================================================
   {
     id: 'decisions-read-back',

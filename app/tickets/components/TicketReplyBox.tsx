@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * TicketReplyBox — Kommentar-Eingabe mit @-Autocomplete.
+ * TicketReplyBox — comment input with @-autocomplete.
  *
- * Slack-Stil:
- *   - Textarea mit auto-grow
- *   - `@` startet Mention-Menü: @max, @chairman, @agent:<role>, @<workspace>
- *   - Enter (ohne Shift) submittet
- *   - Nach Submit: router.refresh() damit neuer Event in Thread landet
+ * Slack style:
+ *   - textarea with auto-grow
+ *   - `@` opens the mention menu: @max, @chairman, @agent:<role>, @<workspace>
+ *   - Enter (without Shift) submits
+ *   - after submit: router.refresh() so the new event lands in the thread
  *
- * Kein Server-Side-Mention-Parser hier — der lebt später in
- * lib/comments/mentions.ts (Phase D aus Plan-File). Für den UI-MVP
- * reicht das reine UX-Affordance.
+ * No server-side mention parser here — that lives later in
+ * lib/comments/mentions.ts (Phase D from the plan file). For the UI MVP
+ * the pure UX affordance is enough.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';

@@ -1,12 +1,12 @@
 /**
- * /onboarding/kunde — geführter „Neuer Kunde"-Wizard (Bundle-B · 2026-06-03).
+ * /onboarding/kunde — guided "new customer" wizard (Bundle-B · 2026-06-03).
  *
- * Server-Shell, spiegelt das bewährte Auth-Pattern von `app/onboarding/page.tsx`
- * (current-user resolven oder redirect /login). Subfolder von `app/onboarding/`,
- * KEINE Kollision mit `app/onboarding/page.tsx` (User-Onboarding-MVP).
+ * Server shell, mirrors the proven auth pattern of `app/onboarding/page.tsx`
+ * (resolve current-user or redirect /login). Subfolder of `app/onboarding/`,
+ * NO collision with `app/onboarding/page.tsx` (user-onboarding MVP).
  *
- * Die TopNav ist auf `/onboarding/*` ohnehin ausgeblendet (HIDE_TOPNAV_PATHS),
- * der Wizard bekommt damit eine chrome-freie Full-Screen-Surface — kein Nav-Edit.
+ * The TopNav is hidden on `/onboarding/*` anyway (HIDE_TOPNAV_PATHS),
+ * so the wizard gets a chrome-free full-screen surface — no nav edit.
  */
 
 import { redirect } from "next/navigation";

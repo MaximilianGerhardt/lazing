@@ -1,21 +1,21 @@
 /**
  * POST /api/flow/[flowId]/run
  *
- * Flow Studio — Run-after-Coupling (Track-D · 2026-05-27).
+ * Flow Studio — run-after-coupling (Track-D · 2026-05-27).
  *
  * Body: { workspaceId: string }
  *
- * Wird aufgerufen, NACHDEM die Credential-Kopplungs-Surface die fehlenden Tools
- * eines zuvor via /api/flow/compose-and-run komponierten Flows verbunden hat.
- * Der Flow existiert bereits (flow_template + flow_steps); hier wird er nur noch
- * dispatcht + ausgeführt:
+ * Called AFTER the credential-coupling surface has connected the missing tools
+ * of a flow previously composed via /api/flow/compose-and-run.
+ * The flow already exists (flow_template + flow_steps); here it is only
+ * dispatched + executed:
  *
- *   dispatchFlow → Execution-Trigger (BESTEHENDES executePlan) →
+ *   dispatchFlow → execution trigger (the EXISTING executePlan) →
  *     200 { status:'running', flowId, runId, workstreamId }.
  *
- * Auth: Workspace-Member (Subject-Gate wie compose-and-run/route.ts — 401 → 403).
+ * Auth: workspace member (subject gate like compose-and-run/route.ts — 401 → 403).
  *
- * ADDITIV: keine bestehende Route berührt, kein next build/start.
+ * ADDITIVE: no existing route touched, no next build/start.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -38,7 +38,7 @@ interface Ctx {
 
 interface PostBody {
   workspaceId?: unknown;
-  /** Slice 2 (2026-06-03): {{param.*}}-Werte für die Laufzeit-Interpolation. */
+  /** Slice 2 (2026-06-03): {{param.*}} values for runtime interpolation. */
   params?: unknown;
 }
 
@@ -47,7 +47,7 @@ function isValidWorkspaceId(id: string): boolean {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
-  // 1. Auth-Gate.
+  // 1. Auth gate.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: "auth-required" }, { status: 401 });
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: "invalid_flow_id" }, { status: 400 });
   }
 
-  // 2. Body parsen.
+  // 2. Parse the body.
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;
@@ -74,13 +74,13 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // 3. Workspace-Permission (member-or-higher).
+  // 3. Workspace permission (member-or-higher).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  // 4. Dispatch + Execution-Trigger (Default = bestehendes executePlan).
-  //    Slice 2: optionale {{param.*}}-Werte (sanitisiert) durchreichen.
+  // 4. Dispatch + execution trigger (default = the existing executePlan).
+  //    Slice 2: pass through optional {{param.*}} values (sanitized).
   const { sanitizeParamValues } = await import("@/lib/flow/interpolate");
   const params = sanitizeParamValues(body.params);
   try {

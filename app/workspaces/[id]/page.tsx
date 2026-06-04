@@ -1,12 +1,12 @@
 /**
- * /workspaces/[id] — Workspace-Detail mit Tab-Navigation.
+ * /workspaces/[id] — workspace detail with tab navigation.
  *
  * Tabs (?tab=…):
- *   - overview (default) — Stats + Editor (Label/Description/Notes/Sensitivity)
- *   - branding           — Visual-Showcase: Akzente, Fonts, UI-Elemente
- *   - credentials        — verschluesselte Key-Value-Speicherung (Vercel-Style)
+ *   - overview (default) — stats + editor (label/description/notes/sensitivity)
+ *   - branding           — visual showcase: accents, fonts, UI elements
+ *   - credentials        — encrypted key-value storage (Vercel style)
  *
- * Style-Sprache: /design — Apple-Keynote-Hero, generoeses Whitespace.
+ * Style language: /design — Apple-keynote hero, generous whitespace.
  */
 
 import Link from 'next/link';
@@ -106,7 +106,7 @@ export default async function WorkspaceDetailPage({
 
   if (!row) notFound();
 
-  // Stats fuer den Header
+  // Stats for the header
   let openTickets = 0;
   let totalWorkstreams = 0;
   try {
@@ -127,7 +127,7 @@ export default async function WorkspaceDetailPage({
 
   return (
     <main className="sheet" style={{ paddingBottom: 120 }}>
-      {/* Nav-Fix D: Org-Kontext an diesen Workspace angleichen (kein Redirect). */}
+      {/* Nav-Fix D: align org context to this workspace (no redirect). */}
       {orgBootstrapEnabled() && row.organization_id ? (
         <OrgBootstrap organizationId={row.organization_id} />
       ) : null}
@@ -230,10 +230,10 @@ export default async function WorkspaceDetailPage({
         ) : null}
 
         {tab === 'rag' ? (
-          // RAG-Index-Status + Re-Index-Trigger (TG-2 Audit-Fix · 2026-05-28).
-          // Mobile-first, Token-only — RagStatusCard nutzt nur var(--ink*),
-          // var(--sheet*), var(--line*) + var(--a-danger) Fallback, keine
-          // neuen Hex-Werte. Client-Komponente, lädt /api/rag/status onmount.
+          // RAG index status + re-index trigger (TG-2 audit fix · 2026-05-28).
+          // Mobile-first, token-only — RagStatusCard uses only var(--ink*),
+          // var(--sheet*), var(--line*) + var(--a-danger) fallback, no
+          // new hex values. Client component, loads /api/rag/status onmount.
           <RagStatusCard workspaceId={id} />
         ) : null}
 

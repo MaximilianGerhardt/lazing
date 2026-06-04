@@ -1,10 +1,10 @@
 /**
  * /api/workflows
  *
- * GET  → Liste aller WorkflowDefinitions (Registry-Dump, ohne State-Bodies).
- * POST → Startet einen neuen Run für eine Definition.
+ * GET  → list of all WorkflowDefinitions (registry dump, without state bodies).
+ * POST → starts a new run for a definition.
  *
- * Pattern 4 Welle 2.1 (2026-05-01).
+ * Pattern 4 Wave 2.1 (2026-05-01).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

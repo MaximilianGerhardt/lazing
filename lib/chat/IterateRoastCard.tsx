@@ -1,18 +1,18 @@
 'use client';
 
 /**
- * IterateRoastCard — Welle 7 (2026-05-01)
+ * IterateRoastCard — Wave 7 (2026-05-01)
  *
- * Zeigt einen einzelnen Roaster-Output während der Iterate-Roast-Phase.
- * Per `roasterIdx` lassen sich 4-5 dieser Cards parallel im Stream rendern
- * (eine pro Roaster-Rolle: Performance, Hacker, Pragmatist, User-Anwalt,
- * Devil's Advocate).
+ * Shows a single roaster output during the iterate-roast phase.
+ * Via `roasterIdx`, 4-5 of these cards can be rendered in parallel in the stream
+ * (one per roaster role: performance, hacker, pragmatist, user advocate,
+ * devil's advocate).
  *
- * User-Befund 2026-05-01: 20 iterate-roast-Events in DB, aber keine
- * dedizierte Surface — nur Toast oder null. Diese Card macht die Roaster-
- * Stimme als persistente Surface sichtbar.
+ * User finding 2026-05-01: 20 iterate-roast events in the DB, but no
+ * dedicated surface — only toast or null. This card makes the roaster
+ * voice visible as a persistent surface.
  *
- * Token-bind: alle Werte aus app/components.css `.srf-iterate-roast__*`.
+ * Token bind: all values from app/components.css `.srf-iterate-roast__*`.
  */
 
 import type { ReactElement } from 'react';
@@ -20,9 +20,9 @@ import type { ReactElement } from 'react';
 interface Props {
   workstreamId?: string;
   workspaceId?: string;
-  /** 1-basiert: Roaster #1, #2, … */
+  /** 1-based: Roaster #1, #2, … */
   roasterIdx?: number;
-  /** Frei-Text-Rolle ('iterate-roaster-1', 'performance-roaster', …). */
+  /** Free-text role ('iterate-roaster-1', 'performance-roaster', …). */
   role?: string;
   versionN?: number;
   text?: string;

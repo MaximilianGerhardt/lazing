@@ -1,6 +1,6 @@
 // Plan template — security-audit (4 steps).
 //
-// BACKPORT-03 von Lazing-V2 (2026-05-23). Bytewise identisch zur V2-Quelle.
+// BACKPORT-03 from Lazing-V2 (2026-05-23). Bytewise identical to the V2 source.
 //
 // Threat-model → static-audit → fix → re-audit. Matches security /
 // auth / CVE / vuln / "harden" intents.

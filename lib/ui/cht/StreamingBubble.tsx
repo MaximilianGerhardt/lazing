@@ -4,43 +4,43 @@
  * lib/ui/cht/StreamingBubble.tsx
  * ------------------------------
  * Phase Reload-Recovery V2 · 2026-04-27.
- * Surface-Refactor Welle 2 (2026-05-01): Inline-Styles + lokale Keyframes
- * raus, Tokens via CSS-Klassen aus app/components.css. Keyframe `lazyos-cursor`
- * existiert in app/globals.css und wird von .bub-caret konsumiert.
+ * Surface refactor wave 2 (2026-05-01): inline styles + local keyframes
+ * out, tokens via CSS classes from app/components.css. The `lazyos-cursor`
+ * keyframe exists in app/globals.css and is consumed by .bub-caret.
  *
- * Komponenten-ID: `chat-streaming-bubble` (LazyOS Design Manifest v1.0).
+ * Component ID: `chat-streaming-bubble` (LazyOS Design Manifest v1.0).
  *
- * Rendert eine Assistant-Antwort die NICHT live von dieser Tab gestreamt
- * wird, sondern aus einem `streaming_snapshots`-Row im History-Endpoint
- * stammt. Zwei mutually-exclusive States:
+ * Renders an assistant answer that is NOT streamed live by this tab,
+ * but comes from a `streaming_snapshots` row in the history endpoint.
+ * Two mutually-exclusive states:
  *
  *   - `state='streaming'`
- *       Pulsierender Caret am Textende, segment-akzentuierte Toenung
- *       (`var(--a-now)`). KEIN Spinner-Karussell. User sieht "es laeuft
- *       weiter, ich bin nur passiver Beobachter".
+ *       Pulsing caret at the text end, segment-accented tint
+ *       (`var(--a-now)`). NO spinner carousel. The user sees "it keeps
+ *       running, I'm just a passive observer".
  *
  *   - `state='aborted'`
- *       Statisches Grau (`--ink-3`), Hinweis-Footer woertlich:
+ *       Static gray (`--ink-3`), hint footer verbatim:
  *       "Antwort wurde unterbrochen — Teilstand gespeichert."
- *       Drei Action-Buttons:
+ *       Three action buttons:
  *           [Regenerieren] [Verwerfen] [Trotzdem kopieren]
  *
- * Zusatzfunktionen:
- *   - `inCodeBlock=true` (Snapshot wurde mid-```-Codeblock genommen):
- *       roter Inline-Hinweis "(Code unvollständig — nicht ausführen)"
- *       direkt unter dem Snippet. Verhindert dass User halb-geschriebenen
- *       Code copy-paste-faehig wahrnimmt.
+ * Extra features:
+ *   - `inCodeBlock=true` (snapshot was taken mid-```-code-block):
+ *       red inline hint "(Code unvollständig — nicht ausführen)"
+ *       directly below the snippet. Prevents the user from perceiving
+ *       half-written code as copy-paste-ready.
  *   - `toolState != null && toolState.status='pending'`:
- *       Footer-Zeile "Tool-Aufruf nicht beendet" als Replacement fuer
- *       einen Endlos-Spinner. Tool-Name wird sichtbar.
+ *       footer line "Tool-Aufruf nicht beendet" as a replacement for
+ *       an endless spinner. The tool name becomes visible.
  *
- * Design-Manifest-Compliance:
- *   - Pitch-Black-Container (`--card`), 0.5px `--line-2`-Border
- *   - SF Pro Display via `inherit` (Body setzt das in app/globals.css)
- *   - Segment-Akzent dynamisch ueber `--a-now` (body.classList)
- *   - `prefers-reduced-motion`: Caret pulsiert nicht, statisch
+ * Design-manifest compliance:
+ *   - Pitch-black container (`--card`), 0.5px `--line-2` border
+ *   - SF Pro Display via `inherit` (body sets it in app/globals.css)
+ *   - Segment accent dynamic via `--a-now` (body.classList)
+ *   - `prefers-reduced-motion`: caret does not pulse, static
  *
- * Eigene UI-Komponente (kein shadcn) — folgt CLAUDE.md "Nicht in diesem
+ * Own UI component (no shadcn) — follows CLAUDE.md "Nicht in diesem
  * Projekt".
  */
 
@@ -49,21 +49,21 @@ import { useCallback, useState, type JSX } from 'react';
 import type { StreamingState, StreamingToolState } from '@/lib/chat/types';
 
 export interface StreamingBubbleProps {
-  /** Stream-State aus dem Server-Snapshot. */
+  /** Stream state from the server snapshot. */
   state: StreamingState;
-  /** Bisher gestreamter Text. Markdown-frei, raw. */
+  /** Text streamed so far. Markdown-free, raw. */
   partialContent: string;
-  /** True wenn der letzte Snapshot mid-```-Codeblock genommen wurde. */
+  /** True when the last snapshot was taken mid-```-code-block. */
   inCodeBlock: boolean;
-  /** Pending Tool-Call beim Crash (oder null). */
+  /** Pending tool call at the crash (or null). */
   toolState: StreamingToolState | null;
-  /** "Regenerieren" — original-Prompt re-emit. */
+  /** "Regenerieren" — re-emit the original prompt. */
   onRegenerate?: () => void;
-  /** "Verwerfen" — Snapshot DELETE im Backend, Bubble entfernen. */
+  /** "Verwerfen" — DELETE the snapshot in the backend, remove the bubble. */
   onDiscard?: () => void;
-  /** "Trotzdem kopieren" — partialContent in Zwischenablage. */
+  /** "Trotzdem kopieren" — partialContent to the clipboard. */
   onCopy?: () => void;
-  /** Optional aria-label fuer Screenreader. */
+  /** Optional aria-label for screen readers. */
   ariaLabel?: string;
 }
 
@@ -92,7 +92,7 @@ export function StreamingBubble({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* Clipboard kann auch ohne Permission scheitern (insecure context). */
+      /* Clipboard can also fail without permission (insecure context). */
     }
     onCopy?.();
   }, [partialContent, onCopy]);

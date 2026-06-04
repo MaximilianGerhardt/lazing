@@ -1,6 +1,6 @@
-// Spawnt im lazyOS-Workspace einen iterate-Workstream (Tief) mit Roast-Auftrag
-// auf 4 Patterns aus dem Legaly-AI-Interview. Cards landen automatisch im Chat
-// via emitOrUpdateCard. Kein HTTP, direkter Service-Call.
+// Spawns an iterate workstream (deep) in the lazyOS workspace with a roast
+// assignment on 4 patterns from the Legaly-AI interview. Cards land in the
+// chat automatically via emitOrUpdateCard. No HTTP, a direct service call.
 
 import { createWorkstream } from '@/lib/workstreams/service';
 import { runIterate } from '@/server/agents/tier-orchestrator';
@@ -86,7 +86,7 @@ async function main() {
   });
   console.log('   Workstream:', ws.id);
 
-  // Tief-Config persistieren via Drizzle
+  // Persist the deep config via Drizzle
   const { getDb } = await import('@/db/client');
   const { workstreams } = await import('@/db/schema/workstreams');
   const { eq } = await import('drizzle-orm');

@@ -1,43 +1,43 @@
 /**
- * degradation-detector — PURE Entscheidung, ob eine Claude-Session rotiert werden
- * soll (degrade→handoff→rotate). Keine I/O, keine DB, kein Date.now() im Kern →
- * erschöpfend unit-testbar (das Test-Gate verlangt Perfektion hier).
+ * degradation-detector — PURE decision whether a Claude session should be
+ * rotated (degrade→handoff→rotate). No I/O, no DB, no Date.now() in the core →
+ * exhaustively unit-testable (the test gate demands perfection here).
  *
- * Hintergrund (Audit 2026-06-03): lazyOS führt EINE Session pro Workspace ewig
- * via --resume weiter; Output degradiert mit der Länge; der einzige Auto-Reset
- * feuerte auf last_result='error' — das FALSCHE Signal. Dieser Detektor liefert
- * die richtigen Signale:
- *   - Turn-Budget überschritten         → Kontext zu lang
- *   - Token-Budget (kumulativ) über      → Kontext zu schwer
- *   - Alter-Budget über                  → Session spannt vermutlich viele Tasks
- *   - last_result='too_many_turns'       → die CLI hat selbst ihr Turn-Cap erreicht
- *   - explizite Task-Grenze (Plan fertig)→ saubere frische Session pro Aufgabe
+ * Background (audit 2026-06-03): lazyOS continues ONE session per workspace forever
+ * via --resume; output degrades with length; the only auto-reset
+ * fired on last_result='error' — the WRONG signal. This detector provides
+ * the right signals:
+ *   - turn budget exceeded               → context too long
+ *   - token budget (cumulative) exceeded → context too heavy
+ *   - age budget exceeded                → the session probably spans many tasks
+ *   - last_result='too_many_turns'       → the CLI itself hit its turn cap
+ *   - explicit task boundary (plan done) → a clean fresh session per task
  *
- * Bewusst NICHT: last_result='error' triggert hier KEINE Rotation — das behandelt
- * der bestehende Self-Heal-Pfad in workspace-session.ts (frische UUID bei korruptem
- * Transcript). Doppelte Behandlung würde sich gegenseitig ins Gehege kommen.
+ * Deliberately NOT: last_result='error' triggers NO rotation here — that is handled
+ * by the existing self-heal path in workspace-session.ts (fresh UUID on a corrupt
+ * transcript). Double handling would step on each other's toes.
  */
 
 export interface SessionVitals {
-  /** Erfolgreiche Turns auf dieser Session. */
+  /** Successful turns on this session. */
   turnCount: number;
-  /** Kumulativer Token-Proxy (prompt+output chars/4) über alle Turns. */
+  /** Cumulative token proxy (prompt+output chars/4) across all turns. */
   tokenEstimate: number;
-  /** Alter der Session in ms (now - createdAt). */
+  /** Age of the session in ms (now - createdAt). */
   ageMs: number;
-  /** Letztes Ergebnis-Label ('success'|'error'|'aborted'|'too_many_turns'|null). */
+  /** Last result label ('success'|'error'|'aborted'|'too_many_turns'|null). */
   lastResult: string | null;
 }
 
 export interface RotationPolicy {
-  /** Rotation, sobald turnCount >= maxTurns. */
+  /** Rotation as soon as turnCount >= maxTurns. */
   maxTurns: number;
-  /** Rotation, sobald tokenEstimate >= maxTokens. */
+  /** Rotation as soon as tokenEstimate >= maxTokens. */
   maxTokens: number;
-  /** Rotation, sobald ageMs >= maxAgeMs. */
+  /** Rotation as soon as ageMs >= maxAgeMs. */
   maxAgeMs: number;
-  /** Mindest-turnCount, damit eine Task-Grenze überhaupt rotiert (eine schon
-   *  frische 0-Turn-Session braucht keine Rotation). */
+  /** Minimum turnCount for a task boundary to rotate at all (an already
+   *  fresh 0-turn session needs no rotation). */
   minTurnsForTaskBoundary: number;
 }
 
@@ -52,27 +52,27 @@ export type RotationReason =
 export interface RotationDecision {
   rotate: boolean;
   reason: RotationReason;
-  /** Menschlich lesbares Detail fürs Audit/Log. */
+  /** Human-readable detail for the audit/log. */
   detail: string;
 }
 
 /**
- * Defaults — bewusst konservativ (lieber etwas zu früh rotieren als degradierten
- * Output liefern). Alle via ENV überschreibbar; reversibel.
+ * Defaults — deliberately conservative (better to rotate a little too early than to deliver
+ * degraded output). All overridable via ENV; reversible.
  */
 export const DEFAULT_ROTATION_POLICY: RotationPolicy = {
-  // PRIMÄRsignale für Degradation = akkumulierter Kontext (Turns + Token-Proxy).
+  // PRIMARY signals for degradation = accumulated context (turns + token proxy).
   maxTurns: 40,
   maxTokens: 250_000,
-  // Alter ist nur das SCHWACHE Sekundärsignal (eine uralte Session spannt
-  // vermutlich unzusammenhängende Tasks + hat ein riesiges Transcript). Bewusst
-  // konservativ (7 Tage), um eine legitime mehrtägige aktive Unterhaltung NICHT
-  // zu unterbrechen — die echte Degradation fangen Turn-/Token-Budget ab.
-  maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 Tage
+  // Age is only the WEAK secondary signal (a very old session probably spans
+  // unrelated tasks + has a huge transcript). Deliberately
+  // conservative (7 days) so as NOT to interrupt a legitimate multi-day active
+  // conversation — turn/token budget catches the real degradation.
+  maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 days
   minTurnsForTaskBoundary: 1,
 };
 
-/** Policy aus ENV lesen (fail-soft auf Defaults). Nicht im PURE-Kern aufrufen. */
+/** Read policy from ENV (fail-soft to defaults). Do not call in the PURE core. */
 export function rotationPolicyFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): RotationPolicy {
@@ -89,7 +89,7 @@ export function rotationPolicyFromEnv(
   };
 }
 
-/** Ob Auto-Rotation überhaupt aktiv ist (ENV-Kill-Switch, Default an). */
+/** Whether auto-rotation is active at all (ENV kill switch, default on). */
 export function rotationEnabled(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
@@ -97,19 +97,19 @@ export function rotationEnabled(
 }
 
 /**
- * Der Kern: PURE. `taskBoundary=true` bedeutet "ein Plan/Task ist gerade sauber
- * abgeschlossen" → frische Session für die nächste Aufgabe (nur wenn die Session
- * bereits gearbeitet hat). Sonst entscheiden die Degradations-Budgets.
+ * The core: PURE. `taskBoundary=true` means "a plan/task has just been cleanly
+ * completed" → a fresh session for the next task (only if the session
+ * has already worked). Otherwise the degradation budgets decide.
  *
- * Reihenfolge der Gründe ist deterministisch (Task-Grenze zuerst, dann das am
- * deutlichsten überschrittene Budget) — wichtig für stabile Tests + Audit.
+ * The order of reasons is deterministic (task boundary first, then the most
+ * clearly exceeded budget) — important for stable tests + audit.
  */
 export function assessRotation(
   v: SessionVitals,
   taskBoundary: boolean,
   policy: RotationPolicy = DEFAULT_ROTATION_POLICY,
 ): RotationDecision {
-  // Explizite Task-Grenze gewinnt — aber nur wenn die Session schon Turns hatte.
+  // An explicit task boundary wins — but only if the session already had turns.
   if (taskBoundary && v.turnCount >= policy.minTurnsForTaskBoundary) {
     return {
       rotate: true,
@@ -118,7 +118,7 @@ export function assessRotation(
     };
   }
 
-  // Die CLI hat ihr eigenes Turn-Cap erreicht → klares Degradationssignal.
+  // The CLI hit its own turn cap → a clear degradation signal.
   if (v.lastResult === 'too_many_turns') {
     return {
       rotate: true,
@@ -152,24 +152,24 @@ export function assessRotation(
   return { rotate: false, reason: 'none', detail: 'within budgets' };
 }
 
-/** Token-Schätzung aus Zeichenlängen (≈ chars/4), defensiv geclamped. */
+/** Token estimate from character lengths (≈ chars/4), defensively clamped. */
 export function estimateTokens(promptChars: number, outputBytes: number): number {
   const c = Math.max(0, promptChars) + Math.max(0, outputBytes);
   return Math.ceil(c / 4);
 }
 
 /**
- * Alter-Baseline für das Age-Budget: seit der LETZTEN Rotation (`rotatedAt`),
- * sonst seit Erstellung (`createdAt`).
+ * Age baseline for the age budget: since the LAST rotation (`rotatedAt`),
+ * otherwise since creation (`createdAt`).
  *
- * KRITISCH (Review CRIT-1, 2026-06-03): Die Rotation setzt turn_count/
- * token_estimate zurück, aber `created_at` bleibt unveränderlich. Würde das
- * Age-Budget weiter gegen `created_at` rechnen, rotierte eine >maxAge alte
- * Session JEDEN Turn neu (Age bleibt ja > maxAge) → selbst-perpetuierende
- * Rotations-Schleife, die jedes Mal den Handoff neu schreibt + das gerade
- * resumte Transcript verwirft. Gegen `rotatedAt` zu rechnen setzt das Alter mit
- * jeder Rotation zurück (frische Session ⇒ frisches Alter), `created_at` bleibt
- * als echte Provenance erhalten.
+ * CRITICAL (review CRIT-1, 2026-06-03): the rotation resets turn_count/
+ * token_estimate, but `created_at` stays immutable. If the
+ * age budget kept computing against `created_at`, a session older than maxAge
+ * would rotate again EVERY turn (age stays > maxAge) → a self-perpetuating
+ * rotation loop that rewrites the handoff each time + discards the just-
+ * resumed transcript. Computing against `rotatedAt` resets the age with
+ * each rotation (fresh session ⇒ fresh age), while `created_at` is preserved
+ * as the real provenance.
  */
 export function effectiveAgeMs(
   createdAt: number,

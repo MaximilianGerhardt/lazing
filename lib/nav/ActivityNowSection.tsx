@@ -4,15 +4,15 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * ActivityNowSection — "Aktiv jetzt" Drawer-Section.
+ * ActivityNowSection — "Aktiv jetzt" drawer section.
  *
- * Sub-Plan 4: zeigt die laufenden Items aus /api/activity/live als
- * kompakte Liste. Nur sichtbar wenn der Drawer offen ist (parent-
- * controlled durch MobileDrawer). Kein eigener Polling-Loop —
- * lädt einmal beim Mount + refresht beim Custom-Event
- * 'lazyos:activity:refresh'. Schont Bandbreite.
+ * Sub-plan 4: shows the running items from /api/activity/live as a
+ * compact list. Only visible when the drawer is open (parent-
+ * controlled by MobileDrawer). No own polling loop —
+ * loads once on mount + refreshes on the custom event
+ * 'lazyos:activity:refresh'. Saves bandwidth.
  *
- * Kein Overlay, keine Sticky-Card. Standard-List-UI mit Pills.
+ * No overlay, no sticky card. Standard list UI with pills.
  */
 
 interface ActivityItem {
@@ -114,8 +114,8 @@ export function ActivityNowSection({
     );
   }
 
-  // Wenn nichts läuft: kompakte Empty-State-Zeile, nicht ganz unsichtbar
-  // (User will den Status sehen, nicht raten).
+  // When nothing is running: a compact empty-state line, not entirely invisible
+  // (the user wants to see the status, not guess).
   if (total === 0) {
     return (
       <section

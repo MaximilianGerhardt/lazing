@@ -1,34 +1,34 @@
 /**
- * N6-Hybrid Plan-Dispatch (Slice 2, 2026-05-23).
+ * N6 hybrid plan dispatch (Slice 2, 2026-05-23).
  *
- * Verbindet das deterministische Entry-Gate (`shouldDecompose`, N6) mit dem
- * LLM-Decomposer (`proposeRecursivePlan`) und macht aus einem komplexen
- * Intent einen persistierten Plan + Subpläne plus eine `subplan`-Surface.
+ * Connects the deterministic entry gate (`shouldDecompose`, N6) with the
+ * LLM decomposer (`proposeRecursivePlan`) and turns a complex
+ * intent into a persisted plan + subplans plus a `subplan` surface.
  *
- * Ablauf bei Gate-Treffer:
- *   1. Engine wählen (claude-cli → codex → ollama, Fallback-Kette).
- *   2. `proposeRecursivePlan(maxDepth:1)` — Root-Plan + eager Subpläne der
- *      komplexen Root-Steps (depth-1). Tiefer = Folge-Slice.
- *   3. Workstream anlegen (`createWorkstream`) — Intent verbatim in
+ * Flow on a gate hit:
+ *   1. Pick an engine (claude-cli → codex → ollama, fallback chain).
+ *   2. `proposeRecursivePlan(maxDepth:1)` — root plan + eager subplans of the
+ *      complex root steps (depth-1). Deeper = follow-up slice.
+ *   3. Create the workstream (`createWorkstream`) — intent verbatim in
  *      `description` (N1).
- *   4. Steps atomar persistieren: Root (depth 0) + Subpläne (depth 1) in
- *      `workstream_plan_steps`, alles in EINER Transaktion (contentHash/N10).
- *   5. `subplan`-Surface via `emitOrUpdateCard` (Pfad B → broadcast →
+ *   4. Persist steps atomically: root (depth 0) + subplans (depth 1) in
+ *      `workstream_plan_steps`, all in ONE transaction (contentHash/N10).
+ *   5. `subplan` surface via `emitOrUpdateCard` (path B → broadcast →
  *      /api/events/stream → ChatShell).
  *
- * WICHTIG — Prozess-Lokalität: MUSS im **Next-Prozess** laufen (Route
- * `app/api/chat/stream`), NICHT im agent-server (:4201). `broadcast` ist ein
- * In-Process-EventEmitter; nur im Next-Prozess erreicht der Emit die Live-
- * SSE-Listener von `/api/events/stream`. (Cross-Roast-Befund 2026-05-23.)
+ * IMPORTANT — process locality: MUST run in the **Next process** (route
+ * `app/api/chat/stream`), NOT in the agent-server (:4201). `broadcast` is an
+ * in-process EventEmitter; only in the Next process does the emit reach the live
+ * SSE listeners of `/api/events/stream`. (Cross-roast finding 2026-05-23.)
  *
- * Scope-Cut (Cross-Roast C-E): NUR propose + persist + render
- * (`awaitingApproval:true`). Ausführung (`runWalker` + approve→execute) ist
- * ein getrennter Folge-Slice. tier-choice bleibt LLM-Override.
+ * Scope cut (cross-roast C-E): ONLY propose + persist + render
+ * (`awaitingApproval:true`). Execution (`runWalker` + approve→execute) is
+ * a separate follow-up slice. The tier choice stays an LLM override.
  *
- * Bekannte Minor (dokumentiert, Folge-Slice): schlägt der Persist-Schritt fehl
- * (extrem selten — der Plan müsste parseProposedPlan passieren aber den
- * insertPlanStep-Hard-Block treffen), bleibt eine leere Workstream-Row liegen.
- * Die Steps selbst sind durch die Transaktion all-or-nothing (kein Teil-Plan).
+ * Known minor (documented, follow-up slice): if the persist step fails
+ * (extremely rare — the plan would have to pass parseProposedPlan but hit the
+ * insertPlanStep hard block), an empty workstream row is left behind.
+ * The steps themselves are all-or-nothing via the transaction (no partial plan).
  */
 import { shouldDecompose } from './should-decompose';
 import { proposeRecursivePlan } from './recursive-plan';
@@ -43,21 +43,21 @@ import type { PoolSlot } from '@/lib/agents/resource-pool';
 import { waitForBudget } from '@/lib/agents/tpm-budget';
 import { writeDecision } from '@/lib/workstreams/trace-repo';
 import { emitAnswerRequired } from '@/lib/push/triggers';
-// W1b — Self-Learning P0 (2026-05-28): Read-Back des WARUM-Kontexts (frühere
-// Begründungen + aktive Beliefs dieses Workspace) vor jedem Decompose. Vorlage:
-// app/api/flow/compose-and-run/route.ts:156-167. proposeRecursivePlan reicht den
-// String unverändert auf JEDER Rekursions-Ebene durch (Root + eager Subpläne).
-// Leerer/fehlender Block ⇒ bit-identisch zum bisherigen Pfad.
+// W1b — self-learning P0 (2026-05-28): read-back of the WHY context (earlier
+// rationales + active beliefs of this workspace) before every decompose. Template:
+// app/api/flow/compose-and-run/route.ts:156-167. proposeRecursivePlan passes the
+// string through unchanged at EVERY recursion level (root + eager subplans).
+// Empty/missing block ⇒ bit-identical to the previous path.
 import {
   buildWhyContext,
   renderWhyContextForPrompt,
 } from '@/lib/reasoning/why-context';
-// Slice C (2026-05-29) — Discovery-Phase VOR Plan-Decompose. Owner-Befund
+// Slice C (2026-05-29) — discovery phase BEFORE plan decompose. Owner finding
 // (example-website-3, verbatim): „Ich sehe niemanden der die Website recherchiert
 // oder sich ansieht, da müsste doch eine Art Browser Bash erstmal kommen usw
-// oder nicht?! Analyse, Recherche…". Diese Phase erkennt URLs/Domains/Doku-
-// Mentions im Prompt, ruft die URLs fail-soft ab und stellt das Ergebnis als
-// Markdown-Block VOR den whyContext-Block — Reihenfolge: Discovery > WHY > Intent.
+// oder nicht?! Analyse, Recherche…". This phase detects URLs/domains/doc
+// mentions in the prompt, fetches the URLs fail-soft and places the result as a
+// Markdown block BEFORE the whyContext block — order: discovery > WHY > intent.
 import { runDiscovery, type DiscoveryResult } from '@/lib/discovery/discovery-phase';
 
 export interface PlanDispatchResult {
@@ -69,49 +69,49 @@ export interface PlanDispatchResult {
   readonly subSteps?: number;
 }
 
-/** Per-Call-Soft-Cap für einen einzelnen Planner-LLM-Aufruf (ms). */
+/** Per-call soft cap for a single planner LLM call (ms). */
 const PLANNER_CALL_TIMEOUT_MS = 30_000;
 /**
- * Harte Gesamt-Deadline für den ganzen Decompose (Critic-Fix B2, 2026-05-23).
- * proposeRecursivePlan macht bis zu 1+N sequenzielle LLM-Calls; ohne Cap
- * könnte das den Chat minutenlang ohne Lebenszeichen blockieren. Reißt die
- * Deadline, bricht der AbortController alle Engine-Calls ab → tryPlanDispatch
- * wirft → Caller fällt auf den normalen claude-Turn zurück.
+ * Hard overall deadline for the whole decompose (critic fix B2, 2026-05-23).
+ * proposeRecursivePlan makes up to 1+N sequential LLM calls; without a cap
+ * this could block the chat for minutes with no sign of life. If the
+ * deadline is exceeded, the AbortController aborts all engine calls → tryPlanDispatch
+ * throws → the caller falls back to the normal claude turn.
  */
 const TOTAL_DEADLINE_MS = 40_000;
 /**
- * Ultrathink (2026-06-02, default-off-gated). Tieferes Reasoning via
- * `--effort` dauert länger — deshalb hebt der claude-cli-Pfad die Per-Call-
- * und Gesamt-Deadlines an. Gilt AUSSCHLIESSLICH wenn die gewählte Planner-
- * Engine claude-cli ist; jeder andere Pfad (ollama) nutzt unverändert
- * PLANNER_CALL_TIMEOUT_MS / TOTAL_DEADLINE_MS → byte-identisch zu vorher.
+ * Ultrathink (2026-06-02, default-off-gated). Deeper reasoning via
+ * `--effort` takes longer — so the claude-cli path raises the per-call
+ * and overall deadlines. Applies EXCLUSIVELY when the chosen planner
+ * engine is claude-cli; every other path (ollama) uses
+ * PLANNER_CALL_TIMEOUT_MS / TOTAL_DEADLINE_MS unchanged → byte-identical to before.
  */
 const PLANNER_CALL_TIMEOUT_THINKING_MS = 90_000; // vs 30_000 default
 const TOTAL_DEADLINE_THINKING_MS = 120_000; // vs 40_000 default
 
 /**
- * Gate + Decompose + Persist + Emit. Gibt `{decomposed:false}` schnell zurück,
- * wenn das Gate nicht feuert (oder keine Engine verfügbar ist) — der Caller
- * macht dann mit dem normalen claude-Turn weiter. Bei Abbruch/Deadline/Fehler
- * im schweren Teil wirft die Funktion; der Caller behandelt das als
- * Fallback-auf-Normal.
+ * Gate + decompose + persist + emit. Returns `{decomposed:false}` quickly
+ * when the gate does not fire (or no engine is available) — the caller
+ * then continues with the normal claude turn. On abort/deadline/error
+ * in the heavy part the function throws; the caller treats that as a
+ * fallback-to-normal.
  */
 export async function tryPlanDispatch(args: {
   workspaceId: string;
   prompt: string;
-  /** Client-Disconnect/Request-Abort — bricht den Decompose mit ab (M1). */
+  /** Client disconnect / request abort — aborts the decompose too (M1). */
   signal?: AbortSignal;
 }): Promise<PlanDispatchResult> {
-  // 1. Deterministisches N6-Gate (billig, kein LLM, kein I/O).
+  // 1. Deterministic N6 gate (cheap, no LLM, no I/O).
   const gate = shouldDecompose(args.prompt);
   if (!gate.decompose) {
     return { decomposed: false, reason: gate.reason };
   }
 
-  // 2. Engine wählen. B1-Sicherheits-Fix (Critic, 2026-05-23): codex AUSSCHLIESSEN
-  //    — der codex-Adapter läuft im Code-Mode (`approval_policy="never"`, schreibt
-  //    Dateien/Shell). Der Planer braucht nur Text (Plan-JSON); claude-cli/ollama
-  //    genügen. Keine Engine → kein Decompose, normaler Turn.
+  // 2. Pick an engine. B1 safety fix (critic, 2026-05-23): EXCLUDE codex
+  //    — the codex adapter runs in code mode (`approval_policy="never"`, writes
+  //    files/shell). The planner needs only text (plan JSON); claude-cli/ollama
+  //    suffice. No engine → no decompose, normal turn.
   const selection = await detectEngines();
   // PII vault: wrap at the engine boundary. pickEngine(…,['codex-cli']) still
   // resolves to claude-cli (cloud) when available, so the planner prompt — which
@@ -122,28 +122,28 @@ export async function tryPlanDispatch(args: {
   if (!engine) {
     return { decomposed: false, reason: 'no-engine-available' };
   }
-  // N11-Per-Kind-Buchung korrekt: Slot-Kind aus der gewählten Engine.
+  // N11 per-kind booking, correct: slot kind from the chosen engine.
   const slotKind: 'claude-cli' | 'ollama-heavy' =
     engine.id === 'ollama' ? 'ollama-heavy' : 'claude-cli';
 
-  // Gesamt-Deadline + externes Abort-Signal zu EINEM Controller bündeln.
+  // Bundle the overall deadline + the external abort signal into ONE controller.
   const ctl = new AbortController();
   const onExternalAbort = (): void => ctl.abort();
   if (args.signal) {
     if (args.signal.aborted) ctl.abort();
     else args.signal.addEventListener('abort', onExternalAbort, { once: true });
   }
-  // Ultrathink: nur der claude-cli-Pfad bekommt die angehobene Gesamt-Deadline;
-  // jede andere Engine (ollama) behält TOTAL_DEADLINE_MS → byte-identisch.
+  // Ultrathink: only the claude-cli path gets the raised overall deadline;
+  // every other engine (ollama) keeps TOTAL_DEADLINE_MS → byte-identical.
   const totalDeadlineMs =
     engine.id === 'claude-cli' ? TOTAL_DEADLINE_THINKING_MS : TOTAL_DEADLINE_MS;
   const deadline = setTimeout(() => ctl.abort(), totalDeadlineMs);
 
-  // Budget-Gate: Slot vom ResourcePool holen (N11-Hard-Cap: max 2 claude-cli-Slots
-  // gleichzeitig). Timeout 20s damit ein blockierter Planer den Chat-Turn nicht
-  // ewig hängen lässt — bei Timeout graceful auf normalen Turn zurückfallen.
-  // TPM-Budget-Check direkt danach: bei hoher Last schläft waitForBudget kurz,
-  // bevor der Planer einen weiteren LLM-Call startet.
+  // Budget gate: acquire a slot from the ResourcePool (N11 hard cap: max 2 claude-cli
+  // slots at once). Timeout 20s so a blocked planner does not hang the chat turn
+  // forever — on timeout gracefully fall back to the normal turn.
+  // TPM budget check right after: under high load waitForBudget sleeps briefly
+  // before the planner starts another LLM call.
   let slot: PoolSlot | undefined;
   try {
     slot = await resourcePool.acquireSlot({
@@ -154,22 +154,22 @@ export async function tryPlanDispatch(args: {
       signal: ctl.signal,
     });
   } catch (budgetErr) {
-    // ResourcePoolTimeout oder Abort — kein Slot verfügbar, graceful Fallback.
+    // ResourcePoolTimeout or abort — no slot available, graceful fallback.
     clearTimeout(deadline);
     if (args.signal) args.signal.removeEventListener('abort', onExternalAbort);
     const msg = budgetErr instanceof Error ? budgetErr.message : String(budgetErr);
     return { decomposed: false, reason: 'budget-timeout:' + msg };
   }
 
-  // TPM-Drosselung abwarten (rolling-60s-Window). Bei >100% TPM schläft die
-  // Funktion bis zu 30s — das Abort-Signal des Callers stoppt ctl rechtzeitig.
+  // Wait out TPM throttling (rolling 60s window). At >100% TPM the
+  // function sleeps up to 30s — the caller's abort signal stops ctl in time.
   await waitForBudget('plan-dispatch:' + args.workspaceId);
 
   try {
     const callEngine = async (prompt: string): Promise<string> => {
-      // Ultrathink: nur claude-cli unterstützt `--effort`; strikt auf engine.id
-      // gaten. Default-off für ollama (die andere zulässige Planner-Engine) →
-      // dort bleiben Prompt-Bytes UND Timeouts byte-identisch zum bisherigen Pfad.
+      // Ultrathink: only claude-cli supports `--effort`; gate strictly on engine.id.
+      // Default-off for ollama (the other permitted planner engine) →
+      // there both prompt bytes AND timeouts stay byte-identical to the previous path.
       const useThinking = engine.id === 'claude-cli';
       const r = await engine.chat({
         messages: [{ role: 'user', content: prompt }],
@@ -180,23 +180,23 @@ export async function tryPlanDispatch(args: {
       return r.text;
     };
 
-    // W1b — Self-Learning P0: WARUM-Kontext fail-soft lesen (s. Helper unten).
+    // W1b — self-learning P0: read the WHY context fail-soft (see helper below).
     const whyContext = readWhyContextForDispatchFailSoft({
       workspaceId: args.workspaceId,
       topic: args.prompt,
     });
 
-    // Slice C (2026-05-29) — Workstream zuerst anlegen, damit wir Discovery
-    // als sichtbare Surface (subKey='discovery') unter der KORREKTEN coord-
-    // Adresse emittieren können — VOR dem Plan-Decompose / der Tier-Wahl.
+    // Slice C (2026-05-29) — create the workstream first, so we can emit
+    // discovery as a visible surface (subKey='discovery') under the CORRECT coord
+    // address — BEFORE the plan decompose / tier choice.
     //
-    // Trade-off: bei Engine-Failure im proposeRecursivePlan-Call bleibt eine
-    // leere Workstream-Row stehen. Der Caller fängt den Throw und der Outer-
-    // Fallback nutzt einen normalen claude-Turn. Die leere Row stört nicht
-    // (status wird beim cleanup-end auf 'done' gesetzt, oder bleibt
-    // 'proposed'/'active' und wird vom heartbeat-Reaper aufgeräumt).
+    // Trade-off: on an engine failure in the proposeRecursivePlan call an
+    // empty workstream row is left behind. The caller catches the throw and the outer
+    // fallback uses a normal claude turn. The empty row does not matter
+    // (status is set to 'done' at cleanup-end, or stays
+    // 'proposed'/'active' and is reaped by the heartbeat reaper).
     //
-    // 3. Workstream anlegen (Owner des Plans). Intent verbatim (N1).
+    // 3. Create the workstream (owner of the plan). Intent verbatim (N1).
     const ws = await createWorkstream({
       workspaceId: args.workspaceId,
       name: planName(args.prompt),
@@ -205,15 +205,15 @@ export async function tryPlanDispatch(args: {
     const workstreamId = ws.id;
     const coordKey = `${args.workspaceId}/${workstreamId}`;
 
-    // 4. Slice C — Discovery-Phase VOR Plan-Decompose. Fail-soft: ein Wurf
-    //    darf den Decompose nicht kippen; bei Fehler ⇒ leerer Discovery-
-    //    Output ⇒ Plan-Prompt bit-identisch zum Pre-Slice-C-Pfad.
+    // 4. Slice C — discovery phase BEFORE plan decompose. Fail-soft: a throw
+    //    must not tip over the decompose; on error ⇒ empty discovery
+    //    output ⇒ plan prompt bit-identical to the pre-Slice-C path.
     //
-    //    Emit-Pattern (eine Card pro Workstream, subKey='discovery'):
-    //      a) pre-emit „running" (eine Zeile, collapsed) — sofort sichtbar.
-    //      b) runDiscovery (parallel fetch, 12s pro URL).
-    //      c) post-emit „done" — selbe coords, idempotent (emitOrUpdateCard
-    //         UPDATEt die Row in-place).
+    //    Emit pattern (one card per workstream, subKey='discovery'):
+    //      a) pre-emit „running" (one line, collapsed) — visible immediately.
+    //      b) runDiscovery (parallel fetch, 12s per URL).
+    //      c) post-emit „done" — same coords, idempotent (emitOrUpdateCard
+    //         UPDATEs the row in-place).
     const discovery = await runDiscoveryAndEmitFailSoft({
       workspaceId: args.workspaceId,
       workstreamId,
@@ -221,13 +221,13 @@ export async function tryPlanDispatch(args: {
       signal: ctl.signal,
     });
 
-    // 5. Decompose: Root-Plan + eager depth-1-Subpläne.
-    //    Reihenfolge laut Owner-Spec: Discovery > WHY > Intent. proposePlan
-    //    stellt den whyContext-String 1:1 vor den Basis-Prompt
-    //    (orchestrate-plan.ts:319-323). Wir konkatenieren Discovery + WHY in
-    //    derselben Reihenfolge und reichen das Gesamtpaket als „whyContext"
-    //    durch — kein neuer Parameter, kein Signatur-Bruch, identisch leerer
-    //    Pfad wenn beides leer.
+    // 5. Decompose: root plan + eager depth-1 subplans.
+    //    Order per the owner spec: discovery > WHY > intent. proposePlan
+    //    places the whyContext string 1:1 before the base prompt
+    //    (orchestrate-plan.ts:319-323). We concatenate discovery + WHY in
+    //    the same order and pass the whole package through as „whyContext"
+    //    — no new parameter, no signature break, identically empty
+    //    path when both are empty.
     const composedContext = composeDiscoveryAndWhy(discovery.builtContext, whyContext);
     const recursive = await proposeRecursivePlan(args.prompt, {
       callEngine,
@@ -236,8 +236,8 @@ export async function tryPlanDispatch(args: {
     });
     const rootPlan = recursive.root.plan;
 
-    // 5. Persistieren: Root (depth 0) + alle eager Subpläne (depth 1) in EINER
-    //    äußeren Transaktion → ganzer Plan-Baum all-or-nothing (B1).
+    // 5. Persist: root (depth 0) + all eager subplans (depth 1) in ONE
+    //    outer transaction → the whole plan tree all-or-nothing (B1).
     let subSteps = 0;
     const persist = getDb().$raw.transaction((): void => {
       insertProposedPlan({ workstreamId, plan: rootPlan, depth: 0, coordKey });
@@ -254,11 +254,11 @@ export async function tryPlanDispatch(args: {
     });
     persist();
 
-    // N8-Trace (best-effort, non-fatal): Entscheidung „Intent als mehrstufig
-    // erkannt → Plan erzeugt" in workstream_decisions festhalten.
-    // decision_kind='route' (gate-Routing-Entscheidung), actor='agent'.
-    // writeDecision schreibt intern eine Sentinel-Evidence-Row (source_kind='spawn')
-    // damit evidence_refs ≥1-Constraint erfüllt ist.
+    // N8 trace (best-effort, non-fatal): record the decision „intent recognized
+    // as multi-step → plan created" in workstream_decisions.
+    // decision_kind='route' (gate routing decision), actor='agent'.
+    // writeDecision internally writes a sentinel evidence row (source_kind='spawn')
+    // so the evidence_refs ≥1 constraint is satisfied.
     writeDecision({
       workspaceId: args.workspaceId,
       workstreamId,
@@ -268,8 +268,8 @@ export async function tryPlanDispatch(args: {
       actor: 'agent',
     });
 
-    // 6. subplan-Surface emittieren (Pfad B). Payload = ProposedPlan +
-    //    depth/awaitingApproval (s. SurfaceRenderer.renderSubplan).
+    // 6. Emit the subplan surface (path B). Payload = ProposedPlan +
+    //    depth/awaitingApproval (see SurfaceRenderer.renderSubplan).
     const surfacePayload = {
       ...rootPlan,
       depth: 0,
@@ -288,9 +288,9 @@ export async function tryPlanDispatch(args: {
       actor: 'system',
     });
 
-    // B2 (2026-05-25): answer_required-Push für awaitingApproval-Subplan.
-    // Best-effort / non-fatal — darf emitOrUpdateCard-Ergebnis nie blockieren.
-    // Visibility-Gate greift im emitAnswerRequired-Body (kein Push wenn Tab offen).
+    // B2 (2026-05-25): answer_required push for the awaitingApproval subplan.
+    // Best-effort / non-fatal — must never block the emitOrUpdateCard result.
+    // The visibility gate applies inside the emitAnswerRequired body (no push when the tab is open).
     emitAnswerRequired({
       workspaceId: args.workspaceId,
       entityId: workstreamId,
@@ -299,17 +299,17 @@ export async function tryPlanDispatch(args: {
       url: `/?workspace=${encodeURIComponent(args.workspaceId)}`,
     });
 
-    // 7. Depth-1-Subpläne sichtbar machen: pro Child-Knoten eine eigene
-    //    subplan-Card emittieren (subKey='sub:<parentStepId>' — Welle-7-Discriminator).
+    // 7. Make the depth-1 subplans visible: emit a dedicated subplan card
+    //    per child node (subKey='sub:<parentStepId>' — wave-7 discriminator).
     //
-    //    `parentStep` = der Root-Step, dessen id === parentStepId, damit die
-    //    SubplanCard den Kontext-Header „Subplan — <Step-Titel>" rendern kann (N1).
-    //    `awaitingApproval: false` — Freigabe läuft über die Root-Card (Schritt 6).
+    //    `parentStep` = the root step whose id === parentStepId, so the
+    //    SubplanCard can render the context header „Subplan — <Step-Titel>" (N1).
+    //    `awaitingApproval: false` — approval runs via the root card (step 6).
     //
-    //    Best-effort: ein Fehler bei einem einzelnen Child-Emit tötet NICHT den
-    //    Haupt-Flow (der Plan ist bereits persistiert + die Root-Card emittiert).
+    //    Best-effort: an error on a single child emit does NOT kill the
+    //    main flow (the plan is already persisted + the root card emitted).
     for (const [parentStepId, child] of recursive.root.children) {
-      // Root-Step mit passender id suchen (Pflichtfeld: id + title → isPlanStep).
+      // Find the root step with the matching id (required field: id + title → isPlanStep).
       const parentStep = rootPlan.steps.find((s) => s.id === parentStepId) ?? null;
 
       const childPayload = {
@@ -317,14 +317,14 @@ export async function tryPlanDispatch(args: {
         depth: 1,
         awaitingApproval: false,
         workstreamId,
-        // parentStep wird vom SurfaceRenderer gelesen und als Prop an SubplanCard
-        // weitergereicht; dort steuert er den Header „Subplan — <parentStep.title>".
+        // parentStep is read by the SurfaceRenderer and passed as a prop to SubplanCard;
+        // there it drives the header „Subplan — <parentStep.title>".
         parentStep: parentStep ?? undefined,
-        // Owner-Fix 2026-05-28 (Owner-Live-Test: „extremst viele Surfaces auf
-        // einmal"): Child-Subplaene starten EINGEKLAPPT — der Parent-Subplan
-        // bleibt offen, jeder Child ist eine Pill mit Chevron, ein-Tap zum
-        // Ausklappen. Verhindert dass T+0s 1+N Subplan-Cards gleichzeitig den
-        // Strom fluten. Renderer-seitig: SubplanCard.initialCollapsed (read
+        // Owner fix 2026-05-28 (owner live test: „extremst viele Surfaces auf
+        // einmal"): child subplans start COLLAPSED — the parent subplan
+        // stays open, each child is a pill with a chevron, one tap to
+        // expand. Prevents T+0s 1+N subplan cards from flooding the
+        // stream at once. Renderer-side: SubplanCard.initialCollapsed (read
         // via SurfaceRenderer.renderSubplan).
         collapsed: true,
       };
@@ -335,14 +335,14 @@ export async function tryPlanDispatch(args: {
             workspaceId: args.workspaceId,
             workstreamId,
             surfaceKind: 'subplan',
-            // Welle-7-subKey: muss non-empty sein (emitOrUpdateCard wirft sonst).
+            // Wave-7 subKey: must be non-empty (emitOrUpdateCard throws otherwise).
             subKey: 'sub:' + parentStepId,
           },
           content: `<surface:subplan>${JSON.stringify(childPayload)}</surface:subplan>`,
           actor: 'system',
         });
       } catch (childEmitErr) {
-        // Nur loggen — der Haupt-Flow ist nicht betroffen.
+        // Just log — the main flow is not affected.
         console.warn(
           '[plan-dispatch] Depth-1-Subplan-Emit fehlgeschlagen',
           { parentStepId, err: childEmitErr },
@@ -350,11 +350,11 @@ export async function tryPlanDispatch(args: {
       }
     }
 
-    // #3-Fix (2026-05-23): Proposal-Workstream NICHT als "running" hinterlassen.
-    // Er wartet nur auf Freigabe — sonst meldet /api/activity/live ihn ewig als
-    // Hintergrund-Aktivität (der "7h37m"-Bug: status IN (active|paused|stuck)).
-    // 'done' ist nicht in dieser Menge. Bei echter Ausführung setzt executePlan
-    // wieder 'active' und am Ende 'done'.
+    // #3 fix (2026-05-23): do NOT leave the proposal workstream as "running".
+    // It only waits for approval — otherwise /api/activity/live reports it forever as
+    // background activity (the "7h37m" bug: status IN (active|paused|stuck)).
+    // 'done' is not in that set. On real execution executePlan sets
+    // 'active' again and 'done' at the end.
     try {
       await updateWorkstream(workstreamId, { status: 'done' });
     } catch (statusErr) {
@@ -375,14 +375,14 @@ export async function tryPlanDispatch(args: {
   } finally {
     clearTimeout(deadline);
     if (args.signal) args.signal.removeEventListener('abort', onExternalAbort);
-    // Slot freigeben — guard gegen den Timeout-Pfad oben, wo slot undefined bleibt.
+    // Release the slot — guard against the timeout path above, where slot stays undefined.
     if (slot !== undefined) {
       resourcePool.releaseSlot(slot.slotId);
     }
   }
 }
 
-/** Kurzer Workstream-Label aus der ersten Prompt-Zeile (Label, kein Ledger-Feld). */
+/** Short workstream label from the first prompt line (label, not a ledger field). */
 function planName(prompt: string): string {
   const firstLine = (prompt.trim().split('\n')[0] ?? prompt.trim()).trim();
   if (firstLine.length <= 80) return firstLine || 'Plan';
@@ -390,18 +390,18 @@ function planName(prompt: string): string {
 }
 
 /**
- * W1b — Self-Learning P0 (2026-05-28). Read-Back des WARUM-Kontexts
- * (frühere Begründungen + aktive Beliefs) als pill-lesbarer String. Strikt
- * fail-soft: jeder Fehler ⇒ undefined ⇒ proposeRecursivePlan sieht KEINEN
- * whyContext ⇒ Prompt-Bytes bit-identisch zum bisherigen Pfad (E1.3).
+ * W1b — self-learning P0 (2026-05-28). Read-back of the WHY context
+ * (earlier rationales + active beliefs) as a pill-readable string. Strictly
+ * fail-soft: any error ⇒ undefined ⇒ proposeRecursivePlan sees NO
+ * whyContext ⇒ prompt bytes bit-identical to the previous path (E1.3).
  *
- * Exportiert für Unit-Tests — der Echt-Aufruf liegt im decomposeAndPersist-
- * Hauptkörper. KEIN getDb-Singleton-Throw bricht die Komposition.
+ * Exported for unit tests — the real call lives in the decomposeAndPersist
+ * main body. NO getDb singleton throw breaks the composition.
  *
- * Hinweise:
- *  - workspaceId leer/whitespace → buildWhyContext wirft (N9-Scope-Guard) →
- *    catch → undefined (kein Block).
- *  - Leerer/whitespace-only Renderer-Output → undefined (kein Block).
+ * Notes:
+ *  - workspaceId empty/whitespace → buildWhyContext throws (N9 scope guard) →
+ *    catch → undefined (no block).
+ *  - Empty/whitespace-only renderer output → undefined (no block).
  */
 export function readWhyContextForDispatchFailSoft(args: {
   workspaceId: string;
@@ -425,16 +425,16 @@ export function readWhyContextForDispatchFailSoft(args: {
 }
 
 /**
- * Slice C (2026-05-29) — Konkateniert Discovery-Block + WHY-Block in der
- * Reihenfolge „Discovery > WHY > Intent". Strikt fail-soft:
- *   - Beide leer/undefined ⇒ undefined ⇒ proposeRecursivePlan sieht KEINEN
- *     whyContext ⇒ Plan-Prompt bit-identisch zum Pre-Slice-C-Pfad (Identitäts-
- *     Pfad).
- *   - Nur Discovery vorhanden ⇒ nur Discovery.
- *   - Nur WHY vorhanden ⇒ nur WHY (Pre-Slice-C-Verhalten).
- *   - Beide vorhanden ⇒ Discovery + leerzeile + WHY.
+ * Slice C (2026-05-29) — concatenates the discovery block + WHY block in the
+ * order „Discovery > WHY > Intent". Strictly fail-soft:
+ *   - Both empty/undefined ⇒ undefined ⇒ proposeRecursivePlan sees NO
+ *     whyContext ⇒ plan prompt bit-identical to the pre-Slice-C path (identity
+ *     path).
+ *   - Only discovery present ⇒ discovery only.
+ *   - Only WHY present ⇒ WHY only (pre-Slice-C behavior).
+ *   - Both present ⇒ discovery + blank line + WHY.
  *
- * Exportiert für Unit-Tests.
+ * Exported for unit tests.
  */
 export function composeDiscoveryAndWhy(
   discoveryBlock: string | undefined,
@@ -449,20 +449,20 @@ export function composeDiscoveryAndWhy(
 }
 
 /**
- * Slice C (2026-05-29) — Discovery-Phase + Emit-Pattern. Wirft NIE; bei
- * Fehler liefert sie einen Discovery-Result mit leeren Listen + leerem
- * Kontextblock, sodass der Plan-Pfad bit-identisch zum Pre-Slice-C-Verhalten
- * läuft.
+ * Slice C (2026-05-29) — discovery phase + emit pattern. NEVER throws; on
+ * error it returns a discovery result with empty lists + an empty
+ * context block, so the plan path runs bit-identical to the pre-Slice-C
+ * behavior.
  *
- * Emit-Sequenz pro Workstream (subKey='discovery'):
- *   1) pre-emit „running" — sichtbar, sofort.
- *   2) runDiscovery (parallel fetch, max 8 URLs, 12s je URL).
- *   3) post-emit „done" — selbe coords ⇒ UPDATE in-place.
+ * Emit sequence per workstream (subKey='discovery'):
+ *   1) pre-emit „running" — visible, immediately.
+ *   2) runDiscovery (parallel fetch, max 8 URLs, 12s per URL).
+ *   3) post-emit „done" — same coords ⇒ UPDATE in-place.
  *
- * Idempotenz: emitOrUpdateCard nutzt (workspaceId, workstreamId, surfaceKind,
- * subKey) als Key. Beide Emits matchen denselben Key — kein Doppel-Card-Spam.
+ * Idempotency: emitOrUpdateCard uses (workspaceId, workstreamId, surfaceKind,
+ * subKey) as the key. Both emits match the same key — no double-card spam.
  *
- * Exportiert für Unit-Tests.
+ * Exported for unit tests.
  */
 export async function runDiscoveryAndEmitFailSoft(args: {
   workspaceId: string;
@@ -474,9 +474,9 @@ export async function runDiscoveryAndEmitFailSoft(args: {
   urlCount: number;
   docMentionCount: number;
 }> {
-  // signal ist Reserve: runDiscovery hat eigene per-Fetch-Timeouts; eine
-  // weitere Verkettung wäre Komfort, kein Sicherheits-Gate. Wir markieren
-  // den Parameter explizit als noch nicht verwendet (kein lint-warn).
+  // signal is in reserve: runDiscovery has its own per-fetch timeouts; another
+  // chaining would be convenience, not a safety gate. We mark
+  // the parameter explicitly as not yet used (no lint warn).
   void args.signal;
   const coords = {
     workspaceId: args.workspaceId,
@@ -516,7 +516,7 @@ export async function runDiscoveryAndEmitFailSoft(args: {
       '[plan-dispatch] runDiscovery fail-soft:',
       runErr instanceof Error ? runErr.message : String(runErr),
     );
-    // Fallback: leerer Result ⇒ Plan-Prompt bit-identisch zu Pre-Slice-C.
+    // Fallback: empty result ⇒ plan prompt bit-identical to pre-Slice-C.
     result = {
       urls: [] as DiscoveryResult['urls'],
       pendingDocRequests: [] as DiscoveryResult['pendingDocRequests'],
@@ -524,7 +524,7 @@ export async function runDiscoveryAndEmitFailSoft(args: {
     };
   }
 
-  // 3) post-emit „done" — selbe coords, idempotent.
+  // 3) post-emit „done" — same coords, idempotent.
   const status: 'done' | 'failed' =
     result.urls.length === 0 && result.pendingDocRequests.length === 0
       ? 'done'

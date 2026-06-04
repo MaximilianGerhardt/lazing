@@ -33,24 +33,24 @@ export const consentGrants = sqliteTable(
     id: text("id").primaryKey(),
     /** ManifestCoord scope (N9), no hard FK. */
     workspaceId: text("workspace_id").notNull(),
-    /** Die betroffene Person — §13.2 „Review durch betroffene Person". */
+    /** The affected person — §13.2 „Review durch betroffene Person". */
     userId: text("user_id").notNull(),
     /**
-     * Datenquelle: 'whatsapp' | 'telegram' | 'voice' | 'meeting' | 'email'
+     * Data source: 'whatsapp' | 'telegram' | 'voice' | 'meeting' | 'email'
      * | 'browser-shadow' | 'screen-capture' | 'keystroke-capture'
      * | 'workspace-derive'.
      */
     dataSource: text("data_source").notNull(),
     /** ConsentLevel. */
     level: text("level").notNull(),
-    /** Optionales JSON: { timeWindow?, dataMin? }. */
+    /** Optional JSON: { timeWindow?, dataMin? }. */
     scopeJson: text("scope_json"),
-    /** §13.2 verbatim Begründung (N1). */
+    /** §13.2 verbatim reason (N1). */
     reasonText: text("reason_text").notNull(),
     grantedAt: integer("granted_at").notNull(),
-    /** Nullable; gesetzt = Grant zurückgenommen. */
+    /** Nullable; set = grant revoked. */
     revokedAt: integer("revoked_at"),
-    /** N10 Tamper-Evidenz. */
+    /** N10 tamper-evidence. */
     contentHash: text("content_hash").notNull(),
   },
   (t) => ({
@@ -68,7 +68,7 @@ export const sourceTraces = sqliteTable(
   "source_traces",
   {
     id: text("id").primaryKey(),
-    /** ManifestCoord-Scope (N9). */
+    /** ManifestCoord scope (N9). */
     workspaceId: text("workspace_id").notNull(),
     dataSource: text("data_source").notNull(),
     /** Optional external ID (whatsapp-message-id, …). */
@@ -77,7 +77,7 @@ export const sourceTraces = sqliteTable(
     contentHash: text("content_hash").notNull(),
     /** Nullable; soft-FK on source_traces.id (derive chain). */
     derivedFromTrace: text("derived_from_trace"),
-    /** ms-Epoch. */
+    /** ms epoch. */
     rawRetentionUntil: integer("raw_retention_until"),
     createdAt: integer("created_at").notNull(),
   },
@@ -98,7 +98,7 @@ export const governanceAudit = sqliteTable(
   "governance_audit",
   {
     id: text("id").primaryKey(),
-    /** ManifestCoord-Scope (N9). */
+    /** ManifestCoord scope (N9). */
     workspaceId: text("workspace_id").notNull(),
     userId: text("user_id").notNull(),
     action: text("action").notNull(),

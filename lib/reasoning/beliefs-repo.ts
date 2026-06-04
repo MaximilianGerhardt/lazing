@@ -176,7 +176,7 @@ export function upsertBelief(raw: RawDb, input: UpsertBeliefInput): Belief {
       )
       .get(supersedesId, input.workspaceId) as { id: string } | undefined;
     if (!target) {
-      supersedesId = null; // unbekannte/fremde Ziel-ID → keine Ablöse-Kante
+      supersedesId = null; // unknown/foreign target ID → no supersede edge
     }
   }
 
@@ -391,12 +391,12 @@ export function rankBeliefs(beliefs: readonly Belief[], topic: string): Belief[]
   const span = maxU - minU;
 
   const score = (b: Belief): number => {
-    // relevance: exact-topic-Match = 1.0, sonst LIKE-Treffer = 0.5.
+    // relevance: exact-topic match = 1.0, otherwise LIKE hit = 0.5.
     const relevance = b.topic.toLowerCase() === topicLc ? 1.0 : 0.5;
-    // importance: confidence (null → neutral 0.5), geklemmt auf [0,1].
+    // importance: confidence (null → neutral 0.5), clamped to [0,1].
     const conf = b.confidence == null ? 0.5 : b.confidence;
     const importance = Math.max(0, Math.min(1, conf));
-    // recency: relativ im Fenster; ohne Span (alle gleich) neutral 1.
+    // recency: relative within the window; without a span (all equal) neutral 1.
     const recency = span === 0 ? 1 : (b.updatedAt - minU) / span;
     return (
       RECALL_W_RELEVANCE * relevance +
@@ -409,7 +409,7 @@ export function rankBeliefs(beliefs: readonly Belief[], topic: string): Belief[]
     const sb = score(b);
     const sa = score(a);
     if (sb !== sa) return sb - sa;
-    // Deterministischer Tie-break.
+    // Deterministic tie-break.
     if (b.updatedAt !== a.updatedAt) return b.updatedAt - a.updatedAt;
     if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
     return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
@@ -417,33 +417,33 @@ export function rankBeliefs(beliefs: readonly Belief[], topic: string): Belief[]
 }
 
 // ---------------------------------------------------------------------------
-// P1.1 — reinforceBelief (Erfolg verstärkt; Voyager-Reinforcement / EWC++)
+// P1.1 — reinforceBelief (success reinforces; Voyager reinforcement / EWC++)
 // ---------------------------------------------------------------------------
 
 export interface ReinforceBeliefInput {
   readonly workspaceId: string;
-  /** ID der zu verstärkenden AKTIVEN Belief-Row. */
+  /** ID of the ACTIVE belief row to reinforce. */
   readonly beliefId: string;
-  /** Confidence-Zuwachs (positiv). Default 0.1. Ergebnis wird auf [0,1] geklemmt. */
+  /** Confidence increase (positive). Default 0.1. Result is clamped to [0,1]. */
   readonly delta?: number;
-  /** VERBATIM Begründung der Verstärkung (N1) — wird der neuen rationale angehängt. */
+  /** VERBATIM rationale of the reinforcement (N1) — appended to the new rationale. */
   readonly rationale: string;
 }
 
 /**
- * Verstärkt eine bestehende AKTIVE Überzeugung, wenn ein Run-Outcome sie
- * bestätigt hat (P1.1 — Generative-Agents-importance / Voyager-Reinforcement).
+ * Reinforces an existing ACTIVE belief when a run outcome
+ * confirmed it (P1.1 — Generative-Agents importance / Voyager reinforcement).
  *
- * Mechanik (EWC++ / „nicht vergessen"): KEIN In-Place-UPDATE der alten Row.
- * Stattdessen wird via upsertBelief(supersedesId) eine NEUE Row mit
- * HÖHERER confidence angelegt, die die alte ablöst — die Historie bleibt voll
- * rekonstruierbar (beliefHistory). belief-Text wird VERBATIM übernommen, die
- * neue rationale = alte rationale + verstärkender Outcome-Kontext (N1, kein
- * .slice). Die confidence steigt um `delta` (Default 0.1), geklemmt auf [0,1];
- * Start-confidence null gilt als neutral 0.5.
+ * Mechanics (EWC++ / „do not forget"): NO in-place UPDATE of the old row.
+ * Instead, a NEW row with HIGHER confidence is created via
+ * upsertBelief(supersedesId) that supersedes the old one — the history stays fully
+ * reconstructable (beliefHistory). The belief text is carried over VERBATIM, the
+ * new rationale = old rationale + reinforcing outcome context (N1, no
+ * .slice). The confidence rises by `delta` (default 0.1), clamped to [0,1];
+ * a start confidence of null counts as neutral 0.5.
  *
- * Gibt die neue (verstärkte) Belief-Row zurück, oder `null`, wenn die beliefId
- * im Workspace nicht (mehr aktiv) existiert — fail-soft, kein Wurf.
+ * Returns the new (reinforced) belief row, or `null` if the beliefId
+ * does not exist (any longer, actively) in the workspace — fail-soft, no throw.
  */
 export function reinforceBelief(
   raw: RawDb,
@@ -459,7 +459,7 @@ export function reinforceBelief(
     throw new Error("reinforceBelief: rationale required");
   }
 
-  // Die zu verstärkende Row muss aktiv (nicht-abgelöst) + im Workspace sein.
+  // The row to reinforce must be active (not superseded) + in the workspace.
   const target = raw
     .prepare(
       `SELECT b.* FROM workspace_beliefs b
@@ -483,7 +483,7 @@ export function reinforceBelief(
   return upsertBelief(raw, {
     workspaceId: input.workspaceId,
     topic: current.topic, // N1: verbatim
-    belief: current.belief, // N1: belief-Text unverändert übernommen
+    belief: current.belief, // N1: belief text carried over unchanged
     rationale:
       `${current.rationale} | Bestätigt (P1.1-Reinforcement, ` +
       `confidence ${base}→${next}): ${input.rationale}`,
@@ -494,19 +494,19 @@ export function reinforceBelief(
 }
 
 // ---------------------------------------------------------------------------
-// recordOutcome — Entscheidung/Workstream ↔ Ergebnis (Post-Prozess-Abgleich A5)
+// recordOutcome — decision/workstream ↔ outcome (post-process reconciliation A5)
 // ---------------------------------------------------------------------------
 
 /**
- * Verknüpft eine getroffene Entscheidung (decisionId) und/oder einen ganzen
- * Workstream (workstreamId) additiv mit ihrem Ergebnis. Additiv, weil
- * workstream_decisions append-only ist (0071-Trigger) — das Outcome darf NICHT
- * in-place auf die Decision-Row geschrieben werden.
+ * Additively links a made decision (decisionId) and/or a whole
+ * workstream (workstreamId) to its outcome. Additive, because
+ * workstream_decisions is append-only (0071 trigger) — the outcome must NOT
+ * be written in-place onto the decision row.
  *
- * Speist den späteren Post-Prozess-Abgleich (A5): „Hat die Begründung X zum
- * erhofften Ergebnis geführt?" → mögliche Belief-Revision via upsertBelief.
+ * Feeds the later post-process reconciliation (A5): „Did rationale X lead to the
+ * hoped-for outcome?" → possible belief revision via upsertBelief.
  *
- * Gibt die angelegte Outcome-Row zurück.
+ * Returns the created outcome row.
  */
 export function recordOutcome(
   raw: RawDb,
@@ -559,8 +559,8 @@ export function recordOutcome(
 }
 
 /**
- * Liest die Outcomes eines Workspace — optional gefiltert auf eine Entscheidung
- * oder einen Workstream. Neueste zuerst. (Lese-Surface für A5.)
+ * Reads the outcomes of a workspace — optionally filtered to a decision
+ * or a workstream. Newest first. (Read surface for A5.)
  */
 export function listOutcomes(
   raw: RawDb,
@@ -602,21 +602,21 @@ export function listOutcomes(
 }
 
 // ---------------------------------------------------------------------------
-// E2 — additive Lese-Helfer für die periodische Belief-Curation (curate.ts)
+// E2 — additive read helper for the periodic belief curation (curate.ts)
 // ---------------------------------------------------------------------------
 
 /**
- * E2-ADDITIV (Stream A, 2026-05-27): Lese-Helfer für den belief-curation-Sniper.
+ * E2-ADDITIVE (Stream A, 2026-05-27): read helper for the belief-curation sniper.
  *
- * `listOutcomes` filtert auf EINE decision_id ODER EINEN workstream_id — für die
- * übergreifende ExpeL-Distillation (curateWorkspaceBeliefs) brauchen wir aber den
- * GANZEN Outcome-Pool eines Workspace (alle Runs, alle Decisions), neueste zuerst.
- * Genau das, plus ein höherer Default-Limit (Curation schaut über viele Runs),
- * leistet dieser Helfer. KEIN Eingriff in `listOutcomes` (bestehender Export
- * unverändert) — additiv, deterministisch (stabile ORDER BY).
+ * `listOutcomes` filters to ONE decision_id OR ONE workstream_id — but for the
+ * cross-cutting ExpeL distillation (curateWorkspaceBeliefs) we need the
+ * WHOLE outcome pool of a workspace (all runs, all decisions), newest first.
+ * Exactly that, plus a higher default limit (curation looks across many runs),
+ * is what this helper provides. NO change to `listOutcomes` (the existing export
+ * stays unchanged) — additive, deterministic (stable ORDER BY).
  *
- * Default-Limit bewusst 1000 (statt 100 bei listOutcomes), damit eine Periode
- * nicht vorzeitig abgeschnitten wird; der Caller kann es überschreiben.
+ * The default limit is deliberately 1000 (instead of 100 at listOutcomes) so a period
+ * is not cut off prematurely; the caller can override it.
  */
 export function listOutcomesByWorkspace(
   raw: RawDb,
@@ -642,14 +642,14 @@ export function listOutcomesByWorkspace(
 }
 
 /**
- * E2-ADDITIV: liefert alle Beliefs eines Workspace (AKTIV + abgelöst), deren
- * belief-Text mit einem gegebenen Marker-Präfix beginnt — z.B. die P0.1-Lehr-
- * Beliefs (`[teach-v1`) ODER die P0.2-Reflexions-Beliefs (`[reflect-v1`) ODER die
- * E2-Curation-Beliefs (`[curate-v1`). Neueste zuerst. KEINE supersede-Filterung
- * (Curation will den vollen Verlauf zählen — analog beliefHistory). Deterministisch.
+ * E2-ADDITIVE: returns all beliefs of a workspace (ACTIVE + superseded) whose
+ * belief text begins with a given marker prefix — e.g. the P0.1 teach
+ * beliefs (`[teach-v1`) OR the P0.2 reflection beliefs (`[reflect-v1`) OR the
+ * E2 curation beliefs (`[curate-v1`). Newest first. NO supersede filtering
+ * (curation wants to count the full history — analogous to beliefHistory). Deterministic.
  *
- * Wir matchen via LIKE auf den Präfix; `prefix` wird gegen LIKE-Sonderzeichen
- * (% _ \) escaped, damit Marker-Klammern/Doppelpunkte nicht als Wildcard wirken.
+ * We match via LIKE on the prefix; `prefix` is escaped against LIKE special
+ * characters (% _ \) so marker brackets/colons do not act as a wildcard.
  */
 export function listBeliefsByMarkerPrefix(
   raw: RawDb,

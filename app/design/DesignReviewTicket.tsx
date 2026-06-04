@@ -35,8 +35,8 @@ export function DesignReviewTicket() {
 
     setApiResult(result);
 
-    // Lokale Kopie des letzten Feedback-Events — nuetzlich fuer Debug
-    // und fuer Fallback, wenn die API mal nicht antwortet.
+    // Local copy of the last feedback event — useful for debugging
+    // and as a fallback when the API does not respond.
     try {
       if (typeof window !== "undefined") {
         window.localStorage.setItem(
@@ -54,7 +54,7 @@ export function DesignReviewTicket() {
         );
       }
     } catch {
-      // localStorage kann in Private-Mode werfen — nicht blockieren
+      // localStorage can throw in private mode — do not block
     }
 
     setSubmitted(true);

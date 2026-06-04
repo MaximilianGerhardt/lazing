@@ -1,26 +1,26 @@
 /**
- * RAG-Indexer (Sprint 2 / Strang B, 2026-04-30).
+ * RAG indexer (Sprint 2 / strand B, 2026-04-30).
  *
- * Pro Workspace 4 Source-Types:
- *   - file         (workspace.path/**, gitignore-respect, max 200 KB pro File)
- *   - chat         (events.payload.content für chat_message_completed)
+ * 4 source types per workspace:
+ *   - file         (workspace.path/**, gitignore-respect, max 200 KB per file)
+ *   - chat         (events.payload.content for chat_message_completed)
  *   - ticket       (tickets.body + comments)
  *   - work-product (work_products.markdown)
  *
- * Privacy-Gate (Pflicht):
- *   - segments mit sensitivity='high' werden komplett übersprungen
- *   - events mit sensitivity='high' werden komplett übersprungen
+ * Privacy gate (mandatory):
+ *   - segments with sensitivity='high' are skipped entirely
+ *   - events with sensitivity='high' are skipped entirely
  *   - Keyword scan for high-sensitivity triggers (legal/financial terms,
  *     vault, finances) — skip on match.
  *
- * Loop-Guard (required):
- *   1. Recursion-Detection: kein Re-Index innerhalb < 60s
- *   2. Child-Process-Isolation: Indexer läuft nur als CLI-Script,
- *      NICHT in Next.js-Request-Path
- *   3. Circuit-Breaker: rag_indexer_state.circuit_open=1 nach > 3 Fails
- *      → Indexer pausiert bis manueller Reset
+ * Loop-guard (required):
+ *   1. Recursion detection: no re-index within < 60s
+ *   2. Child-process isolation: the indexer runs only as a CLI script,
+ *      NOT in the Next.js request path
+ *   3. Circuit breaker: rag_indexer_state.circuit_open=1 after > 3 fails
+ *      → the indexer pauses until a manual reset
  *
- * MAX-Plan-Konformität: Embedding ist 100% lokal (Xenova).
+ * MAX-plan compliance: embedding is 100% local (Xenova).
  */
 
 import { ulid } from '@/lib/ulid';
@@ -44,15 +44,15 @@ function assertWorkspaceId(workspaceId: unknown): asserts workspaceId is string 
 }
 
 /**
- * Privacy-Gate (2026-04-30, Sprint 2 Welle 4 fix):
+ * Privacy gate (2026-04-30, Sprint 2 wave 4 fix):
  *
- * Genauer abgegrenzt — vorher hat „password"/„secret"/„api_key" als bare
- * Wörter zu false-positives in CHANGELOG/README/middleware.ts geführt
- * (65 Files geblockt für lazyOS-Workspace).
+ * More precisely scoped — previously „password"/„secret"/„api_key" as bare
+ * words led to false positives in CHANGELOG/README/middleware.ts
+ * (65 files blocked for the lazyOS workspace).
  *
- * Jetzt: nur Patterns die echt nach Geheimnis-Wert riechen
- *   - `secret = "..."` (Zuweisung mit Wert)
- *   - `api_key = ...` mit Wert
+ * Now: only patterns that genuinely smell like a secret value
+ *   - `secret = "..."` (assignment with a value)
+ *   - `api_key = ...` with a value
  *   - Legal/financial sensitivity terms (Layer-3 vault triage)
  */
 const HIGH_SENSITIVITY_PATTERNS: ReadonlyArray<RegExp> = [
@@ -63,7 +63,7 @@ const HIGH_SENSITIVITY_PATTERNS: ReadonlyArray<RegExp> = [
   /\bvermögensverhältnisse\b/i,
   /\binsolvenzverwalter\b/i,
 
-  // Echte Secret-Strings — Pattern matcht „X = "value"" oder „X: 'value'"
+  // Real secret strings — the pattern matches „X = "value"" or „X: 'value'"
   /\b(?:secret|api[_-]?key|access[_-]?token|password|pwd)\s*[=:]\s*["'][^"']{8,}["']/i,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
   /AKIA[0-9A-Z]{16}/,         // AWS Access-Key-ID
@@ -78,7 +78,7 @@ export interface IndexableSource {
   sourceId: string;
   sourceVersion?: number;
   text: string;
-  /** 'low' | 'med' — bei 'high' wirft der Indexer (Defense-in-Depth). */
+  /** 'low' | 'med' — on 'high' the indexer throws (defense-in-depth). */
   sensitivity?: 'low' | 'med' | 'high';
 }
 
@@ -99,8 +99,8 @@ export async function indexSource(source: IndexableSource): Promise<{
   skipped: number;
   reason?: string;
 }> {
-  // Hard-Fail wenn workspaceId fehlt — niemals auf "global" oder __root__
-  // fallback-en. Defense-in-Depth gegen Caller-Bugs.
+  // Hard-fail when workspaceId is missing — never fall back to "global" or
+  // __root__. Defense-in-depth against caller bugs.
   assertWorkspaceId(source.workspaceId);
   if (source.sensitivity === 'high') {
     return { inserted: 0, skipped: 1, reason: 'sensitivity-high-block' };
@@ -120,8 +120,8 @@ export async function indexSource(source: IndexableSource): Promise<{
   const db = getDb();
   const now = Date.now();
 
-  // Idempotenz: Vorhandene Chunks für (workspace, source_type, source_id)
-  // löschen — wir reindexen die Source komplett neu.
+  // Idempotency: delete existing chunks for (workspace, source_type, source_id)
+  // — we reindex the source completely from scratch.
   db.delete(ragChunks)
     .where(
       and(
@@ -154,7 +154,7 @@ export async function indexSource(source: IndexableSource): Promise<{
         .run();
       inserted += 1;
     } catch (err) {
-      // Pro-Chunk-Fehler nicht-fatal — wir indexieren den Rest der Source
+      // A per-chunk error is non-fatal — we index the rest of the source
       console.warn('[rag-indexer] chunk-embed-fail:', err);
     }
   }
@@ -162,7 +162,7 @@ export async function indexSource(source: IndexableSource): Promise<{
 }
 
 /**
- * Top-Level: Source-Bündel indexen mit Loop-Guard + Circuit-Breaker.
+ * Top-level: index a source bundle with loop-guard + circuit breaker.
  */
 export async function indexBatch(
   sources: IndexableSource[],
@@ -179,7 +179,7 @@ export async function indexBatch(
   const workspaceId = sources[0].workspaceId;
   assertWorkspaceId(workspaceId);
 
-  // Loop-Guard 1: Recursion-Detection (kein Re-Index < 60s)
+  // Loop-guard 1: recursion detection (no re-index < 60s)
   const db = getDb();
   const stateRow = db
     .select()
@@ -234,7 +234,7 @@ export async function indexBatch(
     }
   }
 
-  // State-Update + Loop-Guard 3 (Circuit-Open bei > 3 Fails)
+  // State update + loop-guard 3 (circuit-open after > 3 fails)
   const newFailedRuns = (state?.failedRuns ?? 0) + (failed > 0 ? 1 : 0);
   const circuitOpen = newFailedRuns > 3 ? 1 : 0;
   const upsertValues = {
@@ -266,7 +266,7 @@ export async function indexBatch(
 }
 
 /**
- * Convenience: Reset Circuit-Breaker (nach manuellem Fix).
+ * Convenience: reset the circuit breaker (after a manual fix).
  */
 export function resetCircuit(workspaceId: string): void {
   const db = getDb();
@@ -277,10 +277,10 @@ export function resetCircuit(workspaceId: string): void {
 }
 
 /**
- * GDPR-Erasure: alle rag_chunks einer Source-Menge löschen (z.B. wenn ein
- * Sub-Chat hart gelöscht wird). Der FTS-Mirror folgt automatisch via dem
- * AFTER-DELETE-Trigger `trg_rag_chunks_fts_delete`. Workspace-gescoped (N2) —
- * niemals Cross-Workspace. Gebatcht gegen das SQLite-Variablen-Limit.
+ * GDPR erasure: delete all rag_chunks of a source set (e.g. when a
+ * sub-chat is hard-deleted). The FTS mirror follows automatically via the
+ * AFTER-DELETE trigger `trg_rag_chunks_fts_delete`. Workspace-scoped (N2) —
+ * never cross-workspace. Batched against the SQLite variable limit.
  */
 export function deleteSourceChunks(
   workspaceId: string,
@@ -309,10 +309,10 @@ export function deleteSourceChunks(
 }
 
 /**
- * Reconciler: verwaiste Subchat-RAG-Chunks aufräumen — `source_type='subchat'`
- * deren `source_id` keine subchat_messages-Row (mehr) hat. Fängt historische
- * Leaks (vor dem Cascade-Fix) UND jeden zukünftigen Drift. FTS folgt via Trigger.
- * Für einen periodischen Sniper geeignet; idempotent.
+ * Reconciler: clean up orphaned subchat RAG chunks — `source_type='subchat'`
+ * whose `source_id` (no longer) has a subchat_messages row. Catches historical
+ * leaks (before the cascade fix) AND any future drift. FTS follows via trigger.
+ * Suitable for a periodic sniper; idempotent.
  */
 export function purgeOrphanSubchatChunks(): { deleted: number } {
   const db = getDb();

@@ -1,12 +1,12 @@
 /**
- * /how/[slug] — Sub-Page für ein lazyOS-Konzept.
+ * /how/[slug] — Sub-page for a lazyOS concept.
  *
- * Bilingual via ?lang=de|en (Default: de). Stilistisch der Übersicht
- * angeglichen: Apple-Keynote, große Typo, viel Whitespace, fluide Units.
+ * Bilingual via ?lang=de|en (default: de). Stylistically aligned with the
+ * overview: Apple keynote, large typography, lots of whitespace, fluid units.
  *
- * Live-Stats (Hero-Number) optional pro Sub-Page — siehe `liveStat` im
- * Content-Modell. Reads sind defensiv: schlägt der Read fehl, wird die
- * Hero-Number ausgelassen statt die ganze Seite zum Crashen zu bringen.
+ * Live stats (hero number) optional per sub-page — see `liveStat` in the
+ * content model. Reads are defensive: if the read fails, the hero number
+ * is omitted instead of crashing the whole page.
  */
 
 import type { CSSProperties, ReactNode } from 'react';
@@ -68,7 +68,7 @@ async function loadLiveStat(
   try {
     if (content.liveStat.kind === 'skills') {
       const { listSkills } = await import('../../../lib/agents/skills/service');
-      const all = listSkills(); // bereits ohne archivierte
+      const all = listSkills(); // already excludes archived
       return { label: 'skills', value: all.length };
     }
     if (content.liveStat.kind === 'workspaces') {
@@ -82,7 +82,7 @@ async function loadLiveStat(
       return { label: 'sessions', value: ses.length };
     }
   } catch {
-    // best-effort — bei DB-Errors lieber Hero ohne Stat als 500
+    // best-effort — on DB errors, prefer hero without stat over a 500
     return null;
   }
   return null;

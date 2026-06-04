@@ -1,25 +1,25 @@
 /**
- * EnablerCard — Constraint-as-Enabler-Reframing (P15, 2026-05-01).
+ * EnablerCard — constraint-as-enabler reframing (P15, 2026-05-01).
  * ----------------------------------------------------------------
  *
- * Anne (Legaly-AI, Quote): „Compliance wird heute als Bottleneck, als Bremse
+ * Anne (Legaly-AI, quote): „Compliance wird heute als Bottleneck, als Bremse
  * wahrgenommen in Unternehmen. Am Ende könnte man es auch als Enabler sehen."
  *
- * Reframing-Prinzip:
- *   - Ein Critic-Finding / Sensitivity-Gate / Reviewer-Hinweis ist KEIN
- *     Error. Es ist ein Hebel: „diese Auflage öffnet dir <X>".
- *   - Visuelle Sprache: blau (info) / grün (opportunity) / gelb (gate).
- *     KEIN rot, KEIN -Icon.
+ * Reframing principle:
+ *   - A critic finding / sensitivity gate / reviewer hint is NOT an
+ *     error. It is a lever: "this requirement opens up <X> for you".
+ *   - Visual language: blue (info) / green (opportunity) / yellow (gate).
+ *     NO red, NO error icon.
  *
  * Severities:
- *   - 'info'        — neutrale Beobachtung, keine Aktion nötig
- *   - 'opportunity' — Hebel: wenn fix → Trust-/Reichweiten-Gewinn
- *   - 'gate'        — muss adressiert werden, aber als Tor (nicht als Wand)
+ *   - 'info'        — neutral observation, no action needed
+ *   - 'opportunity' — lever: if fixed → trust/reach gain
+ *   - 'gate'        — must be addressed, but as a gate (not a wall)
  *
- * Headline-Format: „Diese Auflage öffnet dir <consequence>".
- * Body: optional „Wenn erfüllt: <trustScoreImpact>".
+ * Headline format: "this requirement opens up <consequence> for you".
+ * Body: optional "if satisfied: <trustScoreImpact>".
  *
- * Surface-Library-konform: inline-style, keine Overlays, keine Modals.
+ * Surface-Library-compliant: inline style, no overlays, no modals.
  */
 
 import type { CSSProperties, JSX } from 'react';
@@ -27,16 +27,16 @@ import type { CSSProperties, JSX } from 'react';
 export type EnablerSeverity = 'info' | 'opportunity' | 'gate';
 
 export interface EnablerCardProps {
-  /** Was wurde gefunden — kurzer Satz, max. 240 Zeichen. */
+  /** What was found — short sentence, max. 240 characters. */
   finding: string;
-  /** Was öffnet sich, wenn der Finding adressiert ist. */
+  /** What opens up when the finding is addressed. */
   consequence: string;
-  /** Optional: numerischer Trust-Score-Impact (wird mit „+X Trust" gerendert). */
+  /** Optional: numeric trust-score impact (rendered with "+X Trust"). */
   trustScoreImpact?: number;
   severity: EnablerSeverity;
-  /** Optional: Quelle (z.B. „critic", „compliance-advisor", „sensitivity"). */
+  /** Optional: source (e.g. "critic", "compliance-advisor", "sensitivity"). */
   source?: string;
-  /** Optional: zusätzlicher Body-Hint. */
+  /** Optional: additional body hint. */
   hint?: string;
 }
 

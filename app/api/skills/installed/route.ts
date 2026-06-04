@@ -1,9 +1,9 @@
 /**
- * GET /api/skills/installed — engine-übergreifende Skills (Store) auflisten.
+ * GET /api/skills/installed — list cross-engine skills (store).
  *
- * Listet die im laz.ing-Skill-Store (~/.lazyos/skills) installierten SKILL.md-
- * Skills + zeigt, in welche Engine-Verzeichnisse sie gesynct sind.
- * Auth: eingeloggt.
+ * Lists the SKILL.md skills installed in the laz.ing skill store
+ * (~/.lazyos/skills) and shows which engine directories they are synced into.
+ * Auth: logged in.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

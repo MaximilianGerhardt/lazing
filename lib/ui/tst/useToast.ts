@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * useToast — Context-basierter Toast-Dispatcher.
+ * useToast — context-based toast dispatcher.
  *
- * Verwendung:
+ * Usage:
  *   const toast = useToast();
  *   toast.ok("Gespeichert");
  *   toast.err("Fehler", err.message);
  *
- * Provider: <ToastProvider> muss im Root-Layout sitzen.
- * Die `id`-Vergabe ist monoton-inkrementell (kein crypto.randomUUID,
- * damit SSR-Hydration sicher bleibt).
+ * Provider: <ToastProvider> must sit in the root layout.
+ * The `id` assignment is monotonically incremental (no crypto.randomUUID,
+ * so SSR hydration stays safe).
  */
 
 import { createContext, useContext } from 'react';
@@ -25,15 +25,15 @@ export interface ToastEntry {
 }
 
 export interface ToastDispatcher {
-  /** Erfolgs-Toast (grüner Akzent, 3 s). */
+  /** Success toast (green accent, 3 s). */
   ok(title: string, body?: string): void;
-  /** Fehler-Toast (roter Akzent, 6 s). */
+  /** Error toast (red accent, 6 s). */
   err(title: string, body?: string): void;
-  /** Warn-Toast (gelber Akzent, 4 s). */
+  /** Warning toast (yellow accent, 4 s). */
   warn(title: string, body?: string): void;
-  /** Generischer Toast (keine Farbe, 3 s). */
+  /** Generic toast (no color, 3 s). */
   info(title: string, body?: string): void;
-  /** Einen Toast manuell entfernen. */
+  /** Remove a toast manually. */
   dismiss(id: string): void;
 }
 
@@ -45,7 +45,7 @@ export const ToastContext = createContext<ToastDispatcher>({
   dismiss: () => undefined,
 });
 
-/** In Client-Komponenten nutzbar. Gibt einen no-op zurück wenn kein Provider vorhanden. */
+/** Usable in client components. Returns a no-op when no provider is present. */
 export function useToast(): ToastDispatcher {
   return useContext(ToastContext);
 }

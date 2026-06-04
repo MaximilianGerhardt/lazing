@@ -1,39 +1,39 @@
 /**
- * POST /api/intake — Lane-A Communication-Intake erreichbar gemacht
+ * POST /api/intake — Lane-A communication intake made reachable
  * (Lane-D · 2026-05-30 · Opus 4.8).
  *
- * Lane-A-Ingestion per API — KEIN Webhook, KEIN auto-run (§7.2: „Imported
- * context must not auto-run."). Jeder POST ist ein expliziter Owner-Aufruf, der
- * EINE intake_events-Row im FSM-Startzustand `staged` (= received) anlegt.
- * Nichts läuft danach automatisch weiter (Lane-B-Compile ist die SEPARATE,
- * owner-getriggerte Aktion an /api/lanes/compile).
+ * Lane-A ingestion via API — NO webhook, NO auto-run (§7.2: „Imported
+ * context must not auto-run."). Every POST is an explicit owner call that
+ * creates ONE intake_events row in the FSM start state `staged` (= received).
+ * Nothing runs on automatically afterwards (Lane-B compile is the SEPARATE,
+ * owner-triggered action at /api/lanes/compile).
  *
- * ── VERTRAG ───────────────────────────────────────────────────────────────
+ * ── CONTRACT ──────────────────────────────────────────────────────────────
  *   POST { workspaceId: string, sourceKind: DataSource, rawContent: string,
  *          speaker?: string,
- *          // optionale §7.3-Schritt-2-Felder (Defaults gesetzt):
+ *          // optional §7.3 step-2 fields (defaults set):
  *          sensitivity?, rawContentType?, externalId?, receivedAt? }
- *   → member-auth (401 → 403 wie compose-and-run)
- *   → buildSourceEnvelope(...) (pure, deterministisch, N10-Hash)
- *   → insertIntakeEvent(db.$raw, envelope)  (FSM=staged, kein auto-run)
+ *   → member auth (401 → 403 like compose-and-run)
+ *   → buildSourceEnvelope(...) (pure, deterministic, N10 hash)
+ *   → insertIntakeEvent(db.$raw, envelope)  (FSM=staged, no auto-run)
  *   → 200 { intakeEventId, deduplicated, contentHash, classificationStatus }
  *
- * N1: rawContent wird VERBATIM (kein slice) ins Envelope und in die Row
- * geschrieben.
- * Idempotenz (N10): gleicher Inhalt im selben Workspace → dieselbe Row
- * zurück (deduplicated=true), kein Doppel-Insert.
+ * N1: rawContent is written VERBATIM (no slice) into the envelope and into the
+ * row.
+ * Idempotency (N10): same content in the same workspace → same row
+ * back (deduplicated=true), no double insert.
  *
- * Fehlerabbildung: ungültiges Vokabular / fehlende Pflichtfelder werden vom
- * pure builder geworfen → wir mappen auf 400 mit reqId (statt 500).
+ * Error mapping: invalid vocabulary / missing required fields are thrown by the
+ * pure builder → we map to 400 with reqId (instead of 500).
  *
- * Welche Chat-/Client-Geste das später aufruft (NICHT in diesem Scope): eine
- * „Context Intake"-Surface im Chat (Owner pastet/leitet WhatsApp-/Meeting-/
- * Voice-Text weiter) bzw. ein künftiger Connector, der dieselbe Route trifft —
- * aber IMMER owner-bestätigt, nie als stiller Webhook-Auto-Run.
+ * Which chat/client gesture calls this later (NOT in this scope): a
+ * „Context Intake" surface in chat (owner pastes/forwards WhatsApp/meeting/
+ * voice text) or a future connector hitting the same route —
+ * but ALWAYS owner-confirmed, never as a silent webhook auto-run.
  *
- * Auth-Muster 1:1 wie app/api/flow/compose-and-run/route.ts. KEINE Engine nötig
- * (Lane A ist deterministisch, kein LLM). ADDITIV: keine Kern-Flow-Datei
- * berührt, kein next build/start.
+ * Auth pattern 1:1 like app/api/flow/compose-and-run/route.ts. NO engine needed
+ * (Lane A is deterministic, no LLM). ADDITIVE: no core flow file
+ * touched, no next build/start.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -85,13 +85,13 @@ interface PostBody {
 export async function POST(req: NextRequest): Promise<Response> {
   const reqId = makeReqId();
 
-  // 1. Auth-Gate (member-or-higher).
+  // 1. Auth gate (member-or-higher).
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required', reqId }, { status: 401 });
   }
 
-  // 2. Body parsen.
+  // 2. Parse body.
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     typeof body.workspaceId === 'string' ? body.workspaceId : '';
   const sourceKind =
     typeof body.sourceKind === 'string' ? body.sourceKind : '';
-  // N1: rawContent VERBATIM (kein slice). Nur Leer-/Typ-Validierung getrimmt.
+  // N1: rawContent VERBATIM (no slice). Only empty/type validation is trimmed.
   const rawContent =
     typeof body.rawContent === 'string' ? body.rawContent : '';
   const speaker =
@@ -134,12 +134,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 3. Workspace-Permission (member-or-higher; Viewer/fremde User → 403).
+  // 3. Workspace permission (member-or-higher; viewer/foreign user → 403).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: 'forbidden', reqId }, { status: 403 });
   }
 
-  // 4. §7.3-Schritt-2-Felder mit sicheren Defaults (fremdes Vokabular → 400).
+  // 4. §7.3 step-2 fields with safe defaults (foreign vocabulary → 400).
   const sensitivity: IntakeSensitivity = SENSITIVITY_SET.has(
     String(body.sensitivity),
   )
@@ -176,8 +176,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 400 },
     );
   }
-  // externalId: vom Caller (z.B. whatsapp message id) oder lokal generiert,
-  // damit die Idempotenz-/Hash-Schicht eine Identität hat.
+  // externalId: from the caller (e.g. whatsapp message id) or locally generated,
+  // so the idempotency/hash layer has an identity.
   const externalId =
     typeof body.externalId === 'string' && body.externalId.length > 0
       ? body.externalId
@@ -189,9 +189,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       ? body.receivedAt
       : Date.now();
 
-  // 5. Envelope bauen (pure, N10-Hash) + persistieren (FSM=staged, kein
-  //    auto-run). buildSourceEnvelope wirft bei ungültigem Vokabular →
-  //    fail-soft auf 400 mappen.
+  // 5. Build envelope (pure, N10 hash) + persist (FSM=staged, no
+  //    auto-run). buildSourceEnvelope throws on invalid vocabulary →
+  //    map fail-soft to 400.
   try {
     const envelope = buildSourceEnvelope({
       externalId,

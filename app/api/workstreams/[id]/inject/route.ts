@@ -1,17 +1,17 @@
 /**
  * POST /api/workstreams/[id]/inject  { message: string }
  *
- * Sniper-Hook (2026-04-28). Während ein Workstream läuft, kann der User
- * eine Mid-Course-Correction reinwerfen. Wir hängen sie als Comment ans
- * Master-Ticket mit `kind='user-correction'`. Folgende Lead-Spawns lesen
- * den Thread und integrieren die Korrektur in ihre nächste Iteration.
+ * Sniper hook (2026-04-28). While a workstream is running, the user can
+ * throw in a mid-course correction. We attach it as a comment to the
+ * master ticket with `kind='user-correction'`. Following lead spawns read
+ * the thread and integrate the correction into their next iteration.
  *
- * Bewusst minimal: kein Pause-Mechanism für laufende Spawns. Wenn V1+Roast
- * gerade fliegen, korrigiert die nächste V2-Iteration. Synchrone Pause
- * kommt in einer zweiten Welle.
+ * Deliberately minimal: no pause mechanism for running spawns. If V1+roast
+ * are currently flying, the next V2 iteration corrects. A synchronous pause
+ * comes in a second wave.
  *
- * Auth: User muss eingeloggt sein UND mind. member im Workspace des
- * Workstreams.
+ * Auth: the user must be logged in AND at least a member of the workstream's
+ * workspace.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -30,10 +30,10 @@ export const dynamic = "force-dynamic";
 interface PostBody {
   message?: string;
   /**
-   * Phase RA (2026-04-29): optional Sub-Ticket-ID. Wenn gesetzt, wird das
-   * user-correction-Event am Sub-Ticket emittiert (statt Master-Ticket) —
-   * damit kann der User mid-flight in einer Sub-Plan-Sniper-Loop oder
-   * Cross-Roast-Phase eingreifen.
+   * Phase RA (2026-04-29): optional sub-ticket id. If set, the
+   * user-correction event is emitted on the sub-ticket (instead of the master
+   * ticket) — so the user can intervene mid-flight in a sub-plan sniper loop or
+   * cross-roast phase.
    */
   subTicketId?: string;
 }
@@ -108,8 +108,8 @@ export async function POST(
     );
   }
 
-  // Phase RA: Wenn subTicketId mitkommt + Sub gehört zum Master, emittiere
-  // an das Sub-Ticket. Sonst Master.
+  // Phase RA: if subTicketId comes along + the sub belongs to the master, emit
+  // to the sub-ticket. Otherwise the master.
   let targetTicketId = ws.primary_ticket_id;
   const requestedSubId = body.subTicketId?.trim();
   if (requestedSubId) {
@@ -127,8 +127,8 @@ export async function POST(
     targetTicketId = subRow.id;
   }
 
-  // Comment-Event mit kind='user-correction' damit folgende Lead-Spawns
-  // es im Thread erkennen.
+  // Comment event with kind='user-correction' so that following lead spawns
+  // recognize it in the thread.
   const ev = await emitEvent({
     segmentId: ws.workspace_id,
     entityType: "ticket",

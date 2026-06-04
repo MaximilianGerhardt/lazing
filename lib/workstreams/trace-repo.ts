@@ -1,21 +1,21 @@
 /**
- * N8-Trace-Writes — workstream_decisions + workstream_evidence (Slice-B).
+ * N8 trace writes — workstream_decisions + workstream_evidence (slice B).
  *
- * Schreibt Entscheidungen und Evidenz verbatim (N1) in die append-only Tabellen
- * `workstream_decisions` (Migration 0071) und `workstream_evidence` (0069).
+ * Writes decisions and evidence verbatim (N1) into the append-only tables
+ * `workstream_decisions` (migration 0071) and `workstream_evidence` (0069).
  *
- * Design-Prinzipien:
- *   - N1:  rationale / decision-Text / snippet werden VERBATIM übergeben —
- *          kein .slice(), kein Kürzen hier. Caller ist verantwortlich für
- *          sinnvolle Länge.
- *   - N8:  Jede Entscheidung + Evidenz schreibt eine „warum haben wir das
- *          entschieden?"-Row. Additive Trace-Schicht — kein Löschen, kein Update.
- *   - N10: Jede Row trägt `content_hash` (sha256 über kanonisches JSON) für
- *          Tamper-Evidenz. Gleicher Hash = idempotent (UNIQUE-Index greift).
- *   - Best-effort: alle öffentlichen Funktionen werfen NICHT. Fehler werden
- *          geloggt — Trace ist additiv, nicht blocking.
+ * Design principles:
+ *   - N1:  rationale / decision text / snippet are passed VERBATIM —
+ *          no .slice(), no truncation here. The caller is responsible for
+ *          a sensible length.
+ *   - N8:  Every decision + evidence writes a "why did we decide
+ *          this?" row. An additive trace layer — no deletion, no update.
+ *   - N10: Every row carries `content_hash` (sha256 over canonical JSON) for
+ *          tamper-evidence. Same hash = idempotent (the UNIQUE index kicks in).
+ *   - Best-effort: all public functions do NOT throw. Errors are
+ *          logged — the trace is additive, not blocking.
  *
- * Tabellen-Spalten (exakte echte Spalten, geprüft gegen Migrations 0069/0071):
+ * Table columns (exact real columns, verified against migrations 0069/0071):
  *
  *   workstream_evidence
  *     id TEXT PK, workstream_id TEXT, source_ref TEXT, source_kind TEXT,
@@ -49,7 +49,7 @@ export type EvidenceSourceKind = 'rag_chunk' | 'tool_output' | 'user' | 'spawn';
 
 /**
  * Allowed decision kinds for workstream_decisions (from Migration 0071 CHECK).
- * 'route' ist der generische Catch-All für Plan-Dispatch / Intent-Routing.
+ * 'route' is the generic catch-all for plan dispatch / intent routing.
  */
 export type DecisionKind =
   | 'route'
@@ -69,48 +69,48 @@ export type DecisionKind =
 export type DecisionActor = 'user' | 'agent' | 'policy';
 
 export interface WriteEvidenceInput {
-  /** Workspace this evidence belongs to (für coordKey-Kontext). */
+  /** Workspace this evidence belongs to (for coordKey context). */
   workspaceId: string;
-  /** Workstream this evidence belongs to — Pflicht-FK. */
+  /** Workstream this evidence belongs to — mandatory FK. */
   workstreamId: string;
   /**
-   * Freie Schlüsselreferenz — z.B. `<sourceType>:<sourceId>` oder
-   * eine RAG-Chunk-ID. Landet als `source_ref` (NOT NULL).
+   * Free key reference — e.g. `<sourceType>:<sourceId>` or
+   * a RAG chunk ID. Lands as `source_ref` (NOT NULL).
    */
   coordKey?: string;
-  /** Maschinentyp der Quelle. Maps direkt auf `source_kind` CHECK-Enum. */
+  /** Machine type of the source. Maps directly onto the `source_kind` CHECK enum. */
   sourceKind: EvidenceSourceKind;
-  /** Ggf. ID der konkreten Quelle (z.B. rag_chunk.id, tool_call_id). */
+  /** Optionally the ID of the concrete source (e.g. rag_chunk.id, tool_call_id). */
   sourceId?: string;
   /**
-   * Verbatim-Snippet (N1) — darf lang sein, kein .slice() hier.
-   * Wird in den content_hash einbezogen.
+   * Verbatim snippet (N1) — may be long, no .slice() here.
+   * Included in the content_hash.
    */
   snippet: string;
-  /** Actor der die Evidenz erzeugt ('user'|'agent'|'policy'). */
+  /** Actor that produces the evidence ('user'|'agent'|'policy'). */
   actor?: DecisionActor;
 }
 
 export interface WriteDecisionInput {
-  /** Workspace (für coordKey-Kontext). */
+  /** Workspace (for coordKey context). */
   workspaceId: string;
-  /** Workstream — Pflicht-FK. */
+  /** Workstream — mandatory FK. */
   workstreamId: string;
-  /** Freies Koordinaten-Label (z.B. `<workspaceId>/<workstreamId>`). */
+  /** Free coordinate label (e.g. `<workspaceId>/<workstreamId>`). */
   coordKey?: string;
-  /** Art der Entscheidung. */
+  /** Kind of decision. */
   decisionKind: DecisionKind;
   /**
-   * Verbatim-Entscheidungs-Text (N1).
-   * Wird als `rationale`-Spalte persistiert.
+   * Verbatim decision text (N1).
+   * Persisted as the `rationale` column.
    */
   rationale: string;
-  /** Actor der die Entscheidung trifft. */
+  /** Actor that makes the decision. */
   actor?: DecisionActor;
   /**
-   * Optionale vorher geschriebene Evidence-IDs zum referenzieren.
-   * Wenn leer/undefined: es wird automatisch ein Sentinel-Evidence-Row
-   * geschrieben (Constraint: evidence_refs JSON array length >= 1).
+   * Optional previously-written evidence IDs to reference.
+   * If empty/undefined: a sentinel evidence row is written
+   * automatically (constraint: evidence_refs JSON array length >= 1).
    */
   evidenceIds?: string[];
 }
@@ -120,8 +120,8 @@ export interface WriteDecisionInput {
 // ---------------------------------------------------------------------------
 
 /**
- * SHA-256 über ein kanonisches JSON-Objekt (N10 Tamper-Evidenz).
- * Ergibt immer 64 hex-Zeichen.
+ * SHA-256 over a canonical JSON object (N10 tamper-evidence).
+ * Always yields 64 hex characters.
  */
 function sha256hex(payload: Record<string, unknown>): string {
   return createHash('sha256')
@@ -134,11 +134,11 @@ function sha256hex(payload: Record<string, unknown>): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Schreibt einen Evidenz-Row in `workstream_evidence`. Best-effort: wirft nicht.
+ * Writes an evidence row into `workstream_evidence`. Best-effort: does not throw.
  *
- * Gibt die ID der geschriebenen Row zurück — oder `null` bei Fehler.
- * Idempotenz: UNIQUE(workstream_id, source_ref, content_hash) — gleicher
- * Inhalt schreibt keinen zweiten Row (ON CONFLICT IGNORE).
+ * Returns the ID of the written row — or `null` on error.
+ * Idempotency: UNIQUE(workstream_id, source_ref, content_hash) — the same
+ * content writes no second row (ON CONFLICT IGNORE).
  */
 export function writeEvidence(input: WriteEvidenceInput): string | null {
   try {
@@ -148,7 +148,7 @@ export function writeEvidence(input: WriteEvidenceInput): string | null {
       ? `${input.sourceKind}:${input.sourceId}`
       : `${input.sourceKind}:${input.coordKey ?? input.workspaceId}`;
 
-    // N10: content_hash über kanonisches Payload-JSON
+    // N10: content_hash over the canonical payload JSON
     const contentHash = sha256hex({
       workstream_id: input.workstreamId,
       source_ref: sourceRef,
@@ -164,8 +164,8 @@ export function writeEvidence(input: WriteEvidenceInput): string | null {
       )
       .run(id, input.workstreamId, sourceRef, input.sourceKind, contentHash);
 
-    // Bei IGNORE (Duplikat) die existierende ID via content_hash ermitteln
-    // damit Caller die korrekte ID zum Referenzieren bekommt.
+    // On IGNORE (duplicate), determine the existing ID via content_hash
+    // so the caller gets the correct ID to reference.
     const existing = db.$raw
       .prepare(
         `SELECT id FROM workstream_evidence
@@ -186,38 +186,38 @@ export function writeEvidence(input: WriteEvidenceInput): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Schreibt einen Entscheidungs-Row in `workstream_decisions`. Best-effort: wirft nicht.
+ * Writes a decision row into `workstream_decisions`. Best-effort: does not throw.
  *
- * Constraint: `evidence_refs` muss ein JSON-Array mit ≥1 Einträgen sein.
- * Wenn `input.evidenceIds` leer/undefined ist, wird automatisch ein
- * Sentinel-Evidence-Row (source_kind='agent', snippet=rationale) geschrieben,
- * dessen ID in evidence_refs landet.
+ * Constraint: `evidence_refs` must be a JSON array with ≥1 entries.
+ * If `input.evidenceIds` is empty/undefined, a
+ * sentinel evidence row (source_kind='agent', snippet=rationale) is written
+ * automatically, whose ID lands in evidence_refs.
  *
- * Idempotenz: UNIQUE(workstream_id, content_hash) — gleiche Entscheidung
- * wird nicht doppelt geschrieben.
+ * Idempotency: UNIQUE(workstream_id, content_hash) — the same decision
+ * is not written twice.
  *
- * Gibt die ID der geschriebenen/existierenden Row zurück — oder `null` bei Fehler.
+ * Returns the ID of the written/existing row — or `null` on error.
  */
 export function writeDecision(input: WriteDecisionInput): string | null {
   try {
     const db = getDb();
     const actor: DecisionActor = input.actor ?? 'agent';
 
-    // Sicherstellen dass evidence_refs ≥1 Element hat (DB CHECK).
+    // Ensure evidence_refs has ≥1 element (DB CHECK).
     let evidenceIds: string[] = input.evidenceIds?.filter(Boolean) ?? [];
     if (evidenceIds.length === 0) {
-      // Sentinel: eine Evidence-Row mit dem Rationale-Text als Snippet schreiben.
+      // Sentinel: write an evidence row with the rationale text as the snippet.
       const sentinelId = writeEvidence({
         workspaceId: input.workspaceId,
         workstreamId: input.workstreamId,
         coordKey: input.coordKey,
-        sourceKind: 'spawn', // 'spawn' = agent-generiert; passt für policy-/plan-Entscheidungen
+        sourceKind: 'spawn', // 'spawn' = agent-generated; fits policy/plan decisions
         snippet: input.rationale,
         actor,
       });
       if (!sentinelId) {
-        // Sentinel-Write schlug fehl — Entscheidung ohne Evidence nicht
-        // möglich (DB CHECK). Schweigen (best-effort).
+        // The sentinel write failed — a decision without evidence is not
+        // possible (DB CHECK). Stay silent (best-effort).
         console.warn(
           '[trace-repo] writeDecision: sentinel evidence write failed, skipping decision',
           { workstreamId: input.workstreamId, decisionKind: input.decisionKind },
@@ -230,7 +230,7 @@ export function writeDecision(input: WriteDecisionInput): string | null {
     const id = `dec_${ulid()}`;
     const evidenceRefsJson = JSON.stringify(evidenceIds);
 
-    // N10: content_hash über kanonisches Payload-JSON
+    // N10: content_hash over the canonical payload JSON
     const contentHash = sha256hex({
       workstream_id: input.workstreamId,
       decision_kind: input.decisionKind,
@@ -255,7 +255,7 @@ export function writeDecision(input: WriteDecisionInput): string | null {
         actor,
       );
 
-    // Bei IGNORE (Duplikat) existierende ID zurückgeben.
+    // On IGNORE (duplicate), return the existing ID.
     const existing = db.$raw
       .prepare(
         `SELECT id FROM workstream_decisions

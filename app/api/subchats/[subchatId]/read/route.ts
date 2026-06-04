@@ -1,9 +1,9 @@
 /**
- * POST /api/subchats/[subchatId]/read   — Sub-Chat als gelesen markieren.
+ * POST /api/subchats/[subchatId]/read   — mark sub-chat as read.
  *
- * Auth: Member des Workspace (gespiegelt aus messages/route.ts). Optionaler
- * Body { ts }; default now. Mutation über lib/subchats/service.markRead.
- * Gathering-Intelligence-Goal P2 (2026-06-02).
+ * Auth: member of the workspace (mirrored from messages/route.ts). Optional
+ * body { ts }; defaults to now. Mutation via lib/subchats/service.markRead.
+ * Gathering-Intelligence goal P2 (2026-06-02).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     const body = (await req.json()) as { ts?: number };
     ts = typeof body.ts === 'number' && Number.isFinite(body.ts) ? body.ts : undefined;
   } catch {
-    ts = undefined; // leerer/kein Body ist erlaubt — default now
+    ts = undefined; // empty/no body is allowed — defaults to now
   }
   markRead(subchatId, g.userId, ts);
   return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });

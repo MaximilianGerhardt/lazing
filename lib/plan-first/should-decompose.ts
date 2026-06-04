@@ -1,33 +1,33 @@
-// N6-Entry-Gate — deterministisches Pre-Screen für Plan-Zerlegung.
+// N6 entry gate — deterministic pre-screen for plan decomposition.
 //
-// BACKPORT-03 (2026-05-23 · Agent Phase C-1).
+// BACKPORT-03 (2026-05-23 · agent phase C-1).
 //
-// Diese Funktion ist der N6-Pre-Screen, der VOR dem teuren
-// `proposeRecursivePlan`-LLM-Call entscheidet, ob ein User-Intent in
-// einen Plan zerlegt werden soll.
+// This function is the N6 pre-screen that decides BEFORE the expensive
+// `proposeRecursivePlan` LLM call whether a user intent should be
+// decomposed into a plan.
 //
-// Disziplin:
-//   - N6: ausschließlich deterministisch — kein LLM, kein I/O, kein async.
-//         Gleicher Input → immer gleicher Output.
-//   - N1: `reason` ist verbatim, keine Kürzung der Signal-Beschreibungen.
-//   - Bilingual: alle Regex-Signale decken Deutsche und Englische Prompts ab.
-//   - Konservativ: bei Zweifeln lieber false-negative (kein Decompose),
-//     um unnötige LLM-Kosten zu vermeiden.
+// Discipline:
+//   - N6: strictly deterministic — no LLM, no I/O, no async.
+//         Same input → always the same output.
+//   - N1: `reason` is verbatim, no truncation of the signal descriptions.
+//   - Bilingual: all regex signals cover German and English prompts.
+//   - Conservative: when in doubt, prefer a false negative (no decompose),
+//     to avoid unnecessary LLM cost.
 //
-// Decompose-Schwelle: Gesamt-Score ≥ 2.
+// Decompose threshold: total score ≥ 2.
 //
 // Brand: laz.ing · Stack: TypeScript · Node ≥ 20
 
 // ---------------------------------------------------------------------------
-// Öffentliche Typen
+// Public types
 // ---------------------------------------------------------------------------
 
 /**
- * Ein einzelnes erkanntes Signal das für oder gegen Decompose spricht.
+ * A single detected signal that argues for or against decompose.
  *
- * - `name`    : Signal-ID (z. B. "S1 multi-step-verb-de").
- * - `matched` : die konkrete Fundstelle im Prompt (für Debugging).
- * - `weight`  : Beitrag zum Gesamt-Score (negativ = Veto-/Guard-Signal).
+ * - `name`    : signal ID (e.g. "S1 multi-step-verb-de").
+ * - `matched` : the concrete location found in the prompt (for debugging).
+ * - `weight`  : contribution to the total score (negative = veto/guard signal).
  */
 export interface DecomposeSignal {
   readonly name: string;
@@ -36,12 +36,12 @@ export interface DecomposeSignal {
 }
 
 /**
- * Rückgabetyp von `shouldDecompose`.
+ * Return type of `shouldDecompose`.
  *
- * - `decompose` : true wenn der Score die Schwelle ≥ 2 erreicht.
- * - `score`     : nummerischer Gesamt-Score.
- * - `reason`    : menschenlesbare Begründung mit den Top-Signalen.
- * - `signals`   : alle erkannten Einzel-Signale (inkl. Veto/Guards).
+ * - `decompose` : true when the score reaches the threshold ≥ 2.
+ * - `score`     : numeric total score.
+ * - `reason`    : human-readable rationale with the top signals.
+ * - `signals`   : all detected individual signals (incl. veto/guards).
  */
 export interface ShouldDecomposeResult {
   readonly decompose: boolean;
@@ -51,56 +51,56 @@ export interface ShouldDecomposeResult {
 }
 
 // ---------------------------------------------------------------------------
-// Schwelle
+// Threshold
 // ---------------------------------------------------------------------------
 
 /**
- * Mindest-Score für decompose = true.
+ * Minimum score for decompose = true.
  *
- * Angehoben 2→3 (2026-06-02, Codex-Parität): bei 2 reichte EIN nacktes
- * Step-Verb ("Erstelle …", "Refactor", "Deploy") um eine Plan-Karte in den
- * Chat zu poppen — un-Codex (Codex/Claude Code beantworten/erledigen einfache
- * Anfragen direkt, statt für jede „erstelle"-Bitte zu planen). Ab 3 braucht es
- * ein Verb PLUS ein korroborierendes Komplexitäts-Signal (Projekt-Keyword,
- * Liste, „und"-Chaining, Länge, mehrere Sätze) — d.h. ein echtes mehrstufiges
- * Vorhaben. Plan-Dispatch bleibt als Ablauf erhalten, feuert aber nur noch
- * bei genuiner Komplexität statt bei jeder Aktion.
+ * Raised 2→3 (2026-06-02, Codex parity): at 2 a SINGLE bare
+ * step verb ("Erstelle …", "Refactor", "Deploy") was enough to pop a plan card into the
+ * chat — un-Codex (Codex/Claude Code answer/handle simple
+ * requests directly, instead of planning for every „erstelle" request). From 3 on it needs
+ * a verb PLUS a corroborating complexity signal (project keyword,
+ * list, „und" chaining, length, multiple sentences) — i.e. a genuine multi-step
+ * undertaking. Plan dispatch remains as a flow but now only fires
+ * on genuine complexity instead of on every action.
  */
 const DECOMPOSE_THRESHOLD = 3;
 
 // ---------------------------------------------------------------------------
-// Hilfsfunktion: Regex-Treffer zählen
+// Helper: count regex matches
 // ---------------------------------------------------------------------------
 
 /**
- * Gibt alle nicht-überlappenden Treffer eines Patterns im Prompt zurück.
- * Flags werden ignoriert — intern wird immer `gi` verwendet.
+ * Returns all non-overlapping matches of a pattern in the prompt.
+ * Flags are ignored — internally `gi` is always used.
  */
 function allMatches(pattern: RegExp, text: string): RegExpMatchArray[] {
-  // Neues RegExp-Objekt, damit lastIndex immer frisch ist.
+  // New RegExp object so lastIndex is always fresh.
   const re = new RegExp(pattern.source, 'gi');
   const results: RegExpMatchArray[] = [];
   let m: RegExpMatchArray | null;
   while ((m = re.exec(text)) !== null) {
     results.push(m);
-    // Safety: bei Zero-Length-Matches lastIndex manuell vorrücken.
+    // Safety: for zero-length matches advance lastIndex manually.
     if (m[0].length === 0) re.lastIndex++;
   }
   return results;
 }
 
 // ---------------------------------------------------------------------------
-// Haupt-Funktion
+// Main function
 // ---------------------------------------------------------------------------
 
 /**
- * Entscheidet deterministisch, ob ein User-Prompt in einen mehrstufigen Plan
- * zerlegt werden soll (N6-Gate).
+ * Decides deterministically whether a user prompt should be decomposed
+ * into a multi-step plan (N6 gate).
  *
- * Kein LLM, kein I/O, kein async — reine Regex + Arithmetik.
+ * No LLM, no I/O, no async — pure regex + arithmetic.
  *
- * @param prompt - Der rohe User-Intent-Text (beliebige Länge).
- * @returns      ShouldDecomposeResult mit `decompose`, `score`, `reason`, `signals`.
+ * @param prompt - The raw user intent text (any length).
+ * @returns      ShouldDecomposeResult with `decompose`, `score`, `reason`, `signals`.
  *
  * @example
  * const r = shouldDecompose('Implementiere einen Auth-Service mit JWT');
@@ -110,12 +110,12 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   const collected: DecomposeSignal[] = [];
 
   // -----------------------------------------------------------------------
-  // S12 — Negation-Guard (Gewicht −1)
+  // S12 — negation guard (weight −1)
   //
-  // "Schreib mir kurz …", "nur …", "einfach nur …" etc. in den ersten 40
-  // Zeichen deuten auf eine Simple-Request hin, kein Plan notwendig.
-  // Nur VORNE im Prompt relevant — danach kann "nur" legitimerweise als
-  // Kontext auftreten ("deploy nur auf Staging").
+  // "Schreib mir kurz …", "nur …", "einfach nur …" etc. in the first 40
+  // characters indicate a simple request, no plan needed.
+  // Only relevant at the FRONT of the prompt — later "nur" can legitimately
+  // appear as context ("deploy nur auf Staging").
   // -----------------------------------------------------------------------
   {
     const prefix = prompt.slice(0, 40);
@@ -131,10 +131,10 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S1 — Multi-Step-Verb Deutsch (Gewicht +2)
+  // S1 — multi-step verb German (weight +2)
   //
-  // Starke Handlungsverben die typischerweise mehrere Schritte implizieren.
-  // Einmaliges Auftreten reicht — das Verb allein signalisiert Komplexität.
+  // Strong action verbs that typically imply multiple steps.
+  // A single occurrence is enough — the verb alone signals complexity.
   // -----------------------------------------------------------------------
   {
     const re =
@@ -150,10 +150,10 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S2 — Multi-Step-Verb Englisch (Gewicht +2)
+  // S2 — multi-step verb English (weight +2)
   //
-  // Englische Entsprechungen zu S1. Wortgrenzen nötig, damit "porting" oder
-  // "deployment" nicht als eigenständige Verben durchgehen.
+  // English equivalents of S1. Word boundaries needed so "porting" or
+  // "deployment" don't pass as standalone verbs.
   // -----------------------------------------------------------------------
   {
     const re =
@@ -169,21 +169,21 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // Prüfen ob S1 ODER S2 gematcht haben (für S10-Veto-Bedingung nötig).
+  // Check whether S1 OR S2 matched (needed for the S10 veto condition).
   // -----------------------------------------------------------------------
   const hasStepVerb = collected.some(
     (s) => s.name === 'S1 multi-step-verb-de' || s.name === 'S2 multi-step-verb-en',
   );
 
   // -----------------------------------------------------------------------
-  // S10 — Pure-Question VETO (Gewicht −3)
+  // S10 — pure-question VETO (weight −3)
   //
-  // Prompt endet mit `?`. Veto greift, wenn ENTWEDER kein Multi-Step-Verb
-  // gefunden wurde ODER der Prompt mit einem Frage-Wort beginnt
-  // (wie/was/how/what/…). Letzteres schlägt das Step-Verb: "Wie implementiere
-  // ich ein Feature?" ist eine Wissensfrage, kein Auftrag — ohne diese
-  // Verschärfung würde jede How-to-Frage fälschlich den vollen (teuren)
-  // Decompose-Fan-out auslösen statt einer Antwort (Critic-Fix M2, 2026-05-23).
+  // Prompt ends with `?`. The veto applies when EITHER no multi-step verb
+  // was found OR the prompt begins with a question word
+  // (wie/was/how/what/…). The latter beats the step verb: "Wie implementiere
+  // ich ein Feature?" is a knowledge question, not a task — without this
+  // tightening every how-to question would wrongly trigger the full (expensive)
+  // decompose fan-out instead of an answer (critic fix M2, 2026-05-23).
   // -----------------------------------------------------------------------
   {
     const trimmed = prompt.trim();
@@ -202,9 +202,9 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S3 — Enum-Connector Deutsch (Gewicht +1)
+  // S3 — enum connector German (weight +1)
   //
-  // Aufzählungs- und Sequenz-Wörter auf Deutsch.
+  // Enumeration and sequence words in German.
   // -----------------------------------------------------------------------
   {
     const re =
@@ -220,10 +220,10 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S4 — Enum-Connector Englisch (Gewicht +1)
+  // S4 — enum connector English (weight +1)
   //
-  // "then", "next", "after that" etc. signalisieren explizite Sequenz.
-  // "after that" wird als Sonderfall direkt mitgetestet.
+  // "then", "next", "after that" etc. signal an explicit sequence.
+  // "after that" is tested directly as a special case.
   // -----------------------------------------------------------------------
   {
     const re =
@@ -239,15 +239,15 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S5 — List-Marker (Gewicht +2)
+  // S5 — list marker (weight +2)
   //
-  // Nummerierte Listen (`1.`, `2.` …) ODER Bullet-Listen (`- item`, `* item`)
-  // ab ≥ 2 Vorkommen. Zwei oder mehr Listenpunkte = klare Mehrstufigkeit.
+  // Numbered lists (`1.`, `2.` …) OR bullet lists (`- item`, `* item`)
+  // from ≥ 2 occurrences. Two or more list items = clear multi-step structure.
   // -----------------------------------------------------------------------
   {
-    // Nummerierte Elemente: \b\d+\. (Word-Boundary vor Ziffer).
+    // Numbered items: \b\d+\. (word boundary before the digit).
     const numberedMatches = allMatches(/\b\d+\./g, prompt);
-    // Bullet-Elemente: Zeilenanfang (oder Newline) + optionale Leerzeichen + [-*] + Leerzeichen.
+    // Bullet items: line start (or newline) + optional whitespace + [-*] + whitespace.
     const bulletMatches = allMatches(/(^|\n)\s*[-*]\s/g, prompt);
     const total = numberedMatches.length + bulletMatches.length;
     if (total >= 2) {
@@ -264,16 +264,16 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S6 — And-Chaining (Gewicht +1)
+  // S6 — and-chaining (weight +1)
   //
-  // "und" oder "and" ≥ 2 Vorkommen deutet auf Aufzählung hin (nicht nur
-  // eine binäre Verknüpfung). Leerzeichen-Flanken verhindern Treffer in
-  // zusammengesetzten Wörtern wie "fundamental".
+  // "und" or "and" ≥ 2 occurrences indicates an enumeration (not just
+  // a binary conjunction). Whitespace flanks prevent matches inside
+  // compound words like "fundamental".
   // -----------------------------------------------------------------------
   {
-    // Deutsches "und" mit Leerzeichen-Flanken.
+    // German "und" with whitespace flanks.
     const deMatches = allMatches(/\s+und\s+/g, prompt);
-    // Englisches "and" mit Leerzeichen-Flanken.
+    // English "and" with whitespace flanks.
     const enMatches = allMatches(/\s+and\s+/g, prompt);
     const total = deMatches.length + enMatches.length;
     if (total >= 2) {
@@ -290,9 +290,9 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S7 — Project-Keyword Deutsch (Gewicht +1)
+  // S7 — project keyword German (weight +1)
   //
-  // Domänen-Nomen die auf ein Projekt-/Architektur-Vorhaben hinweisen.
+  // Domain nouns that point to a project/architecture undertaking.
   // -----------------------------------------------------------------------
   {
     const re =
@@ -308,10 +308,10 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S8 — Project-Keyword Englisch (Gewicht +1)
+  // S8 — project keyword English (weight +1)
   //
-  // Englische Entsprechungen zu S7. case-insensitive wegen Groß/Klein-Mix
-  // in technischen Texten ("the API", "a schema", "the backend").
+  // English equivalents of S7. Case-insensitive because of mixed casing
+  // in technical texts ("the API", "a schema", "the backend").
   // -----------------------------------------------------------------------
   {
     const re =
@@ -327,10 +327,10 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S9 — Länge (Gewicht +1)
+  // S9 — length (weight +1)
   //
-  // Lange Prompts (> 200 Zeichen nach trim) beschreiben in aller Regel
-  // komplexe Anforderungen — kein einzelner einfacher Befehl.
+  // Long prompts (> 200 characters after trim) as a rule describe
+  // complex requirements — not a single simple command.
   // -----------------------------------------------------------------------
   {
     if (prompt.trim().length > 200) {
@@ -343,10 +343,10 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // S11 — Multiple Sentences (Gewicht +1)
+  // S11 — multiple sentences (weight +1)
   //
-  // Satzenden (. ! ?) gefolgt von Leerzeichen + Großbuchstabe (inkl. Umlaute).
-  // ≥ 3 solcher Übergänge = mehrere eigenständige Anforderungssätze.
+  // Sentence ends (. ! ?) followed by whitespace + capital letter (incl. umlauts).
+  // ≥ 3 such transitions = several independent requirement sentences.
   // -----------------------------------------------------------------------
   {
     const transitionMatches = allMatches(/[.!?]\s+[A-ZÜÄÖ]/g, prompt);
@@ -360,21 +360,21 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   }
 
   // -----------------------------------------------------------------------
-  // Score berechnen und Entscheidung treffen
+  // Compute the score and make the decision
   // -----------------------------------------------------------------------
 
-  // Step-Verb zählt EINMAL (2026-06-02-Fix): die DE- (S1) und EN-Liste (S2)
-  // überlappen bei "refactor"/"deploy"/"migrate"/"port"/"convert" → ein nacktes
-  // "Deploy" feuerte beide und kam so auf +4 (statt +2), was bare Verben fälsch-
-  // lich über den Threshold hob. Wir zählen das Verb-Signal genau einmal; die
-  // einzelnen S1/S2-Signale bleiben in `collected` (für Name-Assertions/reason).
+  // The step verb counts ONCE (2026-06-02 fix): the DE (S1) and EN list (S2)
+  // overlap on "refactor"/"deploy"/"migrate"/"port"/"convert" → a bare
+  // "Deploy" fired both and thus reached +4 (instead of +2), which wrongly
+  // pushed bare verbs over the threshold. We count the verb signal exactly once; the
+  // individual S1/S2 signals stay in `collected` (for name assertions/reason).
   let score = 0;
   let stepVerbCounted = false;
   for (const s of collected) {
     const isStepVerb =
       s.name === 'S1 multi-step-verb-de' || s.name === 'S2 multi-step-verb-en';
     if (isStepVerb) {
-      if (stepVerbCounted) continue; // zweites Verb-Signal trägt 0 zum Score bei
+      if (stepVerbCounted) continue; // a second verb signal contributes 0 to the score
       stepVerbCounted = true;
     }
     score += s.weight;
@@ -382,10 +382,10 @@ export function shouldDecompose(prompt: string): ShouldDecomposeResult {
   const decompose = score >= DECOMPOSE_THRESHOLD;
 
   // -----------------------------------------------------------------------
-  // reason: menschenlesbare Top-Signal-Beschreibung
+  // reason: human-readable top-signal description
   //
-  // Positive Signale zuerst, dann Vetos/Guards.
-  // Maximal die 3 stärksten Signale werden genannt — mehr würde unlesbar.
+  // Positive signals first, then vetos/guards.
+  // At most the 3 strongest signals are named — more would be unreadable.
   // -----------------------------------------------------------------------
   const positive = collected
     .filter((s) => s.weight > 0)

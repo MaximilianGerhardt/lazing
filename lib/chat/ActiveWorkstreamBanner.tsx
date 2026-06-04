@@ -3,14 +3,14 @@
 /**
  * ActiveWorkstreamBanner — Sub-Plan 01b (2026-04-29).
  *
- * Zeigt im Chat einen dezenten Banner solange im aktuellen Workspace
- * mindestens ein Workstream im Status `active` oder `paused` läuft.
- * Polling alle 30 s; Re-Fetch sobald ein iterate-version-Event vom
- * Workstream-Detail-Stream kommt (via Custom-Event-Bus).
+ * Shows a subtle banner in the chat as long as at least one workstream in
+ * the current workspace is running in status `active` or `paused`.
+ * Polls every 30 s; re-fetches as soon as an iterate-version event from
+ * the workstream detail stream arrives (via custom event bus).
  *
- * User-Befund 2026-04-29: nach Reload weiß User nicht ob ein Workstream
- * weiterhin arbeitet. Banner gibt visuelles Feedback + Klick-Tunnel in
- * den Workstream.
+ * User finding 2026-04-29: after a reload, the user doesn't know whether a
+ * workstream is still working. The banner gives visual feedback + a click
+ * tunnel into the workstream.
  */
 
 import { useEffect, useState } from 'react';
@@ -22,7 +22,7 @@ interface ActiveWorkstream {
   name?: string | null;
   status: 'active' | 'paused' | 'done' | 'archived' | 'stuck';
   workspaceId: string;
-  /** Unix-ms des letzten Updates — für Laufzeit-Anzeige. */
+  /** Unix-ms of the last update — for the runtime display. */
   updatedAt?: number | null;
 }
 
@@ -46,7 +46,7 @@ export function ActiveWorkstreamBanner({
   });
   const [now, setNow] = useState<number>(() => Date.now());
 
-  // Tick alle 15 s damit die Laufzeit-Anzeige im Banner fortschreitet.
+  // Tick every 15 s so the runtime display in the banner advances.
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), DUR_TICK_MS);
     return () => window.clearInterval(id);
@@ -58,7 +58,7 @@ export function ActiveWorkstreamBanner({
 
     const load = async (): Promise<void> => {
       try {
-        // Phase 01c — fetch alle live + stuck + paused parallel.
+        // Phase 01c — fetch all live + stuck + paused in parallel.
         const [activeR, stuckR] = await Promise.all([
           fetch(
             `/api/workstreams?workspaceId=${encodeURIComponent(workspaceId)}&status=active&limit=20`,
@@ -112,7 +112,7 @@ export function ActiveWorkstreamBanner({
     ? `/workstreams/${encodeURIComponent(single.id)}`
     : `/workstreams?workspaceId=${encodeURIComponent(workspaceId)}`;
 
-  // Laufzeit des primären / einzigen Workstreams (null → kein Suffix).
+  // Runtime of the primary / sole workstream (null → no suffix).
   const singleDur = single?.updatedAt ? formatDur(single.updatedAt, now) : null;
 
   return (
@@ -170,8 +170,8 @@ export function ActiveWorkstreamBanner({
 }
 
 /**
- * Public Helper: andere Components können dispatchen damit der Banner
- * sofort re-fetched (z.B. wenn ein iterate-version-Event reinkommt).
+ * Public helper: other components can dispatch so the banner
+ * re-fetches immediately (e.g. when an iterate-version event comes in).
  */
 export function refreshActiveWorkstreams(): void {
   if (typeof window === 'undefined') return;

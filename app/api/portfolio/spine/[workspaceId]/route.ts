@@ -1,25 +1,25 @@
 /**
  * GET /api/portfolio/spine/[workspaceId]
  *
- * Phase 2 W2.0 (2026-05-29) — Portfolio-Spine read-route.
+ * Phase 2 W2.0 (2026-05-29) — portfolio-spine read route.
  *
- * Liefert den deterministischen `PortfolioRunState` eines Workspace
- * (siehe `lib/portfolio/types.ts`). Wenn kein Portfolio-Run für den
- * Workspace existiert, geben wir 200 + `{ portfolioRun: null }` zurück
- * (Owner: „read-only Probe, kein Fehler wenn leer").
+ * Returns the deterministic `PortfolioRunState` of a workspace
+ * (see `lib/portfolio/types.ts`). When no portfolio run exists for the
+ * workspace, we return 200 + `{ portfolioRun: null }`
+ * (owner: „read-only Probe, kein Fehler wenn leer").
  *
- * ── Auth-Gate ────────────────────────────────────────────────────────────
- *   Gespiegelt aus `app/api/state/projection/[workspaceId]/route.ts`:
- *   (A) currentUserIdResolved        → 401 wenn nicht eingeloggt.
- *   (B) canEditWorkspaceContent      → 403 wenn < member.
- *   (C) hasRealWorkspaceMembership   → 403 (IDOR-Härtung).
+ * ── Auth gate ─────────────────────────────────────────────────────────────
+ *   Mirrored from `app/api/state/projection/[workspaceId]/route.ts`:
+ *   (A) currentUserIdResolved        → 401 when not logged in.
+ *   (B) canEditWorkspaceContent      → 403 when < member.
+ *   (C) hasRealWorkspaceMembership   → 403 (IDOR hardening).
  *
- * ── Cache-Disziplin ──────────────────────────────────────────────────────
- *   no-store, must-revalidate. State ist per Definition zeit-sensitiv —
- *   eine eben merged Stage muss SOFORT in `completedMergeStages` auftauchen.
+ * ── Cache discipline ──────────────────────────────────────────────────────
+ *   no-store, must-revalidate. State is by definition time-sensitive —
+ *   a just-merged stage must appear IMMEDIATELY in `completedMergeStages`.
  *
- * ── Read-Only ────────────────────────────────────────────────────────────
- *   Diese Route schreibt NIE. Kein Audit-Row, kein State-Mutation.
+ * ── Read-only ─────────────────────────────────────────────────────────────
+ *   This route NEVER writes. No audit row, no state mutation.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -40,7 +40,7 @@ interface Ctx {
   params: Promise<{ workspaceId: string }>;
 }
 
-// Format-Guard analog state/projection-Route.
+// Format guard analogous to the state/projection route.
 const WORKSPACE_ID_RE = /^(?:__org_root__:)?[a-zA-Z0-9_:()-]{1,128}$/;
 
 export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // loadPortfolioRunState ist intern fail-soft. Defense-in-Depth-Wrapper.
+  // loadPortfolioRunState is internally fail-soft. Defense-in-depth wrapper.
   try {
     const db = getDb();
     const state = loadPortfolioRunState(db.$raw, workspaceId);

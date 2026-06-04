@@ -3,18 +3,18 @@
  *
  * Design: docs/plans/2026-06-03_group-chat-question-spinning-design.md §6.
  *
- * Mutations- + Lese-Pfad für angespinnte Fragen in Sub-/Gruppen-Chats. Folgt dem
- * Stil von lib/subchats/service.ts (ULID-IDs, getDb(), best-effort Event + RAG).
+ * Mutation + read path for spun-up questions in sub-/group chats. Follows the
+ * style of lib/subchats/service.ts (ULID IDs, getDb(), best-effort event + RAG).
  *
- * Disziplin:
- *   - N1: text/label/free_text VERBATIM (kein .slice auf Inhalt).
- *   - N2: Antwort-Ingestion strikt workspace-isoliert (indexSource).
- *   - N9: workspace_id auf jeder Row.
- *   - append-only: Antworten werden nie geändert; jüngste pro Teilnehmer gilt.
- *   - Realtime über die vorhandene emitEvent-Pipeline (subchat_question /
- *     subchat_question_answer), gefiltert auf payload.subchatId — wie subchat_message.
- *   - SELBST-ENTHALTEN: importiert NICHT aus service.ts (vermeidet Zyklus; service.ts
- *     importiert von HIER den Hauptchat-Kontext-Block).
+ * Discipline:
+ *   - N1: text/label/free_text VERBATIM (no .slice on content).
+ *   - N2: answer ingestion strictly workspace-isolated (indexSource).
+ *   - N9: workspace_id on every row.
+ *   - append-only: answers are never changed; the latest one per participant applies.
+ *   - Realtime via the existing emitEvent pipeline (subchat_question /
+ *     subchat_question_answer), filtered on payload.subchatId — like subchat_message.
+ *   - SELF-CONTAINED: does NOT import from service.ts (avoids a cycle; service.ts
+ *     imports the main-chat context block from HERE).
  */
 
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
@@ -40,7 +40,7 @@ export interface SpinQuestionInput {
   authorName?: string | null;
   /** N1 verbatim. */
   text: string;
-  /** Optionale Antwort-Optionen (0..n). */
+  /** Optional answer options (0..n). */
   options?: string[];
 }
 
@@ -50,11 +50,11 @@ export interface QuestionWithOptions {
 }
 
 export interface QuestionView extends QuestionWithOptions {
-  /** Alle Antworten (append-only Historie). */
+  /** All answers (append-only history). */
   answers: SubchatQuestionAnswerRow[];
 }
 
-/** Nächste seq für einen Sub-Chat (monoton, „aufeinanderfolgend"). */
+/** Next seq for a sub-chat (monotonic, „consecutive"). */
 function nextSeq(subchatId: string): number {
   const db = getDb();
   const row = db
@@ -67,7 +67,7 @@ function nextSeq(subchatId: string): number {
   return (row?.seq ?? 0) + 1;
 }
 
-/** Eine Frage anspinnen (+ optionale Optionen). Emittiert Realtime-Event. */
+/** Spin up a question (+ optional options). Emits a realtime event. */
 export function spinQuestion(input: SpinQuestionInput): QuestionWithOptions {
   const db = getDb();
   const now = Date.now();
@@ -82,7 +82,7 @@ export function spinQuestion(input: SpinQuestionInput): QuestionWithOptions {
       authorKind: input.authorKind,
       authorId: input.authorId ?? null,
       authorName: input.authorName?.slice(0, 80) ?? null,
-      text, // N1 verbatim (nur außen getrimmt)
+      text, // N1 verbatim (only trimmed at the edges)
       seq: nextSeq(input.subchatId),
       status: 'open',
       resolvedAt: null,
@@ -142,12 +142,12 @@ export interface AnswerQuestionInput {
   answererKind: ParticipantKind;
   answererId?: string | null;
   answererName?: string | null;
-  /** Genau EINES setzen: */
+  /** Set exactly ONE: */
   optionId?: string | null;
   freeText?: string | null;
 }
 
-/** Eine Frage beantworten (Option ODER Freitext). Ingestet in RAG (N2). */
+/** Answer a question (option OR free text). Ingested into RAG (N2). */
 export function answerQuestion(input: AnswerQuestionInput): SubchatQuestionAnswerRow {
   const db = getDb();
   const now = Date.now();
@@ -184,12 +184,12 @@ export function answerQuestion(input: AnswerQuestionInput): SubchatQuestionAnswe
     questionId: input.questionId,
     answererKind: input.answererKind,
   });
-  // Wissen in die Workspace-RAG (fire-and-forget, N2).
+  // Knowledge into the workspace RAG (fire-and-forget, N2).
   void ingestAnswer(row).catch(() => undefined);
   return row;
 }
 
-/** Frage explizit auf 'resolved' setzen (oder via 'auto:stale'). */
+/** Explicitly set a question to 'resolved' (or via 'auto:stale'). */
 export function resolveQuestion(questionId: string, resolvedBy: string): void {
   const db = getDb();
   db.update(subchatQuestions)
@@ -198,7 +198,7 @@ export function resolveQuestion(questionId: string, resolvedBy: string): void {
     .run();
 }
 
-/** Offene Fragen eines Sub-Chats in seq-Reihenfolge (für die Pille). */
+/** Open questions of a sub-chat in seq order (for the pill). */
 export function listOpenQuestions(subchatId: string): QuestionWithOptions[] {
   const db = getDb();
   const questions = db
@@ -210,7 +210,7 @@ export function listOpenQuestions(subchatId: string): QuestionWithOptions[] {
   return attachOptions(questions);
 }
 
-/** Alle Fragen (offen + resolved) mit Optionen + Antworten — für den GET-Endpoint. */
+/** All questions (open + resolved) with options + answers — for the GET endpoint. */
 export function listQuestionViews(subchatId: string, limit = 50): QuestionView[] {
   const db = getDb();
   const questions = db
@@ -257,7 +257,7 @@ function attachOptions(questions: SubchatQuestionRow[]): QuestionWithOptions[] {
   }));
 }
 
-/** RAG-Ingestion einer Antwort (workspace-isoliert, N2). */
+/** RAG ingestion of an answer (workspace-isolated, N2). */
 export async function ingestAnswer(row: SubchatQuestionAnswerRow): Promise<void> {
   const db = getDb();
   const q = db
@@ -293,11 +293,11 @@ export async function ingestAnswer(row: SubchatQuestionAnswerRow): Promise<void>
       .where(eq(subchatQuestionAnswers.id, row.id))
       .run();
   } catch {
-    /* non-fatal — Antwort bleibt persistiert, ingested bleibt 0 (Retry-fähig) */
+    /* non-fatal — the answer stays persisted, ingested stays 0 (retryable) */
   }
 }
 
-/** Self-Heal: zieht nicht-ingestete Antworten nach (analog reindexUningestedSubchats). */
+/** Self-heal: catches up on un-ingested answers (analogous to reindexUningestedSubchats). */
 export async function reindexUningestedAnswers(limit = 50): Promise<number> {
   const db = getDb();
   const rows = db
@@ -316,10 +316,10 @@ export async function reindexUningestedAnswers(limit = 50): Promise<number> {
 }
 
 /**
- * Hauptchat-Awareness: kompakter Block über OFFENE + jüngst beantwortete Fragen
- * aller Sub-Chats eines Workspaces. Wird von service.formatSubchatContextBlock
- * angehängt → der Hauptchat-Agent weiß immer, was im Kundenkanal gefragt/
- * beantwortet wurde (bewiesener Subchat→RAG→Hauptchat-Fluss). N2/N9.
+ * Main-chat awareness: a compact block of OPEN + recently answered questions
+ * across all sub-chats of a workspace. Appended by service.formatSubchatContextBlock
+ * → the main-chat agent always knows what was asked/answered in the customer
+ * channel (proven subchat→RAG→main-chat flow). N2/N9.
  */
 export function formatSubchatQuestionsContextBlock(
   workspaceId: string,
@@ -396,6 +396,6 @@ async function emitQuestionEvent(
       sensitivity: 'low',
     });
   } catch {
-    /* non-fatal — Realtime ist best-effort */
+    /* non-fatal — realtime is best-effort */
   }
 }

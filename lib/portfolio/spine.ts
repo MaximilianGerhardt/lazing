@@ -1,35 +1,35 @@
 /**
- * Phase 2 W2.0 — Portfolio-Spine
+ * Phase 2 W2.0 — portfolio spine
  * ════════════════════════════════════════════════════════════════════════
  *
- * WAS DIESES MODUL IST
+ * WHAT THIS MODULE IS
  * ────────────────────
- * Der **Portfolio-Spine** ist die deterministische Repräsentation der 11-
- * Stufen-Merge-Sequenz aus dem Master-Kontext §6 plus der 6 Quality-Gates
- * + des 12-Punkte-Lane-Vertrags aus dem Integration-Plan §6/§7.
+ * The **portfolio spine** is the deterministic representation of the 11-
+ * stage merge sequence from master context §6 plus the 6 quality gates
+ * + the 12-point lane contract from the integration plan §6/§7.
  *
- * Er besteht aus drei Bausteinen:
+ * It consists of three building blocks:
  *
- *   1. `MERGE_SEQUENCE` — die 11 Stages als DAG (Dependency-Edges via
- *      `requires`). Reihenfolge ist load-bearing.
+ *   1. `MERGE_SEQUENCE` — the 11 stages as a DAG (dependency edges via
+ *      `requires`). The order is load-bearing.
  *
- *   2. `QUALITY_GATES` — die 6 Gates G1..G6 als pure functions. Jeder Gate
- *      bekommt den vollen `PortfolioRunState` und liefert ein
- *      `QualityGateResult` mit `passed`, `reason`, `blockingItems`.
+ *   2. `QUALITY_GATES` — the 6 gates G1..G6 as pure functions. Each gate
+ *      gets the full `PortfolioRunState` and returns a
+ *      `QualityGateResult` with `passed`, `reason`, `blockingItems`.
  *
- *   3. `LANE_CONTRACT_TEMPLATES` — pro Lane ein Template-Patch mit den
- *      bereits-bekannten Pflicht-Werten (z.B. governance hat
- *      confidenceBehavior='deterministic'). Der Restvertrag wird zur
- *      Laufzeit von der Lane selbst befüllt; `validateLaneContract` prüft
- *      auf Vollständigkeit.
+ *   3. `LANE_CONTRACT_TEMPLATES` — one template patch per lane with the
+ *      already-known mandatory values (e.g. governance has
+ *      confidenceBehavior='deterministic'). The rest of the contract is filled
+ *      at runtime by the lane itself; `validateLaneContract` checks
+ *      for completeness.
  *
- * WAS DIESES MODUL NICHT IST
+ * WHAT THIS MODULE IS NOT
  * ──────────────────────────
- * Keine Execution-Engine. Es spawnt KEINE Workstreams, ruft KEINE LLMs,
- * macht KEINE Side-Effects. Reine Pure-Function-Library — alle Funktionen
- * sind deterministisch (N6) und nicht-werfend (fail-soft).
+ * Not an execution engine. It spawns NO workstreams, calls NO LLMs,
+ * makes NO side effects. A pure function library — all functions
+ * are deterministic (N6) and non-throwing (fail-soft).
  *
- * OWNER-DIREKTIVE (verbatim, N1)
+ * OWNER DIRECTIVE (verbatim, N1)
  * ──────────────────────────────
  *
  *   Master-Kontext §6:
@@ -60,32 +60,32 @@
  *     G6 Build-Readiness        — „Ist sie test- und build-fähig
  *                                  (Fixtures + Rollout-Constraints)?"
  *
- * SUBSTRAT-DISZIPLIN (N4)
+ * SUBSTRATE DISCIPLINE (N4)
  * ───────────────────────
- * Keine neue Tabelle. Ein Portfolio-Run wird in `workstreams` repräsentiert:
+ * No new table. A portfolio run is represented in `workstreams`:
  *
- *   parent-Workstream  — workstreams.mode = 'portfolio'
- *   pro-Lane-child-Workstream — parent_workstream_id = <parent>,
+ *   parent workstream  — workstreams.mode = 'portfolio'
+ *   per-lane child workstream — parent_workstream_id = <parent>,
  *                               role = 'lane:<laneId>'
  *
- * Stage-Completions werden als `workstream_decisions(decision_kind='route',
- * rationale='portfolio-stage-completed: <stageId>')` Rows angehängt. Die
- * Tabelle ist append-only (Trigger aus 0071), was perfekt zur N8-/N10-
- * Disziplin passt.
+ * Stage completions are appended as `workstream_decisions(decision_kind='route',
+ * rationale='portfolio-stage-completed: <stageId>')` rows. The
+ * table is append-only (trigger from 0071), which fits the N8/N10
+ * discipline perfectly.
  *
- * Die `loadPortfolioRunState`-Funktion liest diesen Zustand zurück —
- * read-only, fail-soft, ähnlich `projectWorkspaceState` aus
+ * The `loadPortfolioRunState` function reads this state back —
+ * read-only, fail-soft, similar to `projectWorkspaceState` from
  * `lib/projection/state-projector.ts`.
  *
- * Stand: 2026-05-29
+ * As of: 2026-05-29
  */
 
 import type { Database as Sqlite } from 'better-sqlite3';
 
-// Contract-Persistenz-Slice (W3): liest den 12-Punkte-LaneContract pro
-// Lane-Child aus der DB zurück. Runtime-only Import — `loadLaneContract` wird
-// erst innerhalb von `loadPortfolioRunState` aufgerufen, nie auf Modul-Ebene
-// (der entstehende contract-repo↔spine-Zyklus ist daher unkritisch).
+// Contract persistence slice (W3): reads the 12-point LaneContract per
+// lane-child back from the DB. Runtime-only import — `loadLaneContract` is
+// only called inside `loadPortfolioRunState`, never at module level
+// (so the resulting contract-repo↔spine cycle is harmless).
 import { loadLaneContract } from './contract-repo';
 
 import type { PvArtifact } from '@/lib/eval/demo-pv/domain-model';
@@ -116,23 +116,23 @@ import type {
 import { LANE_IDS } from './types';
 
 // ───────────────────────────────────────────────────────────────────────────
-// MERGE_SEQUENCE — die 11 Stages als DAG.
+// MERGE_SEQUENCE — the 11 stages as a DAG.
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Die 11 Stages in kanonischer Order. Dependencies (requires) sind
- * konservativ — Stage N braucht typischerweise nur die DIREKT vorhergehende
- * Stage, plus eventuell den Governance-Gate-Contract (Stage 1), der über
- * allem hängt.
+ * The 11 stages in canonical order. Dependencies (requires) are
+ * conservative — stage N typically needs only the DIRECTLY preceding
+ * stage, plus possibly the governance-gate contract (stage 1), which hangs
+ * over everything.
  *
- * Gates pro Stage: jede Stage MUSS mindestens G1 (Concept-Integrity) + G3
- * (Governance-Readiness) bestehen. Höhere Stages adden zusätzliche Gates
- * (G4 sobald der DAG sichtbar wird; G6 sobald wir auf den Build-Graph
- * zusteuern).
+ * Gates per stage: every stage MUST pass at least G1 (concept integrity) + G3
+ * (governance readiness). Higher stages add additional gates
+ * (G4 as soon as the DAG becomes visible; G6 as soon as we head toward the
+ * build graph).
  *
- * Lanes pro Stage: jede Stage erbt die Lane(s), aus deren Output sie
- * konsolidiert. Stages 1, 9, 10, 11 sind „governance/critic/build/reconcile"-
- * lastig und ziehen die `governance`-Lane.
+ * Lanes per stage: every stage inherits the lane(s) whose output it
+ * consolidates. Stages 1, 9, 10, 11 are „governance/critic/build/reconcile"-
+ * heavy and pull in the `governance` lane.
  */
 export const MERGE_SEQUENCE: readonly MergeStage[] = [
   {
@@ -230,30 +230,30 @@ export const MERGE_SEQUENCE: readonly MergeStage[] = [
 ] as const;
 
 /**
- * Lookup: Stage-ID → MergeStage. Für O(1)-Auflösung.
+ * Lookup: stage ID → MergeStage. For O(1) resolution.
  */
 const STAGE_BY_ID: Record<MergeStageId, MergeStage> = Object.fromEntries(
   MERGE_SEQUENCE.map((s) => [s.id, s]),
 ) as Record<MergeStageId, MergeStage>;
 
 // ───────────────────────────────────────────────────────────────────────────
-// QUALITY_GATES — die 6 Gates G1..G6.
+// QUALITY_GATES — the 6 gates G1..G6.
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Hilfsfunktion: Sind alle Lanes, deren Output diese Stage braucht, in einem
- * akzeptablen Zustand?
+ * Helper: are all lanes whose output this stage needs in an
+ * acceptable state?
  *
- * Wir prüfen für JEDE Lane des Run-States:
- *   - Lane hat einen LaneState-Eintrag (sollte immer der Fall sein, weil wir
- *     den Run-State immer mit allen 7 Lanes initialisieren).
- *   - Lane.contract ist gesetzt und valide.
+ * For EVERY lane of the run state we check:
+ *   - the lane has a LaneState entry (should always be the case, because we
+ *     always initialize the run state with all 7 lanes).
+ *   - lane.contract is set and valid.
  *
- * Die SET der zu prüfenden Lanes hängt vom Gate ab:
- *   - G1/G2/G3/G5 — alle 7 Lanes (jede muss ihr Versprechen einlösen).
- *   - G4 — alle Lanes, die in Stage 8 (flow-graph-workstream-dag) feeden:
- *     die 6 nicht-governance Lanes.
- *   - G6 — alle Lanes (Build-Readiness ist holistisch).
+ * The SET of lanes to check depends on the gate:
+ *   - G1/G2/G3/G5 — all 7 lanes (each must deliver on its promise).
+ *   - G4 — all lanes that feed into stage 8 (flow-graph-workstream-dag):
+ *     the 6 non-governance lanes.
+ *   - G6 — all lanes (build readiness is holistic).
  */
 function lanesWithMissingContract(state: PortfolioRunState, lanes: LaneId[]): LaneId[] {
   const missing: LaneId[] = [];
@@ -270,9 +270,9 @@ function lanesWithMissingContract(state: PortfolioRunState, lanes: LaneId[]): La
 }
 
 /**
- * Hilfsfunktion: Hat MINDESTENS eine Lane einen `errorStates`-Eintrag?
- * Wenn keine einzige Lane Failure-Modes deklariert hat, ist das Concept
- * unvollständig (Integration-Plan §6: „keine Failure Modes benennt" verboten).
+ * Helper: does AT LEAST one lane have an `errorStates` entry?
+ * If not a single lane has declared failure modes, the concept is
+ * incomplete (integration plan §6: „keine Failure Modes benennt" forbidden).
  */
 function someLaneHasErrorStates(state: PortfolioRunState): boolean {
   for (const id of LANE_IDS) {
@@ -286,7 +286,7 @@ function someLaneHasErrorStates(state: PortfolioRunState): boolean {
 // G5 anti-MVP bridge: real Demo PV domain eval (instead of a list-length proxy)
 // ───────────────────────────────────────────────────────────────────────────
 
-/** Type-Guard: ist der rohe Wert ein plausibles `PvArtifact`? */
+/** Type guard: is the raw value a plausible `PvArtifact`? */
 function isPvArtifact(v: unknown): v is PvArtifact {
   return (
     typeof v === 'object' &&
@@ -297,13 +297,13 @@ function isPvArtifact(v: unknown): v is PvArtifact {
 }
 
 /**
- * Wenn der Run-State einen Domain-Eval-Kontext mit einem ableitbaren
- * `PvArtifact` trägt, gibt diese Funktion das ECHTE G5-Verdikt zurück
- * (evaluateArtifact → toG5GateResult). Sonst `null` (G5 nutzt dann den
- * Lane-Contract-Fallback).
+ * When the run state carries a domain-eval context with a derivable
+ * `PvArtifact`, this function returns the REAL G5 verdict
+ * (evaluateArtifact → toG5GateResult). Otherwise `null` (G5 then uses the
+ * lane-contract fallback).
  *
- * Deterministisch (N6) + fail-soft: jeder Defekt im Kontext → `null`
- * (Fallback), niemals werfen.
+ * Deterministic (N6) + fail-soft: any defect in the context → `null`
+ * (fallback), never throws.
  */
 function domainDepthFromEval(state: PortfolioRunState): QualityGateResult | null {
   const ctx = state.domainEval;
@@ -316,15 +316,15 @@ function domainDepthFromEval(state: PortfolioRunState): QualityGateResult | null
     const testCase = getTestCase(ctx.testCaseId as TestCaseId);
     const verdict = evaluateArtifact(ctx.pvArtifact, testCase);
     const result = toG5GateResult(verdict);
-    // Verbatim-Reason mit G5-Präfix anreichern, damit Owner/Critic sofort sehen,
-    // dass G5 echt geprüft hat (nicht der Fallback).
+    // Enrich the verbatim reason with a G5 prefix so owner/critic immediately see
+    // that G5 actually checked (not the fallback).
     return {
       passed: result.passed,
       reason: `G5 (Domain-Eval): ${result.reason}`,
       blockingItems: result.blockingItems,
     };
   } catch {
-    // fail-soft: Eval-Fehler → Fallback statt Crash.
+    // fail-soft: eval error → fallback instead of crash.
     return null;
   }
 }
@@ -335,8 +335,8 @@ export const QUALITY_GATES: readonly QualityGate[] = [
     question:
       'Liefert die Lane echtes Konzept, nicht nur Screens oder Ideen?',
     validator: (state): QualityGateResult => {
-      // Concept-Integrity = jede Lane hat (a) einen vollständigen Vertrag UND
-      // (b) mindestens einen errorStates-Eintrag (Failure-Modes benannt).
+      // Concept integrity = every lane has (a) a complete contract AND
+      // (b) at least one errorStates entry (failure modes named).
       const missing = lanesWithMissingContract(state, [...LANE_IDS]);
       if (missing.length > 0) {
         return {
@@ -362,8 +362,8 @@ export const QUALITY_GATES: readonly QualityGate[] = [
     question:
       'Sind die nötigen Schemas/Events vorhanden und konsumierbar?',
     validator: (state): QualityGateResult => {
-      // Data-Readiness = jede Lane deklariert mindestens eine dataSchema-
-      // Tabelle UND mindestens ein inputEvent ODER ein outputEvent.
+      // Data readiness = every lane declares at least one dataSchema
+      // table AND at least one inputEvent OR one outputEvent.
       const blockingItems: string[] = [];
       for (const id of LANE_IDS) {
         const c = state.laneStates[id]?.contract;
@@ -424,9 +424,9 @@ export const QUALITY_GATES: readonly QualityGate[] = [
     question:
       'Hängt die Lane im DAG (Input/Output verkabelt mit Vorgängern/Nachfolgern)?',
     validator: (state): QualityGateResult => {
-      // Wir prüfen, dass die NICHT-Governance-Lanes jeweils inputEvents UND
-      // outputEvents besitzen (eine Lane mit nur inputs oder nur outputs hängt
-      // nicht im DAG).
+      // We check that the NON-governance lanes each have inputEvents AND
+      // outputEvents (a lane with only inputs or only outputs does not hang
+      // in the DAG).
       const blockingItems: string[] = [];
       const nonGovLanes: LaneId[] = LANE_IDS.filter((l) => l !== 'governance');
       for (const id of nonGovLanes) {
@@ -455,20 +455,20 @@ export const QUALITY_GATES: readonly QualityGate[] = [
     question:
       'Hat sie echte Fachlogik (kein generischer Feature-Brei)?',
     validator: (state): QualityGateResult => {
-      // ANTI-MVP-KERN (Master-Kontext §9): Wenn ein PV-Build-Artefakt im
-      // Run-State hängt, prüft G5 ECHT gegen das kompilierte Fachmodell —
-      // ein „nur Dachzeichner ohne Stringing/Speicher/Wechselrichter"-
-      // Artefakt fällt hier deterministisch durch (missing-object/blocker).
-      // Liegt KEIN PV-Artefakt vor (Nicht-PV-Lane), greift der bisherige
-      // Lane-Contract-Heuristik-Fallback unten (Rückwärtskompatibilität).
+      // ANTI-MVP CORE (master context §9): when a PV build artifact hangs in the
+      // run state, G5 checks REALLY against the compiled domain model —
+      // a „nur Dachzeichner ohne Stringing/Speicher/Wechselrichter"
+      // artifact fails here deterministically (missing-object/blocker).
+      // If NO PV artifact is present (non-PV lane), the previous
+      // lane-contract heuristic fallback below applies (backwards compatibility).
       const evalResult = domainDepthFromEval(state);
       if (evalResult) return evalResult;
 
-      // FALLBACK (Nicht-PV-Lane): Domain-Depth = mindestens eine Lane mit
-      // confidenceBehavior != 'deterministic' MUSS humanReviewRequirements !=
-      // 'none' setzen, ODER ihr Contract enthält explizite domain-spezifische
-      // Metriken (metrics.length >= 2, weil ein „generischer Brei" oft nur 1
-      // Metrik wie „done" liefert).
+      // FALLBACK (non-PV lane): domain depth = at least one lane with
+      // confidenceBehavior != 'deterministic' MUST set humanReviewRequirements !=
+      // 'none', OR its contract contains explicit domain-specific
+      // metrics (metrics.length >= 2, because a „generischer Brei" often delivers only 1
+      // metric like „done").
       const shallow: string[] = [];
       for (const id of LANE_IDS) {
         const c = state.laneStates[id]?.contract;
@@ -531,16 +531,16 @@ const GATE_BY_ID: Record<QualityGateId, QualityGate> = Object.fromEntries(
 ) as Record<QualityGateId, QualityGate>;
 
 // ───────────────────────────────────────────────────────────────────────────
-// LANE_CONTRACT_TEMPLATES — Pre-fill-Vorlagen pro Lane.
+// LANE_CONTRACT_TEMPLATES — pre-fill templates per lane.
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Templates spiegeln die Owner-Direktive aus Master-Briefing §25.1 (verbatim
- * gespeichert in `docs/plans/2026-05-27_self-learning-and-flow-completion-plan.md`)
- * — jede Lane bekommt eine erwartete Confidence-Behavior + Audit-Zeile
- * vorab gesetzt, damit Implementer nicht von 0 starten. Listenfelder bleiben
- * leer; die Lane-Implementierung MUSS sie befüllen (sonst schlägt G1/G2/G3
- * fehl).
+ * Templates mirror the owner directive from master briefing §25.1 (stored
+ * verbatim in `docs/plans/2026-05-27_self-learning-and-flow-completion-plan.md`)
+ * — every lane gets an expected confidence behavior + audit line
+ * pre-set, so implementers don't start from 0. List fields stay
+ * empty; the lane implementation MUST fill them (otherwise G1/G2/G3
+ * fails).
  */
 export const LANE_CONTRACT_TEMPLATES: Readonly<Record<LaneId, Partial<LaneContract>>> = {
   'communication-intake': {
@@ -604,20 +604,20 @@ export const LANE_CONTRACT_TEMPLATES: Readonly<Record<LaneId, Partial<LaneContra
 };
 
 // ───────────────────────────────────────────────────────────────────────────
-// validateLaneContract — 12-Punkte-Prüfung.
+// validateLaneContract — 12-point check.
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Prüft, ob ein Vertrag ALLE 12 Pflichtfelder vollständig liefert.
+ * Checks whether a contract delivers ALL 12 mandatory fields completely.
  *
- * „Vollständig" heißt:
- *   - Listen-Felder: length >= 1 (eine Lane ohne Failure-Modes wird abgelehnt;
- *     Integration-Plan §6).
- *   - Enum-Felder (confidenceBehavior, humanReviewRequirements): vorhanden
- *     und im Vokabular.
+ * „Complete" means:
+ *   - list fields: length >= 1 (a lane without failure modes is rejected;
+ *     integration plan §6).
+ *   - enum fields (confidenceBehavior, humanReviewRequirements): present
+ *     and in the vocabulary.
  *
- * Liefert verbatim Beschwerden („issues") für Owner / Critic-Loop.
- * Niemals werfen — fail-soft.
+ * Returns verbatim complaints („issues") for the owner / critic loop.
+ * Never throws — fail-soft.
  */
 export function validateLaneContract(
   contract: LaneContract | null | undefined,
@@ -628,7 +628,7 @@ export function validateLaneContract(
     return { valid: false, issues: ['contract is missing or not an object'] };
   }
 
-  // Listen-Felder mit Mindest-1-Anforderung.
+  // List fields with a minimum-1 requirement.
   const listFields: Array<[keyof LaneContract, string]> = [
     ['inputEvents', 'inputEvents'],
     ['outputEvents', 'outputEvents'],
@@ -652,15 +652,15 @@ export function validateLaneContract(
       issues.push(`${label}: empty (min 1 required)`);
       continue;
     }
-    // Jedes Element muss ein nicht-leerer String sein — wir wollen keinen
-    // Eintrag „" (Owner würde es als „generische Featurelisten" werten).
+    // Every element must be a non-empty string — we don't want an
+    // entry „" (the owner would count it as „generische Featurelisten").
     const bad = v.some((x) => typeof x !== 'string' || x.length === 0);
     if (bad) {
       issues.push(`${label}: contains non-string or empty entries`);
     }
   }
 
-  // Enum-Felder.
+  // Enum fields.
   const confidence = contract.confidenceBehavior;
   if (
     confidence !== 'deterministic' &&
@@ -687,15 +687,15 @@ export function validateLaneContract(
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Kann Stage `stageId` JETZT mergen?
+ * Can stage `stageId` merge NOW?
  *
- * Bedingungen:
- *   1. Alle `requires`-Stages sind in `completedMergeStages`.
- *   2. Alle `gates` der Stage sind passed (wir rufen den Validator hier
- *      noch einmal LIVE auf — `passedQualityGates` im State ist nur ein
- *      Hint, kein Vertrauensbeweis).
+ * Conditions:
+ *   1. All `requires` stages are in `completedMergeStages`.
+ *   2. All `gates` of the stage are passed (we call the validator here
+ *      once more LIVE — `passedQualityGates` in the state is only a
+ *      hint, not proof of trust).
  *
- * Niemals werfen.
+ * Never throws.
  */
 export function canMergeStage(
   state: PortfolioRunState,
@@ -706,14 +706,14 @@ export function canMergeStage(
     return { ok: false, blockingRequirements: [], blockingGates: [] };
   }
 
-  // (1) Stage darf nicht schon merged sein. „Schon merged" ist KEIN
-  //     Blocker im klassischen Sinn, aber ok=false ist semantisch korrekt:
-  //     du kannst nicht zweimal mergen.
+  // (1) The stage must not already be merged. „Already merged" is NOT a
+  //     blocker in the classic sense, but ok=false is semantically correct:
+  //     you cannot merge twice.
   if (state.completedMergeStages.includes(stageId)) {
     return { ok: false, blockingRequirements: [], blockingGates: [] };
   }
 
-  // (2) Dependency-Check.
+  // (2) Dependency check.
   const completedSet = new Set(state.completedMergeStages);
   const blockingRequirements = stage.requires.filter(
     (r) => !completedSet.has(r),
@@ -728,7 +728,7 @@ export function canMergeStage(
     try {
       result = gate.validator(state);
     } catch {
-      // fail-soft: Validator-Fehler = nicht-passed.
+      // fail-soft: validator error = not passed.
       result = { passed: false, reason: 'validator threw', blockingItems: [] };
     }
     if (!result.passed) blockingGates.push(gateId);
@@ -742,12 +742,12 @@ export function canMergeStage(
 }
 
 /**
- * Welche Stages sind JETZT merge-ready?
+ * Which stages are merge-ready NOW?
  *
- * Liefert ALLE Stages, deren `canMergeStage` ok=true ist. In der Praxis
- * (sequenzieller Merge) wird das meistens 1 Stage sein — aber wir geben
- * eine Liste zurück, damit der Spine erweiterbar bleibt, falls der Owner
- * später parallele Stages (z.B. 5+6) erlaubt.
+ * Returns ALL stages whose `canMergeStage` is ok=true. In practice
+ * (sequential merge) this will usually be 1 stage — but we return
+ * a list so the spine stays extensible in case the owner
+ * later allows parallel stages (e.g. 5+6).
  */
 export function nextMergeableStages(state: PortfolioRunState): MergeStageId[] {
   const out: MergeStageId[] = [];
@@ -759,7 +759,7 @@ export function nextMergeableStages(state: PortfolioRunState): MergeStageId[] {
 }
 
 /**
- * Führt einen einzelnen Quality-Gate-Check aus.
+ * Runs a single quality-gate check.
  */
 export function runQualityGate(
   state: PortfolioRunState,
@@ -785,13 +785,13 @@ export function runQualityGate(
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// PortfolioRunState-Konstruktion & DB-Persistenz
+// PortfolioRunState construction & DB persistence
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut einen frischen `PortfolioRunState` — alle 7 Lanes als
- * `not-started` mit `contract: null`. Wird nach `createPortfolioRun`
- * (siehe unten) genutzt, oder direkt im Test für reine Spine-Logik-Probes.
+ * Builds a fresh `PortfolioRunState` — all 7 lanes as
+ * `not-started` with `contract: null`. Used after `createPortfolioRun`
+ * (see below), or directly in tests for pure spine-logic probes.
  */
 export function emptyPortfolioRunState(args: {
   portfolioRunId: string;
@@ -822,20 +822,20 @@ export function emptyPortfolioRunState(args: {
 }
 
 /**
- * Liest den aktuellen `PortfolioRunState` aus der DB.
+ * Reads the current `PortfolioRunState` from the DB.
  *
- * Substrat (N4):
- *   - parent-Workstream → workstreams.mode='portfolio', workspace_id=<ws>,
- *     jüngster aktiver Run gewinnt.
- *   - Pro Lane → child-Workstream mit role='lane:<laneId>'.
- *   - Stage-Completions → workstream_decisions(workstream_id=<parent>,
- *     decision_kind='route'), rationale beginnt mit 'portfolio-stage-completed: '.
+ * Substrate (N4):
+ *   - parent workstream → workstreams.mode='portfolio', workspace_id=<ws>,
+ *     the most recent active run wins.
+ *   - per lane → child workstream with role='lane:<laneId>'.
+ *   - stage completions → workstream_decisions(workstream_id=<parent>,
+ *     decision_kind='route'), rationale begins with 'portfolio-stage-completed: '.
  *
- * Wenn kein parent-Workstream existiert, liefert die Funktion NULL —
- * der Caller (API-Route) interpretiert das als „kein laufender
- * Portfolio-Run" und antwortet mit einem leeren Empty-State.
+ * When no parent workstream exists, the function returns NULL —
+ * the caller (API route) interprets that as „no running
+ * portfolio run" and responds with an empty state.
  *
- * Fail-soft: jedes SELECT in try/catch. Bei DB-Fehler → NULL.
+ * Fail-soft: every SELECT in try/catch. On a DB error → NULL.
  */
 export function loadPortfolioRunState(
   raw: Sqlite,
@@ -843,7 +843,7 @@ export function loadPortfolioRunState(
 ): PortfolioRunState | null {
   if (typeof workspaceId !== 'string' || workspaceId.length === 0) return null;
 
-  // (1) parent-Workstream.
+  // (1) parent workstream.
   let parent:
     | {
         id: string;
@@ -867,18 +867,18 @@ export function loadPortfolioRunState(
   }
   if (!parent) return null;
 
-  // (2) child-Lanes.
+  // (2) child lanes.
   const state = emptyPortfolioRunState({
     portfolioRunId: parent.id,
     workspaceId,
     startedAt: parent.created_at,
   });
 
-  // Alle Workstream-IDs dieses Runs (parent + children). Der pv-stringing-
-  // Producer (BAHN-2) schreibt seine Decision in den Workstream des LAUFENDEN
-  // Steps — das ist im Portfolio-Pfad ein child-Lane-Workstream (z.B.
-  // expertise-compiler), in einem flachen Run der parent selbst. Wir sammeln
-  // beide Ebenen, damit der G5-Hop (Schritt 3.5) sie alle abdeckt.
+  // All workstream IDs of this run (parent + children). The pv-stringing
+  // producer (BAHN-2) writes its decision into the workstream of the RUNNING
+  // step — that is, in the portfolio path a child-lane workstream (e.g.
+  // expertise-compiler), in a flat run the parent itself. We collect
+  // both levels so the G5 hop (step 3.5) covers them all.
   const runWorkstreamIds: string[] = [parent.id];
 
   try {
@@ -901,11 +901,11 @@ export function loadPortfolioRunState(
       const ls = state.laneStates[laneId];
       ls.workstreamId = row.id;
       ls.status = mapWorkstreamStatusToLane(row.status);
-      // W3 Contract-Persistenz: den 12-Punkte-Vertrag dieser Lane aus der DB
-      // zurücklesen (statt undefined/in-memory-injiziert). So entscheiden die
-      // 6 Gates (G1..G6) in Produktion über ECHTE Lane-Verträge. Fail-soft:
-      // kein persistierter Vertrag → bleibt null (rückwärtskompatibel — die
-      // Gates behandeln „kein Vertrag" exakt wie vor diesem Slice).
+      // W3 contract persistence: read this lane's 12-point contract from the DB
+      // (instead of undefined/in-memory-injected). So the
+      // 6 gates (G1..G6) decide over REAL lane contracts in production. Fail-soft:
+      // no persisted contract → stays null (backwards-compatible — the
+      // gates treat „no contract" exactly as before this slice).
       const persisted = loadLaneContract(raw, row.id);
       if (persisted) ls.contract = persisted;
     }
@@ -913,7 +913,7 @@ export function loadPortfolioRunState(
     /* fail-soft */
   }
 
-  // (3) Stage-Completions aus workstream_decisions.
+  // (3) Stage completions from workstream_decisions.
   try {
     const rows = raw
       .prepare(
@@ -933,25 +933,25 @@ export function loadPortfolioRunState(
       }
     }
   } catch {
-    /* fail-soft — wenn die Tabelle fehlt, ist completedMergeStages eben leer. */
+    /* fail-soft — if the table is missing, completedMergeStages is simply empty. */
   }
 
-  // (3.5) DER LIVE-G5-HOP (2026-05-30): pv-stringing-Producer-Output → domainEval.
+  // (3.5) THE LIVE G5 HOP (2026-05-30): pv-stringing producer output → domainEval.
   //
-  // Der deterministische pv-stringing-Producer (lib/workstreams/plan-executor.ts
-  // ::runPvStringingStep) legt sein PvArtifact persistent als
-  // workstream_decisions(decision_kind='route', actor='policy') ab, deren
-  // rationale mit `pv_stringing_producer=true` beginnt und den maschinen-
-  // lesbaren `<pv-stringing-artifact>{…}</…>`-Block enthält. Bisher hat NIEMAND
-  // dieses Substrat in state.domainEval überführt → G5 lief im echten Flow nie
-  // scharf (nur im Unit-/Wiring-Test). Hier schließen wir den Hop:
+  // The deterministic pv-stringing producer (lib/workstreams/plan-executor.ts
+  // ::runPvStringingStep) persists its PvArtifact as
+  // workstream_decisions(decision_kind='route', actor='policy'), whose
+  // rationale begins with `pv_stringing_producer=true` and contains the machine-
+  // readable `<pv-stringing-artifact>{…}</…>` block. Until now NOBODY
+  // transferred this substrate into state.domainEval → G5 never ran sharp in the real flow
+  // (only in the unit/wiring test). Here we close the hop:
   //
   //   workstream_decisions.rationale  →  buildPvDomainEvalFromDecisions
-  //     →  mapArtifactToPvArtifact  →  state.domainEval  (G5 LIVE in Schritt 4).
+  //     →  mapArtifactToPvArtifact  →  state.domainEval  (G5 LIVE in step 4).
   //
-  // Fail-soft (N6): kein pv-stringing-Output in irgendeiner Decision → domainEval
-  // bleibt null → G5 nutzt den Lane-Contract-Fallback (exakt das alte, korrekte
-  // Verhalten; ein „nur Dachzeichner"-Run BLOCKt wie gehabt). Niemals werfen.
+  // Fail-soft (N6): no pv-stringing output in any decision → domainEval
+  // stays null → G5 uses the lane-contract fallback (exactly the old, correct
+  // behavior; a „nur Dachzeichner" run BLOCKS as before). Never throws.
   try {
     const placeholders = runWorkstreamIds.map(() => '?').join(', ');
     const decisionRows = raw
@@ -971,12 +971,12 @@ export function loadPortfolioRunState(
       state.domainEval = domainEval;
     }
   } catch {
-    /* fail-soft — kein domainEval → G5-Fallback. */
+    /* fail-soft — no domainEval → G5 fallback. */
   }
 
-  // (4) blockedAt-Heuristik: erste nicht-merged Stage, deren canMergeStage
-  //     ok=false ist (entweder requires fehlen oder Gates fehlen), gilt als
-  //     blockierend. Wir setzen blockedReason mit verbatim Gate/requires-Info.
+  // (4) blockedAt heuristic: the first non-merged stage whose canMergeStage
+  //     is ok=false (either requires are missing or gates are missing) counts as
+  //     blocking. We set blockedReason with verbatim gate/requires info.
   for (const stage of MERGE_SEQUENCE) {
     if (state.completedMergeStages.includes(stage.id)) continue;
     const r = canMergeStage(state, stage.id);
@@ -991,8 +991,8 @@ export function loadPortfolioRunState(
       }
       state.blockedReason = reasons.join(' · ') || 'unknown';
     }
-    // Wir brechen NICHT ab — wir wollen die erste blockierte Stage. Wenn die
-    // erste merge-ready ist, ist blockedAt am Ende immer noch null.
+    // We do NOT break — we want the first blocked stage. If the
+    // first one is merge-ready, blockedAt is still null at the end.
     if (state.blockedAt !== null) break;
   }
 
@@ -1020,5 +1020,5 @@ function mapWorkstreamStatusToLane(
   }
 }
 
-// Re-export der Typen aus dem types-Modul für bequemen Konsum.
+// Re-export of the types from the types module for convenient consumption.
 export * from './types';

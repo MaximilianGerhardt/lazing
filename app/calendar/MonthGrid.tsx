@@ -29,7 +29,7 @@ export interface MonthGridProps {
   dayLabels: Record<string, string>;
   /** ISO week-day index (0=Mon..6=Sun) per day key. */
   dayWeekIndex: Record<string, number>;
-  /** Echte Workspace-Liste für Label/Accent-Auflösung (statt Fake-Segmente). */
+  /** Real workspace list for label/accent resolution (instead of fake segments). */
   workspaces: WorkspaceLite[];
 }
 
@@ -75,11 +75,11 @@ export function MonthGrid({
           const isToday = idx === 0;
           const isOpen = openDay === key;
           const count = items.length;
-          // Visuelles Label auf Mobile kurz halten: nur die Tageszahl
-          // ("dd"). Das volle "dd.mm." landet weiterhin in aria-label +
-          // title fuer Screen-Reader und Desktop-Tooltip. Sonst sprengt
-          // der nicht-umbrechbare 6-Zeichen-String die 7er-Grid-Zellen
-          // bei 375px / 390px viewports.
+          // Keep the visual label short on mobile: only the day number
+          // ("dd"). The full "dd.mm." still ends up in aria-label +
+          // title for screen readers and the desktop tooltip. Otherwise
+          // the non-wrapping 6-character string blows out the 7-column grid
+          // cells at 375px / 390px viewports.
           const shortLabel = (dayLabels[key] ?? '').split('.')[0] ?? '';
 
           return (
@@ -183,9 +183,9 @@ function DayDisclosure({
 
 const weekdayRowStyle: CSSProperties = {
   display: 'grid',
-  // `minmax(0, 1fr)` statt `1fr` verhindert, dass min-content
-  // (nicht-umbrechbare Labels) die Spalten ueber den Container
-  // hinaus zieht — sonst reisst das 7er-Raster auf Mobile auf.
+  // `minmax(0, 1fr)` instead of `1fr` prevents min-content
+  // (non-wrapping labels) from pulling the columns beyond the container
+  // — otherwise the 7-column grid breaks apart on mobile.
   gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
   gap: 'clamp(4px, 1.2vw, 6px)',
   marginTop: 20,
@@ -205,9 +205,9 @@ const weekdayCellStyle: CSSProperties = {
 
 const gridStyle: CSSProperties = {
   display: 'grid',
-  // siehe weekdayRowStyle — `minmax(0, 1fr)` ist Pflicht fuer
-  // narrow viewports, damit Zellen unter ihre min-content-Breite
-  // schrumpfen duerfen.
+  // see weekdayRowStyle — `minmax(0, 1fr)` is mandatory for
+  // narrow viewports, so that cells are allowed to shrink below their
+  // min-content width.
   gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
   gap: 'clamp(4px, 1.2vw, 6px)',
 };
@@ -225,8 +225,8 @@ const cellStyle: CSSProperties = {
   fontFamily: 'inherit',
   textAlign: 'left',
   transition: 'border-color 120ms ease, background 120ms ease',
-  // Kein Overflow aus der Zelle — Inhalte werden visuell geclippt
-  // statt das Grid zu sprengen.
+  // No overflow out of the cell — contents are visually clipped
+  // instead of blowing out the grid.
   minWidth: 0,
   overflow: 'hidden',
 };
@@ -267,7 +267,7 @@ const cellCountStyle: CSSProperties = {
   fontSize: 'clamp(9px, 2.4vw, 11px)',
   fontFamily: 'var(--font-mono)',
   lineHeight: 1.2,
-  // Zaehler soll niemals die Zelle sprengen.
+  // The counter should never blow out the cell.
   maxWidth: '100%',
   overflow: 'hidden',
 };

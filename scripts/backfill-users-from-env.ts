@@ -1,31 +1,31 @@
 #!/usr/bin/env -S pnpm tsx
 /**
- * Phase ORG SP-9 — Backfill: Max als ersten User in der Multi-User-DB.
+ * Phase ORG SP-9 — Backfill: Max as the first user in the multi-user DB.
  *
- * Vor diesem Skript:
- *   - users-Tabelle leer
- *   - org_memberships, workspace_memberships leer
- *   - audit_log leer
- *   - Audit-Refs in events-Tabelle haben actor='user:max' (literal)
- *   - Cookies (vor Phase ORG) haben Format `<ts>.<sig>` ohne userId-Claim
+ * Before this script:
+ *   - users table empty
+ *   - org_memberships, workspace_memberships empty
+ *   - audit_log empty
+ *   - audit refs in the events table have actor='user:max' (literal)
+ *   - cookies (before Phase ORG) have format `<ts>.<sig>` without a userId claim
  *
- * Nach diesem Skript:
- *   - users hat 1 Row: ULID-Owner (`max-<ulid>`) mit LAZYOS_OWNER_EMAIL
- *   - org_memberships hat N Rows (1 pro Org als Founder)
- *   - workspace_memberships hat M Rows (1 pro WS, inherits-from-org=true)
- *   - organizations.responsible_user_id ist überall auf den Owner gesetzt
- *   - events-Rows mit actor='user:max' werden auf actor='user:<ulid>' remapped
- *   - audit_log kriegt einen Backfill-Eintrag
+ * After this script:
+ *   - users has 1 row: ULID owner (`max-<ulid>`) with LAZYOS_OWNER_EMAIL
+ *   - org_memberships has N rows (1 per org as founder)
+ *   - workspace_memberships has M rows (1 per WS, inherits-from-org=true)
+ *   - organizations.responsible_user_id is set to the owner everywhere
+ *   - events rows with actor='user:max' are remapped to actor='user:<ulid>'
+ *   - audit_log gets a backfill entry
  *
  * Idempotent:
- *   - Wenn Owner-User bereits existiert → no-op (mit Hinweis-Print)
- *   - Skript darf 2x laufen, ohne Drift
+ *   - If the owner user already exists → no-op (with a hint print)
+ *   - The script may run twice without drift
  *
- * Pflicht-Backup:
- *   - VOR Run: SQLite-File-Copy nach `~/.lazyos/lazyos.db.pre-phase-org.<ts>.bak`
- *   - Skript checkt ob Backup existiert und legt es an wenn nicht
+ * Mandatory backup:
+ *   - BEFORE run: SQLite file copy to `~/.lazyos/lazyos.db.pre-phase-org.<ts>.bak`
+ *   - The script checks whether a backup exists and creates it if not
  *
- * Aufruf:
+ * Invocation:
  *   pnpm tsx scripts/backfill-users-from-env.ts
  *   pnpm tsx scripts/backfill-users-from-env.ts --dry-run
  *   LAZYOS_OWNER_EMAIL=... LAZYOS_OWNER_DISPLAY_NAME=... pnpm tsx scripts/backfill-users-from-env.ts
@@ -48,7 +48,7 @@ import { users } from "../db/schema/users";
 import { workspaces as workspacesTable } from "../db/schema/workspaces";
 import { ulid } from "../lib/ulid";
 
-// Phase AU.0.2: keine personenbezogenen Defaults mehr. ENV-driven.
+// Phase AU.0.2: no more personal defaults. ENV-driven.
 const DEFAULT_OWNER_EMAIL: string | null = null;
 const DEFAULT_OWNER_DISPLAY = "Owner";
 
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
   console.log(`Owner-Email: ${ownerEmail}`);
   console.log(`Owner-Display: ${ownerDisplay}`);
 
-  // ----- 1. Owner-User idempotent anlegen -----
+  // ----- 1. Create owner user idempotently -----
   const existing = db
     .select()
     .from(users)
@@ -137,8 +137,8 @@ async function main(): Promise<void> {
           locale: "de-DE",
           status: "active",
           emailVerifiedAt: now,
-          // Onboarding für Owner sofort als done markieren — er kennt
-          // sein eigenes lazyOS bereits.
+          // Mark onboarding as done immediately for the owner — he already
+          // knows his own lazyOS.
           onboardingState: JSON.stringify({
             variant: "max-firstrun",
             completedSteps: [1, 2, 3, 4, 5, 6],
@@ -153,7 +153,7 @@ async function main(): Promise<void> {
     console.log(`[users] insert: ${ownerUserId}`);
   }
 
-  // ----- 2. Org-Memberships für jede Org als founder -----
+  // ----- 2. Org memberships for every org as founder -----
   const allOrgs = db.select().from(organizations).all();
   let orgMembershipsInserted = 0;
   for (const org of allOrgs) {
@@ -186,7 +186,7 @@ async function main(): Promise<void> {
     `[org_memberships] inserted=${orgMembershipsInserted}, total-orgs=${allOrgs.length}`,
   );
 
-  // ----- 3. Workspace-Memberships (inherits-from-org=true) -----
+  // ----- 3. Workspace memberships (inherits-from-org=true) -----
   const allWorkspaces = db.select().from(workspacesTable).all();
   let workspaceMembershipsInserted = 0;
   for (const ws of allWorkspaces) {
@@ -220,7 +220,7 @@ async function main(): Promise<void> {
     `[workspace_memberships] inserted=${workspaceMembershipsInserted}, total-ws=${allWorkspaces.length}`,
   );
 
-  // ----- 4. organizations.responsible_user_id setzen -----
+  // ----- 4. Set organizations.responsible_user_id -----
   let organizationsResponsibleSet = 0;
   if (!dryRun) {
     for (const org of allOrgs) {
@@ -242,14 +242,14 @@ async function main(): Promise<void> {
     `[organizations.responsible_user_id] set=${organizationsResponsibleSet}`,
   );
 
-  // ----- 5. events-Tabelle: actor='user:max' → 'user:<ulid>' -----
+  // ----- 5. events table: actor='user:max' → 'user:<ulid>' -----
   let eventsActorRemapped = 0;
   if (!dryRun) {
     const result = db.$raw
       .prepare("UPDATE events SET actor = ? WHERE actor = ?")
       .run(`user:${ownerUserId}`, "user:max");
     eventsActorRemapped = result.changes ?? 0;
-    // Auch Bootstrap-Marker → echte ULID.
+    // Bootstrap marker too → real ULID.
     const result2 = db.$raw
       .prepare("UPDATE events SET actor = ? WHERE actor = ?")
       .run(`user:${ownerUserId}`, "user:max-bootstrap");
@@ -267,7 +267,7 @@ async function main(): Promise<void> {
   }
   console.log(`[events] actor-remapped=${eventsActorRemapped}`);
 
-  // ----- 6. cloud_audit Tabelle: actor='user:max' → 'user:<ulid>' -----
+  // ----- 6. cloud_audit table: actor='user:max' → 'user:<ulid>' -----
   let cloudAuditRemapped = 0;
   if (!dryRun) {
     try {
@@ -280,12 +280,12 @@ async function main(): Promise<void> {
         .run(`user:${ownerUserId}`, "user:max-bootstrap");
       cloudAuditRemapped += r2.changes ?? 0;
     } catch {
-      // cloud_audit existiert evtl. noch nicht — egal.
+      // cloud_audit may not exist yet — never mind.
     }
   }
   console.log(`[cloud_audit] actor-remapped=${cloudAuditRemapped}`);
 
-  // ----- 7. Audit-Log-Eintrag schreiben -----
+  // ----- 7. Write audit-log entry -----
   if (!dryRun) {
     const now = new Date();
     db.insert(auditLog)

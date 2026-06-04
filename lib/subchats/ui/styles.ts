@@ -1,8 +1,8 @@
 /**
- * Geteilte Styles der Sub-Chat-Messenger-UI (extern + intern).
- * NUR laz.ing-Design-Tokens (app/globals.css :root) — keine fremden Hex-Werte,
- * keine Emojis. Mobile-first, Apple-/iMessage-/WhatsApp-Standards.
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Shared styles for the sub-chat messenger UI (external + internal).
+ * ONLY laz.ing design tokens (app/globals.css :root) — no foreign hex values,
+ * no emojis. Mobile-first, Apple/iMessage/WhatsApp standards.
+ * Gathering-Intelligence goal (2026-06-02).
  */
 
 import type { CSSProperties } from 'react';
@@ -126,7 +126,7 @@ export const metaRow: CSSProperties = {
 export const metaTimeMine: CSSProperties = { fontSize: 10.5, color: 'var(--on-accent-2)', fontVariantNumeric: 'tabular-nums' };
 export const metaTimeTheirs: CSSProperties = { fontSize: 10.5, color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' };
 
-/* ---- Liefer-/Lese-Haken (nur auf EIGENEN Nachrichten, in der Akzent-Bubble) ---- */
+/* ---- Delivery/read checks (only on OWN messages, in the accent bubble) ---- */
 export const tickWrap: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -134,16 +134,16 @@ export const tickWrap: CSSProperties = {
   lineHeight: 0,
   flexShrink: 0,
 };
-// „gesendet" — gedimmt wie der Timestamp auf der Akzent-Bubble.
+// "sent" — dimmed like the timestamp on the accent bubble.
 export const tickSent: CSSProperties = {
   color: 'var(--on-accent-2)',
 };
-// „gelesen" — voller Akzent-Kontrast (heller als gesendet).
+// "read" — full accent contrast (brighter than sent).
 export const tickRead: CSSProperties = {
   color: 'var(--on-accent)',
 };
 
-/* ---- Anhänge ---- */
+/* ---- Attachments ---- */
 export const attachImg: CSSProperties = {
   display: 'block',
   width: '100%',
@@ -289,7 +289,7 @@ export const composerInput: CSSProperties = {
   borderRadius: 20,
   padding: '10px 14px',
   color: 'var(--ink)',
-  fontSize: 16, // >=16px verhindert iOS-Auto-Zoom beim Fokus
+  fontSize: 16, // >=16px prevents iOS auto-zoom on focus
   lineHeight: 1.4,
   maxHeight: 120,
   outline: 'none',
@@ -324,7 +324,7 @@ export const footerNotice: CSSProperties = {
   lineHeight: 1.4,
 };
 
-/* ---- Bild-Button (Lightbox-Trigger im Thread) ---- */
+/* ---- Image button (lightbox trigger in the thread) ---- */
 export const imgBtnReset: CSSProperties = {
   display: 'block',
   border: 'none',
@@ -338,7 +338,7 @@ export const imgBtnReset: CSSProperties = {
   minHeight: 44,
 };
 
-/* ---- Tipp-Indikator (ephemere "schreibt …"-Blase am Feed-Ende) ---- */
+/* ---- Typing indicator (ephemeral "typing …" bubble at the feed end) ---- */
 export const typingBubble: CSSProperties = {
   ...bubbleTheirs,
   display: 'inline-flex',
@@ -354,7 +354,7 @@ export const typingDot: CSSProperties = {
   background: 'var(--ink-3)',
 };
 
-/* ---- Lightbox (Vollbild-Bildansicht) ---- */
+/* ---- Lightbox (full-screen image view) ---- */
 export const lbBackdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
@@ -404,8 +404,8 @@ export const lbImage: CSSProperties = {
   borderRadius: 8,
   userSelect: 'none',
   WebkitUserSelect: 'none',
-  // Bild trägt die Drag/Tap-Gesten (Swipe + Schließen) — pointer-events MUSS
-  // aktiv bleiben. Native Bild-Drag wird über draggable={false} unterdrückt.
+  // The image carries the drag/tap gestures (swipe + close) — pointer-events MUST
+  // stay active. Native image drag is suppressed via draggable={false}.
   touchAction: 'none',
 };
 export const lbCaption: CSSProperties = {
@@ -432,7 +432,7 @@ export const lbCaptionCounter: CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 };
 
-/* ---- Anhang-Quelle-Popover (Kamera / Fotos / Datei über dem Anhang-Button) ---- */
+/* ---- Attachment-source popover (camera / photos / file above the attach button) ---- */
 export const sourcePopover: CSSProperties = {
   position: 'absolute',
   bottom: 'calc(100% + 8px)',
@@ -473,7 +473,7 @@ export const sourceItemIcon: CSSProperties = {
   color: 'var(--ink-2)',
 };
 
-/* ---- Per-Datei-Upload-Fortschritt (Progress-Modus) ---- */
+/* ---- Per-file upload progress (progress mode) ---- */
 export const stagedProgressTrack: CSSProperties = {
   position: 'absolute',
   left: 6,
@@ -496,7 +496,7 @@ export const stagedError: CSSProperties = {
   marginTop: 2,
 };
 
-/* ---- Sprach-Aufnahme (Mic) ---- */
+/* ---- Voice recording (mic) ---- */
 export const micBtn: CSSProperties = {
   flexShrink: 0,
   width: 44,
@@ -529,7 +529,7 @@ export const voicePill: CSSProperties = {
   color: 'var(--ink-3)',
 };
 
-/* ---- Sprachnachricht: Aufnahme-Pill (live Timer) ---- */
+/* ---- Voice message: recording pill (live timer) ---- */
 export const recPill: CSSProperties = {
   alignSelf: 'flex-start',
   margin: '0 0 8px',
@@ -546,7 +546,7 @@ export const recPill: CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 };
 
-/* ---- Staged Audio-Chip (Dauer statt Dateiname) ---- */
+/* ---- Staged audio chip (duration instead of filename) ---- */
 export const stagedAudioMeta: CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
@@ -557,7 +557,7 @@ export const stagedAudioMeta: CSSProperties = {
   gap: 6,
 };
 
-/* ---- Audio-Player im Thread (native controls, token-Rahmen) ---- */
+/* ---- Audio player in the thread (native controls, token frame) ---- */
 export const audioCard: CSSProperties = {
   display: 'flex',
   alignItems: 'center',

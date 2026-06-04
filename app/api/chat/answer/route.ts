@@ -1,74 +1,74 @@
 /**
  * POST / GET `/api/chat/answer` — 2026-05-29 · Phase 1 Track AB · Befund B.
  *
- * ZWECK (verbatim aus Handoff §7+§8, N1):
+ * PURPOSE (verbatim from handoff §7+§8, N1):
  *   „Antworten auf Fragen werden zu einem Textblock 'Frage:.../Antwort:...'
  *    gebaut und als normaler Chat-Turn gesendet. Es ist unklar bzw.
  *    unwahrscheinlich, dass workstreamId, flowRunId, planId, questionSetId
  *    und questionId zuverlässig mitgesendet werden."
  *
- *   Akzeptanz:
- *     - Antwort persistiert als strukturierte Answer
- *     - Kann eindeutig zugeordnet werden
- *     - Re-Render nach Reload zeigt beantwortete Frage korrekt
- *     - Fortsetzung des FlowRuns nutzt die strukturierte Antwort.
+ *   Acceptance:
+ *     - the answer is persisted as a structured answer
+ *     - it can be uniquely associated
+ *     - re-render after reload shows the answered question correctly
+ *     - continuation of the FlowRun uses the structured answer.
  *
- * Owner-Direktive (verbatim, additiv-only):
+ * Owner directive (verbatim, additive-only):
  *   „Die lesbare Chat-Nachricht darf zusätzlich existieren. Die Ausführung
  *    darf aber nicht an dieser Chat-Nachricht hängen."
- *   → Dieser Endpoint ist die strukturierte Spur PARALLEL zum Chat-Turn,
- *     nicht statt ihm.
+ *   → This endpoint is the structured trace PARALLEL to the chat turn,
+ *     not instead of it.
  *
  * ── POST ──────────────────────────────────────────────────────────────────
  *
- * Body (Envelope, verbatim Handoff §8):
+ * Body (envelope, verbatim handoff §8):
  *   {
- *     "workspaceId":"...",    // PFLICHT
+ *     "workspaceId":"...",    // REQUIRED
  *     "workstreamId":"...",   // optional
  *     "flowRunId":"...",      // optional
  *     "planId":"...",         // optional
  *     "questionSetId":"...",  // optional
- *     "questionId":"...",     // PFLICHT
- *     "answer":"...",         // PFLICHT (VERBATIM, N1 — kein .slice/.substring)
- *     "sourceTurnId":"...",   // PFLICHT (ChatShell-internal HistoryItem.id)
+ *     "questionId":"...",     // REQUIRED
+ *     "answer":"...",         // REQUIRED (VERBATIM, N1 — no .slice/.substring)
+ *     "sourceTurnId":"...",   // REQUIRED (ChatShell-internal HistoryItem.id)
  *     "surfaceId":"..."       // optional
  *   }
  *
- * Subject-Gate (kopiert aus app/api/chat/open-questions/dismiss/route.ts):
- *   - Auth 401 ohne userId.
- *   - 400 bei kaputtem JSON.
- *   - 200 + ok=false bei missing Pflicht (workspaceId/questionId/answer/sourceTurnId).
- *   - 200 + ok=false bei forbidden-Workspace-Permission (kein Schreiben).
- *   - 200 + ok=true + answerId bei Erfolg.
- *   - 200 + ok=true + duplicate=true bei zweitem identischem Post (Idempotenz).
- *   - 200 + ok=false bei DB-Throw (fail-soft, nie 500 — UI darf nicht hängen).
+ * Subject gate (copied from app/api/chat/open-questions/dismiss/route.ts):
+ *   - Auth 401 without userId.
+ *   - 400 on broken JSON.
+ *   - 200 + ok=false on missing required field (workspaceId/questionId/answer/sourceTurnId).
+ *   - 200 + ok=false on forbidden workspace permission (no write).
+ *   - 200 + ok=true + answerId on success.
+ *   - 200 + ok=true + duplicate=true on a second identical post (idempotency).
+ *   - 200 + ok=false on DB throw (fail-soft, never 500 — the UI must not hang).
  *
- * Idempotenz (zwei UNIQUE-Indizes in Migration 0117):
- *   - UNIQUE(content_hash) — N10-Tamper-Evidence, kanonische Envelope-sha256.
- *   - UNIQUE(source_turn_id, question_id) — defense-in-depth gegen Client-Bugs.
- *   INSERT OR IGNORE schlägt den zweiten Post still nieder; wir lesen anschließend
- *   die vorhandene Row und liefern `duplicate=true`.
+ * Idempotency (two UNIQUE indexes in migration 0117):
+ *   - UNIQUE(content_hash) — N10 tamper-evidence, canonical envelope sha256.
+ *   - UNIQUE(source_turn_id, question_id) — defense-in-depth against client bugs.
+ *   INSERT OR IGNORE silently swallows the second post; we then read
+ *   the existing row and return `duplicate=true`.
  *
- * Fortsetzungs-Hint (workstream-Continuation):
- *   Bei erfolgreichem Insert UND vorhandenem workstreamId: best-effort
- *   `writeDecision` mit decision_kind='override' und rationale, der die
- *   Frage-ID + getrimmten Frage-Text-Hinweis hält (analog dismiss-route).
- *   Das macht die Antwort N8-spurbar; falls writeDecision wirft, wird das
- *   ignoriert (Audit-Bonus, nicht User-Pflicht).
+ * Continuation hint (workstream continuation):
+ *   On a successful insert AND a present workstreamId: best-effort
+ *   `writeDecision` with decision_kind='override' and a rationale that holds
+ *   the question ID + a trimmed question-text hint (analogous to the dismiss route).
+ *   This makes the answer N8-traceable; if writeDecision throws, it is
+ *   ignored (audit bonus, not a user obligation).
  *
  * ── GET ───────────────────────────────────────────────────────────────────
  *
- * Query: `?wsId=<workspaceId>&qid=<questionId>` — beide Pflicht.
+ * Query: `?wsId=<workspaceId>&qid=<questionId>` — both required.
  *
- * Antwort:
+ * Response:
  *   200 { ok: true, answered: boolean, answer?: string, answeredAt?: number,
  *          workstreamId?: string|null }
- *   401 ohne userId.
- *   200 + ok=false bei fehlenden Query-Params oder forbidden.
+ *   401 without userId.
+ *   200 + ok=false on missing query params or forbidden.
  *
- * Wird vom ChatShell-Hydration-Pfad genutzt: beim Laden der Open-Questions-Pill
- * für einen Workspace check ob es schon eine strukturierte Antwort gibt →
- * wenn ja, Pill-Item als „beantwortet" markieren statt offen.
+ * Used by the ChatShell hydration path: when loading the open-questions pill
+ * for a workspace, check whether a structured answer already exists →
+ * if so, mark the pill item as „beantwortet" instead of open.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -116,23 +116,23 @@ function asNonEmptyString(v: unknown): string | null {
   return typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
 }
 
-/** Optional-Feld → trim oder null. */
+/** Optional field → trim or null. */
 function optTrimmed(v: unknown): string | null {
   const s = asNonEmptyString(v);
   return s;
 }
 
 /**
- * VERBATIM (N1) — der Antwort-Text darf NICHT getrimmt oder gekürzt werden.
- * Nur die String-Identität wird verlangt.
+ * VERBATIM (N1) — the answer text must NOT be trimmed or shortened.
+ * Only the string identity is required.
  */
 function answerString(v: unknown): string | null {
   return typeof v === "string" && v.length > 0 ? v : null;
 }
 
 /**
- * Kanonische sha256 über das Envelope — Reihenfolge der Felder fixiert für
- * Tamper-Evidence (N10) und reproduzierbare Idempotenz.
+ * Canonical sha256 over the envelope — field order fixed for
+ * tamper-evidence (N10) and reproducible idempotency.
  */
 function computeContentHash(env: {
   workspaceId: string;
@@ -145,7 +145,7 @@ function computeContentHash(env: {
   sourceTurnId: string;
   surfaceId: string | null;
 }): string {
-  // Stable JSON: keys in fixierter Reihenfolge.
+  // Stable JSON: keys in fixed order.
   const canonical = JSON.stringify({
     workspaceId: env.workspaceId,
     workstreamId: env.workstreamId,
@@ -161,17 +161,17 @@ function computeContentHash(env: {
 }
 
 // ===========================================================================
-// POST — strukturierte Answer persistieren
+// POST — persist a structured answer
 // ===========================================================================
 
 export async function POST(req: NextRequest): Promise<Response> {
-  // 1. Auth-Gate. Ohne user keine strukturierte Spur sinnvoll.
+  // 1. Auth gate. Without a user there is no point in a structured trace.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: "auth-required" }, { status: 401 });
   }
 
-  // 2. Body-Parsing.
+  // 2. Body parsing.
   let body: AnswerBody;
   try {
     body = (await req.json()) as AnswerBody;
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
 
-  // 3. Validation. Pflicht: workspaceId, questionId, answer, sourceTurnId.
+  // 3. Validation. Required: workspaceId, questionId, answer, sourceTurnId.
   const workspaceId = asNonEmptyString(body.workspaceId);
   const questionId = asNonEmptyString(body.questionId);
   const answer = answerString(body.answer);
@@ -210,14 +210,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 4. Optionals — fail-soft auf null bei missing.
+  // 4. Optionals — fail-soft to null when missing.
   const workstreamId = optTrimmed(body.workstreamId);
   const flowRunId = optTrimmed(body.flowRunId);
   const planId = optTrimmed(body.planId);
   const questionSetId = optTrimmed(body.questionSetId);
   const surfaceId = optTrimmed(body.surfaceId);
 
-  // 5. Permission-Gate. Strukturierte Antwort = Workspace-Inhalt.
+  // 5. Permission gate. A structured answer = workspace content.
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json(
       { ok: false, reason: "forbidden" },
@@ -225,7 +225,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 6. Envelope-Hash für Idempotenz + N10.
+  // 6. Envelope hash for idempotency + N10.
   const contentHash = computeContentHash({
     workspaceId,
     workstreamId,
@@ -238,9 +238,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     surfaceId,
   });
 
-  // 7. INSERT OR IGNORE — idempotent via beide UNIQUE-Indizes
-  //    (content_hash + (source_turn_id, question_id)). Bei Konflikt lesen wir
-  //    die existierende Row und antworten duplicate=true.
+  // 7. INSERT OR IGNORE — idempotent via both UNIQUE indexes
+  //    (content_hash + (source_turn_id, question_id)). On conflict we read
+  //    the existing row and respond duplicate=true.
   const db = getDb();
   const id = `qa_${randomUUID()}`;
   const createdAt = Date.now();
@@ -270,8 +270,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       );
 
     if (ins.changes === 0) {
-      // Duplikat — bereits vorhanden (gleicher content_hash ODER gleiches
-      // (source_turn_id, question_id)). Existierende Row zurückgeben.
+      // Duplicate — already present (same content_hash OR same
+      // (source_turn_id, question_id)). Return the existing row.
       const existing = db.$raw
         .prepare(
           `SELECT id FROM question_answers
@@ -289,10 +289,10 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
     }
 
-    // 8. Fortsetzungs-Hint (best-effort, fail-soft) — schreibt eine
-    //    workstream_decisions-Row, damit der Workstream-Trace die
-    //    strukturierte Antwort als N8-Evidence führt. Nur wenn ein
-    //    Workstream gebunden ist.
+    // 8. Continuation hint (best-effort, fail-soft) — writes a
+    //    workstream_decisions row so the workstream trace carries the
+    //    structured answer as N8 evidence. Only when a
+    //    workstream is bound.
     if (workstreamId) {
       try {
         writeDecision({
@@ -313,7 +313,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           actor: "user",
         });
       } catch (err) {
-        // Fail-soft — Audit ist Bonus.
+        // Fail-soft — the audit is a bonus.
         console.warn(
           "[chat/answer] writeDecision threw (non-fatal):",
           err,
@@ -336,11 +336,11 @@ export async function POST(req: NextRequest): Promise<Response> {
 }
 
 // ===========================================================================
-// GET — Hydration: ist eine konkrete Frage in einem Workspace schon beantwortet?
+// GET — hydration: is a specific question in a workspace already answered?
 // ===========================================================================
 
 export async function GET(req: NextRequest): Promise<Response> {
-  // Auth-Gate.
+  // Auth gate.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: "auth-required" }, { status: 401 });
@@ -362,8 +362,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Permission-Gate (lesend, aber wir liefern strukturierte Daten nur an
-  // berechtigte User; forbidden → answered=false + reason).
+  // Permission gate (read, but we only return structured data to
+  // authorized users; forbidden → answered=false + reason).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, wsId))) {
     return NextResponse.json(
       { ok: false, reason: "forbidden", answered: false },

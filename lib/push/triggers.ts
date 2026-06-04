@@ -1,12 +1,12 @@
 /**
- * Push-Trigger-Engine — Event-Listener → Rule-Match → Push-Send.
+ * Push-trigger engine — event listener → rule match → push send.
  *
- * Aufrufer: `lib/events/emit.ts` ruft `dispatchPushTriggers(event)`
- * via `queueMicrotask` NACH dem Broadcast. Damit ist der Push-Dispatch
- * nicht blockierend für den Event-Write.
+ * Caller: `lib/events/emit.ts` calls `dispatchPushTriggers(event)`
+ * via `queueMicrotask` AFTER the broadcast. This makes the push dispatch
+ * non-blocking for the event write.
  *
- * Fehler werden GEFANGEN und als push_audit 'error' geloggt — sie
- * dürfen den Emitter niemals crashen.
+ * Errors are CAUGHT and logged as push_audit 'error' — they
+ * must never crash the emitter.
  */
 
 import type { LazyEvent } from "../events/types";
@@ -33,9 +33,9 @@ import {
 } from "./rules";
 
 /**
- * Burst-Counter State: per-Bucket in-memory map mit Timestamps der letzten
- * N Events. Single-User-MVP, single-Lambda: in-memory reicht. Phase 6 auf
- * SQLite migrieren, falls Errors auf anderen Instances auftreten.
+ * Burst-counter state: per-bucket in-memory map with timestamps of the last
+ * N events. Single-user MVP, single Lambda: in-memory is enough. Phase 6 migrate
+ * to SQLite if errors occur on other instances.
  */
 const burstState = new Map<string, number[]>();
 
@@ -67,11 +67,11 @@ interface SendOptions {
   url: string;
   tag?: string;
   /**
-   * Pattern 6a Telemetrie (2026-05-01): ruleId wird ans Push-Send-Body
-   * angehaengt und vom SW über `event.notification.data.ruleId` zurück
-   * an /api/push/feedback gegeben. Optional, weil der `chat-message-*`
-   * Pfad und der `notify-review` Pfad sich erst Schritt-für-Schritt
-   * einklinken — fehlende ruleId = keine Telemetrie für den Push.
+   * Pattern 6a telemetry (2026-05-01): ruleId is appended to the push-send body
+   * and returned by the SW via `event.notification.data.ruleId` back
+   * to /api/push/feedback. Optional, because the `chat-message-*`
+   * path and the `notify-review` path hook in only step by step
+   * — a missing ruleId = no telemetry for the push.
    */
   ruleId?: string;
 }
@@ -150,13 +150,13 @@ export async function dispatchPushTriggers(
 
     if (!matched) continue;
 
-    // V3 Wire-Punkt 2 (2026-05-01) — Sandbox-Push-Suppress.
-    // Wenn der Workspace im Sandbox-Mode ist UND die Rule auf der Routine-
-    // Suppress-Liste steht: Push droppen, Audit-Eintrag schreiben.
-    // Kritische Rules (credential-violation, loop-guard-tripped,
-    // security-alert, errors-burst, ticket-p0-created) sind in
-    // SANDBOX_SUPPRESSED_PUSH_RULES BEWUSST NICHT enthalten und feuern
-    // weiter. Der Helper-Set ist Single-Source-of-Truth.
+    // V3 wire-point 2 (2026-05-01) — sandbox push suppress.
+    // When the workspace is in sandbox mode AND the rule is on the routine
+    // suppress list: drop the push, write an audit entry.
+    // Critical rules (credential-violation, loop-guard-tripped,
+    // security-alert, errors-burst, ticket-p0-created) are DELIBERATELY NOT
+    // contained in SANDBOX_SUPPRESSED_PUSH_RULES and keep firing.
+    // The helper set is the single source of truth.
     if (shouldSuppressPushInSandbox(rule.id)) {
       try {
         const inSandbox = await workspaceIsSandbox(event.segmentId);
@@ -170,9 +170,9 @@ export async function dispatchPushTriggers(
           continue;
         }
       } catch {
-        // workspaceIsSandbox ist defensiv und wirft normalerweise nicht;
-        // bei DB-Edge-Fehler weiterlaufen (lieber 1 Push zu viel als
-        // schwer auffindbarer Audit-Loch).
+        // workspaceIsSandbox is defensive and normally does not throw;
+        // on a DB edge error, keep going (better 1 push too many than a
+        // hard-to-find audit gap).
       }
     }
 
@@ -238,7 +238,7 @@ export async function dispatchPushTriggers(
       continue;
     }
 
-    // Send (Pattern 6a: ruleId mitschicken für SW-Telemetrie)
+    // Send (Pattern 6a: pass ruleId along for SW telemetry)
     const send = await sendPush({ ...notif, ruleId: rule.id });
     if (send.ok) {
       const windowMs = rule.rateLimit
@@ -272,24 +272,24 @@ function tryCallDedupKey(rule: PushRule, event: LazyEvent): string | undefined {
 }
 
 /**
- * Test-Hook — leert den In-Memory-Burst-Counter. Dedup/Counters werden über
- * `__resetPushStateForTests` in dedup.ts geleert.
+ * Test hook — clears the in-memory burst counter. Dedup/counters are cleared via
+ * `__resetPushStateForTests` in dedup.ts.
  */
 export function __resetBurstStateForTests(): void {
   burstState.clear();
 }
 
 /**
- * Wird von `emit.ts` via queueMicrotask aufgerufen. Fehler hier dürfen nicht
- * propagieren — wir fangen alles und loggen nach stderr als last-resort.
+ * Called by `emit.ts` via queueMicrotask. Errors here must not
+ * propagate — we catch everything and log to stderr as a last resort.
  */
 export function schedulePushDispatch(event: LazyEvent): void {
   // Skip push-triggers when the emit itself is inside a test (LAZYOS_DISABLE_PUSH=1)
   // or when we are processing a push_sent event (prevent recursion).
   if (process.env.LAZYOS_DISABLE_PUSH === "1") return;
   if (event.eventType === "push_sent") return;
-  // B2-fix 2026-04-26: chat_history_migrated ist ein internes Marker-Event
-  // (one-shot pro Workspace), NICHT user-facing. Nie pushen.
+  // B2-fix 2026-04-26: chat_history_migrated is an internal marker event
+  // (one-shot per workspace), NOT user-facing. Never push.
   if (event.eventType === "chat_history_migrated") return;
 
   queueMicrotask(() => {
@@ -314,43 +314,43 @@ export interface EmitAnswerRequiredInput {
   entityId: string;
   kind: 'approval' | 'connector-preview' | 'open-questions' | 'run-stuck';
   /**
-   * Kurzer Preview-Text (max 100 Zeichen). KEIN Secret/PII — landet im
-   * Lock-Screen-Banner. Intern auf 100 Zeichen gekappt.
+   * Short preview text (max 100 chars). NO secret/PII — lands in the
+   * lock-screen banner. Internally capped to 100 chars.
    */
   preview: string;
   /**
-   * Deep-Link-URL zum Workspace / zur Card. Darf KEINEN Auth-Token enthalten.
-   * Typisch: `/?workspace=<wsId>` oder `/workstreams/<wsId>`.
+   * Deep-link URL to the workspace / to the card. Must contain NO auth token.
+   * Typically: `/?workspace=<wsId>` or `/workstreams/<wsId>`.
    */
   url: string;
 }
 
 /**
- * Sendet einen "Antwort erforderlich"-Push via das Push-Rules-System.
+ * Sends an "answer required" push via the push-rules system.
  *
- * Visibility-Gate: wenn mindestens ein Client den Workspace gerade sieht,
- * wird KEIN Push gesendet (analog onChatMessageCompleted).
+ * Visibility gate: if at least one client is currently viewing the workspace,
+ * NO push is sent (analogous to onChatMessageCompleted).
  *
- * Best-effort / non-fatal: wirft nie. Fehler werden per console.warn geloggt.
- * Sollte nach `emitOrUpdateCard`-Calls in plan-dispatch.ts / auto-connect.ts
- * aufgerufen werden — NICHT den Render/Emit blockieren.
+ * Best-effort / non-fatal: never throws. Errors are logged via console.warn.
+ * Should be called after `emitOrUpdateCard` calls in plan-dispatch.ts / auto-connect.ts
+ * — does NOT block the render/emit.
  *
- * Sicherheit: preview wird auf 100 Zeichen gekappt, LAZYOS_DISABLE_PUSH
- * wird respektiert.
+ * Security: preview is capped to 100 chars, LAZYOS_DISABLE_PUSH
+ * is respected.
  */
 export function emitAnswerRequired(input: EmitAnswerRequiredInput): void {
   if (process.env.LAZYOS_DISABLE_PUSH === '1') return;
 
-  // Visibility-Gate: kein Push wenn Client sichtbar.
+  // Visibility gate: no push when a client is visible.
   if (isAnyClientVisible(input.workspaceId)) return;
 
-  // Lazy import via queueMicrotask + dynamic require, damit dieser Helper
-  // keinen Zyklus zu emitEvent aufbaut (push/triggers → events/emit → push/triggers).
-  // Wir nutzen schedulePushDispatch um alle Rules + Dedup + Cap anzuwenden.
+  // Lazy import via queueMicrotask + dynamic require, so this helper
+  // does not build a cycle to emitEvent (push/triggers → events/emit → push/triggers).
+  // We use schedulePushDispatch to apply all rules + dedup + cap.
   queueMicrotask(() => {
     void (async () => {
       try {
-        // Dynamic import bricht den Modul-Zirkel (push/triggers ↔ events/emit).
+        // Dynamic import breaks the module cycle (push/triggers ↔ events/emit).
         const { emitEvent } = await import('../events/emit');
         const safePreview = input.preview.trim().slice(0, 100);
         await emitEvent({
@@ -389,18 +389,18 @@ export interface OnChatMessageCompletedInput {
 }
 
 /**
- * Liest die persisted-sensitivity eines Workspaces. Liefert 'high' fuer
- * private/example-app-* (per Konvention) und Workspaces deren `sensitivity`-Spalte
- * 'high' ist; sonst 'low'. Bei DB-Fehler konservativ 'high' (lieber Body
- * weglassen als versehentlich leaken).
+ * Reads the persisted sensitivity of a workspace. Returns 'high' for
+ * private/example-app-* (by convention) and workspaces whose `sensitivity` column
+ * is 'high'; otherwise 'low'. On a DB error, conservatively 'high' (better to omit
+ * the body than to accidentally leak).
  */
 function readWorkspaceSensitivity(workspaceId: string): "low" | "medium" | "high" {
   if (workspaceId === "private" || workspaceId === "@private") return "high";
   if (workspaceId.startsWith("example-app-")) return "high";
-  // B6-fix 2026-04-26: __root__ ist Cross-Workspace-Root und kann Antworten
-  // aus PRIVATEN Workspaces enthalten. Push-Body MUSS Klartext vermeiden.
-  // Konservativ als 'high' behandeln — Lock-Screen sieht nur den generischen
-  // Titel, kein Klartext-Leak ueber Workspace-Grenzen hinweg.
+  // B6-fix 2026-04-26: __root__ is the cross-workspace root and can contain
+  // replies from PRIVATE workspaces. The push body MUST avoid plaintext.
+  // Treat conservatively as 'high' — the lock screen sees only the generic
+  // title, no plaintext leak across workspace boundaries.
   if (workspaceId === ROOT_WORKSPACE_ID) return "high";
   try {
     const db = getDb();
@@ -417,10 +417,10 @@ function readWorkspaceSensitivity(workspaceId: string): "low" | "medium" | "high
 }
 
 /**
- * Content-Scanner-Spiegel fuer den Push-Pfad. Pattern-Set identisch zum
- * `scanContentSensitivity` in lib/events/emit.ts (gleiche Regeln, andere
- * Process-Boundary). Wenn die Antwort des Agenten Keys/Tokens enthaelt,
- * verzichten wir auf den Body-Preview im Push.
+ * Content-scanner mirror for the push path. The pattern set is identical to
+ * `scanContentSensitivity` in lib/events/emit.ts (same rules, different
+ * process boundary). If the agent's reply contains keys/tokens,
+ * we omit the body preview in the push.
  */
 function pushContentLooksSensitive(content: string): boolean {
   if (!content || content.length === 0) return false;
@@ -438,33 +438,33 @@ function pushContentLooksSensitive(content: string): boolean {
 }
 
 /**
- * Per-Workspace Rate-Limit Bucket-Window. 60s Fenster, max 3 Pushs.
- * Reuse der bestehenden push_counters-Tabelle via checkRuleRateLimit/
- * recordPush. Bucket-Key inkludiert die wsId, sodass Rate-Limit pro
- * Workspace separat zaehlt (Burst in Workspace A blockiert nicht
- * Workspace B).
+ * Per-workspace rate-limit bucket window. 60s window, max 3 pushes.
+ * Reuses the existing push_counters table via checkRuleRateLimit/
+ * recordPush. The bucket key includes the wsId, so the rate limit counts
+ * per workspace separately (a burst in workspace A does not block
+ * workspace B).
  */
 const CHAT_MESSAGE_RATE_WINDOW_MS = 60_000;
 const CHAT_MESSAGE_RATE_MAX = 3;
 
 /**
- * Wird vom Agent-Server NACH `emitChatMessageCompleted` aufgerufen. Sendet
- * eine Web-Push wenn KEIN Client den Workspace gerade als visible meldet.
+ * Called by the agent server AFTER `emitChatMessageCompleted`. Sends
+ * a web push when NO client currently reports the workspace as visible.
  *
- * - `tag: 'chat-<wsId>'` mit `renotify: true` -> Replace-Verhalten
- * - URL deeplinkt in den Workspace
- * - Body wird auf 80 Zeichen gekuerzt
+ * - `tag: 'chat-<wsId>'` with `renotify: true` -> replace behaviour
+ * - URL deep-links into the workspace
+ * - body is shortened to 80 chars
  *
- * Fire-and-forget. Niemals werfen.
+ * Fire-and-forget. Never throws.
  */
 export function onChatMessageCompleted(
   input: OnChatMessageCompletedInput,
 ): void {
-  // Aborted/error-Antworten erzeugen keinen Push — Max will keine
-  // Notification wenn der Stream eh abgebrochen ist.
+  // Aborted/error replies produce no push — the operator wants no
+  // notification when the stream was aborted anyway.
   if (input.outcome !== "ok") return;
 
-  // Visibility-Gate
+  // Visibility gate
   if (isAnyClientVisible(input.workspaceId)) return;
 
   if (process.env.LAZYOS_DISABLE_PUSH === "1") return;
@@ -475,15 +475,15 @@ export function onChatMessageCompleted(
   const now = Date.now();
   const ruleId = `chat-message-${input.workspaceId}`;
 
-  // P0-4: Per-Workspace Rate-Limit (3/min) UND Global-Daily-Cap.
-  // Power-User-Burst → max 3 Pushs/Min. Routine-Loop → globaler Cap
-  // greift (default 20/Tag, ENV-override).
+  // P0-4: per-workspace rate limit (3/min) AND global daily cap.
+  // Power-user burst → max 3 pushes/min. Routine loop → the global cap
+  // applies (default 20/day, ENV override).
   //
-  // B4-fix 2026-04-26: Cap-Check-Failure ist FAIL-CLOSED. Bei DB-Stress
-  // (SQLITE_BUSY nach 5s timeout, Disk-Full, locked-by-checkpoint) fielen
-  // ALLE Caps aus → Routine-Loop konnte unbegrenzt feuern. Konservativer
-  // Tradeoff: lieber 1 verlorener Push als 50 unkontrollierte Pushs.
-  // Audit-Eintrag mit reason "cap-check-error" damit es im Audit erscheint.
+  // B4-fix 2026-04-26: a cap-check failure is FAIL-CLOSED. Under DB stress
+  // (SQLITE_BUSY after 5s timeout, disk-full, locked-by-checkpoint)
+  // ALL caps dropped out → a routine loop could fire unbounded. Conservative
+  // tradeoff: better 1 lost push than 50 uncontrolled pushes.
+  // Audit entry with reason "cap-check-error" so it appears in the audit.
   try {
     const rl = checkRuleRateLimit(
       ruleId,
@@ -511,7 +511,7 @@ export function onChatMessageCompleted(
       return;
     }
   } catch (err) {
-    // B4-fix: FAIL-CLOSED. Push DROPPEN, nicht senden.
+    // B4-fix: FAIL-CLOSED. DROP the push, do not send.
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(
       "[push/triggers] onChatMessageCompleted cap-check failed (DROPPING push):",
@@ -525,14 +525,14 @@ export function onChatMessageCompleted(
         now,
       });
     } catch {
-      /* audit-write-failure ist kosmetisch */
+      /* audit-write failure is cosmetic */
     }
     return;
   }
 
-  // P0-3b: Privacy-Gate. Bei sensitive Workspaces ODER Content der wie ein
-  // Key/Token aussieht: kein Body-Preview, generischer Titel. Lock-Screen-
-  // Preview soll keinen Klartext leaken.
+  // P0-3b: privacy gate. For sensitive workspaces OR content that looks like a
+  // key/token: no body preview, generic title. The lock-screen
+  // preview should leak no plaintext.
   const wsSensitivity = readWorkspaceSensitivity(input.workspaceId);
   const contentLooksSensitive = pushContentLooksSensitive(trimmed);
   const sensitive = wsSensitivity === "high" || contentLooksSensitive;
@@ -540,14 +540,14 @@ export function onChatMessageCompleted(
   const title = sensitive
     ? "Privater Workspace"
     : input.workspaceLabel || input.workspaceId;
-  // TD-5 fix 2026-04-26: Markdown-Strip vor 80-char-Trim. Sonst landeten
-  // Code-Fences (```bash ... ```) plump abgeschnitten in der Notification:
-  // "```bash\nrm -rf…". Pragmatischer Mini-Stripper:
-  //   - Fenced code blocks komplett raus
-  //   - Inline-Code-Backticks zum Plain-Text
-  //   - Heading-Marker (#, ##, ...) raus
-  //   - Bullet-Marker (- / *) raus
-  //   - Whitespace-Runs auf ein Space normieren
+  // TD-5 fix 2026-04-26: markdown strip before the 80-char trim. Otherwise
+  // code fences (```bash ... ```) landed crudely cut off in the notification:
+  // "```bash\nrm -rf…". Pragmatic mini-stripper:
+  //   - fenced code blocks removed entirely
+  //   - inline-code backticks to plain text
+  //   - heading markers (#, ##, ...) removed
+  //   - bullet markers (- / *) removed
+  //   - normalize whitespace runs to a single space
   const cleanBody = trimmed
     .replace(/```[\s\S]*?```/g, "")
     .replace(/`([^`]+)`/g, "$1")
@@ -562,14 +562,14 @@ export function onChatMessageCompleted(
       : cleanBody.length > 80
         ? `${cleanBody.slice(0, 77)}…`
         : cleanBody;
-  // 2026-04-26 fix: tag mit timestamp-suffix. Reine `chat-<wsId>`-Replace-tags
-  // wurden auf iOS-PWA silent als Update der bestehenden Notification behandelt
-  // — kein neuer Banner sichtbar. Rate-Limit (3/Min/wsId) verhindert eh Spam.
-  // Per-Push unique tag → User sieht jede Antwort.
+  // 2026-04-26 fix: tag with a timestamp suffix. Plain `chat-<wsId>` replace tags
+  // were silently treated on iOS PWA as an update of the existing notification
+  // — no new banner visible. The rate limit (3/min/wsId) prevents spam anyway.
+  // Per-push unique tag → the user sees every reply.
   const tag = `chat-${input.workspaceId}-${now}`;
-  // Chat-Page liegt auf `/` (Root), nicht `/chat` — `/chat` würde 404
-  // werfen. Workspace-Switch passiert client-side in ChatShell beim Mount,
-  // sofern der Query-Param erkannt wird.
+  // The chat page lives at `/` (root), not `/chat` — `/chat` would throw a 404.
+  // The workspace switch happens client-side in ChatShell on mount,
+  // provided the query param is recognized.
   const url = `/?workspace=${encodeURIComponent(input.workspaceId)}`;
 
   void sendPush({
@@ -581,7 +581,7 @@ export function onChatMessageCompleted(
   })
     .then((res) => {
       if (res.ok) {
-        // P0-4: erfolgreichen Push beim Rate-Limit + Daily-Cap registrieren.
+        // P0-4: register the successful push with the rate limit + daily cap.
         try {
           recordPush(ruleId, CHAT_MESSAGE_RATE_WINDOW_MS, now);
           recordAudit({
@@ -591,7 +591,7 @@ export function onChatMessageCompleted(
             now,
           });
         } catch {
-          /* counter-write-failure ist kosmetisch */
+          /* counter-write failure is cosmetic */
         }
       } else {
         console.warn(

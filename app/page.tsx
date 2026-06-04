@@ -70,10 +70,10 @@ export default async function HomePage({
   const sp = await searchParams;
   const wsHint = typeof sp.ws === 'string' ? sp.ws : null;
 
-  // Nav-Fix D (2026-06-02): wenn der Hauptchat in einen ECHTEN Kunden-Workspace
-  // scoped wird (/?ws=<realId>), den Org-Kontext synchron mit-seeden — sonst
-  // normalisiert der OrgSwitcher die Org zurück auf org-root und redirected weg.
-  // Virtuelle Hints (__org_root__:*, __all__) liefern null → kein OrgBootstrap.
+  // Nav-Fix D (2026-06-02): when the main chat is scoped into a REAL client
+  // workspace (/?ws=<realId>), seed the org context synchronously alongside —
+  // otherwise the OrgSwitcher normalizes the org back to org-root and redirects away.
+  // Virtual hints (__org_root__:*, __all__) return null → no OrgBootstrap.
   const scopedOrgId =
     wsHint && orgBootstrapEnabled() ? resolveWorkspaceOrgId(wsHint) : null;
 

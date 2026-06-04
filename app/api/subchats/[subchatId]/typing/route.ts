@@ -1,9 +1,9 @@
 /**
- * POST /api/subchats/[subchatId]/typing  — TRANSIENTES Tipp-Signal (intern).
+ * POST /api/subchats/[subchatId]/typing  — TRANSIENT typing signal (internal).
  *
- * Auth: Member des Workspace (gespiegelt aus messages/route.ts). Persistiert
- * NICHTS — baut ein ephemeres `subchat_typing`-LazyEvent und broadcastet es nur
- * an SSE-Subscriber. Kein DB-Insert, kein Push. Best-effort, idempotent-egal.
+ * Auth: member of the workspace (mirrored from messages/route.ts). Persists
+ * NOTHING — builds an ephemeral `subchat_typing` LazyEvent and only broadcasts
+ * it to SSE subscribers. No DB insert, no push. Best-effort, idempotency-agnostic.
  * Bundle 1 (2026-06-02).
  */
 
@@ -47,10 +47,10 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   const g = await resolveAndGate(req, subchatId);
   if (!g.ok) return g.res;
 
-  // Optionaler Anzeigename des Tippenden (kurz). Default: 'Team'.
-  // `clientId`: vom Client erzeugte Mount-Nonce — wird mit-gebroadcastet, damit
-  // der Sender sein EIGENES Tipp-Echo unterdrücken kann (sonst „Team schreibt …"
-  // auf dem eigenen Schirm).
+  // Optional display name of the typist (short). Default: 'Team'.
+  // `clientId`: client-generated mount nonce — broadcast along so the
+  // sender can suppress their OWN typing echo (otherwise "Team is typing …"
+  // on their own screen).
   let who = 'Team';
   let fromClientId = '';
   try {
@@ -58,10 +58,10 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     if (typeof body.who === 'string' && body.who.trim()) who = body.who.trim().slice(0, 80);
     if (typeof body.clientId === 'string') fromClientId = body.clientId.slice(0, 40);
   } catch {
-    /* leerer Body erlaubt */
+    /* empty body allowed */
   }
 
-  // EPHEMER: KEIN db.insert, KEIN emitEvent. Nur broadcast → SSE-Subscriber.
+  // EPHEMERAL: NO db.insert, NO emitEvent. Only broadcast → SSE subscribers.
   const now = Date.now();
   const ev: LazyEvent = {
     id: ulid(now),
@@ -71,8 +71,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     entityId: subchatId,
     eventType: 'subchat_typing',
     actor: 'system',
-    // fromUserId: damit der Client das EIGENE Tipp-Echo unterdrücken kann
-    // (sonst sähe der Operator sein eigenes Tippen als „Team schreibt …").
+    // fromUserId: so the client can suppress its OWN typing echo
+    // (otherwise the operator would see their own typing as "Team is typing …").
     payload: { subchatId, workspaceId: g.workspaceId, who, fromUserId: g.userId, fromClientId },
     sensitivity: 'low',
   };

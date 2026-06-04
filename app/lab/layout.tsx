@@ -1,19 +1,19 @@
 /**
- * /lab Showcase-Layout (MVP, 2026-05-01).
+ * /lab showcase layout (MVP, 2026-05-01).
  *
- * Auth-Gate (Defense-in-Depth):
- *   1. Edge-Middleware setzt subject-Header
- *   2. Dieses Layout liest currentUserIdResolved + redirect /login wenn null
- *   3. DB-Lookup: User MUSS mindestens eine org_membership oder
- *      workspace_membership mit role IN ('admin','founder') haben
- *   4. Sonst: redirect / (Home)
+ * Auth gate (defense-in-depth):
+ *   1. Edge middleware sets the subject header
+ *   2. This layout reads currentUserIdResolved + redirect /login if null
+ *   3. DB lookup: the user MUST have at least one org_membership or
+ *      workspace_membership with role IN ('admin','founder')
+ *   4. Otherwise: redirect / (home)
  *
- * Begründung Roles: das spec-Dokument sagt 'admin/owner'; im lazyOS-
- * Schema gibt es 'owner' nicht — `founder` ist die owner-äquivalente
- * Rolle (Schema-Reihenfolge: guest<viewer<member<admin<founder).
+ * Roles rationale: the spec document says 'admin/owner'; in the lazyOS
+ * schema there is no 'owner' — `founder` is the owner-equivalent
+ * role (schema order: guest<viewer<member<admin<founder).
  *
- * Sidebar (260px) listet die 5 MVP-Kinds. Inspector-Slot (320px rechts)
- * ist im MVP leer — Welle 3 füllt ihn mit Token-Visualizer.
+ * The sidebar (260px) lists the 5 MVP kinds. The inspector slot (320px right)
+ * is empty in the MVP — wave 3 fills it with a token visualizer.
  */
 
 import { headers } from "next/headers";
@@ -37,7 +37,7 @@ interface MembershipRow {
 
 function userHasLabAccess(userId: string): boolean {
   const db = getDb();
-  // Org-Membership-Check
+  // Org membership check
   const orgRow = db.$raw
     .prepare<unknown[], MembershipRow>(
       `SELECT role FROM org_memberships
@@ -46,7 +46,7 @@ function userHasLabAccess(userId: string): boolean {
     )
     .get(userId);
   if (orgRow) return true;
-  // Fallback: Workspace-Membership mit Override-Rolle
+  // Fallback: workspace membership with an override role
   const wsRow = db.$raw
     .prepare<unknown[], MembershipRow>(
       `SELECT role FROM workspace_memberships

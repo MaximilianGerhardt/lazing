@@ -1,15 +1,15 @@
 /**
  * POST /api/workstreams/[id]/start-dispatch
  *
- * Phase AC.2 (2026-04-26) — Konsens-Quick-Start.
+ * Phase AC.2 (2026-04-26) — consensus quick-start.
  *
- * Setzt das Master-Ticket eines Workstreams auf `workflowState='approved'`
- * via `updated`-Event. Der Event-Hook in `lib/events/emit.ts` triggert
- * dann `maybeAutoDispatch` (Phase AD), was die Sub-Pipelines spawnt.
+ * Sets a workstream's master ticket to `workflowState='approved'`
+ * via an `updated` event. The event hook in `lib/events/emit.ts` then
+ * triggers `maybeAutoDispatch` (Phase AD), which spawns the sub-pipelines.
  *
- * Idempotent: Wenn Master schon approved ist, returnen wir 200/no-op.
+ * Idempotent: if the master is already approved, we return 200/no-op.
  *
- * Auth: Cookie-Session.
+ * Auth: cookie session.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -28,11 +28,11 @@ import { maybeAutoDispatch } from '@/lib/tickets/auto-dispatch';
 import { getDb } from '@/db/client';
 import { ulid } from '@/lib/ulid';
 
-// Sub-Plan G (2026-04-30): Doppel-Spawn-Lock. Lock-TTL = 60 s. Nach Ablauf
-// darf ein neuer Caller den Lock erwerben, weil der vorherige Spawn entweder
-// längst läuft (=hat eigene tmux-Sessions) oder gecrasht ist und nie released
-// hat. 60 s ist deutlich kürzer als die Iterate-Pipeline-Wallclock (3-18 min),
-// aber lang genug um echte Doppel-Klicks zu absorbieren.
+// Sub-Plan G (2026-04-30): double-spawn lock. Lock TTL = 60 s. After expiry
+// a new caller may acquire the lock, because the previous spawn either
+// has long been running (=has its own tmux sessions) or crashed and never
+// released. 60 s is much shorter than the iterate pipeline wallclock (3-18 min),
+// but long enough to absorb real double-clicks.
 const DISPATCH_LOCK_TTL_MS = 60_000;
 
 export const runtime = 'nodejs';
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // Wenn schon `closed` → no-op, alles fertig.
+  // If already `closed` → no-op, everything done.
   if (master.workflowState === 'closed') {
     return NextResponse.json({
       ok: true,
@@ -92,10 +92,10 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     });
   }
 
-  // Sub-Plan G (2026-04-30): atomic Lock-Acquire. UPDATE matcht nur wenn
-  // (a) kein Token gesetzt ODER (b) der bestehende Token älter als 60 s ist
-  // (= vorheriger Spawn vermutlich gecrasht). 0 rows changed → 409.
-  // Bei Erfolg setzen wir lock_token=ulid() + lock_ts=now.
+  // Sub-Plan G (2026-04-30): atomic lock acquire. The UPDATE matches only if
+  // (a) no token is set OR (b) the existing token is older than 60 s
+  // (= the previous spawn probably crashed). 0 rows changed → 409.
+  // On success we set lock_token=ulid() + lock_ts=now.
   const newLockToken = ulid();
   const lockExpireBefore = Date.now() - DISPATCH_LOCK_TTL_MS;
   let lockAcquired = false;
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       workstreamId,
       lockExpireBefore,
     );
-    // better-sqlite3 liefert .changes; falls Treiber abweicht, fallback auf 0.
+    // better-sqlite3 provides .changes; if the driver differs, fall back to 0.
     const changes =
       typeof (res as { changes?: number }).changes === 'number'
         ? (res as { changes: number }).changes
@@ -124,12 +124,12 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     lockAcquired = changes > 0;
   } catch (err) {
     console.warn('[start-dispatch] lock-acquire failed:', err);
-    // Lock-Mechanik darf den Dispatch nicht hart blockieren wenn die DB
-    // einen edge-Fehler hat. Wir loggen + weiterlaufen mit lockAcquired=false
-    // → 409, der Client retried sauber.
+    // The lock mechanism must not hard-block the dispatch if the DB
+    // has an edge error. We log + continue with lockAcquired=false
+    // → 409, and the client retries cleanly.
   }
   if (!lockAcquired) {
-    // Lese aktuellen Lock-Status für sinceMs.
+    // Read the current lock status for sinceMs.
     let sinceMs = 0;
     try {
       const db = getDb();
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
         sinceMs = Date.now() - row.dispatch_lock_ts;
       }
     } catch {
-      /* nicht-fatal */
+      /* non-fatal */
     }
     return NextResponse.json(
       { error: 'already-dispatching', sinceMs },
@@ -150,10 +150,10 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // Wenn `approved`/`executing` aber Auto-Dispatch nie lief (z.B.
-  // weil der Service zwischen Approve und queueMicrotask restartet hat),
-  // forcen wir den Aufruf direkt — maybeAutoDispatch hat eigene
-  // Echo-Guards (sub-tickets schon im executing-State werden uebersprungen).
+  // If `approved`/`executing` but auto-dispatch never ran (e.g.
+  // because the service restarted between approve and queueMicrotask),
+  // we force the call directly — maybeAutoDispatch has its own
+  // echo guards (sub-tickets already in the executing state are skipped).
   const actor = currentActor(req) as ActorType;
   if (master.workflowState === 'approved' || master.workflowState === 'executing') {
     const fakeEvent = {
@@ -168,9 +168,9 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
         workflowState: 'approved',
         reason: 'force_dispatch_recovery',
         workstreamId,
-        // Sub-Plan G (2026-04-30): Lock-Token im Payload mitschicken —
-        // hilft beim Tracing und für Echo-Erkennung in nachfolgenden
-        // Auto-Dispatch-Phasen.
+        // Sub-Plan G (2026-04-30): send the lock token along in the payload —
+        // helps with tracing and echo detection in subsequent
+        // auto-dispatch phases.
         dispatchLockToken: newLockToken,
       },
       sensitivity: 'low' as const,
@@ -186,8 +186,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     });
   }
 
-  // Sonst: regulaerer Pfad. updated-Event emittieren, Event-Hook ruft
-  // maybeAutoDispatch automatisch auf via queueMicrotask.
+  // Otherwise: the regular path. Emit the updated event, the event hook
+  // calls maybeAutoDispatch automatically via queueMicrotask.
   await emitEvent({
     segmentId: ws.workspaceId,
     entityType: 'ticket',

@@ -7,28 +7,28 @@ import { useEffect } from 'react';
 import { useCurrentWorkspace } from './hooks';
 
 /**
- * Bottom-Tab-Bar (ex-ScopeTabs) — feste iOS-Bottom-Tab-Bar.
- * UI/UX-Neuausrichtung 2026-06-03, Phase B.
+ * Bottom tab bar (ex-ScopeTabs) — fixed iOS bottom tab bar.
+ * UI/UX realignment 2026-06-03, Phase B.
  *
- * Drei Top-Level-Tabs: Chat · Decisions · Kalender. Ersetzt die alte
- * in-page Tab-Leiste, die auf Mobile den Text abschnitt ("Decisi…",
- * "Calen…") und einen vierten "Lanes"-Tab (toter Redirect) trug.
+ * Three top-level tabs: Chat · Decisions · Kalender. Replaces the old
+ * in-page tab strip, which truncated the text on mobile ("Decisi…",
+ * "Calen…") and carried a fourth "Lanes" tab (dead redirect).
  *
- * Klassisches Chat-App-Pattern (Owner-Direktive „klassische App-Design-
+ * Classic chat-app pattern (owner directive „klassische App-Design-
  * orientierung", „pro View unterschiedlich bauen"):
- *  - Auf den Listen-Surfaces (/decisions, /calendar) ist die Bar sichtbar.
- *  - Auf dem Chat (/) wird sie NICHT gemountet — dort besitzt der Composer
- *    den Boden (ruhiger Chat). Navigation zurück via Bar-Tab „Chat".
- *  - Lanes/Workstreams sind kein Top-Level-Tab mehr → leben im Menü.
+ *  - On the list surfaces (/decisions, /calendar) the bar is visible.
+ *  - On the chat (/) it is NOT mounted — there the composer owns
+ *    the bottom (calm chat). Navigation back via the "Chat" bar tab.
+ *  - Lanes/workstreams are no longer a top-level tab → they live in the menu.
  *
- * Scope-carry: der Chat-Link trägt die aktive, membership-fähige Workspace-
- * ID als `?ws=<id>`, damit der Kunden-Scope auf `/` deterministisch
- * reasserted wird. Virtuelle `__`-IDs werden ausgelassen (kein Pinning auf
- * Pseudo-IDs).
+ * Scope carry: the chat link carries the active, membership-bearing workspace
+ * id as `?ws=<id>`, so the customer scope on `/` is reasserted
+ * deterministically. Virtual `__` ids are omitted (no pinning to
+ * pseudo ids).
  *
- * Keyboard-aware: Wenn die Tastatur offen ist (visualViewport), wird
- * `body.kb-open` gesetzt → die Bar gleitet aus dem Weg (sie darf nie über
- * einem Eingabefeld schweben, z.B. der Decisions-Suche).
+ * Keyboard-aware: when the keyboard is open (visualViewport),
+ * `body.kb-open` is set → the bar slides out of the way (it must never hover
+ * over an input field, e.g. the decisions search).
  */
 export function ScopeTabs(): React.JSX.Element {
   const pathname = usePathname() ?? '/';
@@ -39,9 +39,9 @@ export function ScopeTabs(): React.JSX.Element {
       typeof window !== 'undefined' ? window.visualViewport : null;
     if (!vv) return;
     const onResize = () => {
-      // Ratio gegen die PHYSISCHE Bildschirmhöhe — robust auf Android, wo
-      // window.innerHeight mit der Tastatur mitschrumpft (Delta-Heuristik
-      // würde dort nie feuern). window.screen.height bleibt konstant.
+      // Ratio against the PHYSICAL screen height — robust on Android, where
+      // window.innerHeight shrinks along with the keyboard (a delta heuristic
+      // would never fire there). window.screen.height stays constant.
       const kbOpen = vv.height < window.screen.height * 0.75;
       document.body.classList.toggle('kb-open', kbOpen);
     };

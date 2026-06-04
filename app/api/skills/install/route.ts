@@ -1,8 +1,8 @@
 /**
- * POST /api/skills/install — einen Skill installieren (lokal/Git) + cross-engine syncen.
- *   Body: { source: string }  (Pfad ODER owner/repo[/unterpfad] ODER git-URL)
+ * POST /api/skills/install — install a skill (local/Git) + sync cross-engine.
+ *   Body: { source: string }  (path OR owner/repo[/subpath] OR git URL)
  *
- * Auth: eingeloggt (Owner). Führt server-seitig ggf. git clone aus.
+ * Auth: logged in (owner). May run a git clone server-side.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

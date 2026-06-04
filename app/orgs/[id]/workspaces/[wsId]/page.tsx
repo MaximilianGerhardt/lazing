@@ -1,16 +1,16 @@
 /**
- * /orgs/[orgId]/workspaces/[wsId] — canonical Org-scoped Workspace-URL.
+ * /orgs/[orgId]/workspaces/[wsId] — canonical org-scoped workspace URL.
  * Phase IA.6 (2026-04-29).
  *
- * Server-Component mit Konsistenz-Check (gehört der Workspace zur Org-
- * URL?). Bei Match → Redirect auf die heutige `/workspaces/[wsId]`-Page,
- * die alle Tabs + DB-Reads kennt. Bei Org-Mismatch → Redirect auf die
- * korrekte canonical URL. Bei fehlendem Workspace → 404.
+ * Server component with a consistency check (does the workspace belong to
+ * the org URL?). On a match → redirect to the current `/workspaces/[wsId]`
+ * page, which knows all tabs + DB reads. On an org mismatch → redirect to
+ * the correct canonical URL. On a missing workspace → 404.
  *
- * Längerfristig könnten wir die heutige /workspaces/[id]-Page hierher
- * verschieben und dort einen Redirect aus Bookmark-Compat hinterlegen.
- * Heute pragmatisch: beide URLs funktionieren, neue Links nutzen die
- * canonical Form, alte Bookmarks gehen auf legacy.
+ * Longer term, we could move the current /workspaces/[id] page here
+ * and place a redirect there for bookmark compatibility.
+ * Pragmatic today: both URLs work, new links use the
+ * canonical form, old bookmarks go to legacy.
  */
 
 import { notFound, redirect } from "next/navigation";

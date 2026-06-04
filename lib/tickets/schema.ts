@@ -1,24 +1,24 @@
 /**
- * Ticket API — Zod-Schemas (shared zwischen Frontend & Backend).
+ * Ticket API — Zod schemas (shared between frontend & backend).
  *
- * Regeln:
- *  - Alle API-Bodies werden gegen diese Schemas validiert.
- *  - Frontend-Formulare nutzen dieselben Schemas via react-hook-form
- *    (nicht in diesem Modul — aber direkt importierbar).
- *  - Keine Abhaengigkeit auf DB oder Event-Log hier — reine Typen.
+ * Rules:
+ *  - All API bodies are validated against these schemas.
+ *  - Frontend forms use the same schemas via react-hook-form
+ *    (not in this module — but directly importable).
+ *  - No dependency on DB or event log here — pure types.
  */
 
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
-// Primitive Schemas
+// Primitive schemas
 // ---------------------------------------------------------------------------
 
 /**
- * Workspace-ID. Dynamische Discovery (Sprint 2 · 7C). Wir akzeptieren
- * slug-style IDs (`lazyos`, `demo-client`, `tap`, `private`) UND Legacy-
- * Segment-IDs (`@north`, `@clientb`, `@own`, `@private`, `@system`) —
- * der Service migriert letztere bei Bedarf.
+ * Workspace ID. Dynamic discovery (Sprint 2 · 7C). We accept
+ * slug-style IDs (`lazyos`, `demo-client`, `tap`, `private`) AND legacy
+ * segment IDs (`@north`, `@clientb`, `@own`, `@private`, `@system`) —
+ * the service migrates the latter on demand.
  */
 export const WorkspaceIdSchema = z
   .string()
@@ -43,7 +43,7 @@ export const ActorSchema = z
     { message: "actor must be 'system', 'user:*' or 'agent:*'" },
   );
 
-/** Tag-Liste: deduped, max 32 items, je max 40 chars. */
+/** Tag list: deduped, max 32 items, each max 40 chars. */
 export const TagListSchema = z
   .array(z.string().min(1).max(40))
   .max(32)
@@ -65,16 +65,16 @@ export const CreateTicketBodySchema = z
     status: TicketStatusSchema.optional(),
     workflowState: z.string().min(1).max(40).optional(),
     actor: ActorSchema.optional(),
-    /** Claude-Code-Session-UUID, die dieses Ticket erstellt (Handoff-Punkt 5). */
+    /** Claude Code session UUID that creates this ticket (handoff point 5). */
     sessionId: z.string().min(1).max(64).optional(),
-    /** Workstream-Container für Multi-Agent-Plan (Phase W). */
+    /** Workstream container for a multi-agent plan (Phase W). */
     workstreamId: z
       .string()
       .min(1)
       .max(64)
       .regex(/^WS-[A-Za-z0-9]+$/i)
       .optional(),
-    /** Parent-Ticket für hierarchische Pläne (Phase H). */
+    /** Parent ticket for hierarchical plans (Phase H). */
     parentTicketId: z
       .string()
       .min(1)
@@ -97,16 +97,16 @@ export const UpdateTicketBodySchema = z
     status: TicketStatusSchema.optional(),
     workflowState: z.string().min(1).max(40).optional(),
     actor: ActorSchema.optional(),
-    /** Claude-Code-Session-UUID die dieses Update initiiert (Handoff-Punkt 5). */
+    /** Claude Code session UUID that initiates this update (handoff point 5). */
     sessionId: z.string().min(1).max(64).optional(),
-    /** Workstream-Container für Multi-Agent-Plan (Phase W). */
+    /** Workstream container for a multi-agent plan (Phase W). */
     workstreamId: z
       .string()
       .min(1)
       .max(64)
       .regex(/^WS-[A-Za-z0-9]+$/i)
       .optional(),
-    /** Parent-Ticket für hierarchische Pläne (Phase H). */
+    /** Parent ticket for hierarchical plans (Phase H). */
     parentTicketId: z
       .string()
       .min(1)

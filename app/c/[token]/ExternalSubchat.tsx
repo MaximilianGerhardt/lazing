@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * ExternalSubchat — öffentliche, mobile-first Messenger-Seite für externe Gäste
- * (Kunden), die per Share-Token (kein Login) auf einen Workspace-Sub-Chat
- * zugreifen (Gathering-Intelligence-Goal, 2026-06-02).
+ * ExternalSubchat — public, mobile-first messenger page for external guests
+ * (customers) who access a workspace sub-chat via a share token (no login)
+ * (gathering-intelligence goal, 2026-06-02).
  *
- * Dünner Wrapper über der GETEILTEN Messenger-UI (SubchatThread + Composer) —
- * identische Optik/Verhalten wie die interne Sicht, nur mit token-gegatetem
- * Transport (laden/posten/Upload/Media). KI ist hier UNSICHTBAR. Jede Nachricht
- * (inkl. Anhänge: Fotos/Medien/Dokumente) fließt serverseitig in die Workspace-
- * RAG. Dezenter Transparenz-Hinweis (DSGVO/Trust). Keine Emojis.
+ * Thin wrapper over the SHARED messenger UI (SubchatThread + Composer) —
+ * identical look/behavior to the internal view, only with token-gated
+ * transport (load/post/upload/media). The AI is INVISIBLE here. Every message
+ * (incl. attachments: photos/media/documents) flows server-side into the
+ * workspace RAG. Subtle transparency notice (GDPR/trust). No emojis.
  */
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
@@ -19,9 +19,9 @@ import { SubchatComposer } from '@/lib/subchats/ui/SubchatComposer';
 import type { UiAttachment, UiMessage } from '@/lib/subchats/ui/types';
 import * as s from '@/lib/subchats/ui/styles';
 
-// Realtime läuft jetzt primär über den token-gegateten SSE-Endpunkt
-// (`…/stream`). Der Poll bleibt nur als LANGSAMER Fallback (SSE-Drop / Proxy
-// ohne SSE) — runter von 4s auf 20s, spart Last + Akku auf dem Kundenhandy.
+// Realtime now runs primarily over the token-gated SSE endpoint
+// (`…/stream`). The poll remains only as a SLOW fallback (SSE drop / proxy
+// without SSE) — down from 4s to 20s, saves load + battery on the customer phone.
 const SLOW_POLL_MS = 20000;
 const nameKey = (token: string): string => `lazyos.subchat.name.${token}`;
 
@@ -69,9 +69,9 @@ export function ExternalSubchat({ token }: { token: string }): React.ReactElemen
 
   useEffect(() => {
     void load();
-    // Primär: token-gegateter SSE → bei jedem subchat_message-/typing-Ping neu
-    // laden (Render-/Sanitize-Logik bleibt im GET). Browser-EventSource
-    // reconnectet bei Drops selbst.
+    // Primary: token-gated SSE → reload on every subchat_message/typing ping
+    // (render/sanitize logic stays in the GET). The browser EventSource
+    // reconnects on drops by itself.
     let es: EventSource | null = null;
     try {
       es = new EventSource(
@@ -80,10 +80,10 @@ export function ExternalSubchat({ token }: { token: string }): React.ReactElemen
       es.onmessage = () => {
         void load();
       };
-      // onerror: kein Handling nötig — EventSource reconnectet automatisch;
-      // der Slow-Poll fängt die Lücke ohnehin ab.
+      // onerror: no handling needed — EventSource reconnects automatically;
+      // the slow poll catches the gap anyway.
     } catch {
-      /* EventSource nicht verfügbar → reiner Poll-Fallback */
+      /* EventSource not available → pure poll fallback */
     }
     const slowPoll = window.setInterval(() => void load(), SLOW_POLL_MS);
     const onVis = (): void => {
@@ -151,7 +151,7 @@ export function ExternalSubchat({ token }: { token: string }): React.ReactElemen
         });
         await load();
       } catch {
-        /* Poll holt es nach */
+        /* the poll picks it up later */
       } finally {
         setBusy(false);
       }

@@ -1,24 +1,24 @@
 /**
  * POST /api/system/restart-services
  *
- * Phase AR · 2026-04-28. Controlled-Restart-API für autonome Service-
- * Refreshes durch den Root-Chat-Agent (claude-CLI per Bash). Memory-Pin
- * lockert "feedback_never_delete_without_permission.md" mit Service-
- * Restart-Whitelist — diese Route ist der konventionelle Pfad damit jede
- * Restart-Aktion einen Audit-Trail hinterlässt.
+ * Phase AR · 2026-04-28. Controlled-restart API for autonomous service
+ * refreshes by the root chat agent (claude-CLI via Bash). The memory pin
+ * relaxes "feedback_never_delete_without_permission.md" with a service
+ * restart whitelist — this route is the conventional path so that every
+ * restart action leaves an audit trail.
  *
- * Auth: Cookie-Session ODER Bearer (LAZYOS_CHAT_KEY) für CLI-Aufrufe.
+ * Auth: cookie session OR bearer (LAZYOS_CHAT_KEY) for CLI calls.
  *
  * Body:
  *   { services?: ('web'|'agent')[],   // default: ['agent']
- *     reason?: string                  // freitext, geht in audit-log
+ *     reason?: string                  // free text, goes into the audit log
  *   }
  *
- * Wirkung:
- *   1. systemctl restart auf jeden gelisteten Service (ohne sudo —
- *      lazyos-web läuft als root, Service-File hat User=root).
- *   2. Audit-Event 'updated' mit kind='system-restart' in events-Tabelle.
- *   3. JSON-Response mit before/after-Status pro Service.
+ * Effect:
+ *   1. systemctl restart on each listed service (without sudo —
+ *      lazyos-web runs as root, the service file has User=root).
+ *   2. Audit event 'updated' with kind='system-restart' in the events table.
+ *   3. JSON response with before/after status per service.
  */
 
 import { execSync } from 'node:child_process';
@@ -43,7 +43,7 @@ function safeServiceName(s: string): (typeof ALLOWED_SERVICES)[number] | null {
 }
 
 async function authOk(req: NextRequest): Promise<boolean> {
-  // Cookie-Pfad
+  // Cookie path
   const cfg = readSessionConfig();
   if (cfg) {
     const cookie = readSessionCookie(req.headers.get('cookie'));
@@ -52,7 +52,7 @@ async function authOk(req: NextRequest): Promise<boolean> {
       if (v.ok) return true;
     }
   }
-  // Bearer-Pfad (CLI-Aufrufe)
+  // Bearer path (CLI calls)
   const authHeader = req.headers.get('authorization') ?? '';
   const m = /^Bearer\s+(.+)$/.exec(authHeader);
   if (m) {
@@ -104,9 +104,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   const results: RestartResult[] = [];
   for (const svc of services) {
     try {
-      // Sync-Call mit 15s timeout. systemctl restart wartet bis Service
-      // gestartet ist (oder Fail). Restart=always greift sowieso bei
-      // unsauberen Exits.
+      // Sync call with a 15s timeout. systemctl restart waits until the service
+      // has started (or failed). Restart=always kicks in anyway on
+      // unclean exits.
       execSync(`systemctl restart ${svc}`, {
         timeout: 15_000,
         stdio: 'pipe',
@@ -121,14 +121,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
   }
 
-  // Audit-Trail. Best-effort — eine fehlgeschlagene Audit blockt nicht
-  // den Restart-Response.
+  // Audit trail. Best-effort — a failed audit does not block
+  // the restart response.
   try {
     await emitEvent({
       segmentId: 'lazyos',
-      // Audit-Event als phase-Entity (system-Pseudo). EntityType ist
-      // strict typed — wir nutzen 'phase' als nächste sinnvolle Kategorie
-      // damit das Event durchgeht. Audit-Trail bleibt im events-Log.
+      // Audit event as a phase entity (system pseudo). EntityType is
+      // strictly typed — we use 'phase' as the next sensible category
+      // so the event goes through. The audit trail stays in the events log.
       entityType: 'phase',
       entityId: 'system-restart',
       eventType: 'updated',

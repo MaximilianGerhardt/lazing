@@ -3,19 +3,19 @@
  *
  * Body: { secret: string, token: string }
  *
- * Schritt 2 des Setups:
- *   1. Verify den 6-stelligen Token gegen das geclaimte Secret.
- *   2. Wenn ok: encrypt Secret + persistiere in users.totp_secret_ciphertext.
- *   3. Issue 10 Recovery-Codes (1× zurückgeben, danach nur Hash speichern).
- *   4. Setze totp_enabled_at + counter.
+ * Step 2 of the setup:
+ *   1. Verify the 6-digit token against the claimed secret.
+ *   2. If ok: encrypt the secret + persist in users.totp_secret_ciphertext.
+ *   3. Issue 10 recovery codes (return once, then store only the hash).
+ *   4. Set totp_enabled_at + counter.
  *
- * Encryption-Strategie (2026-04-30 minimal, Sprint 3.1 verbessert):
- *   - Symmetric-Key aus ENV `LAZYOS_2FA_KEY` (32 hex bytes = 64 chars).
- *   - AES-256-GCM mit random IV.
- *   - Wenn ENV fehlt: Fail-Closed mit klarer Fehlermeldung statt fallback.
+ * Encryption strategy (2026-04-30 minimal, improved in Sprint 3.1):
+ *   - Symmetric key from ENV `LAZYOS_2FA_KEY` (32 hex bytes = 64 chars).
+ *   - AES-256-GCM with random IV.
+ *   - If ENV is missing: fail-closed with a clear error message instead of fallback.
  *
- * Sprint 3.1: Switch auf libsodium-Vault (siehe lib/security/vault.ts) +
- * per-User Key-Wrapping. Aktuell genug für Single-Operator-Self-Host.
+ * Sprint 3.1: switch to libsodium vault (see lib/security/vault.ts) +
+ * per-user key wrapping. Currently sufficient for single-operator self-host.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

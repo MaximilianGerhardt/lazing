@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * SubchatThread — geteilter Nachrichten-Feed (extern + intern).
- * Apple-/WhatsApp-Standards: Datums-Trenner, Sprechblasen (eigene rechts/Akzent,
- * fremde links), Autor-Label im Gruppenchat, Zeitstempel, Anhänge inline
- * (Bild als Vorschau zum Öffnen, Datei als Karte mit Download), Auto-Scroll.
- * Keine Emojis. Nur laz.ing-Tokens. Gathering-Intelligence-Goal (2026-06-02).
+ * SubchatThread — shared message feed (external + internal).
+ * Apple/WhatsApp standards: date separators, speech bubbles (own right/accent,
+ * others left), author label in the group chat, timestamps, inline attachments
+ * (image as preview to open, file as a card with download), auto-scroll.
+ * No emojis. Only laz.ing tokens. Gathering-Intelligence goal (2026-06-02).
  */
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -57,34 +57,34 @@ export function SubchatThread({
   isMine: (m: UiMessage) => boolean;
   theirLabelFallback: string;
   mediaUrl: MediaUrlFn;
-  /** Optional: kleine, schnelle Vorschau-URL für ein BILD (THUMB-Endpoint).
-   *  Wenn undefined → Inline-<img> nutzt mediaUrl(a,'inline') wie bisher (Back-Compat,
-   *  externe Ansicht). Lightbox lädt IMMER mediaUrl(a,'inline') (volle Bytes). */
+  /** Optional: small, fast preview URL for an IMAGE (THUMB endpoint).
+   *  If undefined → inline <img> uses mediaUrl(a,'inline') as before (back-compat,
+   *  external view). Lightbox ALWAYS loads mediaUrl(a,'inline') (full bytes). */
   thumbUrl?: (a: UiAttachment) => string;
   emptyText: string;
-  /** Wenn gesetzt: Bild-Tap öffnet die Lightbox (über ALLE Thread-Bilder) statt _blank. */
+  /** When set: an image tap opens the lightbox (across ALL thread images) instead of _blank. */
   onImageClick?: (images: LightboxImage[], index: number) => void;
-  /** z.B. "Kunde schreibt …"; rendert eine ephemere Tipp-Blase am Feed-Ende, wenn truthy. */
+  /** e.g. "client is typing …"; renders an ephemeral typing bubble at the feed end when truthy. */
   typingLabel?: string | null;
   /**
-   * Subchat-weiter Empfänger-Lese-Wasserstand (ms-Epoch). Treibt Liefer-/Lese-Haken
-   * NUR auf EIGENEN Nachrichten: eine eigene Nachricht gilt als gelesen, sobald
-   * `createdAt <= recipientReadTs`. Undefined ⇒ KEINE Haken (Back-Compat: externe Ansicht).
+   * Subchat-wide recipient read-watermark (ms epoch). Drives delivery/read checks
+   * ONLY on OWN messages: an own message counts as read once
+   * `createdAt <= recipientReadTs`. Undefined ⇒ NO checks (back-compat: external view).
    */
   recipientReadTs?: number;
 }): React.ReactElement {
   const feedRef = useRef<HTMLDivElement>(null);
   const lastId = messages.length > 0 ? messages[messages.length - 1].id : '';
 
-  // Auto-Scroll ans Ende bei neuer Nachricht (WhatsApp-Standard). typingLabel in
-  // den Deps, damit der Tipp-Indikator beim Erscheinen in Sicht bleibt.
+  // Auto-scroll to the end on a new message (WhatsApp standard). typingLabel in
+  // the deps so the typing indicator stays in view when it appears.
   useEffect(() => {
     const el = feedRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, lastId, typingLabel]);
 
-  // Alle Bild-Anhänge des Threads in Render-Reihenfolge → Lightbox kann über die
-  // gesamte Unterhaltung wischen. Map artifactId→globaler Index für O(1)-Lookup.
+  // All image attachments of the thread in render order → lightbox can swipe across
+  // the entire conversation. Map artifactId→global index for O(1) lookup.
   const { threadImages, imageIndex } = useMemo(() => {
     const imgs: LightboxImage[] = [];
     const idx = new Map<string, number>();
@@ -92,7 +92,7 @@ export function SubchatThread({
       for (const a of m.attachments ?? []) {
         if (a.kind === 'image') {
           idx.set(a.artifactId, imgs.length);
-          // N1: filename/url unverändert übernehmen (keine Truncation).
+          // N1: take filename/url unchanged (no truncation).
           imgs.push({ url: mediaUrl(a, 'inline'), filename: a.filename });
         }
       }
@@ -118,9 +118,9 @@ export function SubchatThread({
         const showDay = dk !== prevDay;
         prevDay = dk;
         const atts = m.attachments ?? [];
-        // WhatsApp-Gruppierung: aufeinanderfolgende Nachrichten desselben
-        // Absenders (innerhalb 5 Min, gleicher Tag) rücken enger zusammen; der
-        // Absender-Name erscheint nur einmal oben in der Gruppe.
+        // WhatsApp grouping: consecutive messages from the same
+        // sender (within 5 min, same day) move closer together; the
+        // sender name appears only once at the top of the group.
         const prev = i > 0 ? messages[i - 1] : null;
         const grouped =
           !showDay &&
@@ -128,8 +128,8 @@ export function SubchatThread({
           prev.authorKind === m.authorKind &&
           (prev.authorName || '') === (m.authorName || '') &&
           m.createdAt - prev.createdAt < GROUP_WINDOW_MS;
-        // Bubble-Tail nur am ENDE eines Same-Sender-Laufs (iMessage/WhatsApp):
-        // diese Nachricht ist die letzte ihres Laufs, wenn die NÄCHSTE den Lauf bricht.
+        // Bubble tail only at the END of a same-sender run (iMessage/WhatsApp):
+        // this message is the last of its run when the NEXT one breaks the run.
         const next = i < messages.length - 1 ? messages[i + 1] : null;
         const nextDay = next ? dayKey(next.createdAt) : '';
         const tail =
@@ -142,8 +142,8 @@ export function SubchatThread({
           ...(mine ? s.rowMine : s.rowTheirs),
           marginTop: grouped ? 2 : 8,
         };
-        // Tail-Radius nur am Lauf-Ende; Nicht-Tail-Blasen bleiben voll gerundet (18)
-        // an der jeweiligen Ecke. Exportierte Style-Objekte NICHT mutieren.
+        // Tail radius only at the run end; non-tail bubbles stay fully rounded (18)
+        // at the respective corner. Do NOT mutate exported style objects.
         const bubbleStyle = {
           ...(mine ? s.bubbleMine : s.bubbleTheirs),
           ...(mine
@@ -162,8 +162,8 @@ export function SubchatThread({
                 {!mine && !grouped ? <div style={s.authorLabel}>{m.authorName || theirLabelFallback}</div> : null}
 
                 {atts.map((a) => {
-                  // Belt-and-suspenders: auch wenn der Server kind:'audio' (noch)
-                  // nicht round-trippt, rendert mime:audio/* als Player (Bundle-A-Grenze).
+                  // Belt-and-suspenders: even if the server does (not yet) round-trip
+                  // kind:'audio', mime:audio/* renders as a player (Bundle-A boundary).
                   const isAudio = a.kind === 'audio' || a.mime.startsWith('audio/');
                   return isAudio ? (
                     <div key={a.artifactId} style={s.audioCard}>
@@ -184,9 +184,9 @@ export function SubchatThread({
                       <button
                         key={a.artifactId}
                         type="button"
-                        // inline-flex + minHeight 44: garantiert eine >=44px-hohe
-                        // Tap-Fläche um das (Block-)Bild, auch wenn imgBtnReset
-                        // display:block hat. Box füllt die Bubble-Breite.
+                        // inline-flex + minHeight 44: guarantees a >=44px-tall
+                        // tap area around the (block) image, even if imgBtnReset
+                        // has display:block. Box fills the bubble width.
                         style={{ ...s.imgBtnReset, display: 'flex', width: '100%', minHeight: 44 }}
                         onClick={() => onImageClick(threadImages, imageIndex.get(a.artifactId) ?? 0)}
                         aria-label={`Bild öffnen: ${a.filename}`}

@@ -1,26 +1,26 @@
 'use client';
 
 /**
- * SubchatPulse — proaktive Sub-Chat-Intelligenz im HAUPTCHAT
- * (Gathering-Intelligence in den Hauptchat holen, 2026-06-02).
+ * SubchatPulse — proactive sub-chat intelligence in the MAIN CHAT
+ * (bringing gathering intelligence into the main chat, 2026-06-02).
  *
- * Der Hauptchat ist die zentrale Fläche und sitzt i.d.R. auf dem Org-Root.
- * Die Kundenchats (Sub-Chats) hängen an realen Kunden-Workspaces. Diese Karte
- * AGGREGIERT daher workspace-übergreifend (`GET /api/subchats/activity`): kommt
- * in IRGENDEINEM Kundenchat etwas Neues von extern an, taucht es hier — dezent,
- * oben im Feed, im gleichen Inline-Surface-Muster wie `PushAutoPrompt` — auf,
- * mit dem Kunden-Workspace als Kontext-Eyebrow. Das ist das Sicherheitsnetz:
- * der Operator muss die Kundenchats nicht aktiv im Blick behalten.
+ * The main chat is the central surface and usually sits on the org root.
+ * The customer chats (sub-chats) hang off real customer workspaces. This card
+ * therefore AGGREGATES across workspaces (`GET /api/subchats/activity`): if
+ * something new from external arrives in ANY customer chat, it shows up here — subtly,
+ * at the top of the feed, in the same inline-surface pattern as `PushAutoPrompt` —
+ * with the customer workspace as a context eyebrow. This is the safety net:
+ * the operator does not have to actively keep an eye on the customer chats.
  *
- * - „Im Hauptchat aufgreifen" seedet den Composer mit einem fertigen Prompt
- *   (KI-Vorschlag-Stil wie in der Claude-Code-App); der Hauptchat arbeitet das
- *   Kunden-Anliegen mit dem bereits ingesteten RAG-Wissen aus.
- * - „Öffnen" springt in die interne Team-Sicht des jeweiligen Sub-Chats.
- * - „neu seit" wird client-seitig gegen eine globale localStorage-seen-Map
- *   entschieden (keine DB-Tabelle, voll reversibel). Dismiss markiert gesehen.
+ * - „Im Hauptchat aufgreifen" seeds the composer with a ready-made prompt
+ *   (AI-suggestion style as in the Claude Code app); the main chat works through
+ *   the customer's concern with the already-ingested RAG knowledge.
+ * - „Öffnen" jumps into the internal team view of the respective sub-chat.
+ * - „new since" is decided client-side against a global localStorage seen-map
+ *   (no DB table, fully reversible). Dismiss marks it seen.
  *
- * Rendert NICHTS, solange keine neue externe Aktivität vorliegt — kein Chrome
- * im leeren Chat. Mobile-first, nur Design-Tokens, keine Hex-Werte.
+ * Renders NOTHING as long as there is no new external activity — no chrome
+ * in the empty chat. Mobile-first, only design tokens, no hex values.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -43,11 +43,11 @@ interface ActivityItem {
   lastExternalTs: number | null;
   externalCount: number;
   /**
-   * Ungelesen-Zähler aus der Activity-API. HEUTE immer 0 über die Leitung:
-   * die Route ruft `getSubchatActivity(ws)` ohne `viewerUserId` (route.ts:41),
-   * daher liefert der Service `unreadCount: 0`. Sobald der Parent die 1-Zeile
-   * `getSubchatActivity(ws, userId)` nachzieht, leuchtet das Badge automatisch.
-   * Additiv + optional → safe to ship now.
+   * Unread counter from the activity API. TODAY always 0 over the wire:
+   * the route calls `getSubchatActivity(ws)` without `viewerUserId` (route.ts:41),
+   * so the service returns `unreadCount: 0`. As soon as the parent follows up
+   * with the 1-line `getSubchatActivity(ws, userId)`, the badge lights up automatically.
+   * Additive + optional → safe to ship now.
    */
   unreadCount?: number;
 }
@@ -95,9 +95,9 @@ function writePrompted(map: Record<string, number>): void {
 type SuggestionState = {
   state: 'loading' | 'ready' | 'none';
   text: string;
-  // Server-pre-generierte Vorschlag-ID (PS-*) — getragen für den N8-Decision-
-  // Audit + das Server-seitige Dismiss beim „Übernehmen". Bei client-seitigem
-  // Fallback (keine Server-Row) bleibt es undefined.
+  // Server-pre-generated suggestion ID (PS-*) — carried for the N8 decision
+  // audit + the server-side dismiss on „Übernehmen". With the client-side
+  // fallback (no server row) it stays undefined.
   suggestionId?: string;
 };
 
@@ -149,7 +149,7 @@ export function SubchatPulse({
       const data = (await res.json()) as { activity?: ActivityItem[] };
       if (aliveRef.current) setItems(Array.isArray(data.activity) ? data.activity : []);
     } catch {
-      /* offline/abort — Karte bleibt wie sie ist */
+      /* offline/abort — the card stays as it is */
     }
   }, []);
 
@@ -171,11 +171,11 @@ export function SubchatPulse({
     };
   }, [load]);
 
-  // Optional + additiv: cross-workspace Live-Subscription. KEIN workspaceId-
-  // Filter (der Pulse aggregiert workspace-übergreifend). Bei einer neuen
-  // EXTERNEN Sub-Chat-Nachricht ein debounced load() → der Pulse ist nahezu
-  // sofort statt ≤15s. Der 15s-Poll bleibt der Boden. Wirft nie, ändert den
-  // Render-Kontrakt (`onPickUp`) nicht.
+  // Optional + additive: cross-workspace live subscription. NO workspaceId
+  // filter (the pulse aggregates across workspaces). On a new
+  // EXTERNAL sub-chat message a debounced load() → the pulse is nearly
+  // instant instead of ≤15s. The 15s poll stays the floor. Never throws, does not
+  // change the render contract (`onPickUp`).
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEventStream({
     enabled: true,
@@ -190,7 +190,7 @@ export function SubchatPulse({
           void load();
         }, 250);
       } catch {
-        /* nie werfen */
+        /* never throw */
       }
     },
   });
@@ -266,7 +266,7 @@ export function SubchatPulse({
     for (const it of toFetch) {
       void (async () => {
         try {
-          // 1) Server-pre-generierten Vorschlag lesen (kein Engine-Call).
+          // 1) Read the server-pre-generated suggestion (no engine call).
           let text = '';
           let suggestionId: string | undefined;
           try {
@@ -282,8 +282,8 @@ export function SubchatPulse({
           } catch {
             /* fall through to client fallback */
           }
-          // 2) Fallback: client-seitige Generierung (bestehendes Verhalten) NUR wenn
-          //    es keinen Server-Vorschlag gibt. Erhält die Abwärtskompatibilität.
+          // 2) Fallback: client-side generation (existing behavior) ONLY if
+          //    there is no server suggestion. Preserves backwards compatibility.
           if (!text) {
             const res = await fetch('/api/chat/proactive/subchat-suggestion', {
               method: 'POST',
@@ -363,10 +363,10 @@ export function SubchatPulse({
                   Öffnen
                 </a>
               </div>
-              {/* MAIN.3: proaktiver Vorschlag (operator-facing, RAG-gestützt,
-                  workspace-isoliert). Rendert NUR bei ready+non-empty; sonst
-                  nichts (Engine down / nichts Neues). „Übernehmen" re-scopet
-                  + seedet den Composer (MAIN.1) — NIE Auto-Send. */}
+              {/* MAIN.3: proactive suggestion (operator-facing, RAG-backed,
+                  workspace-isolated). Renders ONLY on ready+non-empty; otherwise
+                  nothing (engine down / nothing new). „Übernehmen" re-scopes
+                  + seeds the composer (MAIN.1) — NEVER auto-send. */}
               {suggestions[it.id]?.state === 'ready' && suggestions[it.id].text ? (
                 <div style={suggestWrap}>
                   <div style={eyebrow}>Vorschlag</div>
@@ -377,13 +377,13 @@ export function SubchatPulse({
                       onClick={() => {
                         const s = suggestions[it.id];
                         const text = s?.text ?? '';
-                        // 1) Composer seeden (re-scope auf Kunden-Workspace, N2) — NIE Auto-Send.
+                        // 1) Seed the composer (re-scope to the customer workspace, N2) — NEVER auto-send.
                         onPickUp(text, {
                           workspaceId: it.workspaceId,
                           organizationId: resolveOrgId(it.workspaceId),
                         });
-                        // 2) N8 Decision-Audit (append-only) + Server-Vorschlag dismissen.
-                        //    Fire-and-forget, best-effort — UI nie blockieren.
+                        // 2) N8 decision audit (append-only) + dismiss the server suggestion.
+                        //    Fire-and-forget, best-effort — never block the UI.
                         void fetch('/api/proactive/decision', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -395,7 +395,7 @@ export function SubchatPulse({
                           cache: 'no-store',
                           credentials: 'same-origin',
                         }).catch(() => undefined);
-                        // 3) lokal verbergen.
+                        // 3) hide locally.
                         setSuggestions((prev) => ({ ...prev, [it.id]: { state: 'none', text: '' } }));
                         markSeen(it);
                       }}
@@ -469,7 +469,7 @@ const dismissBtn: CSSProperties = {
   lineHeight: 1,
   cursor: 'pointer',
   flexShrink: 0,
-  // a11y: 44px Tap-Target (Glyph bleibt visuell klein, Hit-Area wächst).
+  // a11y: 44px tap target (the glyph stays visually small, the hit area grows).
   minWidth: 44,
   minHeight: 44,
   display: 'inline-flex',
@@ -541,7 +541,7 @@ const primaryAction: CSSProperties = {
   fontSize: 12.5,
   fontWeight: 600,
   cursor: 'pointer',
-  // a11y: 44px Tap-Target.
+  // a11y: 44px tap target.
   minHeight: 44,
   display: 'inline-flex',
   alignItems: 'center',
@@ -560,10 +560,10 @@ const secondaryAction: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   cursor: 'pointer',
-  // a11y: 44px Tap-Target.
+  // a11y: 44px tap target.
   minHeight: 44,
 };
-// MAIN.3: proaktiver Vorschlag-Block — gleiche Token wie der Rest der Karte.
+// MAIN.3: proactive suggestion block — same tokens as the rest of the card.
 const suggestWrap: CSSProperties = {
   marginTop: 10,
   padding: '10px 11px',

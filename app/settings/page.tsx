@@ -1,5 +1,5 @@
 /**
- * /settings — Settings-Hub (User-Direktive 2026-05-23).
+ * /settings — Settings-Hub (user directive 2026-05-23).
  *
  * Replaces the gear-icon → /design redirect.
  *

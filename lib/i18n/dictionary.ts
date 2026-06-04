@@ -1,19 +1,19 @@
 /**
- * Phase OSS.3 — i18n-Foundation.
+ * Phase OSS.3 — i18n foundation.
  *
- * Single-source dictionary für alle UI-Strings die später lokalisiert
- * werden müssen. Default-Locale ist `de`; `en` wird Schritt-für-Schritt
- * gefüllt. Weitere Sprachen (fr/es/zh/ja) kommen in einer 2. Welle —
- * der Loader fällt für fehlende Keys auf `en` und am Ende auf `de` zurück.
+ * Single-source dictionary for all UI strings that need to be localized
+ * later. The default locale is `de`; `en` is filled step by step.
+ * More languages (fr/es/zh/ja) come in a 2nd wave —
+ * the loader falls back to `en` for missing keys and finally to `de`.
  *
- * Keine `next-intl`-Abhängigkeit, kein Provider-Tree-Setup. Wir wollen
- * heute nur die Foundation: ein Hook + eine zentrale Dictionary.
+ * No `next-intl` dependency, no provider-tree setup. Today we only
+ * want the foundation: a hook + a central dictionary.
  *
- * Konventionen:
- * - Keys sind path-like (`nav.chat`, `org.list.title`, …)
- * - Values dürfen `{name}`-Platzhalter enthalten (siehe `t(key, params)`)
- * - Pluralisierung: für jetzt manuell (`'1 Workspace' | '2 Workspaces'` via
- *   eigene Helper) — kein ICU-Parser. Halten wir simple.
+ * Conventions:
+ * - Keys are path-like (`nav.chat`, `org.list.title`, …)
+ * - Values may contain `{name}` placeholders (see `t(key, params)`)
+ * - Pluralization: manual for now (`'1 Workspace' | '2 Workspaces'` via
+ *   our own helpers) — no ICU parser. Let's keep it simple.
  */
 
 export type Locale = 'de' | 'en' | 'fr' | 'es' | 'zh' | 'ja';
@@ -154,7 +154,7 @@ const de: Dict = {
     'Genieß es. Sobald ein Ticket auf Review steht, ein Workstream stehen bleibt oder ein Approval ansteht, taucht es hier auf.',
   'inbox.lead': 'Sortiert nach Priorität. Klick öffnet das Item direkt.',
 
-  // Save-Status (Editoren)
+  // Save-Status (editors)
   'status.idle': 'bereit',
   'status.saving': 'speichert …',
   'status.saved': 'gespeichert',
@@ -181,7 +181,7 @@ const de: Dict = {
   'common.noresults': 'Keine Treffer.',
 };
 
-// English voll gefüllt — Single-Source nach DE für maschinelle Übersetzung.
+// English fully filled — single source after DE for machine translation.
 const en: Dict = {
   // Navigation
   'nav.chat': 'Chat',
@@ -321,8 +321,8 @@ const en: Dict = {
   'common.noresults': 'No results.',
 };
 
-// 2. Welle — minimale Top-Strings. Rest fällt auf EN/DE zurück.
-// Vollständige Übersetzung via scripts/i18n-translate.ts (DeepL).
+// 2nd wave — minimal top strings. The rest falls back to EN/DE.
+// Full translation via scripts/i18n-translate.ts (DeepL).
 const fr: Dict = {
   'nav.chat': 'Chat',
   'nav.inbox': 'Boîte de réception',

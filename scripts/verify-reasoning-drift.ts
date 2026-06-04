@@ -1,21 +1,21 @@
 #!/usr/bin/env tsx
 /**
- * Drift-Verifikations-CLI für Reasoning-Audit (Pattern 5 Welle 3, 2026-05-01).
+ * Drift-verification CLI for reasoning audit (Pattern 5 wave 3, 2026-05-01).
  *
- * Wählt unverified Audit-Rows (verified_status IS NULL) der letzten N Stunden
- * mit Filter auf High-Stake-Phasen (default: synthesis, cross-roast).
- * Pro Row: spawnt Re-Run mit identischem System+User-Prompt, vergleicht
- * Outputs via Embedding-Cosine, schreibt verified_status zurück.
+ * Selects unverified audit rows (verified_status IS NULL) of the last N hours
+ * with a filter on high-stake phases (default: synthesis, cross-roast).
+ * Per row: spawns a re-run with the identical system+user prompt, compares
+ * outputs via embedding cosine, writes verified_status back.
  *
- * Aufruf:
+ * Invocation:
  *   tsx scripts/verify-reasoning-drift.ts --max=50 --since-hours=24
  *   tsx scripts/verify-reasoning-drift.ts --phase=synthesis
  *
- * Cost-Cap: env LAZYOS_DRIFT_MAX_PER_RUN (default 100). Break wenn überschritten.
+ * Cost cap: env LAZYOS_DRIFT_MAX_PER_RUN (default 100). Break when exceeded.
  *
- * Single-Pass: kein Loop. Wird per systemd-timer täglich 03:00 UTC getriggert.
+ * Single-pass: no loop. Triggered via systemd timer daily at 03:00 UTC.
  *
- * Emittet 'drift_verify_batch'-Event auf segments 'lazyos' mit Summary.
+ * Emits a 'drift_verify_batch' event on the 'lazyos' segment with a summary.
  */
 
 import { and, gte, inArray, isNull, sql } from "drizzle-orm";
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
   const summary = { ok, drift, fabricated, errors, total: processed };
   console.log(`[drift-verify] done ${JSON.stringify(summary)}`);
 
-  // Event auf 'lazyos' segment für Inbox/Push-Konsum.
+  // Event on the 'lazyos' segment for inbox/push consumption.
   try {
     await emitEvent({
       segmentId: "lazyos",

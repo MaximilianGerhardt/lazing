@@ -1,14 +1,14 @@
 /**
- * lib/subchats/questions-suggest.ts — KI-auto-anspinnen, Slice (2026-06-03).
+ * lib/subchats/questions-suggest.ts — AI auto-spin-up, slice (2026-06-03).
  *
- * Owner: „die KI muss diese Sachen auch für sich haben." Die KI schlägt — auf
- * Basis des Kundenchat-Verlaufs — 1–2 sinnvolle RÜCKFRAGEN vor, die das Team dem
- * Kunden stellen sollte (mit optionalen Antwort-Optionen). NIEMALS Auto-Send:
- * die Vorschläge werden nur ZURÜCKGEGEBEN; der Operator spinnt sie per Klick an
- * (dann als author_kind:'ai' markiert, „die KI fragt").
+ * Owner: „die KI muss diese Sachen auch für sich haben." Based on the
+ * customer-chat history, the AI suggests 1–2 sensible FOLLOW-UP questions that the team should
+ * ask the customer (with optional answer options). NEVER auto-send:
+ * the suggestions are only RETURNED; the operator spins them up with a click
+ * (then marked as author_kind:'ai', „the AI asks").
  *
- * CLAUDE-GATED + best-effort (orchestrate mode:'claude-cli'); fehlt die Engine
- * → leeres Array, kein Crash. N2: nur der Subchat-eigene Verlauf, workspace-scoped.
+ * CLAUDE-GATED + best-effort (orchestrate mode:'claude-cli'); if the engine is missing
+ * → empty array, no crash. N2: only the sub-chat's own history, workspace-scoped.
  */
 
 import { getSubchat, listMessages } from '@/lib/subchats/service';
@@ -18,10 +18,10 @@ export interface SuggestedQuestion {
   options: string[];
 }
 
-/** JSON-Array robust aus dem LLM-Text extrahieren (defensiv). */
+/** Robustly extract a JSON array from the LLM text (defensive). */
 function parseSuggestions(text: string): SuggestedQuestion[] {
   const raw = text.trim();
-  // Finde das erste [...]-Array.
+  // Find the first [...] array.
   const start = raw.indexOf('[');
   const end = raw.lastIndexOf(']');
   if (start < 0 || end <= start) return [];
@@ -47,8 +47,8 @@ function parseSuggestions(text: string): SuggestedQuestion[] {
 }
 
 /**
- * Generiert (nicht spinnt!) 1–2 Rückfrage-Vorschläge für einen Sub-Chat.
- * Best-effort: bei Engine-Ausfall / leerem Verlauf → [].
+ * Generates (does not spin up!) 1–2 follow-up-question suggestions for a sub-chat.
+ * Best-effort: on engine failure / empty history → [].
  */
 export async function suggestQuestionsForSubchat(
   subchatId: string,

@@ -18,23 +18,23 @@ import { AccountAvatar } from './AccountAvatar';
 /**
  * TopNav — primary navigation rendered above `.sheet`.
  *
- * Apple-Reduktion (2026-05-30, Render-Critic HOCH „12+ Targets, keine
- * Hierarchie"). Die Bar trägt jetzt auf JEDEM Viewport max. 3-4 primäre
- * Targets + EINEN Health-Punkt:
+ * Apple reduction (2026-05-30, render critic HIGH „12+ Targets, keine
+ * Hierarchie"). The bar now carries at most 3-4 primary targets + ONE
+ * health dot on EVERY viewport:
  *
  *   [Hamburger]  [Pill-Links]  [Org-Eyebrow · Workspace-Titel]  [Health · ••• · Profil]
  *
- * - Health = StatusCluster (EIN ruhiger Punkt: grün ok / amber Aufmerksam-
- *   keit / rot Problem). Aggregiert Tpm + Observatory + Activity + Push +
- *   AutoMode + Compact in EIN Tap-Popover — keine 5 konkurrierenden Farben.
- * - „•••" = OverflowMenu (Desktop): Terminal · GitHub · Observatory ·
- *   Einstellungen · Design-Library. Auf Mobile übernimmt der Hamburger-
- *   Drawer dieselben Ziele (bereits verdrahtet).
- * - Identität (Org-Eyebrow 11pt mono + Workspace-Titel) bleibt die primäre
- *   linke Anzeige, ellipst sauber.
+ * - Health = StatusCluster (ONE calm dot: green ok / amber attention /
+ *   red problem). Aggregates Tpm + Observatory + Activity + Push +
+ *   AutoMode + Compact into ONE tap popover — not 5 competing colors.
+ * - "•••" = OverflowMenu (desktop): Terminal · GitHub · Observatory ·
+ *   Einstellungen · Design-Library. On mobile the hamburger
+ *   drawer takes over the same targets (already wired).
+ * - Identity (org eyebrow 11pt mono + workspace title) stays the primary
+ *   left display, ellipsizes cleanly.
  *
- * BRAND wird zur Laufzeit aus `@/lib/brand` (BRAND_NAME, default 'laz.ing',
- * Rollback per ENV LAZYOS_BRAND_NAME=lazyOS) gerendert.
+ * BRAND is rendered at runtime from `@/lib/brand` (BRAND_NAME, default 'laz.ing',
+ * rollback via ENV LAZYOS_BRAND_NAME=lazyOS).
  *
  * Both workspace-dropdown and observatory-pulse live in the header on
  * ALL viewports — the user asked for them to be permanently visible.
@@ -54,9 +54,9 @@ export function TopNav(): React.JSX.Element {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const currentWorkspace = useCurrentWorkspace();
 
-  // Höhe der TopNav als CSS-Variable exportieren, damit Layout-Container
-  // (z.B. ChatShell mit height: 100dvh - var(--topnav-h)) korrekt rechnen.
-  // Reagiert auf Viewport-Resize und mobile-vs-desktop Padding-Wechsel.
+  // Export the TopNav height as a CSS variable so that layout containers
+  // (e.g. ChatShell with height: 100dvh - var(--topnav-h)) compute correctly.
+  // Reacts to viewport resizes and mobile-vs-desktop padding changes.
   useEffect(() => {
     const update = (): void => {
       const el = navRef.current;
@@ -77,11 +77,11 @@ export function TopNav(): React.JSX.Element {
     };
   }, []);
 
-  // D1-Fix (2026-05-30) — Mobile-Top-Bar-Overflow: auf ≤640px ziehen die
-  // sekundären Steuer-Aktionen (Terminal/GitHub/Settings/Profil) in den
-  // Hamburger-Drawer. Damit Terminal von dort trotzdem erreichbar bleibt,
-  // ohne den Modal-State nach unten zu prop-drillen, hört die TopNav auf
-  // ein leichtgewichtiges Custom-Event (gleiches Muster wie
+  // D1 fix (2026-05-30) — mobile top-bar overflow: at ≤640px the
+  // secondary control actions (Terminal/GitHub/Settings/Profil) move into the
+  // hamburger drawer. So Terminal stays reachable from there
+  // without prop-drilling the modal state down, the TopNav listens for
+  // a lightweight custom event (same pattern as
   // `lazyos:activity:refresh`).
   useEffect(() => {
     const onOpenTerminal = (): void => setTerminalOpen(true);
@@ -95,10 +95,10 @@ export function TopNav(): React.JSX.Element {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  // 2026-04-29 — User-Wunsch: TopBar weg auf Library-Pages, sonst Verwechs-
-  // lungs-Risiko mit Chat-Workspace.
-  // 2026-05-23 — TopBar weg im OSS-Onboarding-Wizard (Jobs/Rams: one
-  // primary task per screen, kein Chrome ausserhalb der 5-Step-Reise).
+  // 2026-04-29 — user request: remove the top bar on library pages, otherwise
+  // there's a confusion risk with the chat workspace.
+  // 2026-05-23 — remove the top bar in the OSS onboarding wizard (Jobs/Rams: one
+  // primary task per screen, no chrome outside the 5-step journey).
   const HIDE_TOPNAV_PATHS = [
     '/design',
     '/how',
@@ -106,17 +106,17 @@ export function TopNav(): React.JSX.Element {
     '/oss-onboarding',
     '/onboarding',
     '/login',
-    // Externe Sub-Chat-Seite (Gathering-Intelligence, 2026-06-02): Kunden
-    // ohne Account dürfen KEIN App-Chrome (Org-/Workspace-Switcher) sehen —
-    // standalone Vollbild-Chat.
+    // External sub-chat page (gathering intelligence, 2026-06-02): customers
+    // without an account must NOT see any app chrome (org/workspace switcher) —
+    // standalone fullscreen chat.
     '/c',
   ];
   const hideTopNav =
     HIDE_TOPNAV_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/')) ||
-    // Sub-Chat-Views (intern wie extern) sind Vollbild-standalone mit eigenem
-    // Header (Gathering-Intelligence, 2026-06-02). TopNav hier ausblenden — sonst
-    // mountet der OrgSwitcher, dessen Org-Normalisierung auf /workspaces/[id]/*
-    // einen Hard-Redirect zum Chat auslöst und die Seite verlässt.
+    // Sub-chat views (internal as well as external) are fullscreen-standalone with their own
+    // header (gathering intelligence, 2026-06-02). Hide the TopNav here — otherwise
+    // the OrgSwitcher mounts, whose org normalization on /workspaces/[id]/*
+    // triggers a hard redirect to the chat and leaves the page.
     /\/subchats(?:\/|$)/.test(pathname);
   if (hideTopNav) {
     if (typeof document !== 'undefined') {
@@ -141,14 +141,14 @@ export function TopNav(): React.JSX.Element {
             <IconHamburger />
           </button>
 
-          {/* Brand-Block 2026-04-29 entfernt — User-Wunsch: "kann komplett
+          {/* Brand block removed 2026-04-29 — user request: "kann komplett
               raus, führt auf Ursprungslayout-Seite die niemand braucht".
-              Hamburger-Icon ist jetzt der einzige Top-Left-Anker. */}
+              The hamburger icon is now the only top-left anchor. */}
 
           {/* ---------- TOP-PILLS (Chat + Inbox) — Phase Nav-C ----------
-              Sub-Plan A 2026-04-30: Pills bleiben auf Mobile sichtbar als
-              Icon-only (44x44 Touch-Target). Desktop zeigt Icon + Label.
-              `.topnav-link-label` wird per Media-Query unter 768px ausgeblendet. */}
+              Sub-plan A 2026-04-30: pills stay visible on mobile as
+              icon-only (44x44 touch target). Desktop shows icon + label.
+              `.topnav-link-label` is hidden below 768px via a media query. */}
           <ul className="topnav-links" role="list">
             {TOP_LINKS.map((l) => {
               const active = isActive(l.href);
@@ -170,39 +170,39 @@ export function TopNav(): React.JSX.Element {
             })}
           </ul>
 
-          {/* ---------- RIGHT CLUSTER (Apple-Reduktion 2026-05-30) ----------
-              Render-Critic HOCH: vorher ~12+ Targets (5 farbige Status-Dots +
-              Org + WS + Pencil + Terminal + GitHub + Settings + AutoMode +
-              Compact + Profil) ohne Hierarchie. Jetzt EINE klare Ordnung,
-              identisch auf Desktop + Mobile:
+          {/* ---------- RIGHT CLUSTER (Apple reduction 2026-05-30) ----------
+              Render critic HIGH: previously ~12+ targets (5 colored status dots +
+              org + WS + pencil + Terminal + GitHub + Settings + AutoMode +
+              Compact + profile) without hierarchy. Now ONE clear order,
+              identical on desktop + mobile:
 
-                Identität → Org-Eyebrow + Workspace-Titel (primärer Anker)
-                Health    → StatusCluster (EIN ruhiger Punkt, Detail im Tap-Sheet)
-                Overflow  → ••• (Desktop) / Hamburger-Drawer (Mobile)
-                Profil    → AccountAvatar
+                Identity  → org eyebrow + workspace title (primary anchor)
+                Health    → StatusCluster (ONE calm dot, detail in the tap sheet)
+                Overflow  → ••• (desktop) / hamburger drawer (mobile)
+                Profile   → AccountAvatar
 
-              Verlorene Funktionen: KEINE.
-                · Tpm/Observatory/Activity/Push/AutoMode/Compact → StatusCluster-Sheet
-                · Terminal/GitHub/Observatory/Settings/Design → OverflowMenu (Desktop)
-                  + Hamburger-Drawer (Mobile, bereits verdrahtet).
+              Lost functions: NONE.
+                · Tpm/Observatory/Activity/Push/AutoMode/Compact → StatusCluster sheet
+                · Terminal/GitHub/Observatory/Settings/Design → OverflowMenu (desktop)
+                  + hamburger drawer (mobile, already wired).
 
-              Der Terminal-Modal-State bleibt hier oben (öffnet via Custom-Event
-              `lazyos:terminal:open`, das sowohl OverflowMenu als auch der
-              Drawer dispatchen — kein Prop-Drilling). */}
+              The terminal modal state stays up here (opens via the custom event
+              `lazyos:terminal:open`, dispatched by both OverflowMenu and the
+              drawer — no prop drilling). */}
           <div className="topnav-right">
-            {/* Identität — primärer linker Anker des Clusters. */}
+            {/* Identity — primary left anchor of the cluster. */}
             <OrgSwitcher />
             <WorkspaceSwitcher />
 
-            {/* EIN Health-Punkt (grün/amber/rot) statt 5 farbiger Dots. */}
+            {/* ONE health dot (green/amber/red) instead of 5 colored dots. */}
             <StatusCluster
               vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''}
             />
 
-            {/* •••-Overflow (Desktop) — sekundäre Aktionen, mobil im Drawer. */}
+            {/* ••• overflow (desktop) — secondary actions, on mobile in the drawer. */}
             <OverflowMenu />
 
-            {/* Profil bleibt sichtbar — Identitäts-/Account-Anker rechts. */}
+            {/* Profile stays visible — identity/account anchor on the right. */}
             <AccountAvatar />
           </div>
         </div>

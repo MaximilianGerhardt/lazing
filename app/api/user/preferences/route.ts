@@ -1,28 +1,30 @@
 /**
- * GET /api/user/preferences — system-übergreifende User-Defaults
- * (Owner-Fix Live-Test 2026-05-28).
+ * GET /api/user/preferences — system-wide user defaults
+ * (Owner fix live test 2026-05-28).
  *
- * Owner-Befund (verbatim):
+ * Owner finding (verbatim):
  *   „Vollzugriff war bereits aktiviert. im neuen Workspace war es nicht
  *    aktiviert. Ggf. diese Einstellung Systemübergreifend nutzbar machen."
+ *   (Full access was already enabled. In the new workspace it was not
+ *    enabled. Possibly make this setting usable system-wide.)
  *
- * Verhalten:
- *   - Liest die `user_preferences`-Row des aktuell eingeloggten Users.
- *   - Liefert `{ defaultPermissionMode }` (kann NULL sein, wenn der User noch
- *     keinen Default gesetzt hat).
+ * Behavior:
+ *   - Reads the `user_preferences` row of the currently logged-in user.
+ *   - Returns `{ defaultPermissionMode }` (may be NULL if the user has not yet
+ *     set a default).
  *
  * Auth:
- *   - currentUserIdResolved → 401 wenn nicht eingeloggt.
- *   - KEINE Workspace-Membership-Prüfung — die Tabelle ist user-scoped,
- *     KEINE Workspace-Permissions werden hier verteilt. Der Fallback in
- *     AllAccessToggle nutzt den Wert nur zur UI-Initialisierung; der echte
- *     Spawn liest weiterhin den Workspace-Mode (server/workspace-session.ts).
+ *   - currentUserIdResolved → 401 if not logged in.
+ *   - NO workspace membership check — the table is user-scoped,
+ *     NO workspace permissions are handed out here. The fallback in
+ *     AllAccessToggle uses the value only for UI initialization; the real
+ *     spawn still reads the workspace mode (server/workspace-session.ts).
  *
- * KEIN PATCH-Endpoint:
- *   Der User-Default wird ausschließlich serverseitig vom PATCH der
- *   Permission-Mode-Route mitgeschrieben (Owner-Direktive: Default folgt der
- *   letzten expliziten Toggle-Aktion). Damit verhindern wir, dass ein
- *   Client den Default ohne die zugehörige Audit-Spur kippt.
+ * NO PATCH endpoint:
+ *   The user default is written exclusively server-side by the PATCH of the
+ *   permission-mode route (owner directive: the default follows the
+ *   last explicit toggle action). This prevents a
+ *   client from flipping the default without the associated audit trail.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -41,20 +43,20 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   try {
     const prefs = getUserPreferences(userId);
-    // Stabile, schlanke Antwort. NULL bleibt NULL (= „kein Default").
+    // Stable, lean response. NULL stays NULL (= "no default").
     return NextResponse.json(
       {
         defaultPermissionMode: prefs?.defaultPermissionMode ?? null,
-        // Ehrlich kommunizieren, ob die Row existiert — die UI kann so
-        // zwischen „explizit auf NULL gesetzt" und „noch nie geschrieben"
-        // unterscheiden (heute beides → Default 'ask'; künftig potenziell
-        // verschiedenes UI-Affordance).
+        // Honestly communicate whether the row exists — this lets the UI
+        // distinguish between "explicitly set to NULL" and "never written"
+        // (today both → default 'ask'; potentially different UI affordance
+        // in the future).
         hasPreferencesRow: prefs !== null,
       },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (err) {
-    // Fail-soft: ein DB-Hickup darf die UI-Initialisierung nicht blockieren.
+    // Fail-soft: a DB hiccup must not block the UI initialization.
     console.error("[user/preferences GET] read error:", err);
     return NextResponse.json(
       { defaultPermissionMode: null, hasPreferencesRow: false },

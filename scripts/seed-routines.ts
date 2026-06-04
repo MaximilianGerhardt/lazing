@@ -1,14 +1,14 @@
 /**
  * scripts/seed-routines.ts
  *
- * Legt die 3 Default-Routinen an (morning-brief, deadline-watch,
- * heartbeat-stall). Idempotent: prüft via SELECT id, überspringt bei Match.
+ * Creates the 3 default routines (morning-brief, deadline-watch,
+ * heartbeat-stall). Idempotent: checks via SELECT id, skips on a match.
  *
  * Usage:
  *   pnpm tsx scripts/seed-routines.ts
  *
- * Exit 0 auch bei "already seeded" — so kann der Prozess im Deploy-Schritt
- * bedenkenlos wiederholt werden.
+ * Exit 0 even on "already seeded" — so the process can be repeated safely
+ * in the deploy step.
  */
 
 import { getDb } from "../db/client";
@@ -28,16 +28,16 @@ interface SeedSpec {
   yaml: string;
 }
 
-// Absoluter Repo-Pfad zum Seed-Zeitpunkt. Der Seed läuft via `pnpm tsx` aus
-// dem Repo-Root (process.cwd() == Repo). Die Routine-Commands sind bewusst
-// cwd-unabhängig (absoluter Node-Helper-Pfad + `git -C`), damit sie laufen,
-// egal in welches Verzeichnis der Routine-Runner spawnt.
+// Absolute repo path at seed time. The seed runs via `pnpm tsx` from the
+// repo root (process.cwd() == repo). The routine commands are deliberately
+// cwd-independent (absolute node-helper path + `git -C`), so they run
+// regardless of which directory the routine runner spawns into.
 const REPO = process.cwd();
 
 const SEEDS: SeedSpec[] = [
   // -------------------------------------------------------------------------
-  // 1) morning-brief — jeden Tag 08:00 UTC (10:00 Berlin-Sommer) eine
-  //    Kurz-Übersicht der offenen Tickets + Deadlines per Push.
+  // 1) morning-brief — every day 08:00 UTC (10:00 Berlin summer) a
+  //    short overview of open tickets + deadlines via push.
   // -------------------------------------------------------------------------
   {
     id: "RTN-seed-morning-brief",
@@ -73,9 +73,9 @@ pipeline:
   },
 
   // -------------------------------------------------------------------------
-  // 2) deadline-watch — alle 15 Min prüfen, ob Tickets innerhalb 24h fällig
-  //    sind. Dedup innerhalb 12h pro Ticket → max 2 Pushes pro Ticket bis
-  //    Fälligkeit.
+  // 2) deadline-watch — check every 15 min whether tickets are due within
+  //    24h. Dedup within 12h per ticket → max 2 pushes per ticket until
+  //    due.
   // -------------------------------------------------------------------------
   {
     id: "RTN-seed-deadline-watch",
@@ -113,8 +113,8 @@ pipeline:
   },
 
   // -------------------------------------------------------------------------
-  // 3) heartbeat-stall — event-getriggert: reagiert auf
-  //    heartbeat_swept-Events mit status='stale' → fragt nach Aktion.
+  // 3) heartbeat-stall — event-triggered: reacts to
+  //    heartbeat_swept events with status='stale' → asks for action.
   // -------------------------------------------------------------------------
   {
     id: "RTN-seed-heartbeat-stall",
@@ -164,7 +164,7 @@ async function main(): Promise<void> {
   let invalid = 0;
 
   for (const seed of SEEDS) {
-    // Eindeutigkeit über stabile Seed-IDs — daher idempotent.
+    // Uniqueness via stable seed IDs — hence idempotent.
     const existing = await db
       .select({ id: routines.id })
       .from(routines)
@@ -177,7 +177,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // YAML vor dem Insert validieren — bricht früh, wenn Seed kaputt ist.
+    // Validate the YAML before the insert — fails early if a seed is broken.
     try {
       validateYamlConfig(seed.yaml);
     } catch (err) {
@@ -221,8 +221,8 @@ async function main(): Promise<void> {
   process.exit(invalid > 0 ? 1 : 0);
 }
 
-// Auto-ID für unreferenzierte Seeds nur falls wir mal welche ohne
-// stabile ID brauchen — aktuell alle fixed.
+// Auto-ID for unreferenced seeds only in case we ever need some without
+// a stable ID — currently all fixed.
 void ulid;
 
 main().catch((err) => {

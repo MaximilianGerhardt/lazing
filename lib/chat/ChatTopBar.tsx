@@ -1,27 +1,27 @@
 'use client';
 
 /**
- * ChatTopBar — Live-Info ÜBER aktiver Claude-Session + Engine-Selector.
+ * ChatTopBar — live info ABOVE the active Claude session + engine selector.
  *
- * Pill-Dedup (2026-05-23): vorher gab es zwei Pills (ChatTopBar oben +
- * EnginePill unten). User-Feedback: "Über dem Chat gibt es bereits eine
+ * Pill dedup (2026-05-23): previously there were two pills (ChatTopBar on top +
+ * EnginePill below). User feedback: "Über dem Chat gibt es bereits eine
  * Engine pill. du hast darunter eine gebaut. Absolute Katastrophe."
- * → ChatTopBar IST jetzt die einzige Pill und vereint Display + Selector.
+ * → ChatTopBar IS now the only pill and unites display + selector.
  *
- * Zeigt (Display):
- *   - Engine-Mode (Parallel · Claude · Codex · Ollama — Dropdown)
- *   - Model (z.B. "Opus 4.7 · MAX-Plan") — nur wenn claude-cli aktiv ist
- *   - Effort ("xhigh" pro lazyOS-Policy) — implizit per title-tooltip
- *   - Context-Fill (% + absolute Tokens)
- *   - Turn-Count
+ * Shows (display):
+ *   - engine mode (Parallel · Claude · Codex · Ollama — dropdown)
+ *   - model (e.g. "Opus 4.7 · MAX-Plan") — only when claude-cli is active
+ *   - effort ("xhigh" per lazyOS policy) — implicit via the title tooltip
+ *   - context fill (% + absolute tokens)
+ *   - turn count
  *
- * Verhalten (Selector):
- *   - Click auf den Engine-Mode öffnet ein Dropdown mit 4 Optionen.
- *   - Auswahl persistiert localStorage (`lazyos.engine.mode`) UND
- *     POST /api/user-settings/engine. localStorage gewinnt beim Read.
- *   - Availability-Probe via GET /api/system/engines (grüner Dot wenn ok).
+ * Behavior (selector):
+ *   - A click on the engine mode opens a dropdown with 4 options.
+ *   - The selection persists to localStorage (`lazyos.engine.mode`) AND
+ *     POST /api/user-settings/engine. localStorage wins on read.
+ *   - Availability probe via GET /api/system/engines (green dot when ok).
  *
- * Polling: alle 15s + nach jedem Send (über Custom-Event optional).
+ * Polling: every 15s + after every send (via custom event, optional).
  */
 
 import {
@@ -35,7 +35,7 @@ import {
 import { Engine } from '@/lib/ui/eng';
 import { IconChevronDown, IconCheck } from '../nav/icons';
 
-// Engine-Mode types (kept in sync with lib/chat/EnginePill.tsx vor Dedup).
+// Engine-mode types (kept in sync with lib/chat/EnginePill.tsx before dedup).
 export type EngineMode =
   | 'parallel-all'
   | 'claude-cli'
@@ -49,11 +49,11 @@ interface EngineOption {
   detail: string;
 }
 
-// C6 entgate (2026-05-25): alle Modi wählbar + sicher (codex im Chat read-only).
-// 2026-06-03: 'ultracoding' (Code-Pipeline mit Git-Worktrees/tmux — KEIN Chat-
-// Engine, serverseitig als invalid-mode abgelehnt) aus dem Chat-Picker entfernt.
-// 'parallel-all' = Konsens (alle Engines überlagert + synthetisiert), KEIN
-// fastest-wins mehr (Owner-Direktive 2026-06-03).
+// C6 un-gate (2026-05-25): all modes selectable + safe (codex read-only in the chat).
+// 2026-06-03: 'ultracoding' (code pipeline with git worktrees/tmux — NOT a chat
+// engine, rejected server-side as invalid-mode) removed from the chat picker.
+// 'parallel-all' = consensus (all engines overlaid + synthesized), NO more
+// fastest-wins (owner directive 2026-06-03).
 const ENGINE_OPTIONS: EngineOption[] = [
   { mode: 'parallel-all', label: 'Parallel', detail: 'overlay · Konsens' },
   { mode: 'claude-cli',   label: 'Claude',   detail: 'claude-cli · MAX-Plan' },
@@ -139,7 +139,7 @@ export function ChatTopBar({
     };
   }, [workspaceId]);
 
-  // Engine-Mode hydration + availability probe (Track 2 of Pill-Dedup).
+  // Engine-mode hydration + availability probe (Track 2 of pill dedup).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const ls = window.localStorage.getItem(LS_ENGINE_KEY);
@@ -177,9 +177,9 @@ export function ChatTopBar({
   }, [dropdownOpen]);
 
   const pickEngine = useCallback((nextMode: EngineMode) => {
-    // Sicherheits-Gebot: gated Modes dürfen weder gesetzt noch persistiert
-    // werden. Guard hier ist Belt-and-Suspenders — primär verhindert das
-    // disabled-Attribut + onClick=undefined am Button jeden Aufruf.
+    // Security imperative: gated modes must be neither set nor persisted.
+    // The guard here is belt-and-suspenders — primarily the
+    // disabled attribute + onClick=undefined on the button prevents any call.
     if (GATED_MODES.has(nextMode)) return;
     setEngineMode(nextMode);
     setDropdownOpen(false);
@@ -197,10 +197,10 @@ export function ChatTopBar({
 
   const activeEngine = ENGINE_OPTIONS.find((o) => o.mode === engineMode) ?? ENGINE_OPTIONS[0];
 
-  // Compact = die EINZIGE Composer-Pille und bewusst RUHIG: nur der Engine-
-  // Selector (Name + Chevron). Telemetrie (Model · MAX · CTX% · Turns) lebt
-  // im Tap-to-open-Dropdown-Header — die Composer-Zeile bleibt in JEDEM Modus
-  // ruhig (UI/UX-Neuausrichtung 2026-06-03, Phase C1; Owner-Direktive:
+  // Compact = the ONLY composer pill and deliberately QUIET: just the engine
+  // selector (name + chevron). Telemetry (model · MAX · CTX% · turns) lives
+  // in the tap-to-open dropdown header — the composer line stays quiet in EVERY
+  // mode (UI/UX rework 2026-06-03, phase C1; owner directive:
   // „die Engine Pill mit dem Rest unten komplett zu viel und überfordernd").
   if (variant === 'compact') {
     const turnHint =
@@ -238,7 +238,7 @@ export function ChatTopBar({
     );
   }
 
-  // full variant braucht die Telemetrie
+  // the full variant needs the telemetry
   if (!usage) return null;
 
   const model = prettyModel(usage.model);
@@ -265,7 +265,7 @@ export function ChatTopBar({
   );
 }
 
-// ---- Engine-selector helpers (Pill-Dedup 2026-05-23) ----
+// ---- Engine-selector helpers (pill dedup 2026-05-23) ----
 
 interface EngineSelectorButtonProps {
   active: EngineOption;
@@ -297,14 +297,14 @@ interface EngineDropdownProps {
   currentMode: EngineMode;
   availability: EngineAvailability[];
   onPick: (m: EngineMode) => void;
-  /** Live-Telemetrie der aktiven claude-cli-Session (Header im Dropdown). */
+  /** Live telemetry of the active claude-cli session (header in the dropdown). */
   usage: UsagePayload | null;
 }
 
-// C6 entgate (2026-05-25): keine gated Modes mehr — codex-cli läuft in der
-// Chat-Route immer mit codexMode:'read' (OS-Level-Sandbox, kein Write).
-// parallel-all racet codex nur read. Leere Set bleibt für belt-and-suspenders
-// im Code (GATED_MODES.has() wird false für alle Modi → kein disabled-Button).
+// C6 un-gate (2026-05-25): no more gated modes — codex-cli always runs in the
+// chat route with codexMode:'read' (OS-level sandbox, no write).
+// parallel-all only races codex read. The empty set stays for belt-and-suspenders
+// in the code (GATED_MODES.has() becomes false for all modes → no disabled button).
 const GATED_MODES = new Set<EngineMode>();
 
 function EngineDropdown({
@@ -313,8 +313,8 @@ function EngineDropdown({
   onPick,
   usage,
 }: EngineDropdownProps): React.JSX.Element {
-  // Telemetrie-Header (Phase C1): Model · MAX · CTX% · Turns leben jetzt HIER
-  // statt auf der Composer-Zeile. Nur sinnvoll bei aktiver claude-cli-Session.
+  // Telemetry header (phase C1): model · MAX · CTX% · turns now live HERE
+  // instead of on the composer line. Only meaningful with an active claude-cli session.
   const showTelemetry = usage && currentMode === 'claude-cli';
   const fillPct = usage?.contextFillPct ?? 0;
   const ctxColor =
@@ -342,11 +342,11 @@ function EngineDropdown({
       ) : null}
       {ENGINE_OPTIONS.map((opt) => {
         const isActive = opt.mode === currentMode;
-        // C6 entgate: GATED_MODES ist leer — isGated ist immer false.
-        // Belt-and-suspenders: guard bleibt, verhindert ggf. Future-Regression.
+        // C6 un-gate: GATED_MODES is empty — isGated is always false.
+        // Belt-and-suspenders: the guard stays, may prevent a future regression.
         const isGated = GATED_MODES.has(opt.mode);
         const probe = availability.find((a) => a.engine === opt.mode);
-        // Availability-Dot (grün/grau) aus Probe-Result.
+        // Availability dot (green/gray) from the probe result.
         const ok = !isGated && probe?.available === true;
         return (
           <button
@@ -386,10 +386,10 @@ const compactWrapStyle: CSSProperties = {
   gap: 8,
   padding: '5px 10px',
   borderRadius: 'var(--radius-pill, 999px)',
-  // Opaque (war 85%/transparent) — Parent-Bleed-Fix (Sweep 2026-05-01)
+  // Opaque (was 85%/transparent) — parent-bleed fix (sweep 2026-05-01)
   background: 'var(--sheet-2)',
   border: '0.5px solid var(--line-2)',
-  // D2-Fix (2026-05-30): 10px → 11px (WCAG-AA Mindestgröße für Meta-Text).
+  // D2-Fix (2026-05-30): 10px → 11px (WCAG-AA minimum size for meta text).
   fontSize: 11,
   fontFamily: 'var(--font-mono)',
   letterSpacing: '0.02em',
@@ -471,8 +471,8 @@ function optionStyle(active: boolean, gated = false): CSSProperties {
     background: active
       ? 'color-mix(in oklab, var(--a-now, #c9ff4d) 10%, transparent)'
       : 'transparent',
-    // Gated-Engines: kein pointer-cursor, volle Deckkraft-Reduktion signalisiert
-    // "nicht interaktiv" — konsistent mit dem bestehenden offDot-Stil.
+    // Gated engines: no pointer cursor, full opacity reduction signals
+    // "not interactive" — consistent with the existing offDot style.
     cursor: gated ? 'not-allowed' : 'pointer',
     opacity: gated ? 0.4 : 1,
     display: 'flex',

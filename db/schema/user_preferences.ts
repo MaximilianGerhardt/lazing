@@ -27,7 +27,7 @@ export const PREFERENCE_SOURCES = [
 ] as const;
 export type PreferenceSource = (typeof PREFERENCE_SOURCES)[number];
 
-/** Whitelist-Spiegel: nur diese Werte sind in `default_permission_mode` zulässig. */
+/** Whitelist mirror: only these values are allowed in `default_permission_mode`. */
 export const DEFAULT_PERMISSION_MODE_VALUES = PERMISSION_MODES;
 
 export const userPreferences = sqliteTable("user_preferences", {
@@ -40,9 +40,9 @@ export const userPreferences = sqliteTable("user_preferences", {
   defaultPermissionMode: text("default_permission_mode"),
   /** N1 verbatim — why the user set this default. */
   reason: text("reason"),
-  /** N8 Provenance. */
+  /** N8 provenance. */
   source: text("source").notNull().default("system"),
-  /** N10 sha256 über kanonisches JSON, Application-Layer setzt das. */
+  /** N10 sha256 over canonical JSON, the application layer sets this. */
   contentHash: text("content_hash").notNull().default(""),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),

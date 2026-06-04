@@ -1,34 +1,34 @@
 /**
- * RAG-Retriever (Sprint 2 / Strang B, 2026-04-30).
+ * RAG retriever (Sprint 2 / strand B, 2026-04-30).
  *
- * Phase 2 (2026-05-03): Workspace-Isolation Service-Refactor.
- *   - Read-Pfad geht durch `v_rag_chunks_workspace` (Drizzle-View, Migration 0052).
- *   - `workspaceId` ist HARTE Pflicht: leerer/undefined Wert -> RagWorkspaceRequiredError.
- *   - Neue Funktion `retrieveAcrossWorkspaces()` mit Audit-Insert in
- *     `rag_cross_workspace_audit` (DSGVO Art. 30 VVT-Pflicht).
+ * Phase 2 (2026-05-03): workspace-isolation service refactor.
+ *   - The read path goes through `v_rag_chunks_workspace` (Drizzle view, Migration 0052).
+ *   - `workspaceId` is a HARD requirement: empty/undefined value -> RagWorkspaceRequiredError.
+ *   - New function `retrieveAcrossWorkspaces()` with an audit insert into
+ *     `rag_cross_workspace_audit` (GDPR Art. 30 record-of-processing requirement).
  *
- * Phase 3 (2026-05-24): Lexical-First (N7).
- *   - Stufe 0 (neu): FTS5 MATCH-Query auf `rag_chunks_fts` mit BM25-Ranking.
- *     Kandidaten-Set workspace-gefiltert via JOIN auf rag_chunks.
- *     sensitivity!='high' immer doppelt gefiltert (N2 / Defense-in-Depth).
- *   - Wenn FTS-Kandidaten vorhanden: bestehende Cosine-Rerank-Stufe darauf
- *     anwenden (kombinierter Score: alpha*cosine + (1-alpha)*normBM25).
- *   - Wenn FTS 0 Treffer: Fallback auf den bisherigen reinen Cosine-Pfad
- *     (unverändert gegenüber Phase 2).
- *   - Query-Sanitiser für FTS5-Syntax (Sonderzeichen werden escaped, damit
- *     kein Syntax-Error bei Queries wie "foo & bar" oder "foo*").
+ * Phase 3 (2026-05-24): lexical-first (N7).
+ *   - Stage 0 (new): FTS5 MATCH query on `rag_chunks_fts` with BM25 ranking.
+ *     The candidate set is workspace-filtered via a JOIN on rag_chunks.
+ *     sensitivity!='high' is always doubly filtered (N2 / defense-in-depth).
+ *   - If FTS candidates are present: apply the existing cosine-rerank stage to
+ *     them (combined score: alpha*cosine + (1-alpha)*normBM25).
+ *   - If FTS has 0 hits: fall back to the previous pure-cosine path
+ *     (unchanged from Phase 2).
+ *   - Query sanitiser for FTS5 syntax (special characters are escaped so that
+ *     there is no syntax error for queries like "foo & bar" or "foo*").
  *
- * Query → [FTS5-Lexical] → Kandidaten → Cosine-Rerank → Token-Cap →
- * Markdown-Format für Lead-Prompt-Inject.
- * Fallback: Query → Embed → Brute-Force-Cosine (Phase-2-Pfad, kein FTS).
+ * Query → [FTS5-lexical] → candidates → cosine-rerank → token-cap →
+ * markdown format for the lead-prompt inject.
+ * Fallback: Query → embed → brute-force cosine (Phase-2 path, no FTS).
  *
- * Token-Budget pro Lead-Call: 4000 Token Hard-Cap (≈ 16k chars).
+ * Token budget per lead call: 4000-token hard cap (≈ 16k chars).
  *
- * Privacy-Gate (Defense-in-Depth):
- *   View `v_rag_chunks_workspace` hat sensitivity!='high' bereits hart
- *   eingebaut. Retriever filtert NOCHMAL auf sensitivity != 'high' im
- *   Where-Clause — Belt-and-Suspenders. FTS-Pfad filtert ebenfalls via
- *   JOIN auf rag_chunks WHERE sensitivity != 'high'.
+ * Privacy gate (defense-in-depth):
+ *   The view `v_rag_chunks_workspace` already has sensitivity!='high' hard-
+ *   wired in. The retriever filters AGAIN on sensitivity != 'high' in the
+ *   where clause — belt and suspenders. The FTS path filters as well via a
+ *   JOIN on rag_chunks WHERE sensitivity != 'high'.
  */
 
 import { ulid } from '@/lib/ulid';
@@ -78,12 +78,12 @@ export interface CrossWorkspaceRetrievalResult {
 
 const TOKEN_CAP = 4000;
 const DEFAULT_TOP_K = 8;
-// Cosine cut-off — alles darunter ist Noise. Angehoben 0.25→0.30 (2026-06-02,
-// Codex-Parität): gemessen rutschten thematisch fremde Chunks (z.B. „mm/Maße"-
-// Code für eine „Closure in JavaScript"-Frage) bei sim≈0.25-0.26 knapp durch
-// und verwässerten den Prompt. Echte topische Treffer scoren 0.4+, modest-aber-
-// relevante 0.32+. 0.30 entfernt das Rauschen mit klarem Abstand, ohne echte
-// Treffer zu verlieren. RAG bleibt „mehr Kontext", aber nur wenn's wirklich passt.
+// Cosine cut-off — everything below is noise. Raised 0.25→0.30 (2026-06-02,
+// Codex parity): measured, thematically unrelated chunks (e.g. „mm/Maße"
+// code for a „Closure in JavaScript" question) slipped through narrowly at
+// sim≈0.25-0.26 and diluted the prompt. Real topical hits score 0.4+, modest-but-
+// relevant ones 0.32+. 0.30 removes the noise with a clear margin without losing
+// real hits. RAG stays „more context", but only when it really fits.
 const MIN_SIMILARITY = 0.3;
 
 /**
@@ -249,10 +249,10 @@ function normaliseBm25(candidates: FtsCandidate[]): Map<string, number> {
 }
 
 /**
- * Hard-Fail-Sentinel: ein Caller hat den retrieve()-Vertrag verletzt.
- * Niemals catchen-und-leeres-Result-zurueckgeben — der Indexer/Retriever
- * MUSS in dem Fall laut werden, sonst leakt ein zukuenftiger Pfad
- * still durch.
+ * Hard-fail sentinel: a caller violated the retrieve() contract.
+ * Never catch-and-return-an-empty-result — in that case the indexer/retriever
+ * MUST be loud, otherwise a future path leaks through
+ * silently.
  */
 export class RagWorkspaceRequiredError extends Error {
   readonly code = 'RAG_WORKSPACE_REQUIRED';
@@ -286,9 +286,9 @@ export async function retrieve(args: {
   topK?: number;
   tokenCap?: number;
   /**
-   * N8-Trace (optional): wenn gesetzt, werden genutzte RAG-Hits als
-   * `workstream_evidence`-Rows geschrieben (best-effort, fire-and-forget).
-   * Ohne workstreamId ist kein Evidence-Write möglich (FK-Constraint).
+   * N8 trace (optional): if set, used RAG hits are written as
+   * `workstream_evidence` rows (best-effort, fire-and-forget).
+   * Without workstreamId no evidence write is possible (FK constraint).
    */
   workstreamId?: string;
   /**
@@ -307,13 +307,13 @@ export async function retrieve(args: {
    */
   fusion?: FusionMode;
 }): Promise<RetrievalResult> {
-  // 0. Workspace-Vertrag durchsetzen — Hard-Fail bei leer/undefined.
+  // 0. Enforce the workspace contract — hard-fail on empty/undefined.
   assertWorkspaceId(args.workspaceId);
 
   const k = args.topK ?? DEFAULT_TOP_K;
   const cap = args.tokenCap ?? TOKEN_CAP;
 
-  // 1. Query klassifizieren (cheap, regex-only).
+  // 1. Classify the query (cheap, regex-only).
   const intent: QueryIntent = classify(args.query ?? '');
 
   if (!args.query || args.query.trim().length < 3) {
@@ -331,7 +331,7 @@ export async function retrieve(args: {
   const db = getDb();
 
   // -------------------------------------------------------------------------
-  // Stufe 0 (N7): Lexical-First — FTS5 MATCH mit BM25-Ranking
+  // Stage 0 (N7): lexical-first — FTS5 MATCH with BM25 ranking
   //
   // sanitiseFtsQuery strips FTS5 meta-characters and wraps as phrase query.
   // Returns null when the query is pure punctuation — we skip FTS in that case.
@@ -499,11 +499,11 @@ export async function retrieve(args: {
   }
 
   // -------------------------------------------------------------------------
-  // Fallback: reiner Cosine-Pfad (Phase-2, unverändert)
-  // Greift wenn: FTS-Query nicht sanitisierbar ODER FTS 0 Treffer.
+  // Fallback: pure cosine path (Phase-2, unchanged)
+  // Applies when: the FTS query is not sanitisable OR FTS has 0 hits.
   // -------------------------------------------------------------------------
 
-  // 2. Query embedden
+  // 2. Embed the query
   let queryVec: Float32Array;
   try {
     queryVec = await embed(args.query);
@@ -520,10 +520,10 @@ export async function retrieve(args: {
     };
   }
 
-  // 3. Read-Pfad ueber View. Caller-Filter `workspace_id = ?` ist Pflicht
-  //    laut Service-Vertrag (Migration 0052 §3) — die View filtert
-  //    sensitivity!='high' und INNER JOIN workspaces, aber NICHT auf
-  //    den konkreten Workspace.
+  // 3. Read path via the view. The caller filter `workspace_id = ?` is mandatory
+  //    per the service contract (Migration 0052 §3) — the view filters
+  //    sensitivity!='high' and INNER JOIN workspaces, but NOT on
+  //    the concrete workspace.
   const rows = db
     .select({
       id: vRagChunksWorkspace.id,
@@ -556,7 +556,7 @@ export async function retrieve(args: {
     };
   }
 
-  // 4. Top-K via Cosine
+  // 4. Top-K via cosine
   const candidates = rows.map((r) => ({
     id: r.id,
     embedding: unpackEmbedding(r.embedding as Buffer),
@@ -564,7 +564,7 @@ export async function retrieve(args: {
   const ranked = topKHelper(queryVec, candidates, k * 4);
   const lookup = new Map(rows.map((r) => [r.id, r]));
 
-  // 4b. Source-Router
+  // 4b. Source router
   const enriched = ranked
     .map((r) => {
       const row = lookup.get(r.id);
@@ -578,7 +578,7 @@ export async function retrieve(args: {
   const ranked2 = applyRouting(enriched, intent);
   ranked2.sort((a, b) => b.routedScore - a.routedScore);
 
-  // 5. Token-Cap durchlaufen
+  // 5. Run through the token cap
   const hits: RetrievedChunk[] = [];
   let used = 0;
   let truncated = false;
@@ -586,8 +586,8 @@ export async function retrieve(args: {
     if (r.similarity < MIN_SIMILARITY) continue;
     const row = lookup.get(r.id);
     if (!row) continue;
-    // Defense-in-Depth: View sollte schon hart gefiltert haben, aber wenn
-    // die View je gepatcht wird ist das hier der zweite Riegel.
+    // Defense-in-depth: the view should already have hard-filtered, but if
+    // the view is ever patched, this is the second bolt.
     if (row.workspaceId !== args.workspaceId) continue;
     const tokens = row.tokenCount ?? Math.ceil(row.text.length / 4);
     if (used + tokens > cap) {
@@ -608,9 +608,9 @@ export async function retrieve(args: {
     if (hits.length >= k) break;
   }
 
-  // N8-Trace (best-effort, fire-and-forget): pro genutztem Hit eine Evidence-Row.
-  // Nur wenn workstreamId mitgegeben wurde — FK-Constraint erfordert gültige
-  // workstream_id. writeEvidence wirft nicht (best-effort intern).
+  // N8 trace (best-effort, fire-and-forget): one evidence row per used hit.
+  // Only when workstreamId was provided — the FK constraint requires a valid
+  // workstream_id. writeEvidence does not throw (best-effort internally).
   if (args.workstreamId && hits.length > 0) {
     for (const hit of hits) {
       writeEvidence({
@@ -636,21 +636,21 @@ export async function retrieve(args: {
 }
 
 /**
- * Cross-Workspace-Read mit Pflicht-Audit (DSGVO Art. 30 VVT).
+ * Cross-workspace read with mandatory audit (GDPR Art. 30 record-of-processing).
  *
- * Aufrufer MUSS:
- *   - userId mitschicken (Audit-Pflicht — wer hat geschnueffelt).
- *   - reason mitschicken (Audit-Pflicht — warum cross-tenant).
- *   - Mindestens einen workspaceId in workspaceIds (sonst nutzlos).
+ * The caller MUST:
+ *   - pass userId (audit requirement — who snooped).
+ *   - pass reason (audit requirement — why cross-tenant).
+ *   - at least one workspaceId in workspaceIds (otherwise useless).
  *
- * Owner-/Permission-Check ist NICHT Aufgabe dieser Funktion — die
- * Caller-Layer (z. B. /api/admin/rag-search Route) macht die Rolle-Pruefung
- * via `assertOrgRole(req, orgId, 'admin')` o.ae., bevor sie hier landet.
- * Diese Funktion ist die DSGVO-Audit-Spur, nicht die Berechtigungs-Schicht.
+ * The owner/permission check is NOT this function's job — the
+ * caller layer (e.g. the /api/admin/rag-search route) does the role check
+ * via `assertOrgRole(req, orgId, 'admin')` or similar before it lands here.
+ * This function is the GDPR audit trail, not the authorization layer.
  */
 export async function retrieveAcrossWorkspaces(args: {
   userId: string;
-  /** Der Workspace im Caller-Kontext (Actor). Pflicht für Dataflow-Policy. */
+  /** The workspace in the caller context (actor). Mandatory for the dataflow policy. */
   actorWorkspaceId?: string;
   workspaceIds: string[];
   query: string;
@@ -669,7 +669,7 @@ export async function retrieveAcrossWorkspaces(args: {
       'retrieveAcrossWorkspaces: workspaceIds must be non-empty',
     );
   }
-  // Trim/dedupe + Hard-Fail bei leeren Strings im Array.
+  // Trim/dedupe + hard-fail on empty strings in the array.
   const wsIds = Array.from(
     new Set(args.workspaceIds.map((w) => (typeof w === 'string' ? w.trim() : ''))),
   );
@@ -679,11 +679,11 @@ export async function retrieveAcrossWorkspaces(args: {
     );
   }
 
-  // Symbolische Dataflow-Policy: pro angefragtem Workspace eine deterministische
-  // Allow/Deny-Entscheidung. Sensitivity wird hier auf 'medium' default-gesetzt
-  // weil retriever bereits sensitivity!='high' im DB-Where filtert; der Caller
-  // kann das per Query-Pfad nicht hochsetzen. high bleibt durch View hart out.
-  // Wenn actorWorkspaceId fehlt → behandle als system-actor (z.B. Admin-Cron).
+  // Symbolic dataflow policy: a deterministic allow/deny decision per requested
+  // workspace. Sensitivity defaults to 'medium' here because the retriever
+  // already filters sensitivity!='high' in the DB where; the caller
+  // cannot raise it via the query path. high stays hard out via the view.
+  // If actorWorkspaceId is missing → treat as a system actor (e.g. an admin cron).
   const actorRole = args.actorWorkspaceId ? 'user' : 'system';
   const allowedWsIds: string[] = [];
   const policyDenials: Array<{ ws: string; reason: string }> = [];
@@ -701,7 +701,7 @@ export async function retrieveAcrossWorkspaces(args: {
     }
   }
   if (allowedWsIds.length === 0) {
-    // Alle workspaces by policy denied → leeres Ergebnis + Audit.
+    // All workspaces denied by policy → empty result + audit.
     const auditId = writeAudit({
       userId: args.userId,
       query: args.query ?? '',
@@ -720,7 +720,7 @@ export async function retrieveAcrossWorkspaces(args: {
       auditId,
     };
   }
-  // Nur durchgelassene WS gehen weiter.
+  // Only the WS that passed continue.
   wsIds.length = 0;
   wsIds.push(...allowedWsIds);
 
@@ -821,7 +821,7 @@ export async function retrieveAcrossWorkspaces(args: {
     if (r.similarity < MIN_SIMILARITY) continue;
     const row = lookup.get(r.id);
     if (!row) continue;
-    if (!wsIds.includes(row.workspaceId)) continue; // Belt-and-Suspenders
+    if (!wsIds.includes(row.workspaceId)) continue; // belt and suspenders
     const tokens = row.tokenCount ?? Math.ceil(row.text.length / 4);
     if (used + tokens > cap) {
       truncated = true;
@@ -842,11 +842,11 @@ export async function retrieveAcrossWorkspaces(args: {
     if (hits.length >= k) break;
   }
 
-  // N2 fail-closed: Audit-Insert und Ergebnis-Rückgabe müssen atomar sein.
-  // Schlägt der INSERT fehl, wirft die Transaktion — kein Ergebnis ohne
-  // erfolgreichen Audit-Row (DSGVO Art. 30 + N2-Constraint, POS-7).
-  // better-sqlite3 `.transaction(fn)` gibt eine Wrapper-Funktion zurück;
-  // der Aufruf `txFn()` führt `fn` atomar aus und wirft bei Fehler.
+  // N2 fail-closed: the audit insert and the result return must be atomic.
+  // If the INSERT fails, the transaction throws — no result without a
+  // successful audit row (GDPR Art. 30 + N2 constraint, POS-7).
+  // better-sqlite3 `.transaction(fn)` returns a wrapper function;
+  // calling `txFn()` runs `fn` atomically and throws on error.
   const auditId = `xws_${ulid()}`;
   const db2 = getDb();
   const txFn = db2.$raw.transaction(() => {
@@ -862,7 +862,7 @@ export async function retrieveAcrossWorkspaces(args: {
       })
       .run();
   });
-  txFn(); // wirft bei Fehler → fail-closed (kein Ergebnis ohne Audit)
+  txFn(); // throws on error → fail-closed (no result without an audit)
 
   return {
     workspaceIds: wsIds,
@@ -877,15 +877,15 @@ export async function retrieveAcrossWorkspaces(args: {
 }
 
 /**
- * Schreibt einen Cross-Workspace-Audit-Row — synchron, DSGVO Art. 30.
+ * Writes a cross-workspace audit row — synchronously, GDPR Art. 30.
  *
- * Wirft bei DB-Fehler (fail-closed): Aufrufer muss den Fehler fangen oder
- * — im main-retrieval-Pfad — in einer Transaktion kapseln, damit kein
- * Retrieval-Ergebnis ohne erfolgreichen Audit-Row zurückgegeben wird (N2).
+ * Throws on a DB error (fail-closed): the caller must catch the error or
+ * — in the main retrieval path — wrap it in a transaction so that no
+ * retrieval result is returned without a successful audit row (N2).
  *
- * Auch von `lib/rag/mcp-proxy.ts` aufgerufen wenn ein MCP-Knowledge-Base-
- * Treffer auf "shared-knowledge" downgegradet wird (also der Knowledge-
- * Base-Pfad nicht zum aufrufenden Workspace passt).
+ * Also called by `lib/rag/mcp-proxy.ts` when an MCP knowledge-base
+ * hit is downgraded to "shared-knowledge" (i.e. the knowledge-
+ * base path does not match the calling workspace).
  */
 export function writeAudit(args: {
   userId: string;
@@ -896,7 +896,7 @@ export function writeAudit(args: {
 }): string {
   const id = `xws_${ulid()}`;
   const db = getDb();
-  // Wirft bei Fehler (kein try/catch) — N2: fail-closed.
+  // Throws on error (no try/catch) — N2: fail-closed.
   db.insert(ragCrossWorkspaceAudit)
     .values({
       id,
@@ -912,8 +912,8 @@ export function writeAudit(args: {
 }
 
 /**
- * Format für Lead-Prompt-Inject. Markdown-Sektion mit Quellen-Anker.
- * Empty-String wenn 0 hits — Caller prüft .length statt zu prepend-en.
+ * Format for the lead-prompt inject. Markdown section with source anchors.
+ * Empty string when 0 hits — the caller checks .length instead of prepending.
  */
 export function formatForPrompt(result: RetrievalResult): string {
   if (result.hits.length === 0) return '';

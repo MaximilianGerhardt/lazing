@@ -1,11 +1,11 @@
 /**
- * /orgs/manage — Verwaltungs-Liste aller Organisationen in denen
- * current-User Mitglied ist. Segmentiert nach Type. Phase IA.3.
+ * /orgs/manage — management list of all organizations the current user
+ * is a member of. Segmented by type. Phase IA.3.
  *
- * Diese Seite ist NICHT die Standard-Landing — sie dient zum Anlegen,
- * Archivieren, Type-Wechseln auf Org-Ebene. Standard-Sicht ist
- * `/orgs/[id]` (= aktive Org als Default), erreichbar über den
- * OrgSwitcher in der TopNav.
+ * This page is NOT the default landing — it is used for creating,
+ * archiving, and type-switching at the org level. The default view is
+ * `/orgs/[id]` (= active org as default), reachable via the
+ * OrgSwitcher in the TopNav.
  */
 
 import Link from "next/link";
@@ -212,7 +212,7 @@ const heroStyle: CSSProperties = {
   maxWidth: 1100,
   marginTop: "clamp(28px, 4vw, 56px)",
 };
-// Bundle-B (2026-06-03): leiser Ghost-Entry zum geführten „Neuer Kunde"-Wizard.
+// Bundle-B (2026-06-03): quiet ghost entry to the guided „Neuer Kunde" wizard.
 const newCustomerEntryStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",

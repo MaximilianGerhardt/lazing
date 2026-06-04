@@ -1,29 +1,28 @@
 /**
- * /lab Kinds-Catalog (MVP, 2026-05-01).
+ * /lab kinds catalog (MVP, 2026-05-01).
  *
- * Metadata-Liste der MVP-Showcase-Surfaces. Wird sowohl von der Landing
- * (`app/lab/page.tsx`) als auch von der Detail-Page (`app/lab/[kind]/page.tsx`)
- * gelesen, um Routing, Sidebar und Pattern-Archetyp-Cards konsistent zu
- * halten.
+ * Metadata list of the MVP showcase surfaces. Read by both the landing
+ * (`app/lab/page.tsx`) and the detail page (`app/lab/[kind]/page.tsx`)
+ * to keep routing, sidebar and pattern-archetype cards consistent.
  *
- * Strikt typisiert — kein dynamisches Lookup auf String-Keys, alle Konsumenten
- * iterieren MVP_KINDS oder benutzen findKindById().
+ * Strictly typed — no dynamic lookup on string keys; all consumers
+ * iterate MVP_KINDS or use findKindById().
  */
 
 export type Archetype = "coding" | "planning" | "bug-fix";
 
 export interface KindMeta {
-  /** Stable ID, identisch mit dem `kind`-Wert in event-payloads. */
+  /** Stable ID, identical to the `kind` value in event payloads. */
   id: string;
-  /** Human-readable Label für Sidebar/Cards. */
+  /** Human-readable label for sidebar/cards. */
   label: string;
-  /** Pattern-Archetyp für die Landing-Gruppierung. */
+  /** Pattern archetype for the landing grouping. */
   archetype: Archetype;
-  /** Workspace-ID, in dem dieses Pattern primär eingesetzt wird. */
+  /** Workspace ID in which this pattern is primarily used. */
   primaryWorkspace: string;
-  /** Pfad zur Card-Component (relativ Repo-Root). */
+  /** Path to the card component (relative to repo root). */
   componentPath: string;
-  /** Kurz-Beschreibung für Card-Subline. */
+  /** Short description for the card subline. */
   description: string;
 }
 
@@ -69,7 +68,7 @@ export const MVP_KINDS: ReadonlyArray<KindMeta> = [
     componentPath: "lib/chat/MilestoneCard.tsx",
     description: "Lead-Synthesizer Multi-Tier-Konsolidierung",
   },
-  // Welle 7 (2026-05-01) — Loop-Phase-Coverage. 5 neue Kinds, je eine Card.
+  // Wave 7 (2026-05-01) — loop-phase coverage. 5 new kinds, one card each.
   {
     id: "iterate-version",
     label: "Iterate Version",
@@ -94,8 +93,8 @@ export const MVP_KINDS: ReadonlyArray<KindMeta> = [
     componentPath: "lib/chat/PlanOpenQuestionsCard.tsx",
     description: "Offene Plan-Fragen mit QuickChoice-Buttons",
   },
-  // Welle 1 · 2026-05-03 · Sub-Plan dazzling-quilt
-  // Single-Source-of-Truth-Showcase fuer den "Agent arbeitet"-Indikator.
+  // Wave 1 · 2026-05-03 · sub-plan dazzling-quilt
+  // Single-source-of-truth showcase for the "agent is working" indicator.
   {
     id: "streaming-bubble",
     label: "Streaming-Bubble",
@@ -147,7 +146,7 @@ export const ARCHETYPES: ReadonlyArray<ArchetypeMeta> = [
   },
 ] as const;
 
-/** Kind-IDs gruppiert nach Archetyp (für Counts auf der Landing-Page). */
+/** Kind IDs grouped by archetype (for counts on the landing page). */
 export function kindsByArchetype(archetype: Archetype): ReadonlyArray<KindMeta> {
   return MVP_KINDS.filter((k) => k.archetype === archetype);
 }

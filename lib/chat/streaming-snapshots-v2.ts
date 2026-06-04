@@ -1,24 +1,24 @@
 /**
  * lib/chat/streaming-snapshots-v2.ts
- * (BACKPORT-01 · 2026-05-23, Quelle: Lazing-V2 packages/runtime/src/streaming/snapshots.ts)
+ * (BACKPORT-01 · 2026-05-23, source: Lazing-V2 packages/runtime/src/streaming/snapshots.ts)
  *
- * V2-Streaming-Snapshots persistieren den live-Streaming-State auf der
- * EXISTIERENDEN `workstreams`-Tabelle (additive Spalten aus Migration
- * 0094). Im Unterschied zur älteren `streaming_snapshots`-Tabelle
- * (0018, ephemeral) ist V2:
+ * V2 streaming snapshots persist the live streaming state on the
+ * EXISTING `workstreams` table (additive columns from migration
+ * 0094). In contrast to the older `streaming_snapshots` table
+ * (0018, ephemeral), V2 is:
  *
- *   - N10-tamper-evident (content_hash über canonical-json)
- *   - Idempotent (dup-hash → no-op, snapshot_at bleibt last-real-change)
- *   - INV-30 disconnect-survives (engine läuft weiter, Snapshot wird
- *     bis `done`/`error` geschrieben)
+ *   - N10-tamper-evident (content_hash over canonical-json)
+ *   - idempotent (dup-hash → no-op, snapshot_at stays at the last real change)
+ *   - INV-30 disconnect-survives (the engine keeps running, the snapshot is
+ *     written until `done`/`error`)
  *
- * Die alte 0018-Tabelle bleibt für die agent-server-Recovery erhalten
- * (server/streaming-snapshots.ts schreibt dort weiter). V2 ist parallel,
- * nicht ersetzend — der App-Server kann mit beidem leben bis Gap-6 die
- * Migration komplettiert.
+ * The old 0018 table remains for the agent-server recovery
+ * (server/streaming-snapshots.ts keeps writing there). V2 is parallel,
+ * not replacing — the app server can live with both until Gap-6 completes the
+ * migration.
  *
- * N1: partial_text und payload-Strings werden VERBATIM durchgereicht. Es
- * gibt keinen Code-Pfad hier der .slice/.substring auf payload-text macht.
+ * N1: partial_text and payload strings are passed through VERBATIM. There
+ * is no code path here that does .slice/.substring on the payload text.
  */
 
 import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
@@ -29,11 +29,11 @@ import { canonicalJson, contentHash } from './canonical';
 export type SnapshotStatus = 'streaming' | 'tool-call' | 'recovering' | 'done' | 'error';
 
 /**
- * Canonical snapshot payload — persistiert nach `workstreams.snapshot_json`.
- * Spiegelt das SSE-`snapshot`-Event eins-zu-eins für nahtlose Reconnect-Replay.
+ * Canonical snapshot payload — persisted to `workstreams.snapshot_json`.
+ * Mirrors the SSE `snapshot` event one-to-one for seamless reconnect replay.
  */
 export interface SnapshotPayload {
-  /** N1: full partial text, NIE truncated. */
+  /** N1: full partial text, NEVER truncated. */
   readonly partialText: string;
   readonly activeTool: string | null;
   readonly activeStep: string | null;
@@ -54,7 +54,7 @@ export type WriteSnapshotResult =
       readonly error?: string;
     };
 
-/** Read-result — null wenn keine snapshot je geschrieben. */
+/** Read result — null if no snapshot was ever written. */
 export interface ReadSnapshotResult {
   readonly payload: SnapshotPayload;
   readonly at: number;
@@ -72,12 +72,12 @@ interface ReadRow {
 }
 
 /**
- * UPDATE `workstreams.snapshot_*` mit canonical-projection von `payload`.
- * Idempotent auf content-hash; missing row ist no-op (engine continues even
+ * UPDATE `workstreams.snapshot_*` with the canonical projection of `payload`.
+ * Idempotent on content-hash; a missing row is a no-op (engine continues even
  * after operator deleted the workstream mid-stream — INV-30).
  *
- * Der Hash wird über `canonicalJson(payload)` berechnet — NICHT über die
- * Row, die den Hash bereits enthält, weil der Hash IS der Row-Fingerprint.
+ * The hash is computed over `canonicalJson(payload)` — NOT over the
+ * row, which already contains the hash, because the hash IS the row fingerprint.
  */
 export function writeSnapshot(
   db: BetterSqliteDatabase,
@@ -111,7 +111,7 @@ export function writeSnapshot(
   }
 
   if (existing.snapshot_content_hash === hash) {
-    // No state change — skip update, snapshot_at bleibt last-real-change.
+    // No state change — skip update, snapshot_at stays at the last real change.
     return { wrote: false, contentHash: hash, reason: 'duplicate' };
   }
 
@@ -137,11 +137,11 @@ export function writeSnapshot(
 }
 
 /**
- * Read most-recent snapshot. Returns null wenn row nicht existiert ODER
- * snapshot fields alle null sind (engine hat nie geschrieben).
+ * Read the most-recent snapshot. Returns null if the row does not exist OR
+ * the snapshot fields are all null (the engine never wrote).
  *
- * Tampered JSON (operator hat row angefasst) wird als "no snapshot"
- * behandelt — keine Exception nach außen.
+ * Tampered JSON (operator touched the row) is treated as "no snapshot"
+ * — no exception to the outside.
  */
 export function readSnapshot(
   db: BetterSqliteDatabase,
@@ -186,7 +186,7 @@ export function readSnapshot(
  * plan-board, etc.) and we cache the verbatim JSON so a re-open doesn't
  * have to re-run the engine.
  *
- * N1: payload bleibt verbatim canonical-json. NIE truncate.
+ * N1: payload stays verbatim canonical-json. NEVER truncate.
  */
 export function writeManifestationPayload(
   db: BetterSqliteDatabase,
@@ -214,7 +214,7 @@ export function writeManifestationPayload(
   if (row === undefined) {
     return { wrote: false, contentHash: hash, reason: 'workstream-not-found' };
   }
-  // Idempotency: gleicher canonical-json + kind = no-op.
+  // Idempotency: same canonical-json + kind = no-op.
   if (row.manifestation_payload === json) {
     return { wrote: false, contentHash: hash, reason: 'duplicate' };
   }

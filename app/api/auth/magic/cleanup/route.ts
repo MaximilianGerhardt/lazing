@@ -1,7 +1,7 @@
 /**
  * GET/POST /api/auth/magic/cleanup
- * Cron-Endpoint — räumt magic_tokens-Rows wo `purge_after < now`.
- * Idempotent. Wird von Heartbeat/Cron getriggert.
+ * Cron endpoint — purges magic_tokens rows where `purge_after < now`.
+ * Idempotent. Triggered by heartbeat/cron.
  */
 
 import { NextResponse, type NextRequest } from "next/server";

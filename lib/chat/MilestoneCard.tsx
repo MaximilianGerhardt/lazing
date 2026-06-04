@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * MilestoneCard — Apple-Keynote-Style Completion-Card.
+ * MilestoneCard — Apple-Keynote-style completion card.
  *
- * Wird emitiert wenn ein Workstream / Bug-Fix / Feature abgeschlossen
- * ist. Massiver Whitespace, eine Akzent-Farbe, große Typo. Soll sich
- * wie ein Apple-Keynote-Slide anfuehlen.
+ * Emitted when a workstream / bug-fix / feature is completed.
+ * Massive whitespace, one accent color, large typography. Should feel
+ * like an Apple Keynote slide.
  *
- * Welle 3.1 — Refactored: Inline-Styles → CSS-Klassen + Token-Bind.
- * Mount-Animation via `srf-pop`, Press-Scale auf Link, Spring-Easings.
+ * Wave 3.1 — Refactored: inline styles → CSS classes + token bind.
+ * Mount animation via `srf-pop`, press scale on the link, spring easings.
  */
 
 import type { ReactNode } from 'react';
@@ -22,33 +22,33 @@ import { SourceChipRow } from './source-chip-row';
 
 export interface MilestoneProps {
   headline?: string;
-  /** "Was wurde gemacht" Bullet-Points (≤7 empfohlen). */
+  /** "What was done" bullet points (≤7 recommended). */
   bullets?: string[];
-  /** Cost-Saved-Badge ("MAX-Plan, gespart €2.40 vs API"). */
+  /** Cost-saved badge ("MAX-Plan, gespart €2.40 vs API"). */
   costSaved?: string;
-  /** Quality-Score (0..5). */
+  /** Quality score (0..5). */
   quality?: number;
-  /** Optional Workstream-Link. */
+  /** Optional workstream link. */
   href?: string;
-  /** Sekundäre Sub-Headline (kleiner, dezent). */
+  /** Secondary sub-headline (smaller, subtle). */
   sub?: string;
-  /** Vorher/Nachher-Snapshot, wenn UI-Change. */
+  /** Before/after snapshot, on a UI change. */
   beforeAfter?: { before?: string; after?: string };
   /**
-   * Optional: Reasoning-Audit-ID — triggert Source-Chip-Footer (P11).
-   * Wird im event-to-surface-Mapper für Synthesis-Cards gesetzt.
+   * Optional: reasoning-audit ID — triggers the source-chip footer (P11).
+   * Set in the event-to-surface mapper for synthesis cards.
    */
   auditId?: string;
   /**
-   * 2026-05-01 — Optionaler Intent-Marker. Wenn gesetzt, rendert eine
-   * IntentPill im Header neben dem Done-Badge. Macht Idee/Bug-Fix/
-   * Implementation visuell unterscheidbar.
+   * 2026-05-01 — Optional intent marker. When set, renders an
+   * IntentPill in the header next to the done badge. Makes idea/bug-fix/
+   * implementation visually distinguishable.
    */
   intent?: WorkstreamIntent;
   /**
-   * 2026-05-30 (Apple-UX Slice 1) — `'quiet'` rendert eine ruhige Info-Zeile
-   * statt der großen Keynote-Card. Für Info-Milestones (z.B. Plan-Synthese),
-   * die NIE lauter sein dürfen als ein blockierendes Gate. Default = laut.
+   * 2026-05-30 (Apple-UX Slice 1) — `'quiet'` renders a calm info line
+   * instead of the large keynote card. For info milestones (e.g. plan synthesis)
+   * that must NEVER be louder than a blocking gate. Default = loud.
    */
   variant?: 'quiet';
 }
@@ -65,8 +65,8 @@ export function MilestoneCard({
   intent,
   variant,
 }: MilestoneProps) {
-  // Apple-UX: ruhige Info-Variante — Info bleibt vollständig erhalten
-  // (headline/sub/bullets/href), aber visuell leise (kein Keynote-Format).
+  // Apple-UX: calm info variant — info stays fully preserved
+  // (headline/sub/bullets/href), but visually quiet (no keynote format).
   if (variant === 'quiet') {
     return (
       <article
@@ -92,9 +92,9 @@ export function MilestoneCard({
         {auditId ? <SourceChipRow auditId={auditId} maxVisible={5} /> : null}
         {href ? (
           <a href={href} className="srf-milestone__quiet-link">
-            {/* Apple-UX (2026-05-30): Link-Text passt zum Ziel — ein
-                Ticket-href ist kein „Plan". `/tickets/...` → „Ansehen →",
-                sonst (Plan/Workstream) → „Plan ansehen →". */}
+            {/* Apple-UX (2026-05-30): link text matches the target — a
+                ticket href is not a „Plan". `/tickets/...` → „Ansehen →",
+                otherwise (plan/workstream) → „Plan ansehen →". */}
             {href.includes('/tickets/') ? 'Ansehen →' : 'Plan ansehen →'}
           </a>
         ) : null}
@@ -163,7 +163,7 @@ export function MilestoneCard({
   );
 }
 
-/** Gefuellter Stern — Inline-SVG, erbt currentColor (passt sich Dim-Klasse an). */
+/** Filled star — inline SVG, inherits currentColor (adapts to the dim class). */
 function Star(): ReactNode {
   return (
     <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

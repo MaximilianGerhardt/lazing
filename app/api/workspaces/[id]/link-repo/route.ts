@@ -76,12 +76,12 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: "workspace_not_found" }, { status: 404 });
   }
 
-  // Cross-Org-Leak-Schutz (Critic INFO-1, 2026-05-24): nur wer auf DIESEN
-  // Workspace schreiben darf (→ via Org-Inheritance = Org-Membership) darf das
-  // ggf. Org-weite GitHub-Token nutzen. resolveGithubTokenForWorkspace prüft
-  // selbst KEINE Membership — ohne diesen Gate käme ein Org-A-Member per
-  // Org-B-Workspace-ID an Org-Bs Token. getEffectiveWorkspaceRole löst die
-  // Workspace→Org-Rolle auf; Nicht-Member → null → 403.
+  // Cross-org leak protection (Critic INFO-1, 2026-05-24): only someone who is
+  // allowed to write to THIS workspace (→ via org inheritance = org membership)
+  // may use the possibly org-wide GitHub token. resolveGithubTokenForWorkspace
+  // itself checks NO membership — without this gate an org-A member could reach
+  // org-B's token via an org-B workspace id. getEffectiveWorkspaceRole resolves
+  // the workspace→org role; non-member → null → 403.
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
@@ -189,8 +189,8 @@ export async function DELETE(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: "invalid_workspace_id" }, { status: 400 });
   }
 
-  // Konsistenz mit POST (Critic INFO-1): nur Workspace-Editors (→ Org-Member)
-  // dürfen Repo-Bindings dieses Workspace lösen.
+  // Consistency with POST (Critic INFO-1): only workspace editors (→ org member)
+  // may unlink repo bindings of this workspace.
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

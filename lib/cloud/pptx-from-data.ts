@@ -57,13 +57,13 @@ export async function dataToPptxBuffer(input: PptxInput): Promise<Buffer> {
     throw new PptxError(`Zu viele Folien (max ${MAX_SLIDES}).`);
   }
 
-  // CJS-Default-Export — dynamischer Import als Absicherung gegen strict-ESM-Setup.
+  // CJS default export — dynamic import as a safeguard against a strict-ESM setup.
   const pptx = new pptxgen();
   pptx.layout = 'LAYOUT_WIDE'; // 16:9 (13.33" × 7.5")
   pptx.author = (input.author ?? 'laz.ing').slice(0, 120);
   pptx.title = input.title.slice(0, 255);
 
-  // --- Titelfolie ---
+  // --- Title slide ---
   const titleSlide = pptx.addSlide();
   titleSlide.addText(input.title, {
     x: 0.5,
@@ -85,7 +85,7 @@ export async function dataToPptxBuffer(input: PptxInput): Promise<Buffer> {
     });
   }
 
-  // --- Inhaltsfolien ---
+  // --- Content slides ---
   for (let i = 0; i < input.slides.length; i++) {
     const s = input.slides[i]!;
     const bullets = Array.isArray(s.bullets) ? s.bullets : [];
@@ -128,7 +128,7 @@ export async function dataToPptxBuffer(input: PptxInput): Promise<Buffer> {
       });
     }
 
-    // Body-Absatz (optional)
+    // Body paragraph (optional)
     if (s.body) {
       const bodyY = s.title
         ? bullets.length > 0

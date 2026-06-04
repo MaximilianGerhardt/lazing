@@ -3,8 +3,8 @@
 /**
  * OverflowMenu — the one "•••" menu for secondary TopNav actions (desktop).
  *
- * 2026-05-30 Apple reduction (render critic HIGH: „12+ Targets, keine
- * Hierarchie"). The bar now shows only the 3-4 primary targets
+ * 2026-05-30 Apple reduction (render critic HIGH: "12+ targets, no
+ * hierarchy"). The bar now shows only the 3-4 primary targets
  * (org eyebrow · workspace title · health dot · ••• · profile). Everything
  * else — terminal · GitHub · settings · observatory · design library
  * — lives here behind a single "•••" trigger.
@@ -62,7 +62,7 @@ export function OverflowMenu(): React.JSX.Element {
   const menuId = useId();
   const currentWorkspace = useCurrentWorkspace();
 
-  // GitHub-Status einmalig (lazy) laden — wie GitHubIndicator vorher.
+  // Load GitHub status once (lazy) — like GitHubIndicator did before.
   useEffect(() => {
     let cancelled = false;
     fetch('/api/github/status', { cache: 'no-store' })

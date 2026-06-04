@@ -1,25 +1,25 @@
 'use client';
 
 /**
- * usePushSubscription — Single-Source-Hook für alle Push-Subscription-UI.
+ * usePushSubscription — single-source hook for all push-subscription UI.
  *
- * Konsolidiert den State-Code, der vorher 3× dupliziert war
+ * Consolidates the state code that was previously duplicated 3×
  * (PushAutoPrompt, SubscribeButton, future PushToggle):
- *   - Support-Detection (Notification API, ServiceWorker, PushManager,
- *     iOS-PWA-Standalone-Mode-Gate)
- *   - Existing-Subscription-Lookup
- *   - subscribe()  — full Permission+SW+Push+Server-POST flow
+ *   - support detection (Notification API, ServiceWorker, PushManager,
+ *     iOS PWA standalone-mode gate)
+ *   - existing-subscription lookup
+ *   - subscribe()  — full permission+SW+push+server-POST flow
  *   - unsubscribe() — DELETE+local unsub
  *
- * Sub-Plan-3-Konform: KEINE Overlays / sticky Cards / floating Modals —
- * der Hook gibt nur State + Actions zurück, das UI entscheidet wo gerendert
- * wird (Inline-Surface-Card im Chat, Pill in TopNav, Section im Drawer).
+ * Sub-Plan-3-compliant: NO overlays / sticky cards / floating modals —
+ * the hook returns only state + actions, the UI decides where it is rendered
+ * (inline surface card in chat, pill in TopNav, section in the drawer).
  *
- * iOS-Hinweis: Push ist erst seit iOS 16.4 in PWA verfügbar — und auch
- * NUR wenn die Page als PWA zum Home-Screen hinzugefügt + von dort
- * geöffnet wurde. Im normalen Mobile-Safari-Tab ist Push iOS-seitig
- * nicht möglich. Der Hook erkennt das und liefert state='unsupported'
- * mit einem aussagekräftigen `reason`.
+ * iOS note: push has been available in PWA only since iOS 16.4 — and also
+ * ONLY when the page was added to the home screen as a PWA + opened from
+ * there. In a normal mobile-Safari tab, push is not possible on iOS.
+ * The hook detects this and returns state='unsupported'
+ * with a meaningful `reason`.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -37,18 +37,18 @@ export type PushSubscriptionState =
 
 export interface PushSubscriptionStatus {
   state: PushSubscriptionState;
-  /** PWA-installiert (display-mode: standalone)? Wichtig für iOS. */
+  /** PWA-installed (display-mode: standalone)? Important for iOS. */
   isStandalone: boolean;
-  /** Letzte Fehlermeldung oder Hinweis (z.B. "iOS: zum Home-Screen hinzufügen"). */
+  /** Last error message or hint (e.g. "iOS: add to the home screen"). */
   message: string;
-  /** Endpoint der aktiven Subscription (nur wenn state==='subscribed'). */
+  /** Endpoint of the active subscription (only when state==='subscribed'). */
   endpoint: string | null;
 }
 
 export interface UsePushSubscriptionOptions {
   vapidPublicKey: string;
   /**
-   * Wenn true, ignoriert der Hook die iOS-Standalone-Pflicht (für Tests).
+   * If true, the hook ignores the iOS standalone requirement (for tests).
    * Default false.
    */
   bypassStandaloneGate?: boolean;
@@ -57,7 +57,7 @@ export interface UsePushSubscriptionOptions {
 export interface UsePushSubscriptionResult extends PushSubscriptionStatus {
   subscribe: () => Promise<void>;
   unsubscribe: () => Promise<void>;
-  /** Manuell den State neu syncen (z.B. nach OS-Settings-Wechsel). */
+  /** Manually re-sync the state (e.g. after an OS-settings change). */
   refresh: () => Promise<void>;
 }
 
@@ -170,14 +170,14 @@ export function usePushSubscription(
 
   useEffect(() => {
     cancelRef.current = false;
-    // Microtask-Kick statt direkter Sync-Call — vermeidet die
-    // react-hooks/set-state-in-effect-Lint-Regel und entkoppelt den
-    // initial-Sync von der React-Render-Phase.
+    // Microtask kick instead of a direct sync call — avoids the
+    // react-hooks/set-state-in-effect lint rule and decouples the
+    // initial sync from the React render phase.
     const handle = Promise.resolve().then(() => sync());
     return () => {
       cancelRef.current = true;
-      // handle wird nicht awaited — der cancelRef-Guard im sync()-Body
-      // verhindert setState nach unmount.
+      // handle is not awaited — the cancelRef guard in the sync() body
+      // prevents setState after unmount.
       void handle;
     };
   }, [sync]);
@@ -229,9 +229,9 @@ export function usePushSubscription(
       if (!res.ok) {
         throw new Error(`subscribe-failed (${res.status})`);
       }
-      // B3-fix (2026-05-25): kein localStorage-Flag mehr. Der PushManager selbst
-      // ist die einzige Quelle der Wahrheit — sync() liest beim Reload via
-      // pushManager.getSubscription() den echten Subscription-State.
+      // B3-fix (2026-05-25): no more localStorage flag. The PushManager itself
+      // is the single source of truth — sync() reads the real subscription
+      // state on reload via pushManager.getSubscription().
       setStatus((s) => ({
         ...s,
         state: 'subscribed',
@@ -257,8 +257,8 @@ export function usePushSubscription(
         }).catch(() => undefined);
         await existing.unsubscribe();
       }
-      // B3-fix (2026-05-25): kein localStorage-Flag entfernen nötig —
-      // localStorage wird nicht mehr als State-Quelle genutzt.
+      // B3-fix (2026-05-25): no need to remove a localStorage flag —
+      // localStorage is no longer used as a state source.
       setStatus((s) => ({
         ...s,
         state: 'idle',

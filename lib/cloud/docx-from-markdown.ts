@@ -83,7 +83,7 @@ function markdownToParagraphs(markdown: string): Paragraph[] {
   const paragraphs: Paragraph[] = [];
 
   for (const raw of lines) {
-    // Leerzeile → leerer Absatz (Abstand)
+    // Empty line → empty paragraph (spacing)
     if (raw.trim() === '') {
       paragraphs.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
       continue;
@@ -137,7 +137,7 @@ function markdownToParagraphs(markdown: string): Paragraph[] {
       continue;
     }
 
-    // Nummeriertes Item: `1. ` `12. ` etc. — N1: verbatim ausgeben (inkl. Nummer)
+    // Numbered item: `1. ` `12. ` etc. — N1: emit verbatim (incl. number)
     if (/^\d+\. /.test(raw)) {
       paragraphs.push(
         new Paragraph({
@@ -147,7 +147,7 @@ function markdownToParagraphs(markdown: string): Paragraph[] {
       continue;
     }
 
-    // Normaler Absatz (Fallback, N1: verbatim)
+    // Normal paragraph (fallback, N1: verbatim)
     paragraphs.push(
       new Paragraph({
         children: parseInlineRuns(raw),

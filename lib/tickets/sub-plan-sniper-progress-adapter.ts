@@ -1,25 +1,25 @@
 /**
- * Sub-Plan-Sniper → StageDescriptor[]-Adapter (Sub-Plan 5 Welle 2, 2026-05-01).
+ * Sub-Plan-Sniper → StageDescriptor[] adapter (Sub-Plan 5 wave 2, 2026-05-01).
  *
- * Sniper feuert Sub-Tickets aus einem Master-Ticket. Pro Sub-Ticket eine
- * Stage. Heuristik aus `inferSubStatus`:
+ * Sniper fires sub-tickets from a master ticket. One stage per sub-ticket.
+ * Heuristic from `inferSubStatus`:
  *
  *   - sub.closed === true                            → 'done'
  *   - workflowState === 'aborted' / 'failed'         → 'failed'
  *   - workflowState === 'skipped'                    → 'skipped'
  *   - workflowState === 'pending' / 'queued' / null  → 'pending'
- *   - sonst (running/in-progress/dispatching)        → 'running'
+ *   - otherwise (running/in-progress/dispatching)    → 'running'
  *
- * Die Heuristik ist defensiv: unbekannte States → 'pending'.
+ * The heuristic is defensive: unknown states → 'pending'.
  */
 
 import type { StageDescriptor } from '@/lib/ui/pip';
 
 export interface SubTicketSnapshot {
   id: string;
-  /** Lesbarer Titel — falls leer, fallback auf id-Suffix. */
+  /** Readable title — if empty, fall back to the id suffix. */
   title?: string;
-  /** Persisted workflowState aus tickets-Tabelle. */
+  /** Persisted workflowState from the tickets table. */
   workflowState?: string;
   closed: boolean;
 }
@@ -55,7 +55,7 @@ export function inferSubStatus(
   if (SKIPPED_STATES.has(ws)) return 'skipped';
   if (RUNNING_STATES.has(ws)) return 'running';
   if (PENDING_STATES.has(ws)) return 'pending';
-  // Unbekannt → defensiv pending. Bei „done"-Wording aber als done.
+  // Unknown → defensively pending. But for "done" wording, treat as done.
   if (ws === 'done' || ws === 'completed' || ws === 'closed') return 'done';
   return 'pending';
 }
@@ -66,7 +66,7 @@ export interface SniperProgressInput {
 }
 
 /**
- * Stage pro Sub-Ticket. Reihenfolge bleibt wie übergeben (Caller sortiert).
+ * One stage per sub-ticket. Order stays as passed in (caller sorts).
  */
 export function sniperToStages(input: SniperProgressInput): StageDescriptor[] {
   const { subs, masterTicketId } = input;
@@ -78,8 +78,8 @@ export function sniperToStages(input: SniperProgressInput): StageDescriptor[] {
       id: `sniper::${masterTicketId}::${snap.id}`,
       label,
       status: inferSubStatus(snap),
-      // Subtitle: rohen workflowState als Mini-Hint, hilft beim Debugging
-      // im Live-View ohne Drilldown.
+      // Subtitle: raw workflowState as a mini hint, helps with debugging
+      // in the live view without a drilldown.
       subtitle: snap.workflowState && !snap.closed ? snap.workflowState : undefined,
     };
   });

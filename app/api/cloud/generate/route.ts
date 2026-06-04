@@ -2,14 +2,14 @@
  * /api/cloud/generate
  *
  * POST { workspace, type:"markdown-to-pdf", title, markdown, folder?, footer? }
- * Generiert ein PDF aus Markdown, lädt es in die Workspace-Cloud, und
- * returnt die fertige Surface-Markup-Zeile damit der Caller (Agent oder
- * UI) sie direkt im Chat einfügen kann.
+ * Generates a PDF from Markdown, uploads it to the workspace cloud, and
+ * returns the finished surface-markup line so the caller (agent or
+ * UI) can insert it directly into the chat.
  *
- * Der Endpoint ist auth-gated wie alle Cloud-Routen — Sensitivity-Floor
- * und Workspace-Existenz-Check passieren transitiv via uploadArtifact().
+ * The endpoint is auth-gated like all cloud routes — the sensitivity floor
+ * and workspace-existence check happen transitively via uploadArtifact().
  *
- * Day-1: nur `markdown-to-pdf`. Phase-N: `json-to-xlsx`, `md-to-docx`.
+ * Day-1: only `markdown-to-pdf`. Phase-N: `json-to-xlsx`, `md-to-docx`.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -24,7 +24,7 @@ import { markdownToPdfBuffer } from "@/lib/cloud/pdf-from-markdown";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 5 MB Hard-Cap auf Markdown-Input — verhindert RAM-Hogs.
+// 5 MB hard cap on Markdown input — prevents RAM hogs.
 const MAX_MARKDOWN_BYTES = 5 * 1024 * 1024;
 
 interface GenerateBody {
@@ -32,11 +32,11 @@ interface GenerateBody {
   type?: string;
   title?: string;
   markdown?: string;
-  /** Built-In-Skill json-to-xlsx (2026-06-03): { sheets:[{name?,headers[],rows[][]}] }. */
+  /** Built-in skill json-to-xlsx (2026-06-03): { sheets:[{name?,headers[],rows[][]}] }. */
   data?: { sheets?: unknown } | unknown;
-  /** Design-Deck-Pfad html-to-pdf (2026-06-03): vollständiges HTML → PDF. */
+  /** Design-deck path html-to-pdf (2026-06-03): full HTML → PDF. */
   html?: string;
-  /** html-to-pdf: Querformat (Decks). */
+  /** html-to-pdf: landscape (decks). */
   landscape?: boolean;
   folder?: string | null;
   footer?: string;
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const actor = resolveActor(req);
 
-  // Phase ORG SP-7: Brand auflösen (Org → Workspace → Default).
+  // Phase ORG SP-7: resolve the brand (Org → Workspace → Default).
   const { resolveBrand } = await import("@/lib/branding/resolve");
   const brand = resolveBrand({ workspaceId: workspace });
   const audience: "internal" | "external" =
@@ -100,8 +100,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       ? "external"
       : "internal";
 
-  // Type-abhängige Generierung → { buffer, filename, mime }. Beide Pfade teilen
-  // den uploadArtifact-/Surface-Pfad unten (DRY).
+  // Type-dependent generation → { buffer, filename, mime }. Both paths share
+  // the uploadArtifact/surface path below (DRY).
   let outBuffer: Buffer;
   let filename: string;
   let mime: string;
@@ -270,7 +270,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           previewUrl: surfacePayload.previewUrl,
           thumbnailUrl: surfacePayload.thumbnailUrl,
         },
-        // Fertige Surface-Markup-Zeile zum direkten Einfügen in Chat-History
+        // Finished surface-markup line for direct insertion into the chat history
         surfaceMarkup: `<surface:document>${JSON.stringify(surfacePayload)}</surface:document>`,
       },
       { status: 201 },

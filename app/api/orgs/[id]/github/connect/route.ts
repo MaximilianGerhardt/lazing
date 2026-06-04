@@ -1,18 +1,18 @@
 /**
- * POST /api/orgs/[id]/github/connect — PAT verknüpfen (admin+)
+ * POST /api/orgs/[id]/github/connect — link a PAT (admin+)
  *
  * Body: { token: string }
  *
  * Flow:
  *   1. assertOrgRole(req, orgId, 'admin') — fail-closed.
- *   2. validateToken(token) → live GitHub /user — prüft ob Token gültig.
- *   3. upsertOrgCredential — verschlüsselt + speichert.
- *   4. Response: { githubLogin, avatarUrl } — KEIN Token.
+ *   2. validateToken(token) → live GitHub /user — checks whether the token is valid.
+ *   3. upsertOrgCredential — encrypts + stores.
+ *   4. Response: { githubLogin, avatarUrl } — NO token.
  *
- * Sicherheits-Gebot:
- *   - Token wird NIEMALS in Response, Log oder Error zurückgegeben.
- *   - Bei ungültigem Token → 400 (vor dem Speichern).
- *   - SQL immer WHERE org_id = ? (via upsertOrgCredential).
+ * Security mandate:
+ *   - The token is NEVER returned in a response, log or error.
+ *   - On an invalid token → 400 (before storing).
+ *   - SQL always WHERE org_id = ? (via upsertOrgCredential).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -30,7 +30,7 @@ interface ConnectBody {
 
 /**
  * POST /api/orgs/[id]/github/connect
- * Mindestrolle: admin
+ * Minimum role: admin
  *
  * Response:
  *   200 { githubLogin: string, avatarUrl: string | null }
@@ -66,7 +66,7 @@ export async function POST(
   }
   const trimmedToken = token.trim();
 
-  // Live-Validation gegen GitHub /user — bevor wir speichern.
+  // Live validation against GitHub /user — before we store.
   let userInfo: Awaited<ReturnType<typeof validateToken>>;
   try {
     userInfo = await validateToken(trimmedToken);
@@ -77,18 +77,18 @@ export async function POST(
         { status: 400 },
       );
     }
-    // Netzwerk-Timeout / unbekannter Fehler.
+    // Network timeout / unknown error.
     return NextResponse.json(
       { error: "invalid-token", message: "GitHub-Validierung fehlgeschlagen." },
       { status: 400 },
     );
   }
 
-  // Token ist gültig — verschlüsselt speichern.
+  // Token is valid — store encrypted.
   upsertOrgCredential({
     orgId,
     authKind: "pat",
-    token: trimmedToken, // wird in upsertOrgCredential sofort verschlüsselt
+    token: trimmedToken, // is encrypted immediately inside upsertOrgCredential
     githubLogin: userInfo.login,
     githubUserId: userInfo.id,
     avatarUrl: userInfo.avatarUrl,
@@ -96,7 +96,7 @@ export async function POST(
     expiresAt: null,
   });
 
-  // Token NIEMALS in der Response.
+  // NEVER the token in the response.
   return NextResponse.json({
     githubLogin: userInfo.login,
     avatarUrl: userInfo.avatarUrl ?? null,

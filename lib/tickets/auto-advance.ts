@@ -1,18 +1,18 @@
 /**
- * auto-advance — FSM-Auto-Transitions für Tickets.
+ * auto-advance — FSM auto-transitions for tickets.
  *
- * Hintergrund (Handoff-Punkt 3):
- * Tickets dümpeln zu leicht, wenn Max sie manuell verschieben muss.
- * Dieses Modul automatisiert:
- *   1. Work-Product mit status=final → Ticket auto auf status=done
- *      (wenn Ticket noch open).
- *   2. Stale-Detection: Ticket status=open und älter als X Tage ohne
- *      Updates → tag 'stale' setzen. Ein dedizierter script/timer
- *      ruft checkStaleTickets täglich auf.
+ * Background (handoff point 3):
+ * Tickets stall too easily when Max has to move them manually.
+ * This module automates:
+ *   1. Work-product with status=final → ticket auto to status=done
+ *      (if the ticket is still open).
+ *   2. Stale detection: ticket status=open and older than X days without
+ *      updates → set tag 'stale'. A dedicated script/timer
+ *      calls checkStaleTickets daily.
  *
- * Alle Transitions gehen durch `updateTicket()` im tickets/service,
- * sodass Events sauber emittiert werden (status_changed / updated)
- * und die Timeline zeigt, *warum* die Änderung kam (actor=system).
+ * All transitions go through `updateTicket()` in tickets/service,
+ * so events are emitted cleanly (status_changed / updated)
+ * and the timeline shows *why* the change happened (actor=system).
  */
 
 import type { ActorType } from '../events/types';
@@ -29,10 +29,10 @@ export interface AutoAdvanceResult {
 }
 
 /**
- * Wenn ein Work-Product in einen final-state geht, schliessen wir das
- * zugehörige Ticket, sofern es noch offen ist.
+ * When a work-product goes into a final state, we close the
+ * associated ticket, provided it is still open.
  *
- * Idempotent — wenn das Ticket bereits done/closed, NOP.
+ * Idempotent — if the ticket is already done/closed, NOP.
  */
 export async function autoAdvanceOnWorkProductFinal(
   ticketId: string,
@@ -61,12 +61,12 @@ export async function autoAdvanceOnWorkProductFinal(
 }
 
 /**
- * Findet Tickets mit status=open die seit `days` Tagen keinen Update
- * mehr gesehen haben, und markiert sie per Tag 'stale'. Idempotent:
- * wenn der Tag schon da ist, wird nichts emittiert.
+ * Finds tickets with status=open that have not seen an update for
+ * `days` days, and marks them with the tag 'stale'. Idempotent:
+ * if the tag is already there, nothing is emitted.
  *
- * Gibt eine Liste der markierten Ticket-IDs zurück, damit der Caller
- * (typischerweise ein Cron-Script) das loggen kann.
+ * Returns a list of the marked ticket IDs so the caller
+ * (typically a cron script) can log it.
  */
 export async function checkStaleTickets(
   days = 14,

@@ -1,20 +1,20 @@
 /**
  * POST /api/tickets/:id/workflow
  *   Body: { transition: Transition, comment?: string, actor?: ActorType }
- *   Auth: middleware-cookie (user-transitions) ODER Bearer (agent-transitions).
+ *   Auth: middleware cookie (user transitions) OR bearer (agent transitions).
  *
- * Emittiert ein FSM-Event und liefert den neuen Workflow-State + Timeline-
- * Entry zurück.
+ * Emits an FSM event and returns the new workflow state + timeline
+ * entry.
  *
- * Bearer-Auth:
- *   Header `Authorization: Bearer $LAZYOS_AGENT_SECRET` erlaubt Agents
- *   (außer `approve`/`reject`/`reopen` — die bleiben user-only, es sei denn
- *   Body enthält `flags.autoApprove=true` UND das ist für diese Route
- *   explizit konfiguriert).
+ * Bearer auth:
+ *   Header `Authorization: Bearer $LAZYOS_AGENT_SECRET` allows agents
+ *   (except `approve`/`reject`/`reopen` — these stay user-only, unless the
+ *   body contains `flags.autoApprove=true` AND that is explicitly
+ *   configured for this route).
  *
  * GET /api/tickets/:id/workflow
- *   Liefert nur den aktuellen Workflow-State (keine Auth-Unterscheidung nötig,
- *   hinter middleware).
+ *   Returns only the current workflow state (no auth distinction needed,
+ *   behind middleware).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -43,7 +43,7 @@ interface Ctx {
 }
 
 // ---------------------------------------------------------------------------
-// Input validation (zod-frei — Payload ist winzig)
+// Input validation (zod-free — payload is tiny)
 // ---------------------------------------------------------------------------
 
 interface TransitionBody {
@@ -104,14 +104,14 @@ function resolveAuth(req: NextRequest): AuthMode {
     if (!timingSafeEqual(token, agentSecret)) {
       return { kind: "denied", reason: "invalid bearer" };
     }
-    // P0-#1b / F-1b (2026-05-25): agentName war zuvor aus dem inbound-Header
-    // `x-lazyos-agent` gelesen — eine Audit-Spoof-Klasse, weil ein
-    // bearer-authentifizierter Caller damit ein beliebiges Identitäts-Label in
-    // den Audit-Trail (Event-Actor) schreiben konnte. Der Header ist jetzt von
-    // der Middleware bedingungslos gestript. Da dieser Bearer ein einziges
-    // geteiltes Secret (LAZYOS_AGENT_SECRET) ist und keine token-spezifische
-    // Identität trägt, verwenden wir ein festes verifiziertes Label. Audit
-    // zeigt damit die verifizierte ("agent") statt der behaupteten Identität.
+    // P0-#1b / F-1b (2026-05-25): agentName was previously read from the inbound
+    // header `x-lazyos-agent` — an audit-spoof class, because a
+    // bearer-authenticated caller could use it to write an arbitrary identity
+    // label into the audit trail (event actor). The header is now
+    // unconditionally stripped by the middleware. Since this bearer is a single
+    // shared secret (LAZYOS_AGENT_SECRET) and carries no token-specific
+    // identity, we use a fixed verified label. The audit thereby
+    // shows the verified ("agent") rather than the claimed identity.
     const agentName = "agent";
     return { kind: "agent", agentName };
   }
@@ -185,9 +185,9 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // Phase ORG (2026-04-27): Cookie-Auth → currentActor() liest die echte
-  // userId aus dem von der Middleware gesetzten subject-Header. Bearer-
-  // Auth bleibt beim agent-Kind.
+  // Phase ORG (2026-04-27): Cookie auth → currentActor() reads the real
+  // userId from the subject header set by the middleware. Bearer
+  // auth stays with the agent kind.
   const defaultActor: ActorType =
     auth.kind === "agent"
       ? (`agent:${auth.agentName}` as ActorType)

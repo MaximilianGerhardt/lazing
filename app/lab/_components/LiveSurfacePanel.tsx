@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * /lab Live-Tab Panel — Welle 7 (2026-05-01)
+ * /lab live-tab panel — wave 7 (2026-05-01)
  *
- * Rendert die echte Card via renderSurface() mit Mock-Payload. Bisher zeigt
- * der Live-Tab nur JSON-Pretty (siehe samplePayloadFor). Welle 7 mountet
- * den SurfaceRenderer direkt — so sieht der Reviewer den echten Pixel-
- * State, nicht nur das Datenschema.
+ * Renders the real card via renderSurface() with a mock payload. Until now
+ * the live tab only shows JSON-pretty (see samplePayloadFor). Wave 7 mounts
+ * the SurfaceRenderer directly — so the reviewer sees the real pixel state,
+ * not just the data schema.
  *
- * Fallback: wenn `surfaceKind` null ist (Kind hat keine direkte Surface-
- * Tag-Repräsentation, z.B. sub-workstream), zeigen wir den JSON-Pretty
- * weiter unten.
+ * Fallback: if `surfaceKind` is null (the kind has no direct surface-tag
+ * representation, e.g. sub-workstream), we show the JSON-pretty further
+ * down.
  */
 
 import type { ReactNode } from "react";

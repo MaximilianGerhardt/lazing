@@ -1,14 +1,14 @@
 /**
  * GET  /api/sessions  — list all Claude-Code sessions on disk
  *
- * Liefert alle `~/.claude/projects/*.jsonl` als Session-Summaries.
- * Merged mit claude_sessions-Tabelle (active-flag).
+ * Returns all `~/.claude/projects/*.jsonl` as session summaries.
+ * Merged with the claude_sessions table (active flag).
  *
  * Query:
  *   ?workspaceId=<id>   filter to one workspace
  *   ?limit=<n>          default 100
  *
- * Bridge-fähig: Wenn LAZYOS_WEB_URL gesetzt ist, wird proxied. Sonst local.
+ * Bridge-capable: when LAZYOS_WEB_URL is set, it is proxied. Otherwise local.
  */
 
 import { NextResponse } from 'next/server';

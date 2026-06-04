@@ -1,30 +1,30 @@
 /**
- * public-base — laufzeitgelesene öffentliche Base-URL für Kunden-Share-Links.
+ * public-base — runtime-read public base URL for client share links.
  *
- * Problem (Out-of-the-Box-OSS): `next start` friert `process.env` beim Boot ein.
- * Schreibt der Tunnel-Manager die (ephemere) öffentliche URL nur nach
- * `.env.local`, greift sie erst nach einem App-NEUSTART — bei jeder Quick-Tunnel-
- * Rotation müsste man neu starten. Das ist genau die manuelle Arbeit, die wir
- * vermeiden wollen.
+ * Problem (out-of-the-box OSS): `next start` freezes `process.env` at boot.
+ * If the tunnel manager writes the (ephemeral) public URL only to
+ * `.env.local`, it only takes effect after an app RESTART — on every quick-tunnel
+ * rotation you would have to restart. That is exactly the manual work we
+ * want to avoid.
  *
- * Lösung: der Tunnel-Manager schreibt die aktuelle URL ZUSÄTZLICH in eine
- * Laufzeit-Datei `data/public-url`. Diese Funktion liest sie PRO REQUEST (mit
- * kurzem Cache) — so propagiert eine neue Tunnel-URL LIVE in alle Share-Links,
- * ohne Neustart. ENV bleibt vorrangig (für feste Reverse-Proxy-/Domain-Setups).
+ * Solution: the tunnel manager ADDITIONALLY writes the current URL to a
+ * runtime file `data/public-url`. This function reads it PER REQUEST (with
+ * a short cache) — so a new tunnel URL propagates LIVE into all share links,
+ * without a restart. ENV remains preferred (for fixed reverse-proxy/domain setups).
  *
- * Reihenfolge: **Laufzeit-Datei zuerst** (sie spiegelt den AKTUELL aktiven
- * Tunnel und wird vom Manager live aktualisiert/bei `down` gelöscht) → dann ENV
- * (LAZYOS_PREVIEW_BASE_URL → PUBLIC_URL → BASE_URL; für feste Reverse-Proxy-/
- * Domain-Setups ohne Tunnel-Manager). localhost/127.0.0.1/0.0.0.0 werden
- * übersprungen (nutzlos für externe Gäste). Datei-zuerst ist entscheidend, weil
- * `next start` ENV beim Boot einfriert — sonst überschattete eine alte ENV-Zeile
- * die frische Tunnel-URL.
+ * Order: **runtime file first** (it reflects the CURRENTLY active
+ * tunnel and is updated live by the manager / deleted on `down`) → then ENV
+ * (LAZYOS_PREVIEW_BASE_URL → PUBLIC_URL → BASE_URL; for fixed reverse-proxy/
+ * domain setups without a tunnel manager). localhost/127.0.0.1/0.0.0.0 are
+ * skipped (useless for external guests). File-first is decisive because
+ * `next start` freezes ENV at boot — otherwise an old ENV line would shadow
+ * the fresh tunnel URL.
  */
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** Kanonischer Pfad der Laufzeit-URL-Datei (vom Tunnel-Manager geschrieben). */
+/** Canonical path of the runtime URL file (written by the tunnel manager). */
 export const PUBLIC_URL_FILE = join(process.cwd(), 'data', 'public-url');
 
 const isUsable = (u: string | undefined | null): u is string =>
@@ -40,18 +40,18 @@ function readFileUrl(now: number): string | null {
     const raw = readFileSync(PUBLIC_URL_FILE, 'utf8').trim();
     if (isUsable(raw)) url = raw.replace(/\/+$/, '');
   } catch {
-    /* keine Datei → null (ENV oder Request-Origin greifen) */
+    /* no file → null (ENV or request origin take over) */
   }
   cache = { url, at: now };
   return url;
 }
 
 /**
- * Liefert die konfigurierte öffentliche Base-URL ODER null, wenn keine brauchbare
- * gesetzt ist (dann sollte der Aufrufer auf die Request-Origin zurückfallen).
+ * Returns the configured public base URL OR null when no usable one
+ * is set (in which case the caller should fall back to the request origin).
  */
 export function readPublicBaseOverride(now: number = Date.now()): string | null {
-  // Datei zuerst (aktiver Tunnel, live), dann ENV (statische Reverse-Proxy-Config).
+  // File first (active tunnel, live), then ENV (static reverse-proxy config).
   const fileUrl = readFileUrl(now);
   if (fileUrl) return fileUrl;
   for (const env of [
@@ -65,8 +65,8 @@ export function readPublicBaseOverride(now: number = Date.now()): string | null 
 }
 
 /**
- * Bequemer Helfer für Route-Handler: Override ODER die Request-Origin.
- * `origin` ist typischerweise `req.nextUrl.origin`.
+ * Convenient helper for route handlers: override OR the request origin.
+ * `origin` is typically `req.nextUrl.origin`.
  */
 export function publicBaseUrlFrom(origin: string): string {
   return (readPublicBaseOverride() ?? origin).replace(/\/+$/, '');

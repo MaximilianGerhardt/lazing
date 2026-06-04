@@ -11,11 +11,10 @@ import {
 } from './types';
 
 /**
- * Backwards-Compat: der alte Step-Status war 3-wertig
- * (`'done'|'running'|'waiting'`). Welle-1 erweitert auf 5-wertig
- * (`'pending'|'running'|'done'|'failed'|'skipped'`). Beide Sets
- * werden hier akzeptiert; `'waiting'` wird intern auf `'pending'`
- * gehoben.
+ * Backwards-compat: the old step status was 3-valued
+ * (`'done'|'running'|'waiting'`). Wave 1 extends it to 5-valued
+ * (`'pending'|'running'|'done'|'failed'|'skipped'`). Both sets
+ * are accepted here; `'waiting'` is promoted internally to `'pending'`.
  */
 export type StepStatus =
   | 'done'
@@ -40,26 +39,25 @@ export interface PipelineStepProps {
    * highlights without a markup mini-language:
    *   subtitle={<>yt-dlp · <b>24:18</b> · 3 842 Wörter</>}
    *
-   * Welle-1: wenn nicht gesetzt, wird aus `etaBucket` ein
-   * Default-Subtitle ("fast fertig", "läuft länger als üblich")
-   * abgeleitet.
+   * Wave 1: when not set, a default subtitle ("fast fertig",
+   * "läuft länger als üblich") is derived from `etaBucket`.
    */
   subtitle?: React.ReactNode;
   status: StepStatus;
   /**
-   * Override for the short status label. Defaults werden aus
-   * STEP_STATUS_LABEL gezogen ('ok' / 'run' / 'wait' / 'fail' / 'skip').
+   * Override for the short status label. Defaults are pulled from
+   * STEP_STATUS_LABEL ('ok' / 'run' / 'wait' / 'fail' / 'skip').
    */
   statusLabel?: string;
   /**
-   * Welle-1: optionaler ETA-Bucket. Wenn gesetzt und kein expliziter
-   * `subtitle`, generiert Step einen qualitativen Hinweis.
+   * Wave 1: optional ETA bucket. When set and no explicit
+   * `subtitle`, Step generates a qualitative hint.
    */
   etaBucket?: EtaBucket;
   /**
-   * Welle-1: 0..100 — rendert eine 1px Underline-Progress-Bar
-   * unter der Step-Card. Nur sinnvoll bei `status='running'`.
-   * Werte außerhalb [0,100] werden geklammert.
+   * Wave 1: 0..100 — renders a 1px underline progress bar
+   * below the step card. Only meaningful when `status='running'`.
+   * Values outside [0,100] are clamped.
    */
   progressPct?: number;
   className?: string;
@@ -77,12 +75,12 @@ function classNames(
  * Renders a single row in a pipeline. Status maps to CSS:
  *   done    → .step.d  (green tint)
  *   running → .step.r  (amber tint)
- *   pending → .step.w  (neutral, ehem. 'waiting')
- *   failed  → .step.f  (rot, NEU Welle-1)
- *   skipped → .step.k  (durchgestrichen-grau, NEU Welle-1)
+ *   pending → .step.w  (neutral, formerly 'waiting')
+ *   failed  → .step.f  (red, NEW in Wave 1)
+ *   skipped → .step.k  (struck-through grey, NEW in Wave 1)
  *
- * Status-Übergang wird per `var(--spring-bouncy)` animiert, getriggert
- * durch CSS-Transition auf `background-color` + `border-color`.
+ * Status transition is animated via `var(--spring-bouncy)`, triggered
+ * by a CSS transition on `background-color` + `border-color`.
  *
  * Accessibility:
  *  - Each step is a <li> (see <Pipeline>, which wraps steps in <ol>).
@@ -113,10 +111,10 @@ export function Step({
 
   const clampedPct = clampProgressPct(progressPct);
 
-  // Inline custom property setzen — kein generelles Inline-Style.
-  // Die CSS-Variable wird vom Stylesheet (`.step__progress-bar` width)
-  // gelesen und ist die einzige semantisch korrekte Bridge zwischen
-  // dynamischem Wert und CSS.
+  // Set an inline custom property — not a general inline style.
+  // The CSS variable is read by the stylesheet (`.step__progress-bar` width)
+  // and is the only semantically correct bridge between a
+  // dynamic value and CSS.
   const progressStyle: React.CSSProperties | undefined =
     clampedPct !== undefined
       ? ({ ['--progress' as never]: `${clampedPct}` } as React.CSSProperties)

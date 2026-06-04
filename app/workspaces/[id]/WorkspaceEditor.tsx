@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * WorkspaceEditor — Client-Form fuer Workspace-Mutation.
+ * WorkspaceEditor — client form for workspace mutation.
  *
- * Edits werden direkt PATCH'ed, kein "Speichern"-Button-noetig:
- * onBlur fuer Text-Felder, onChange fuer Selects. Status-Pille zeigt
- * "gespeichert" / "speichert..." / "Fehler" sehr kurz.
+ * Edits are PATCH'ed directly, no "save" button needed:
+ * onBlur for text fields, onChange for selects. Status pill shows
+ * "gespeichert" / "speichert..." / "Fehler" very briefly.
  *
- * Notes ist Markdown-Langform — Mini-CLAUDE.md fuer den Workspace.
- * "KI-Auto-Beschreibung"-Button ruft /api/workspaces/[id]/auto-describe
- * auf (kommt im naechsten Commit) und ueberschreibt notes mit einer
- * Synthese aus Tickets+Workstreams+Events.
+ * Notes is Markdown long-form — mini-CLAUDE.md for the workspace.
+ * The "KI-Auto-Beschreibung" button calls /api/workspaces/[id]/auto-describe
+ * (coming in the next commit) and overwrites notes with a
+ * synthesis from tickets+workstreams+events.
  */
 
 import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
@@ -27,7 +27,7 @@ interface Workspace {
   notesSource: string | null;
   notesUpdatedAt: number | null;
   organizationId: string | null;
-  /** Phase OS.4 — server-resolved Org-Vorschlag (oder null). */
+  /** Phase OS.4 — server-resolved org suggestion (or null). */
   orgSuggestion: { orgId: string; reason: string } | null;
 }
 
@@ -107,10 +107,10 @@ export function WorkspaceEditor({
         return;
       }
       setStatus('saved');
-      // Cache-Invalidation für Server-Components (WorkspacesList, OrgDetail).
+      // Cache invalidation for server components (WorkspacesList, OrgDetail).
       startTransition(() => router.refresh());
-      // Cache-Invalidation für Client-State (TopNav-Switcher, MobileDrawer):
-      // routerRefresh greift nur Server-Components, nicht useWorkspaces().
+      // Cache invalidation for client state (TopNav switcher, MobileDrawer):
+      // routerRefresh only affects server components, not useWorkspaces().
       dispatchWorkspaceDataChange();
       window.setTimeout(() => setStatus('idle'), 1400);
     } catch (err) {
@@ -260,10 +260,10 @@ export function WorkspaceEditor({
 }
 
 /**
- * Sortiert die Orgs hierarchisch (parent vor children) und liefert pro Eintrag
- * ein eingerücktes Label. Top-Level zuerst, dann Children sortiert.
+ * Sorts the orgs hierarchically (parent before children) and returns an
+ * indented label per entry. Top-level first, then sorted children.
  *
- * Wichtig: keine Endlos-Schleife bei Cycles — wir tracken `seen`.
+ * Important: no infinite loop on cycles — we track `seen`.
  */
 function buildOrgHierarchy(
   orgs: OrgOption[],
@@ -296,7 +296,7 @@ function buildOrgHierarchy(
     for (const c of children) walk(c, depth + 1);
   };
   for (const r of roots) walk(r, 0);
-  // Falls Cycles → Reste hinten dranhängen ohne Indent.
+  // In case of cycles → append the leftovers at the end without indent.
   for (const o of orgs) {
     if (!seen.has(o.id)) {
       result.push({ id: o.id, indentedLabel: `${o.name} (orphan)` });

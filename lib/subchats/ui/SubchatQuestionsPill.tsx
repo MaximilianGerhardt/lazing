@@ -3,11 +3,11 @@
 /**
  * lib/subchats/ui/SubchatQuestionsPill.tsx — Question-Spinning Slice 1.
  *
- * Sequentiell-prominente Fragen-Pille über dem Sub-Chat-Composer — eine Frage
- * nach der anderen (wie die Hauptchat-`ChatOpenQuestionsPill`), damit Fragen im
- * Gruppenchat „nicht untergehen". Antworten per Option-Klick ODER Freitext.
- * Plus „Frage anspinnen" für jeden Teilnehmer. Nur Design-Manifest-Tokens, keine
- * Emojis.
+ * Sequentially-prominent question pill above the sub-chat composer — one question
+ * after another (like the main-chat `ChatOpenQuestionsPill`), so questions in the
+ * group chat "don't get lost". Answer via option click OR free text.
+ * Plus "spin up a question" for every participant. Only design-manifest tokens, no
+ * emojis.
  */
 
 import { useState, type CSSProperties } from 'react';
@@ -15,14 +15,14 @@ import { useState, type CSSProperties } from 'react';
 import type { SubchatQuestion, SuggestedQuestion } from './useSubchatQuestions';
 
 export interface SubchatQuestionsPillProps {
-  /** Offene, vom Viewer noch unbeantwortete Fragen (seq-sortiert). */
+  /** Open questions not yet answered by the viewer (seq-sorted). */
   open: SubchatQuestion[];
   onAnswerOption: (questionId: string, optionId: string) => void;
   onAnswerFreeText: (questionId: string, text: string) => void;
   onSpin: (text: string, options: string[]) => void;
-  /** KI-auto-anspinnen: holt KI-Rückfrage-Vorschläge. */
+  /** AI auto-spin: fetches AI follow-up-question suggestions. */
   onSuggestAi?: () => Promise<SuggestedQuestion[]>;
-  /** Einen KI-Vorschlag anspinnen (author_kind:'ai'). */
+  /** Spin up an AI suggestion (author_kind:'ai'). */
   onSpinAi?: (text: string, options: string[]) => void;
 }
 
@@ -47,8 +47,8 @@ export function SubchatQuestionsPill(props: SubchatQuestionsPillProps): React.JS
     }
   };
 
-  // KI-Vorschlags-Block (nur wenn onSuggestAi vorhanden). Holt 1–2 Rückfragen,
-  // zeigt sie als „anspinnen"-Chips (Owner approved → author_kind:'ai').
+  // AI-suggestion block (only if onSuggestAi is present). Fetches 1–2 follow-up
+  // questions, shows them as "spin up" chips (owner approved → author_kind:'ai').
   const suggestBlock = props.onSuggestAi ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
       <button type="button" style={spinTrigger} onClick={() => void askAi()} disabled={aiLoading}>
@@ -96,7 +96,7 @@ export function SubchatQuestionsPill(props: SubchatQuestionsPillProps): React.JS
     setSpinning(false);
   };
 
-  // Spin-Formular hat Vorrang (auch wenn keine offenen Fragen existieren).
+  // Spin form takes precedence (even if no open questions exist).
   if (spinning) {
     return (
       <div style={wrap}>
@@ -127,7 +127,7 @@ export function SubchatQuestionsPill(props: SubchatQuestionsPillProps): React.JS
     );
   }
 
-  // Keine offenen Fragen → der dezente „Frage anspinnen"-Auslöser + KI-Vorschläge.
+  // No open questions → the subtle "spin up a question" trigger + AI suggestions.
   if (total === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -139,7 +139,7 @@ export function SubchatQuestionsPill(props: SubchatQuestionsPillProps): React.JS
     );
   }
 
-  // Eingeklappt → Chip mit Anzahl.
+  // Collapsed → chip with count.
   if (!expanded) {
     return (
       <div style={{ display: 'flex', gap: 8 }}>
@@ -224,7 +224,7 @@ export function SubchatQuestionsPill(props: SubchatQuestionsPillProps): React.JS
   );
 }
 
-// ---- Styles (Design-Manifest-Tokens, keine Roh-Hex außer Fallbacks) ----------
+// ---- Styles (design-manifest tokens, no raw hex except fallbacks) ----------
 
 const wrap: CSSProperties = {
   display: 'flex',

@@ -1,14 +1,14 @@
 /**
  * GET /api/reasoning-audit/[id]
  *
- * Single Audit-Row mit voll entpackten JSON-Feldern (sourceChunks,
- * priorOutputs, userCorrections). Klartext-Prompts (system_prompt_text /
- * user_prompt_text) werden NICHT zurückgegeben — sie sind sensitiv und
- * primär für interne Re-Spawn-Logik gedacht.
+ * Single audit row with fully unpacked JSON fields (sourceChunks,
+ * priorOutputs, userCorrections). Plaintext prompts (system_prompt_text /
+ * user_prompt_text) are NOT returned — they are sensitive and
+ * primarily intended for internal re-spawn logic.
  *
- * Privacy-Gate: requireSession.
+ * Privacy gate: requireSession.
  *
- * Pattern 5 Welle 3 (2026-05-01).
+ * Pattern 5 wave 3 (2026-05-01).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -62,10 +62,10 @@ export async function GET(
     return NextResponse.json({ error: "not-found" }, { status: 404 });
   }
 
-  // Privacy-Sprint V5 (2026-05-01): Workspace-Membership-Check.
-  // Audits mit workspaceId sind nur für Workspace-Members lesbar
-  // (≥ viewer). Audits ohne workspaceId bleiben für jeden eingeloggten
-  // User lesbar — sie enthalten keinen workspace-spezifischen Twin.
+  // Privacy sprint V5 (2026-05-01): workspace membership check.
+  // Audits with a workspaceId are readable only by workspace members
+  // (≥ viewer). Audits without a workspaceId stay readable for every logged-in
+  // user — they contain no workspace-specific twin.
   if (row.workspaceId) {
     const role = getEffectiveWorkspaceRole(userId, row.workspaceId);
     if (!canReadWorkspace(role)) {
@@ -94,8 +94,8 @@ export async function GET(
     verifiedStatus: row.verifiedStatus,
     verifiedAt: row.verifiedAt,
     verifiedNote: row.verifiedNote,
-    // Klartext-Prompts: nur Marker ob sie persistiert sind (für UI-Hinweis
-    // "Verifizierung möglich"). Kein Klartext-Leak.
+    // Plaintext prompts: only a marker whether they are persisted (for the UI hint
+    // "verification possible"). No plaintext leak.
     hasFullPrompts: Boolean(row.systemPromptText && row.userPromptText),
   });
 }

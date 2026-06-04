@@ -1,19 +1,19 @@
 /**
  * POST /api/workstreams/[id]/spawn
  *
- * Phase A + D: Tier-Spawn-Engine. Wird vom Frontend nach Tier-Choice-Klick
- * aufgerufen. Schritte:
+ * Phase A + D: tier-spawn engine. Called by the frontend after a tier-choice
+ * click. Steps:
  *
- *   1. Master-Plan-Ticket anlegen (falls noch keins)
- *   2. Workstream.primaryTicketId setzen
- *   3. Tier-Spawn parallel (N Opus + M Sonnet + K Haiku)
- *   4. Synthesis durch Lead-Agent (Opus xhigh)
- *   5. Cost auf Workstream aggregieren
+ *   1. create the master plan ticket (if none yet)
+ *   2. set Workstream.primaryTicketId
+ *   3. tier spawn in parallel (N Opus + M Sonnet + K Haiku)
+ *   4. synthesis by the lead agent (Opus xhigh)
+ *   5. aggregate cost onto the workstream
  *
- * Background-Run: Antwortet sofort mit { ok: true, ticketId } und laeuft
- * im Hintergrund weiter. Frontend pollt /api/workstreams/[id] fuer Progress.
+ * Background run: responds immediately with { ok: true, ticketId } and keeps
+ * running in the background. The frontend polls /api/workstreams/[id] for progress.
  *
- * Auth: Cookie-Session reicht (default API-Auth via middleware).
+ * Auth: a cookie session suffices (default API auth via middleware).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -40,12 +40,12 @@ export const dynamic = 'force-dynamic';
 const BodySchema = z.object({
   planTitle: z.string().min(1).max(200).optional(),
   prompt: z.string().min(1).max(20_000).optional(),
-  // Phase IT (2026-04-27): mode wahl zwischen Swarm (Phase A) und
-  // Iterate (Phase IT). Default: 'iterate' weil 90% der User-Faelle
-  // konvergent sind und 28× Output kein Sinn macht.
+  // Phase IT (2026-04-27): mode choice between swarm (Phase A) and
+  // iterate (Phase IT). Default: 'iterate' because 90% of user cases
+  // are convergent and 28× output makes no sense.
   mode: z.enum(['swarm', 'iterate']).optional(),
-  // Sub-Plan A (2026-04-30): Tier-Preset für Iterate-Modus.
-  // Default = 'standard' (Backwards-Compat).
+  // Sub-Plan A (2026-04-30): tier preset for iterate mode.
+  // Default = 'standard' (backwards-compat).
   presetId: z.enum(['schnell', 'standard', 'tief']).optional(),
 });
 
@@ -86,8 +86,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   const prompt = parsed.data.prompt ?? planTitle;
   const mode: 'swarm' | 'iterate' = parsed.data.mode ?? 'iterate';
 
-  // tierMix ist nur für Swarm-Mode Pflicht. Iterate hat fixe Architektur
-  // (1 Lead + 2 Roaster + 1 Lead-V2).
+  // tierMix is only mandatory for swarm mode. Iterate has a fixed architecture
+  // (1 lead + 2 roasters + 1 lead-V2).
   if (mode === 'swarm' && !ws.tierMix) {
     return NextResponse.json(
       { error: 'no_tier_mix', hint: 'Swarm-Mode braucht tierMix auf dem Workstream' },
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // 1. Master-Plan-Ticket anlegen falls noch keins
+  // 1. create the master plan ticket if none yet
   let masterTicketId = ws.primaryTicketId;
   if (!masterTicketId) {
     const ticket = await createTicket({
@@ -112,9 +112,9 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   const workspacePath = await resolveWorkspacePath(ws.workspaceId);
 
-  // Sub-Plan A (2026-04-30): Tier-Preset + Mode persistieren BEVOR der
-  // Iterate-Background-Run startet — sonst liest runIterateMode() das
-  // alte/leere `iterate_config_json` und fällt auf Standard zurück.
+  // Sub-Plan A (2026-04-30): persist the tier preset + mode BEFORE the
+  // iterate background run starts — otherwise runIterateMode() reads the
+  // old/empty `iterate_config_json` and falls back to standard.
   if (mode === 'iterate') {
     const presetId = parsed.data.presetId ?? 'standard';
     try {
@@ -131,15 +131,15 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     }
   }
 
-  // 2. Hintergrund-Spawn (kein await, sofort 202 zurueck)
+  // 2. background spawn (no await, return 202 immediately)
   if (mode === 'iterate') {
     const masterTicketIdLocal = masterTicketId;
     void runIterateMode(ws.id, masterTicketIdLocal, ws.workspaceId, workspacePath, prompt).catch(
       async (err) => {
         const msg = err instanceof Error ? err.message : String(err);
         console.error('[iterate-orchestrator]', msg);
-        // Phase IT 2026-04-27: Workstream auf 'archived' setzen + Error-
-        // Comment am Master damit User sofort sieht "Spawn fehlgeschlagen".
+        // Phase IT 2026-04-27: set the workstream to 'archived' + error
+        // comment on the master so the user immediately sees "spawn failed".
         try {
           await updateWorkstream(ws.id, { status: 'archived' });
           const { emitEvent } = await import('@/lib/events/emit');
@@ -190,7 +190,7 @@ async function runSwarmMode(
   prompt: string,
   tierMix: { opus: number; sonnet: number; haiku: number },
 ): Promise<void> {
-  // 3. Tier-Spawn
+  // 3. tier spawn
   const result = await spawnTier({
     workspaceId,
     workspacePath,
@@ -200,7 +200,7 @@ async function runSwarmMode(
     tierMix,
   });
 
-  // 4. Synthesis durch Lead
+  // 4. synthesis by the lead
   const synth = await runSynthesis({
     workspaceId,
     workspacePath,
@@ -210,8 +210,8 @@ async function runSwarmMode(
     outputs: result.outputs,
   });
 
-  // 4b. Sniper-Multi-Round nach Synthesis: bis zu 3 Re-Synth-Iterationen.
-  // Pro Iteration: 25s-Pause + bei Inject Re-Spawn mit User-Korrekturen.
+  // 4b. sniper multi-round after synthesis: up to 3 re-synth iterations.
+  // Per iteration: 25s pause + on inject re-spawn with user corrections.
   let extraSynthCostCents = 0;
   let prevText = synth.text;
   let prevEmittedAt = Date.now();
@@ -336,7 +336,7 @@ async function runSwarmMode(
     }
   }
 
-  // 5. Cost-Aggregation auf Workstream
+  // 5. cost aggregation onto the workstream
   await updateWorkstream(workstreamId, {
     costCents: result.totalCostCents + synth.costCents + extraSynthCostCents,
     status: 'done',
@@ -350,9 +350,9 @@ async function runIterateMode(
   workspacePath: string,
   prompt: string,
 ): Promise<void> {
-  // Sub-Plan A (2026-04-30): Tier-Choice respektieren. Falls der Workstream
-  // ein `iterate_config_json` hat (gesetzt von start-dispatch + spawn-Bodies),
-  // nutzen wir es. Sonst Default = TIER_PRESETS.standard.
+  // Sub-Plan A (2026-04-30): respect the tier choice. If the workstream
+  // has an `iterate_config_json` (set by start-dispatch + spawn bodies),
+  // we use it. Otherwise default = TIER_PRESETS.standard.
   const { resolveIterateConfig } = await import(
     '@/lib/workstreams/tier-presets'
   );
@@ -364,13 +364,13 @@ async function runIterateMode(
       .get(workstreamId) as { iterate_config_json: string | null } | undefined;
     iterateConfigJson = row?.iterate_config_json ?? null;
   } catch {
-    /* nicht-fatal — Default greift unten */
+    /* non-fatal — the default applies below */
   }
   const iterateConfig = resolveIterateConfig(iterateConfigJson);
 
-  // Phase IT (2026-04-27): N Lead + M Roaster + 1 Revise = ~4 Spawns total
-  // (Standard). Schnell = 1 Spawn, Tief = bis 7 Spawns.
-  // Token-Budget ~75% niedriger als Swarm-Modus (Balanced-Preset: 20 Spawns).
+  // Phase IT (2026-04-27): N lead + M roaster + 1 revise = ~4 spawns total
+  // (standard). Fast = 1 spawn, deep = up to 7 spawns.
+  // Token budget ~75% lower than swarm mode (balanced preset: 20 spawns).
   const result = await runIterate(
     {
       workspaceId,

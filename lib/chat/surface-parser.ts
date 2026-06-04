@@ -49,7 +49,7 @@ export const SURFACE_KINDS = [
   'credential-prompt',
   'consensus-action',
   'live-pipeline',
-  // Sub-Plan 04 Welle 2 (2026-04-29):
+  // Sub-Plan 04 Wave 2 (2026-04-29):
   'iterate-pipeline',
   // Sprint C (2026-04-29) — sub-workstreams as a first-class entity:
   'sub-workstreams',

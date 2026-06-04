@@ -1,9 +1,9 @@
 /**
- * GET    /api/workspaces/[id]/credentials       — Liste mit masked-preview
+ * GET    /api/workspaces/[id]/credentials       — list with masked preview
  * GET    /api/workspaces/[id]/credentials?reveal=<credId>
- *                                                — einzelner Klartext
+ *                                                — single plaintext value
  * POST   /api/workspaces/[id]/credentials       — { name, value, description }
- * DELETE /api/workspaces/[id]/credentials/<credId> — eigene Route weiter unten
+ * DELETE /api/workspaces/[id]/credentials/<credId> — separate route further below
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -27,19 +27,19 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Defense-in-depth Cross-Org-Check (Security-Critic M-1).
+ * Defense-in-depth cross-org check (Security-Critic M-1).
  *
- * Bei isolierten Workspaces (credential_isolation='isolated') darf NUR ein
- * tatsächliches Mitglied der zugehörigen Org Credentials lesen/revealen —
- * unabhängig vom (potenziell mehrdeutigen) getEffectiveWorkspaceRole bei
- * Multi-Org-Membership. Liefert true wenn der Kontext PASST (Zugriff ok),
- * false wenn er NICHT passt (→ Route gibt 403).
+ * For isolated workspaces (credential_isolation='isolated'), ONLY an
+ * actual member of the associated org may read/reveal credentials —
+ * independent of the (potentially ambiguous) getEffectiveWorkspaceRole under
+ * multi-org membership. Returns true if the context FITS (access ok),
+ * false if it does NOT fit (→ route returns 403).
  *
- * Wenn der Workspace zu KEINER Org gehört → kein Org-Kontext zu prüfen → ok.
- * Wenn nicht isoliert → dieser Extra-Gate greift nicht (return true).
+ * If the workspace belongs to NO org → no org context to check → ok.
+ * If not isolated → this extra gate does not apply (return true).
  *
- * credential_isolation wird FAIL-CLOSED gelesen: nur explizit 'inherit' gilt
- * als nicht-isoliert; fehlende Spalte/null/garbage → isoliert (strenger Check).
+ * credential_isolation is read FAIL-CLOSED: only an explicit 'inherit' counts
+ * as non-isolated; missing column/null/garbage → isolated (strict check).
  */
 function passesOrgContextCheck(userId: string, wsId: string): boolean {
   const db = getDb();
@@ -50,16 +50,16 @@ function passesOrgContextCheck(userId: string, wsId: string): boolean {
       .get(wsId) as { credential_isolation?: string | null } | undefined;
     isolationRaw = row?.credential_isolation ?? null;
   } catch {
-    // Spalte fehlt (ACL-3 nicht gelandet) → fail-closed: behandeln wie isoliert.
+    // Column missing (ACL-3 not landed) → fail-closed: treat as isolated.
     isolationRaw = null;
   }
   const isolated = isolationRaw !== 'inherit';
-  if (!isolated) return true; // 'inherit' → kein verschärfter Org-Check.
+  if (!isolated) return true; // 'inherit' → no tightened org check.
 
   const org = findOrgForWorkspace(wsId);
-  if (!org) return true; // org-loser Workspace → kein Org-Kontext zu prüfen.
+  if (!org) return true; // org-less workspace → no org context to check.
 
-  // Isolierter Org-Workspace: User MUSS Mitglied genau dieser Org sein.
+  // Isolated org workspace: the user MUST be a member of exactly this org.
   return findUserOrgMembership(userId, org.id) !== null;
 }
 
@@ -87,8 +87,8 @@ function isValidCredName(n: string): boolean {
 }
 
 export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
-  // Auth-Gate (schließt bestehende Lücke — Vorlage: link-repo/route.ts).
-  // GET reveal und GET listing offenbaren verschlüsselte Werte → mindestens member.
+  // Auth gate (closes an existing gap — template: link-repo/route.ts).
+  // GET reveal and GET listing expose encrypted values → at least member.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required' }, { status: 401 });
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // M-1: Defense-in-depth Cross-Org-Check für isolierte Workspaces.
+  // M-1: defense-in-depth cross-org check for isolated workspaces.
   if (!passesOrgContextCheck(userId, wsId)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
@@ -125,13 +125,13 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
       try {
         plaintext = decryptCredential(row.encrypted_value);
       } catch (err) {
-        // M-2: Decrypt-Detail (AES-Tag-Mismatch etc.) NIEMALS ans Frontend —
-        // das ist Info-Disclosure. Nur generischer Fehler raus, Detail ins Log.
+        // M-2: NEVER send decrypt details (AES tag mismatch etc.) to the frontend —
+        // that is info disclosure. Only a generic error goes out, the detail into the log.
         console.error(
           `[credentials] decrypt_failed cred=${reveal} ws=${wsId}:`,
           err instanceof Error ? err.message : String(err),
         );
-        // L-1: fehlgeschlagener Reveal-Versuch wird auch audit-iert (N8).
+        // L-1: a failed reveal attempt is also audited (N8).
         recordRevealAudit({
           scopeKind: 'workspace',
           scopeId: wsId,
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
           'UPDATE workspace_credentials SET last_revealed_at = ? WHERE id = ?',
         )
         .run(now, reveal);
-      // L-1: jede Klartext-Offenbarung schreibt eine 'reveal'-Audit-Row (N8).
+      // L-1: every plaintext reveal writes a 'reveal' audit row (N8).
       recordRevealAudit({
         scopeKind: 'workspace',
         scopeId: wsId,
@@ -210,7 +210,7 @@ interface PostBody {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
-  // Auth-Gate: POST schreibt Credentials → mindestens member.
+  // Auth gate: POST writes credentials → at least member.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required' }, { status: 401 });
@@ -225,7 +225,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // M-1: Defense-in-depth Cross-Org-Check für isolierte Workspaces.
+  // M-1: defense-in-depth cross-org check for isolated workspaces.
   if (!passesOrgContextCheck(userId, wsId)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }

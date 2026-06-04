@@ -266,7 +266,7 @@ export function useMediaRecorderStt(
     };
 
     try {
-      recorder.start(1000); // chunk-intervall 1s für smoother ondataavailable
+      recorder.start(1000); // chunk interval 1s for smoother ondataavailable
     } catch {
       setError('recorder-failed');
       cleanup();

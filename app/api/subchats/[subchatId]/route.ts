@@ -1,10 +1,10 @@
 /**
- * PATCH  /api/subchats/[subchatId]   — Sub-Chat umbenennen (member-gated).
- * DELETE /api/subchats/[subchatId]   — Sub-Chat hart löschen (member-gated).
+ * PATCH  /api/subchats/[subchatId]   — rename sub-chat (member-gated).
+ * DELETE /api/subchats/[subchatId]   — hard-delete sub-chat (member-gated).
  *
- * Auth: Member des Workspace, zu dem der Sub-Chat gehört (gespiegelt aus
- * messages/route.ts). Mutationen gehen ausschließlich über lib/subchats/service.
- * Gathering-Intelligence-Goal P2 (2026-06-02).
+ * Auth: member of the workspace the sub-chat belongs to (mirrored from
+ * messages/route.ts). Mutations go exclusively through lib/subchats/service.
+ * Gathering-Intelligence goal P2 (2026-06-02).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

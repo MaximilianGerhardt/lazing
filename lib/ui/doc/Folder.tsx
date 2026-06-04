@@ -11,7 +11,7 @@ export interface FolderProps {
 }
 
 /**
- * DOC-02 Folder-Card. Kompakte Verzeichnis-Anzeige für `<surface:folder>`.
+ * DOC-02 folder card. Compact directory display for `<surface:folder>`.
  */
 export function Folder(props: FolderProps): React.JSX.Element {
   const inner = (

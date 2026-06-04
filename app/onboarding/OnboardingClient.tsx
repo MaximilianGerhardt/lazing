@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * Onboarding-Wizard (Phase AU.3).
+ * Onboarding wizard (Phase AU.3).
  *
- * 6 Steps. Jeder Step ist persistiert via /api/onboarding/state, sodass
- * Refresh am korrekten Punkt re-rendert. State-Daten (Org-Wahl, Workspace-
- * ID, Claude-Max-Status) werden in users.onboarding_state.data abgelegt
- * und im Done-Step für den Auto-Redirect genutzt.
+ * 6 steps. Each step is persisted via /api/onboarding/state, so that
+ * a refresh re-renders at the correct point. State data (org choice,
+ * workspace ID, Claude-Max status) is stored in users.onboarding_state.data
+ * and used in the done step for the auto-redirect.
  */
 
 import { useCallback, useState, type CSSProperties } from "react";
@@ -154,9 +154,9 @@ export function OnboardingClient({
         const j = (await res.json()) as { org?: { id: string } };
         chosenOrgId = j.org?.id ?? null;
       }
-      // solo + invite landen ohne neue Org → bleibt null, User ist
-      // sowieso der Default-Org als Founder beigetreten (oder hat in
-      // /orgs eine Bestehende-Mitgliedschaft).
+      // solo + invite end up without a new org → stays null, the user has
+      // joined the default org as founder anyway (or has an existing
+      // membership in /orgs).
       await patch({
         step: "organization",
         completed: true,
@@ -177,7 +177,7 @@ export function OnboardingClient({
       const list = Array.isArray(j.orgs) ? j.orgs : [];
       setWsOrgs(list);
       if (list.length > 0 && !wsOrgId) {
-        // Default: bevorzuge die in vorigem Step erstellte Org, sonst erste.
+        // Default: prefer the org created in the previous step, otherwise the first.
         const preferred = data?.chosenOrgId ?? list[0].id;
         setWsOrgId(preferred);
       }
@@ -207,11 +207,11 @@ export function OnboardingClient({
         }
         const j = (await res.json()) as { workspace?: { id: string } };
         workspaceId = j.workspace?.id ?? null;
-        // Schreibe Org + Workspace sofort in localStorage damit der UI-State
-        // (Badge, Segment, History) direkt den neuen Workspace zeigt —
-        // unabhängig vom URL-Param im finish()-Redirect.
-        // setOrgIdSilent: ohne hard-navigate (Wizard läuft weiter).
-        // setWorkspaceId: umgeht findWorkspaceById-Guard (neuer WS noch nicht im Cache).
+        // Write org + workspace to localStorage immediately so the UI state
+        // (badge, segment, history) shows the new workspace right away —
+        // independent of the URL param in the finish() redirect.
+        // setOrgIdSilent: without a hard navigate (the wizard keeps running).
+        // setWorkspaceId: bypasses the findWorkspaceById guard (new WS not in cache yet).
         if (workspaceId) {
           if (wsOrgId) setOrgIdSilent(wsOrgId);
           setWorkspaceId(workspaceId);
@@ -258,14 +258,14 @@ export function OnboardingClient({
           throw new Error((j.error as string) ?? `HTTP ${res.status}`);
         }
       } else {
-        // shared — explizit setzen
+        // shared — set explicitly
         const res = await fetch("/api/users/me/claude-creds", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ status: "shared" }),
         });
         if (!res.ok) {
-          // Tolerant: API-Default ist schon shared. Nur loggen.
+          // Tolerant: the API default is already shared. Just log.
           // eslint-disable-next-line no-console
           console.warn("[onboarding] shared-toggle API failed");
         }
@@ -291,7 +291,7 @@ export function OnboardingClient({
     router.push(target);
   };
 
-  // --- Effect: Lade Orgs sobald wir auf first-workspace landen ---
+  // --- Effect: load orgs as soon as we land on first-workspace ---
   if (step === "first-workspace" && wsOrgs.length === 0 && !busy) {
     void loadOrgsForWs();
   }
@@ -729,7 +729,7 @@ function DiagramBoxes(): React.JSX.Element {
   );
 }
 
-/** Pitch-Black canvas atmosphere — 3 radiale Glows, identisch zu OssOnboardingClient. */
+/** Pitch-Black canvas atmosphere — 3 radial glows, identical to OssOnboardingClient. */
 function Glows(): React.JSX.Element {
   return (
     <div aria-hidden style={glowWrapStyle}>

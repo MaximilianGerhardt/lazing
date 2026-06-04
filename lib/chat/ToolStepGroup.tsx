@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * ToolStepGroup — gruppiert konsekutive Tool-Calls gleicher Art (z.B. 5x
- * Bash hintereinander) zu einer einzigen ausklappbaren Card.
+ * ToolStepGroup — groups consecutive tool calls of the same kind (e.g. 5x
+ * Bash in a row) into a single expandable card.
  *
- * Default collapsed wenn group.length >= 2. Header zeigt Tool-Name +
- * Anzahl + aggregierte Status-Pille + gesamt-Dauer. Klick expandiert die
- * einzelnen Steps als ToolStepCards.
+ * Default collapsed when group.length >= 2. The header shows the tool name +
+ * count + aggregated status pill + total duration. Clicking expands the
+ * individual steps as ToolStepCards.
  *
- * Bei group.length === 1 wird direkt die einzelne ToolStepCard durchgereicht
- * (kein Group-Wrap-Overhead).
+ * At group.length === 1, the single ToolStepCard is passed through directly
+ * (no group-wrap overhead).
  */
 
 import { memo, useState, type CSSProperties, type JSX } from 'react';
@@ -40,7 +40,7 @@ function ToolStepGroupImpl({ toolName, steps, startIndex }: Props): JSX.Element 
   // Hook must be at top level — before any early return (Rules of Hooks).
   const [open, setOpen] = useState(false);
 
-  // Single step → keine Gruppierung, direkt rendern.
+  // Single step → no grouping, render directly.
   if (steps.length === 1) {
     return <ToolStepCard step={steps[0]} index={startIndex} />;
   }
@@ -124,7 +124,7 @@ function ToolStepGroupImpl({ toolName, steps, startIndex }: Props): JSX.Element 
           ))}
         </div>
       ) : (
-        // Compact preview: 1-zeiler erste 2 Steps + "..." Indikator
+        // Compact preview: one-liner of the first 2 steps + "..." indicator
         <div style={previewWrapStyle}>
           {steps.slice(0, 2).map((s) => (
             <div key={s.id} style={previewLineStyle} title={s.inputPreview}>
@@ -182,7 +182,7 @@ function groupStyle(
     flexDirection: 'column',
     borderRadius: 12,
     border: `0.5px solid ${accent}`,
-    // Opaque (war 80%/transparent) — Parent-Bleed-Fix (Sweep 2026-05-01)
+    // Opaque (was 80%/transparent) — parent-bleed fix (Sweep 2026-05-01)
     background: 'var(--sheet-2)',
     overflow: 'hidden',
     marginTop: 4,
@@ -327,9 +327,9 @@ const previewMoreStyle: CSSProperties = {
   marginTop: 2,
 };
 
-// Sub-Plan E (2026-04-30) — React.memo. steps ist Array of objects mit
-// status/timing-Feldern die ständig wechseln; JSON.stringify als Pragmatik
-// (re-render trotzdem teurer als der Stringify-Vergleich).
+// Sub-Plan E (2026-04-30) — React.memo. steps is an array of objects with
+// status/timing fields that change constantly; JSON.stringify as a pragmatic
+// choice (re-render is more expensive than the stringify comparison anyway).
 function toolStepGroupPropsEqual(prev: Props, next: Props): boolean {
   return (
     prev.toolName === next.toolName &&

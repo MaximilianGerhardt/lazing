@@ -3,20 +3,20 @@
 /**
  * RateLimitRetryCard — Phase RL.2 (2026-04-28)
  *
- * Erscheint wenn der letzte Stream mit Anthropic-TPM-Throttle abriss.
- * Zeigt 30s-Countdown und schickt die letzte User-Frage automatisch
- * erneut ab. User kann mit "Stop" abbrechen oder "Jetzt erneut" sofort
- * versuchen.
+ * Appears when the last stream broke off due to an Anthropic TPM throttle.
+ * Shows a 30s countdown and automatically resends the last user question.
+ * The user can cancel with "Stop" or try again immediately
+ * with "Jetzt erneut".
  *
- * Max 2 Auto-Retries pro originalem Prompt — danach bleibt nur manuell.
+ * Max 2 auto-retries per original prompt — after that only manual remains.
  *
- * Welle 4.1 (2026-05-01): Inline-Styles → CSS-Klassen `.srf-rl__*` (Token-bind).
+ * Wave 4.1 (2026-05-01): inline styles → CSS classes `.srf-rl__*` (token bind).
  */
 
 import { useEffect, useRef, useState } from 'react';
 
 interface Props {
-  attempt: number; // 1-basiert: 1, 2 (max 2)
+  attempt: number; // 1-based: 1, 2 (max 2)
   maxAttempts: number;
   onRetry: () => void;
   onCancel: () => void;

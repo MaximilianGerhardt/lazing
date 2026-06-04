@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * BrandingEditor — Business-Brand des Kunden/Projekts in diesem Workspace.
+ * BrandingEditor — business brand of the customer/project in this workspace.
  *
- * NICHT der Token-Stack der lazyOS-App (das war ein frueheres Missverstaendnis).
- * Hier landen Logo, Markenfarben, Brand-Voice, Email-Signatur — Sachen die in
- * Outbound-Communication, PDFs, Stripe-Receipts auftauchen.
+ * NOT the token stack of the lazyOS app (that was an earlier misunderstanding).
+ * This is where logo, brand colors, brand voice, email signature land — things
+ * that show up in outbound communication, PDFs, Stripe receipts.
  *
- * Wird vom Page-Wrap nicht angezeigt wenn sensitivity='high' oder workspace
- * ein Privat-Workspace ist (dort ist Brand nicht relevant).
+ * Not shown by the page wrap when sensitivity='high' or the workspace
+ * is a private workspace (brand is not relevant there).
  */
 
 import { useState, useTransition, type CSSProperties } from 'react';

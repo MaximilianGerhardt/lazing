@@ -1,28 +1,28 @@
 #!/usr/bin/env tsx
 /**
- * Stale-Detection Sniper — File-Cleanup-Heuristik (Dry-Run-only).
+ * Stale-Detection Sniper — file-cleanup heuristic (dry-run only).
  *
- * HINWEIS Naming (2026-05-01):
- *   Diese Funktion hieß früher "Unlearning". Korrektur nach User-Feedback —
- *   Anne (Legaly-AI) meint mit "to unlearn" eine PERSÖNLICHE ARBEITSHALTUNG
- *   (Annahmen verwerfen, mehr experimentieren). Das echte Unlearn-Pattern
- *   liegt jetzt in `lib/unlearning/` (experiment-tracker + retry-sniper +
- *   reflection-sniper). Diese Datei macht weiterhin File-Cleanup, das ist
- *   sinnvoll, war aber falsch benannt.
+ * NAMING NOTE (2026-05-01):
+ *   This function used to be called "Unlearning". Corrected after user feedback —
+ *   Anne (Legaly-AI) means by "to unlearn" a PERSONAL WORK ATTITUDE
+ *   (discard assumptions, experiment more). The real unlearn pattern
+ *   now lives in `lib/unlearning/` (experiment-tracker + retry-sniper +
+ *   reflection-sniper). This file still does file cleanup, which is
+ *   sensible, but was misnamed.
  *
- * WICHTIG:
- *   Default-Mode ist DRY-RUN. Der --apply-Pfad ist BEWUSST nicht implementiert.
- *   4 Wochen Beobachtung der Vorschläge sind Voraussetzung, bevor ein
- *   Live-Mode Sub-Tickets erzeugen darf. Begründung: User-Veto
- *   "NIEMALS löschen ohne Erlaubnis" + Risiko, dass die Heuristik
- *   sticky-Items übersieht.
+ * IMPORTANT:
+ *   The default mode is DRY-RUN. The --apply path is DELIBERATELY not implemented.
+ *   4 weeks of observing the suggestions is a prerequisite before a
+ *   live mode may create sub-tickets. Rationale: the user veto
+ *   "NEVER delete without permission" + the risk that the heuristic
+ *   overlooks sticky items.
  *
- * Nutzung:
- *   pnpm tsx scripts/stale-detection-sniper.ts            # Dry-Run, schreibt .stale-detection-suggestions.md
- *   pnpm tsx scripts/stale-detection-sniper.ts --apply    # Fehler — bewusst gesperrt
+ * Usage:
+ *   pnpm tsx scripts/stale-detection-sniper.ts            # dry-run, writes .stale-detection-suggestions.md
+ *   pnpm tsx scripts/stale-detection-sniper.ts --apply    # error — deliberately locked
  *
  * Trigger:
- *   systemd-Timer Sonntag 22:00 + 15min Random.
+ *   systemd timer Sunday 22:00 + 15min random.
  */
 
 import path from "node:path";

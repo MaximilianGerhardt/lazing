@@ -1,6 +1,6 @@
 /**
- * /workspaces/[id]/subchats/[subchatId] — interne Team-Sicht eines Sub-Chats.
- * Auth: Workspace-Member (middleware-gated + Route-Handler prüft Membership).
+ * /workspaces/[id]/subchats/[subchatId] — internal team view of a sub-chat.
+ * Auth: workspace member (middleware-gated + route handler checks membership).
  * Gathering-Intelligence-Goal (2026-06-02).
  */
 
@@ -19,7 +19,7 @@ export default async function InternalSubchatPage({
   params: Promise<{ id: string; subchatId: string }>;
 }): Promise<React.ReactElement> {
   const { id, subchatId } = await params;
-  // Nav-Fix D: Org-Kontext an den Kunden-Workspace angleichen (kein Redirect).
+  // Nav-Fix D: align org context to the customer workspace (no redirect).
   const orgId = orgBootstrapEnabled() ? resolveWorkspaceOrgId(id) : null;
   return (
     <>

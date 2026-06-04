@@ -1,8 +1,8 @@
 /**
  * /api/cloud/stats?workspace=<id>
  * Returns artifact_count, total_bytes, folder_count for the given workspace.
- * Wird vom Surface `<surface:cloud-browser>` und der Cloud-Page-Sidebar
- * benutzt um Status-Pills zu rendern.
+ * Used by the surface `<surface:cloud-browser>` and the cloud-page sidebar
+ * to render status pills.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -21,8 +21,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: "missing-workspace" }, { status: 400 });
   }
 
-  // Workspace-Existenz UND Read-Berechtigung explizit prüfen.
-  // Sonst: Info-Leak auf Bestand archivierter / non-existenter Workspaces.
+  // Explicitly check workspace existence AND read permission.
+  // Otherwise: info leak about the existence of archived / non-existent workspaces.
   const ws = await getWorkspace(workspace);
   if (!ws) {
     return NextResponse.json(
@@ -38,9 +38,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Actor wird gelesen damit es im Server-Log nachvollziehbar ist; Stats-
-  // Endpoint schreibt selber keinen Audit-Log (zu chatty bei jedem
-  // Polling-Tick).
+  // The actor is read so it is traceable in the server log; the stats
+  // endpoint itself writes no audit log (too chatty on every
+  // polling tick).
   void resolveActor(req);
 
   try {

@@ -286,7 +286,7 @@ function detectConsensus(diagnoses: BugDiagnosis[]): ConsensusResult {
 }
 
 // ---------------------------------------------------------------------------
-// Surface-Emit (lebende Card via emitOrUpdateCard)
+// Surface emit (living card via emitOrUpdateCard)
 // ---------------------------------------------------------------------------
 
 function buildSurfaceContent(state: BugSwarmState): string {
@@ -340,7 +340,7 @@ async function emitTimelineComment(
 }
 
 // ---------------------------------------------------------------------------
-// Diagnose-Spawn (single role)
+// Diagnose spawn (single role)
 // ---------------------------------------------------------------------------
 
 function buildDiagnosePrompt(opts: {
@@ -546,7 +546,7 @@ async function spawnFix(
     result.text.match(/\b([0-9a-f]{7,12})\b/);
   const commitSha = shaMatch ? shaMatch[1] : undefined;
 
-  // Summary: erste 3-5 Zeilen des Outputs.
+  // Summary: first 3-5 lines of the output.
   const summary = result.text
     .split('\n')
     .filter((l) => l.trim().length > 0)
@@ -741,7 +741,7 @@ export async function runBugSwarm(opts: RunBugSwarmOpts): Promise<BugSwarmState>
   writeState(opts.workstreamId, state);
   await emitCard(state);
 
-  // 250ms Atempause zwischen Phasen (Rate-Limit-Schonung).
+  // 250ms breather between phases (rate-limit easing).
   await sleep(250);
 
   // ---- Phase 3: Fix ----
@@ -838,7 +838,7 @@ export async function resumeBugSwarmWithChoice(
     bugDescription: state.bugDescription,
   };
 
-  // Schritte 3 + 4 wie oben — Direktstart in fix-phase.
+  // Steps 3 + 4 as above — direct start in the fix phase.
   let next: BugSwarmState = {
     ...state,
     phase: 'fix',

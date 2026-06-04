@@ -1,11 +1,11 @@
 /**
- * /workstreams/[id] — Workstream-Detail-Hub.
+ * /workstreams/[id] — workstream detail hub.
  *
- * Zeigt:
- *   - Header: Name, Workspace, Status, Cost, Quality, Tier-Mix
- *   - Master-Plan-Ticket (mit Link zur Detail-Page)
- *   - Sub-Tickets-Hierarchie (parent_ticket_id)
- *   - Aktive Session mit Fortsetzen-Button
+ * Shows:
+ *   - header: name, workspace, status, cost, quality, tier mix
+ *   - master plan ticket (with link to the detail page)
+ *   - sub-ticket hierarchy (parent_ticket_id)
+ *   - active session with a resume button
  */
 
 import Link from 'next/link';
@@ -33,7 +33,7 @@ export default async function WorkstreamDetailPage({
   const { id: rawId } = await params;
   const id = decodeURIComponent(rawId);
 
-  // getWorkstream darf null liefern → notFound. Throws (DB-Fehler) bubbeln zu error.tsx.
+  // getWorkstream may return null → notFound. Throws (DB errors) bubble up to error.tsx.
   let ws: Awaited<ReturnType<typeof getWorkstream>>;
   try {
     ws = await getWorkstream(id);
@@ -43,7 +43,7 @@ export default async function WorkstreamDetailPage({
   }
   if (!ws) notFound();
 
-  // Defensive: Workspace + Tickets dürfen failen ohne die Page zu killen.
+  // Defensive: workspace + tickets may fail without killing the page.
   const workspace = await getWorkspace(ws.workspaceId).catch((err) => {
     console.warn('[workstreams/[id]] getWorkspace failed', err);
     return null;
@@ -167,7 +167,7 @@ export default async function WorkstreamDetailPage({
           </div>
         ) : null}
 
-        {/* Master-Plan-Ticket */}
+        {/* Master plan ticket */}
         <section style={sectionStyle}>
           <SectionHeader>Master-Plan-Ticket</SectionHeader>
           {masterTicket ? (
@@ -179,7 +179,7 @@ export default async function WorkstreamDetailPage({
           )}
         </section>
 
-        {/* Feature-Tickets */}
+        {/* Feature tickets */}
         {featureTickets.length > 0 ? (
           <section style={sectionStyle}>
             <SectionHeader>Feature-Pläne ({featureTickets.length})</SectionHeader>

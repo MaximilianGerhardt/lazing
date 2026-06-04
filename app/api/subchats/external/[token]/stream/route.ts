@@ -1,22 +1,22 @@
 /**
- * GET /api/subchats/external/[token]/stream  — Token-gegateter Realtime-SSE
- * für externe Gäste (KEIN Login).
+ * GET /api/subchats/external/[token]/stream  — token-gated realtime SSE
+ * for external guests (NO login).
  *
- * Bisher hing der externe `/c/[token]`-Chat bewusst auf 4s-Polling, weil der
- * interne SSE-Endpunkt (`/api/events/stream`) authed ist und Gäste keine Session
- * haben. Dieser Endpunkt broadcastet ausschließlich `subchat_message`-(und
- * `subchat_typing`-)Events DIESES einen Sub-Chats — gegated allein durch den
- * Share-Token (resolveExternalToken). Kein Leak anderer Workspaces/Sub-Chats:
- * der Filter matcht hart auf `entityId === sc.id` UND `segmentId === workspaceId`.
+ * Previously the external `/c/[token]` chat deliberately relied on 4s polling,
+ * because the internal SSE endpoint (`/api/events/stream`) is authed and guests
+ * have no session. This endpoint broadcasts exclusively `subchat_message` (and
+ * `subchat_typing`) events of THIS one sub-chat — gated solely by the
+ * share token (resolveExternalToken). No leak of other workspaces/sub-chats:
+ * the filter matches hard on `entityId === sc.id` AND `segmentId === workspaceId`.
  *
- * Payload bewusst minimal (ein „Ping"): `{ type, subchatId, authorKind, ts }`.
- * Der Client lädt bei jedem Ping den (token-gegateten) Nachrichten-GET neu —
- * so bleibt die Render-/Sanitize-Logik an EINER Stelle und es wird nichts
- * Internes über den Stream geleakt.
+ * Payload deliberately minimal (a "ping"): `{ type, subchatId, authorKind, ts }`.
+ * On each ping the client reloads the (token-gated) message GET —
+ * so the render/sanitize logic stays in ONE place and nothing
+ * internal is leaked over the stream.
  *
- * Public-Route (middleware PUBLIC_PREFIXES `/api/subchats/external/`),
- * zusätzlich durch die Prefix-Rate-Limit-Policy (120/min) eingedämmt.
- * Gathering-Intelligence-Goal · Externes Realtime (2026-06-03).
+ * Public route (middleware PUBLIC_PREFIXES `/api/subchats/external/`),
+ * additionally contained by the prefix rate-limit policy (120/min).
+ * Gathering-Intelligence goal · external realtime (2026-06-03).
  */
 
 import { broadcast } from '@/lib/events/broadcast';
@@ -31,12 +31,12 @@ interface Ctx {
 }
 
 /**
- * Globale Obergrenze gleichzeitig offener Gast-SSE-Verbindungen (Security-Review
- * Finding #1): der Rate-Limit deckelt die FREQUENZ neuer Verbindungen, nicht die
- * ANZAHL dauerhaft offener. Jede offene Verbindung hängt einen Listener an das
- * globale `broadcast` (publish() iteriert synchron über ALLE) + ein 30s-Intervall.
- * Ohne Deckel könnte ein Angreifer mit gehaltenen Sockets das Realtime des
- * (Single-Instance-)Servers degradieren. 200 ist für 1-Mann-Agentur großzügig.
+ * Global upper bound of simultaneously open guest SSE connections (Security-Review
+ * Finding #1): the rate limit caps the FREQUENCY of new connections, not the
+ * NUMBER of permanently open ones. Each open connection attaches a listener to the
+ * global `broadcast` (publish() iterates synchronously over ALL) + a 30s interval.
+ * Without a cap, an attacker with held-open sockets could degrade the realtime of
+ * the (single-instance) server. 200 is generous for a one-person agency.
  */
 const MAX_OPEN_GUEST_STREAMS = 200;
 const streamCounter = globalThis as unknown as { __lazyosGuestSSE?: number };
@@ -61,7 +61,7 @@ export async function GET(req: Request, ctx: Ctx): Promise<Response> {
   const subchatId = sc.id;
   const workspaceId = sc.workspaceId;
 
-  // Nur Events DIESES Sub-Chats, nur die für Gäste relevanten Event-Typen.
+  // Only events of THIS sub-chat, only the event types relevant to guests.
   const relevant = (ev: LazyEvent): boolean => {
     if (ev.entityId !== subchatId) return false;
     if (ev.segmentId !== workspaceId) return false; // Defense-in-depth
@@ -73,9 +73,9 @@ export async function GET(req: Request, ctx: Ctx): Promise<Response> {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       let closed = false;
-      // `released` ist die EINMAL-Teardown-Idempotenz (Counter-Dekrement,
-      // unsubscribe, clearInterval) — getrennt von `closed` (Write-Fehler), damit
-      // ein fehlgeschlagener send() den Dekrement nicht verschluckt (Leak).
+      // `released` is the ONE-TIME teardown idempotency (counter decrement,
+      // unsubscribe, clearInterval) — separate from `closed` (write error), so
+      // that a failed send() does not swallow the decrement (leak).
       let released = false;
       streamCounter.__lazyosGuestSSE = (streamCounter.__lazyosGuestSSE ?? 0) + 1;
       const send = (data: string): void => {
@@ -87,8 +87,8 @@ export async function GET(req: Request, ctx: Ctx): Promise<Response> {
         }
       };
 
-      // Kein Initial-Replay — der Client holt den Anfangszustand per GET.
-      // Direkt ein Kommentar-Frame, damit Proxies den Stream sofort flushen.
+      // No initial replay — the client fetches the initial state via GET.
+      // A comment frame right away so proxies flush the stream immediately.
       send(`: connected ${Date.now()}\n\n`);
 
       const unsubscribe = broadcast.subscribe((ev: LazyEvent) => {
@@ -136,7 +136,7 @@ export async function GET(req: Request, ctx: Ctx): Promise<Response> {
       'Cache-Control': 'no-cache, no-transform, no-store',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
-      // Token nie über Referer weitergeben (gleiche Härtung wie Media-Route).
+      // Never pass the token via referer (same hardening as the media route).
       'Referrer-Policy': 'no-referrer',
     },
   });

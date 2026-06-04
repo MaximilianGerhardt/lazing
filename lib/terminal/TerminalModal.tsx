@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * TerminalModal — Vollbild-Modal mit ttyd-Iframe pro Workspace.
+ * TerminalModal — full-screen modal with a ttyd iframe per workspace.
  *
- * Architektur (2026-04-25 Re-Pivot von xterm.js → ttyd):
+ * Architecture (2026-04-25 re-pivot from xterm.js → ttyd):
  *
- *   Browser PWA  ──cookie──>  Next.js (CF-Tunnel)
+ *   Browser PWA  ──cookie──>  Next.js (CF tunnel)
  *                                │
  *                                │  rewrite /terminal/* → http://127.0.0.1:4203/terminal/*
  *                                ▼
@@ -15,14 +15,14 @@
  *                                ▼
  *                         tmux attach lazyos-ws-<workspaceId>
  *
- * Vorteile gegenueber dem alten xterm.js-Setup:
- *   - Voller WebSocket-Bidirectional-Stream — kein Polling mehr
- *   - Mobile-Tastatur funktioniert sauber (ttyd kennt iOS/Android-Quirks)
- *   - Copy-Paste, Maus-Selection, Resize alles eingebaut
- *   - tmux-Multiplex bleibt erhalten (mehrere Verbindungen sehen die gleiche Pane)
+ * Advantages over the old xterm.js setup:
+ *   - Full bidirectional WebSocket stream — no more polling
+ *   - Mobile keyboard works cleanly (ttyd knows iOS/Android quirks)
+ *   - Copy-paste, mouse selection, resize all built in
+ *   - tmux multiplexing is preserved (multiple connections see the same pane)
  *
- * Esc oder Klick außerhalb schließt das Modal (Esc innerhalb des Iframes
- * wird vom Terminal selbst gefangen und nicht propagiert).
+ * Esc or a click outside closes the modal (Esc inside the iframe
+ * is caught by the terminal itself and not propagated).
  */
 
 import { useEffect, useRef, type CSSProperties } from 'react';
@@ -34,16 +34,16 @@ interface Props {
   workspaceLabel: string;
   onClose: () => void;
   /**
-   * Optional: direktes tmux-Session-Target. Hat Priorität über workspaceId
-   * im launch-Skript (siehe `?session=`-Pfad in lazyos-ttyd-launch.sh).
-   * Use-Case: "Terminal-Claude live" attached an `main`, wo der CLI-Agent
-   * läuft, statt an die Workspace-Default-Session.
+   * Optional: direct tmux session target. Takes priority over workspaceId
+   * in the launch script (see the `?session=` path in lazyos-ttyd-launch.sh).
+   * Use case: "Terminal-Claude live" attached to `main`, where the CLI agent
+   * runs, instead of the workspace default session.
    */
   sessionName?: string;
   /**
-   * Optional: read-only Mode (nur in Kombination mit sessionName).
-   * Verhindert versehentliches Mit-Tippen während ein Agent arbeitet.
-   * Default false → User kann mit-tippen.
+   * Optional: read-only mode (only in combination with sessionName).
+   * Prevents accidental co-typing while an agent is working.
+   * Default false → user can co-type.
    */
   readOnly?: boolean;
 }
@@ -57,8 +57,8 @@ export function TerminalModal({
 }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Esc von ausserhalb schliesst (innerhalb des Iframes wird Esc nicht hierher
-  // propagiert — geht direkt in den Terminal-Buffer).
+  // Esc from outside closes (inside the iframe Esc is not propagated here
+  // — it goes straight into the terminal buffer).
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return;
@@ -68,8 +68,8 @@ export function TerminalModal({
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // ttyd-URL: same-origin via /terminal-Rewrite (next.config.ts).
-  // session= hat Priorität über ws= im launch-Skript.
+  // ttyd URL: same-origin via /terminal rewrite (next.config.ts).
+  // session= takes priority over ws= in the launch script.
   const src = sessionName
     ? `/terminal/?session=${encodeURIComponent(sessionName)}${readOnly ? '&ro=1' : ''}`
     : `/terminal/?ws=${encodeURIComponent(workspaceId)}`;
@@ -127,9 +127,9 @@ export function TerminalModal({
               : `Terminal · ${workspaceLabel}`
           }
           style={iframeStyle}
-          // ttyd needs same-origin postMessage + scripts. allow-forms damit
-          // Login-Token-Submits durchgehen. NICHT allow-top-navigation, sonst
-          // koennte das Iframe das PWA wegnavigieren.
+          // ttyd needs same-origin postMessage + scripts. allow-forms so
+          // login-token submits go through. NOT allow-top-navigation, otherwise
+          // the iframe could navigate the PWA away.
           sandbox="allow-scripts allow-same-origin allow-forms allow-clipboard-write allow-clipboard-read"
         />
       </div>
@@ -147,9 +147,9 @@ const backdropStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'stretch',
   justifyContent: 'stretch',
-  // 2026-04-26: safe-area-inset fuer iOS-PWA-Notch.
-  // Vorher: clamp(12px,...) — Header verschwand hinter der Notch,
-  // Close-Button war nicht erreichbar.
+  // 2026-04-26: safe-area-inset for the iOS PWA notch.
+  // Before: clamp(12px,...) — header disappeared behind the notch,
+  // close button was unreachable.
   paddingTop: 'max(env(safe-area-inset-top), clamp(12px, 3vw, 28px))',
   paddingRight: 'max(env(safe-area-inset-right), clamp(12px, 3vw, 28px))',
   paddingBottom: 'max(env(safe-area-inset-bottom), clamp(12px, 3vw, 28px))',
@@ -201,7 +201,7 @@ const closeBtnStyle: CSSProperties = {
   border: '0.5px solid var(--line-2)',
   color: 'var(--ink-2)',
   cursor: 'pointer',
-  // Min 44×44 fuer iOS-Tap-Target (Apple HIG)
+  // Min 44×44 for the iOS tap target (Apple HIG)
   minWidth: 44,
   minHeight: 44,
   padding: 8,

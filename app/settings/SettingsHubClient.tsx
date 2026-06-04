@@ -248,10 +248,10 @@ export default function SettingsHubClient({
       statusText: `${enginesReady} / 3 verfügbar`,
     };
 
-    // GitHub-optional direktive 2026-05-23: GitHub ist NIE im "setup"-State
-    // (= amber/required Signal). Nicht-verbunden = neutraler "off"-Pill mit
-    // Text "Optional", damit User nie das Gefühl haben sie MÜSSEN GitHub
-    // verbinden.
+    // GitHub-optional directive 2026-05-23: GitHub is NEVER in the "setup" state
+    // (= amber/required signal). Not-connected = neutral "off" pill with
+    // the text "Optional", so users never feel they MUST connect
+    // GitHub.
     const gh: SectionMeta = {
       id: "github",
       label: "GitHub",
@@ -401,7 +401,7 @@ export default function SettingsHubClient({
           </div>
         </SectionCard>
 
-        {/* System-Berechtigungen — Permission-Broker (OSS fragt Rechte selbst an) */}
+        {/* System permissions — permission broker (OSS requests rights itself) */}
         <SystemPermissionsCard />
 
         {/* 2. ENGINES */}

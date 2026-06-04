@@ -1,20 +1,20 @@
 /**
  * POST /api/workstreams/[id]/restart
  *
- * Recovery-Affordanz (2026-05-25) — leichtgewichtiger Endpunkt der nach einem
- * Recovery-Sweep einen stuck Workstream wieder in Gang setzt.
+ * Recovery affordance (2026-05-25) — lightweight endpoint that, after a
+ * recovery sweep, sets a stuck workstream going again.
  *
- * Delegiert direkt an die bestehende Resume-Logik (tier-orchestrator →
- * runIterateResume). Der Unterschied zu /resume: dieser Endpunkt ist explizit
- * für den Recovery-Flow gedacht und akzeptiert NUR status='stuck'. Er ist der
- * Aktions-Endpunkt den der Deep-Link in der Recovery-Status-Card anspricht.
+ * Delegates directly to the existing resume logic (tier-orchestrator →
+ * runIterateResume). The difference from /resume: this endpoint is explicitly
+ * meant for the recovery flow and accepts ONLY status='stuck'. It is the
+ * action endpoint that the deep link in the recovery status card targets.
  *
- * Sicherheit: requireAuth + canEditWorkspaceContent (identisch zu /resume).
+ * Security: requireAuth + canEditWorkspaceContent (identical to /resume).
  *
- * NICHT destruktiv: setzt den Run neu auf, löscht KEINE Daten.
- * NIE blind auto-spawn ohne User-Aktion — dieser Endpunkt wird NUR durch
- * explizite User-Aktion (Click / Re-Prompt) aufgerufen, NICHT automatisch
- * vom Recovery-Sweep (der stuck-markt und notifiziert nur, R3-sicher).
+ * NOT destructive: re-sets up the run, deletes NO data.
+ * NEVER blindly auto-spawn without user action — this endpoint is called ONLY by
+ * explicit user action (click / re-prompt), NOT automatically
+ * by the recovery sweep (which only marks stuck and notifies, R3-safe).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -63,10 +63,10 @@ export async function POST(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // Restart ist nur für stuck sinnvoll. Frühe Diagnose-Antwort bei
-  // offensichtlich falschem State (active/paused) — bessere Fehlermeldung.
-  // Der eigentliche Race-Schutz ist aber das atomare Claim-UPDATE unten,
-  // NICHT diese SELECT-Prüfung (Critic-Fix #3).
+  // Restart only makes sense for stuck. Early diagnostic response on an
+  // obviously wrong state (active/paused) — better error message.
+  // The actual race protection, however, is the atomic claim UPDATE below,
+  // NOT this SELECT check (Critic-Fix #3).
   if (ws.status !== 'stuck') {
     return NextResponse.json(
       {
@@ -80,12 +80,12 @@ export async function POST(
     );
   }
 
-  // Critic-Fix #3 — Doppel-Spawn-Race: optimistisches Claim-UPDATE.
-  // Zwei schnelle Klicks → zwei parallele Requests. Beide haben oben
-  // status='stuck' gelesen, würden beide spawnen. Lösung: der Übergang
-  // stuck→active ist der atomare Claim. Nur der Request der die Row
-  // tatsächlich verändert (changes>0) darf spawnen. Der zweite bekommt
-  // changes===0 → 409, KEIN zweiter Spawn.
+  // Critic-Fix #3 — double-spawn race: optimistic claim UPDATE.
+  // Two fast clicks → two parallel requests. Both read status='stuck'
+  // above and would both spawn. Solution: the transition
+  // stuck→active is the atomic claim. Only the request that actually
+  // changes the row (changes>0) may spawn. The second gets
+  // changes===0 → 409, NO second spawn.
   const now = Date.now();
   const claim = db.$raw
     .prepare(
@@ -96,8 +96,8 @@ export async function POST(
     .run(now, workstreamId);
 
   if ((claim as { changes?: number }).changes === 0) {
-    // Ein anderer Request war schneller (oder der Status hat sich zwischen
-    // SELECT und UPDATE geändert). Kein Spawn — der Gewinner-Request läuft.
+    // Another request was faster (or the status changed between
+    // SELECT and UPDATE). No spawn — the winning request is running.
     return NextResponse.json(
       {
         error: 'already-claimed',
@@ -110,9 +110,9 @@ export async function POST(
   }
 
   if (!ws.primary_ticket_id) {
-    // Claim erfolgreich (status ist jetzt 'active'), aber ohne Master-Ticket
-    // kann runIterateResume nicht spawnen. Status bleibt 'active' damit der
-    // User manuell per Chat-Prompt fortsetzen kann.
+    // Claim successful (status is now 'active'), but without a master ticket
+    // runIterateResume cannot spawn. Status stays 'active' so the
+    // user can continue manually via a chat prompt.
     writeDecision({
       workspaceId: ws.workspace_id,
       workstreamId,
@@ -132,7 +132,7 @@ export async function POST(
     });
   }
 
-  // N8: Trace vor dem Spawn.
+  // N8: trace before the spawn.
   writeDecision({
     workspaceId: ws.workspace_id,
     workstreamId,
@@ -144,8 +144,8 @@ export async function POST(
     actor: 'user',
   });
 
-  // Delegate an bestehende Resume-Logik. Der Run ist bereits 'active' geclaimt,
-  // ein paralleler Restart kann nicht mehr durchkommen.
+  // Delegate to the existing resume logic. The run is already claimed 'active',
+  // a parallel restart can no longer get through.
   try {
     const { runIterateResume } = await import('@/server/agents/tier-orchestrator');
     const result = await runIterateResume(workstreamId);

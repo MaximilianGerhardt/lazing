@@ -158,7 +158,7 @@ export function CredentialRequestCard({
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          // SECURITY: kein secret in URL, Logs oder Headers. Nur im POST-Body.
+          // SECURITY: no secret in the URL, logs or headers. Only in the POST body.
           body: JSON.stringify({
             secret,
             scopeKind,
@@ -180,10 +180,10 @@ export function CredentialRequestCard({
       const body = (await res.json()) as { ok?: boolean; masked?: string };
       setMasked(body.masked ?? null);
       setDone(true);
-      // Secret sofort aus State löschen (kein Leak in Re-Render).
+      // Delete the secret from state immediately (no leak in re-render).
       setSecret('');
 
-      // SECURITY: wir schreiben NICHT den Klartext in reply(). Nur neutraler Hinweis.
+      // SECURITY: we do NOT write the plaintext into reply(). Only a neutral hint.
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -240,7 +240,7 @@ export function CredentialRequestCard({
     );
   }
 
-  // Gemeinsamer Header (Provider + Capability + warum).
+  // Shared header (provider + capability + why).
   const header = (
     <>
       <div className="srf-cred__title">
@@ -301,7 +301,7 @@ export function CredentialRequestCard({
     );
   }
 
-  // ── 'oauth' — OAuth-Flow (mit ehrlichem Backend-pending-Fallback) ─────────────
+  // ── 'oauth' — OAuth flow (with an honest backend-pending fallback) ─────────────
   if (effectiveAuthKind === 'oauth' && !manualTokenMode) {
     return (
       <article
@@ -357,7 +357,7 @@ export function CredentialRequestCard({
     );
   }
 
-  // ── 'apikey' (default) ODER OAuth-Fallback (manualTokenMode) ─────────────────
+  // ── 'apikey' (default) OR OAuth fallback (manualTokenMode) ─────────────────
   const isOauthFallback = effectiveAuthKind === 'oauth' && manualTokenMode;
   const fieldLabel = isOauthFallback
     ? `OAuth-Token für ${provider}`
@@ -387,7 +387,7 @@ export function CredentialRequestCard({
 
       {linksRow}
 
-      {/* Optionale Plain-Text-Felder (baseUrl, version) — kein Secret */}
+      {/* Optional plain-text fields (baseUrl, version) — no secret */}
       {configFields && configFields.length > 0
         ? configFields.map((f) => (
             <div key={f.key} className="srf-cred__field">
@@ -411,7 +411,7 @@ export function CredentialRequestCard({
 
       {/*
        * SECURITY: type="password" → no echo in the DOM, no screenshot leak.
-       * autoComplete="new-password" → verhindert Browser-Autofill.
+       * autoComplete="new-password" → prevents browser autofill.
        */}
       <input
         type="password"

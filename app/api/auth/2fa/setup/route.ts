@@ -1,12 +1,12 @@
 /**
  * POST /api/auth/2fa/setup
  *
- * Schritt 1 des 2FA-Setups: Generiert Secret + QR-Data-URL.
- * Speichert NICHT — der User scannt den QR, gibt einen Verify-Code ein,
- * dann wird via /api/auth/2fa/setup/confirm das Secret persistiert.
+ * Step 1 of the 2FA setup: generates secret + QR data URL.
+ * Does NOT store — the user scans the QR, enters a verify code,
+ * then the secret is persisted via /api/auth/2fa/setup/confirm.
  *
- * Auth: User muss eingeloggt sein.
- * Rate-Limit: max 5 Setups pro Stunde pro User (gegen Spam).
+ * Auth: user must be logged in.
+ * Rate limit: max 5 setups per hour per user (against spam).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -45,10 +45,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   const otpauthUrl = buildOtpauthUrl({ secret, userEmail: user.email });
   const qrDataUrl = await buildQrDataUrl(otpauthUrl);
 
-  // ACHTUNG: Klartext-Secret wird einmalig zurückgegeben. Frontend muss es
-  // im Memory halten und im /confirm-Step zusammen mit dem ersten TOTP-Code
-  // zurückschicken. Nichts wird hier in DB persistiert — gegen Setup-
-  // Halbfertig-Geister-Secrets.
+  // ATTENTION: the plaintext secret is returned once. The frontend must
+  // keep it in memory and send it back in the /confirm step together with the
+  // first TOTP code. Nothing is persisted to the DB here — against
+  // half-finished ghost secrets from setup.
   return NextResponse.json({
     secret,
     otpauthUrl,

@@ -1,29 +1,28 @@
 #!/usr/bin/env tsx
 /**
- * Cleanup-Cron für Reasoning-Audit (Pattern 5 Welle 4, 2026-05-01).
+ * Cleanup cron for reasoning audit (Pattern 5 wave 4, 2026-05-01).
  *
- * Löscht alte Audit-Rows die nicht mehr forensik-relevant sind:
- *   - älter als --max-age-days (default 90)
+ * Deletes old audit rows that are no longer forensically relevant:
+ *   - older than --max-age-days (default 90)
  *   - verified_status IN ('ok', NULL)
- *   - parent_ticket_id verweist auf ein 'closed'-Event (Ticket abgeschlossen)
+ *   - parent_ticket_id refers to a 'closed' event (ticket finished)
  *
- * IMMER behalten (Forensik-Pflicht):
- *   - verified_status = 'drift'      → permanente Beweis-Spur
- *   - verified_status = 'fabricated'  → Halluzinations-Forensik
- *   - parent_ticket_id NULL ODER Ticket nicht in 'closed'-Events
+ * ALWAYS keep (forensics obligation):
+ *   - verified_status = 'drift'      → permanent evidence trail
+ *   - verified_status = 'fabricated'  → hallucination forensics
+ *   - parent_ticket_id NULL OR ticket not in 'closed' events
  *
- * Tickets sind event-sourced (keine `tickets`-Tabelle). 'closed'-Status
- * ergibt sich aus `events WHERE entity_type='ticket' AND event_type='closed'`.
+ * Tickets are event-sourced (no `tickets` table). The 'closed' status
+ * derives from `events WHERE entity_type='ticket' AND event_type='closed'`.
  *
- * Aufruf:
+ * Invocation:
  *   pnpm tsx scripts/cleanup-reasoning-audit.ts --dry-run
  *   pnpm tsx scripts/cleanup-reasoning-audit.ts --max-age-days=180
  *   pnpm tsx scripts/cleanup-reasoning-audit.ts --keep-flagged
  *
- * Single-Pass: kein Loop. Wird per systemd-timer wöchentlich Sonntag 04:00 UTC
- * getriggert.
+ * Single-pass: no loop. Triggered via systemd timer weekly on Sunday 04:00 UTC.
  *
- * Output: structured JSON-Summary auf stdout (für Log-Aggregation).
+ * Output: structured JSON summary on stdout (for log aggregation).
  */
 
 import { getDb } from "@/db/client";
@@ -60,8 +59,8 @@ function parseArgs(argv: readonly string[]): CliArgs {
     } else if (raw === "--dry-run") {
       out.dryRun = true;
     } else if (raw === "--keep-flagged") {
-      // no-op: drift/fabricated werden IMMER behalten. Flag existiert
-      // nur zur expliziten Dokumentation in Cron-Aufrufen.
+      // no-op: drift/fabricated are ALWAYS kept. The flag exists
+      // only for explicit documentation in cron invocations.
       out.keepFlagged = true;
     }
   }
@@ -73,23 +72,23 @@ export async function runCleanup(args: CliArgs): Promise<Summary> {
   const raw = db.$raw;
   const cutoffMs = Date.now() - args.maxAgeDays * 86_400_000;
 
-  // Total-before für Telemetrie.
+  // Total-before for telemetry.
   const totalBefore = (
     raw.prepare("SELECT COUNT(*) AS c FROM reasoning_audit").get() as {
       c: number;
     }
   ).c;
 
-  // Subquery: Welche parent_ticket_ids sind 'closed'?
-  // Tickets sind event-sourced. `events.event_type='closed' AND
-  // entity_type='ticket'` markiert Done.
+  // Subquery: which parent_ticket_ids are 'closed'?
+  // Tickets are event-sourced. `events.event_type='closed' AND
+  // entity_type='ticket'` marks done.
   const closedTicketSubquery = `
     SELECT entity_id FROM events
     WHERE entity_type = 'ticket' AND event_type = 'closed'
   `;
 
-  // Diagnostic-Counts vor DELETE — wir wollen wissen WARUM Rows behalten
-  // werden (Forensik-Audit der Cleanup-Logik selbst).
+  // Diagnostic counts before DELETE — we want to know WHY rows are kept
+  // (forensic audit of the cleanup logic itself).
   const driftRow = raw
     .prepare(
       `SELECT COUNT(*) AS c FROM reasoning_audit
@@ -103,9 +102,9 @@ export async function runCleanup(args: CliArgs): Promise<Summary> {
     )
     .get() as { c: number };
 
-  // Kandidaten die in den DELETE-Filter fallen würden, aber gerettet werden
-  // weil parent_ticket_id NULL ODER nicht in closed-Tickets.
-  // Wir zählen sie für Telemetrie — sie werden NICHT gelöscht.
+  // Candidates that would fall into the DELETE filter but are saved
+  // because parent_ticket_id is NULL OR not in closed tickets.
+  // We count them for telemetry — they are NOT deleted.
   const recentRow = raw
     .prepare(
       `SELECT COUNT(*) AS c FROM reasoning_audit
@@ -133,7 +132,7 @@ export async function runCleanup(args: CliArgs): Promise<Summary> {
     )
     .get(cutoffMs) as { c: number };
 
-  // Delete-Kandidaten zählen.
+  // Count delete candidates.
   const deleteCandidatesRow = raw
     .prepare(
       `SELECT COUNT(*) AS c FROM reasoning_audit
@@ -207,8 +206,8 @@ async function main(): Promise<void> {
           `(${summary.total_before} → ${summary.total_after})`,
       );
     }
-    // DB-Boot startet stuck-detector-Loop (setInterval). Sauberer Exit
-    // damit systemd-Service als Type=oneshot terminiert.
+    // DB boot starts the stuck-detector loop (setInterval). Clean exit
+    // so the systemd service terminates as Type=oneshot.
     process.exit(0);
   } catch (err) {
     console.error(
@@ -219,7 +218,7 @@ async function main(): Promise<void> {
   }
 }
 
-// Nur ausführen wenn direkt aufgerufen (nicht beim Test-Import).
+// Only run when invoked directly (not on a test import).
 const isMain =
   import.meta.url === `file://${process.argv[1]}` ||
   process.argv[1]?.endsWith("cleanup-reasoning-audit.ts");

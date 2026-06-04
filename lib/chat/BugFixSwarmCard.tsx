@@ -3,26 +3,26 @@
 /**
  * BugFixSwarmCard — Sprint H (2026-04-30).
  *
- * User-Beschwerde 2026-04-30 (verbatim):
+ * User complaint 2026-04-30 (verbatim):
  *   „Bug rein, der labert da rum, statt selber zu fixen... Auch hier hätte
  *   ich mir eine Swarming-Analyse gewünscht — 2-3 Modelle wenn die nichts
  *   finden oder konsens haben weiter. Aber auch am besten parallel."
  *
- * Phasen-Visualisierung:
- *   1. Diagnose      — 3 Avatars parallel (senior-dev + code-reviewer + critic)
- *                      mit Live-Status-Pill (running/done/failed). Jede
- *                      Diagnose collapsible: Hypothesis + File:Line + Reproducer.
- *   2. Konsens       — Pill „Konsens" oder „Disagreement". Bei Disagreement:
- *                      die 3 Hypothesen als QuickChoice-Buttons.
- *   3. Fix           — Live-Status („senior-dev fixt …" → „committed: SHA").
- *   4. Root-Cause    — collapsible Section: „Was war es? / Was hat es gebrochen?
+ * Phase visualization:
+ *   1. Diagnose      — 3 avatars in parallel (senior-dev + code-reviewer + critic)
+ *                      with a live status pill (running/done/failed). Each
+ *                      diagnosis collapsible: hypothesis + file:line + reproducer.
+ *   2. Konsens       — pill „Konsens" or „Disagreement". On disagreement:
+ *                      the 3 hypotheses as QuickChoice buttons.
+ *   3. Fix           — live status („senior-dev fixt …" → „committed: SHA").
+ *   4. Root-Cause    — collapsible section: „Was war es? / Was hat es gebrochen?
  *                      / Wie verhindern wir das?".
  *
- * Polling: /api/bugs/swarm/[id] alle 2s während running, dann 30s.
+ * Polling: /api/bugs/swarm/[id] every 2s while running, then 30s.
  *
- * Welle 4.4 (2026-05-01): Inline-Styles → CSS-Klassen `.srf-bugfix__*` (Token-bind).
- *   Dynamische Pill-Akzente via [data-phase] / [data-status] auf den Pills,
- *   --pill-accent als CSS-Custom-Prop.
+ * Wave 4.4 (2026-05-01): inline styles → CSS classes `.srf-bugfix__*` (token-bind).
+ *   Dynamic pill accents via [data-phase] / [data-status] on the pills,
+ *   --pill-accent as a CSS custom prop.
  */
 
 import {
@@ -53,9 +53,9 @@ type Phase =
 type Status = 'pending' | 'running' | 'done' | 'failed';
 
 /**
- * Phase 5.5 Sweep-Daten für UI (Sprint H+ · 2026-05-03).
- * Backend-Shape spiegelt SweepResult aus lib/agents/pattern-sweep.ts —
- * UI-Card zeigt Aggregate, keine Detail-Listen.
+ * Phase 5.5 sweep data for the UI (Sprint H+ · 2026-05-03).
+ * Backend shape mirrors SweepResult from lib/agents/pattern-sweep.ts —
+ * the UI card shows aggregates, no detail lists.
  */
 interface SweepShape {
   status: Status;
@@ -63,7 +63,7 @@ interface SweepShape {
   callerCount: number;
   highRiskCallerCount: number;
   suggestedTestCount: number;
-  /** Wenn re-plan getriggert wurde, hier ist die Anzahl. */
+  /** If a re-plan was triggered, here is the count. */
   replanCount?: number;
 }
 
@@ -98,7 +98,7 @@ interface SwarmStatusShape {
   fixCommitSha?: string;
   fixSummary?: string;
   fixStatus?: Status;
-  /** Phase 5.5 — Pattern-Sweep + Caller-Graph (Sprint H+ · 2026-05-03). */
+  /** Phase 5.5 — pattern sweep + caller graph (Sprint H+ · 2026-05-03). */
   sweep?: SweepShape;
   rootCause?: RootCauseShape;
   startedAt?: number;
@@ -145,7 +145,7 @@ function BugFixSwarmCardImpl({
   });
   const [openRootCause, setOpenRootCause] = useState(false);
 
-  // Polling: 2s während running, 30s sonst.
+  // Polling: 2s while running, 30s otherwise.
   useEffect(() => {
     let cancelled = false;
     let timer: number | null = null;
@@ -175,8 +175,8 @@ function BugFixSwarmCardImpl({
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-    // state.phase als Dep wäre instabil — wir nutzen den Wert beim Schedule
-    // und akzeptieren bis zu 30s Latenz beim Phasenwechsel.
+    // state.phase as a dep would be unstable — we use the value at schedule time
+    // and accept up to 30s latency on a phase change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swarmId]);
 
@@ -186,9 +186,9 @@ function BugFixSwarmCardImpl({
 
   const handleHypothesisChoice = useCallback(
     (id: string, label: string) => {
-      // Bei Disagreement: User wählt eine der 3 Hypothesen → Server triggert
-      // Fix-Spawn auf Basis dieser Wahl. Wir reden via reply() in den Chat,
-      // damit die Wahl im Verlauf sichtbar ist.
+      // On disagreement: the user picks one of the 3 hypotheses → the server
+      // triggers the fix spawn based on that choice. We speak into the chat via
+      // reply() so the choice is visible in the history.
       reply(`Bug-Swarm: weiter mit Hypothese ${label}`);
       void fetch(`/api/bugs/swarm/${encodeURIComponent(swarmId)}/resolve`, {
         method: 'POST',
@@ -226,7 +226,7 @@ function BugFixSwarmCardImpl({
       <PhaseStepper steps={stepperSteps} />
 
 
-      {/* Phase 1: Diagnose */}
+      {/* Phase 1: diagnosis */}
       <div className="srf-bugfix__section">
         <div className="srf-bugfix__section-header">1. Diagnose</div>
         <div className="srf-bugfix__diag-grid">
@@ -241,7 +241,7 @@ function BugFixSwarmCardImpl({
         </div>
       </div>
 
-      {/* Phase 2: Konsens */}
+      {/* Phase 2: consensus */}
       {(state.phase === 'consensus' ||
         state.phase === 'disagreement' ||
         state.phase === 'fix' ||
@@ -286,7 +286,7 @@ function BugFixSwarmCardImpl({
         </div>
       )}
 
-      {/* Phase 2.5: Sweep + Caller-Graph (Sprint H+ · 2026-05-03) */}
+      {/* Phase 2.5: sweep + caller graph (Sprint H+ · 2026-05-03) */}
       {state.sweep &&
         (state.phase === 'sweep' ||
           state.phase === 'fix' ||
@@ -577,12 +577,12 @@ function phaseLabel(p: Phase): string {
 }
 
 /**
- * SweepSection — Phase 5.5 Visualisierung.
+ * SweepSection — Phase 5.5 visualization.
  *
- * Display-Logik (per User-Wunsch 2026-05-03):
- *   - 0 patternMatches + 0 high-risk-Caller -> grüner Check, "kein zusätzliches Risiko"
- *   - patternMatches > 0 -> "X potenzielle Pattern-Wiederholungen — werden im selben Fix mitgenommen"
- *   - high-risk Caller > 0 -> orange Warning "Y Caller könnten brechen — Re-Plan"
+ * Display logic (per user request 2026-05-03):
+ *   - 0 patternMatches + 0 high-risk callers -> green check, "no additional risk"
+ *   - patternMatches > 0 -> "X potential pattern repetitions — co-fixed in the same fix"
+ *   - high-risk callers > 0 -> orange warning "Y callers could break — re-plan"
  */
 function SweepSection({ sweep }: { sweep: SweepShape }): ReactElement {
   const noRisk =
@@ -641,11 +641,11 @@ function SweepSection({ sweep }: { sweep: SweepShape }): ReactElement {
 }
 
 // ---------------------------------------------------------------------------
-// Phase-Stepper (Welle 5 lib/ui/pip · 2026-05-01)
-// 8-Phasen-Pipeline-Visualisierung. Mappt das bestehende 4-Phasen-State
-// (diagnose/consensus/fix/rootcause) auf die granulareren 8 Phasen der
-// neuen Bug-Fix-Pipeline. Backwards-compat: bei alten Bug-Swarms ohne
-// Pipeline-Daten zeigen wir nur die ersten 4 Steps.
+// Phase stepper (Wave 5 lib/ui/pip · 2026-05-01)
+// 8-phase pipeline visualization. Maps the existing 4-phase state
+// (diagnose/consensus/fix/rootcause) onto the more granular 8 phases of the
+// new bug-fix pipeline. Backwards-compat: for old bug swarms without
+// pipeline data we only show the first 4 steps.
 // ---------------------------------------------------------------------------
 
 const STEPPER_PHASES = [
@@ -671,23 +671,23 @@ interface StepperStep {
 }
 
 /**
- * Mappt das bestehende 4-Phasen-State auf die 8-Phasen-Pipeline.
- * Alle Steps vor der aktuellen Phase werden als 'done' markiert,
- * die aktuelle als 'running', alle danach als 'pending'.
+ * Maps the existing 4-phase state onto the 8-phase pipeline.
+ * All steps before the current phase are marked 'done',
+ * the current one 'running', everything after 'pending'.
  *
- * Failure: alle bisherigen done bleiben done, aktuelle wird failed.
- * Disagreement: critic ist der Decision-Point → critic=running.
+ * Failure: all previously done steps stay done, the current one becomes failed.
+ * Disagreement: critic is the decision point → critic=running.
  */
 export function buildStepperSteps(currentPhase: Phase): StepperStep[] {
-  // Mapping vom alten 4-Phasen-Modell auf den 8-Phasen-Stepper.
-  // diagnose       → analyze + hypothesize laufen
-  // consensus      → plan ist done, critic ist running
-  // disagreement   → plan done, critic blocking auf User-Wahl
-  // fix            → fix läuft, critic done
-  // rootcause      → verify läuft (root-cause = post-fix-analyse, mappt
-  //                   am ehesten auf verify in der neuen Taxonomie)
+  // Mapping from the old 4-phase model onto the 8-phase stepper.
+  // diagnose       → analyze + hypothesize running
+  // consensus      → plan is done, critic is running
+  // disagreement   → plan done, critic blocking on the user choice
+  // fix            → fix running, critic done
+  // rootcause      → verify running (root-cause = post-fix analysis, maps
+  //                   most closely to verify in the new taxonomy)
   // done           → audit done
-  // failed         → letzter aktiver Step failed
+  // failed         → last active step failed
 
   const phaseToActiveStep: Record<Phase, StepKey | 'done-all'> = {
     diagnose: 'hypothesize',
@@ -697,13 +697,13 @@ export function buildStepperSteps(currentPhase: Phase): StepperStep[] {
     fix: 'fix',
     rootcause: 'verify',
     done: 'done-all',
-    failed: 'audit', // letzter Step wird unten markiert
+    failed: 'audit', // last step is marked below
   };
 
   const activeStep = phaseToActiveStep[currentPhase];
   const failed = currentPhase === 'failed';
 
-  // detect ist immer done (sonst wäre die Card nicht da).
+  // detect is always done (otherwise the card would not be here).
   return STEPPER_PHASES.map((s, idx) => {
     if (activeStep === 'done-all') {
       return { ...s, status: 'done' as StepStatus };
@@ -746,22 +746,22 @@ function IconCross({ size = 12 }: { size?: number }): ReactElement {
 }
 
 function PhaseStepper({ steps }: { steps: ReadonlyArray<StepperStep> }): ReactElement {
-  // Mobile-Fix 2026-05-28: Owner-Direktive „Swarm Übersicht mobil gebrochen".
-  // Auf ≤ 640px wird der Stepper zu einem horizontalen Scroll-Snap-Row. Damit
-  // die laufende Phase sichtbar bleibt, scrollen wir das aktive Chip nach jeder
-  // Status-Änderung sanft in den View. Auf Desktop ist das ein No-Op weil
-  // overflow:visible ist (scrollIntoView wirkt nur auf scroll-Container).
+  // Mobile fix 2026-05-28: owner directive „Swarm Übersicht mobil gebrochen".
+  // At ≤ 640px the stepper becomes a horizontal scroll-snap row. So that
+  // the running phase stays visible, we gently scroll the active chip into
+  // view after every status change. On desktop this is a no-op because
+  // overflow:visible (scrollIntoView only affects scroll containers).
   const stepperRef = useRef<HTMLDivElement | null>(null);
   const activeIdx = steps.findIndex((s) => s.status === 'running');
   useEffect(() => {
     if (activeIdx < 0) return;
     const container = stepperRef.current;
     if (!container) return;
-    // Nur scrollen wenn der Container überhaupt scrollbar ist (= Mobile).
+    // Only scroll if the container is scrollable at all (= mobile).
     if (container.scrollWidth <= container.clientWidth) return;
     const child = container.children[activeIdx] as HTMLElement | undefined;
     if (!child) return;
-    // Sanftes Scroll-into-View — Inline:center stoppt am Snap-Point.
+    // Gentle scroll into view — inline:center stops at the snap point.
     try {
       child.scrollIntoView({
         behavior: 'smooth',
@@ -769,7 +769,7 @@ function PhaseStepper({ steps }: { steps: ReadonlyArray<StepperStep> }): ReactEl
         block: 'nearest',
       });
     } catch {
-      // Ältere Engines fallen still zurück.
+      // Older engines fall back silently.
     }
   }, [activeIdx]);
 

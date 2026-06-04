@@ -169,7 +169,7 @@ export function ConnectorCallPreviewCard({
         <code className="srf-cred__code">{payload.capability}</code>
       </div>
 
-      {/* Endpoint / MCP-Tool */}
+      {/* Endpoint / MCP tool */}
       {payload.baseUrl || payload.mcpTool ? (
         <p className="srf-cred__meta">
           {payload.baseUrl ? (
@@ -189,7 +189,7 @@ export function ConnectorCallPreviewCard({
         </p>
       ) : null}
 
-      {/* Payload-Keys (keine Werte) */}
+      {/* Payload keys (no values) */}
       {Object.keys(payload.payloadSummary).length > 0 ? (
         <p className="srf-cred__meta">
           Payload-Keys:{' '}
@@ -201,7 +201,7 @@ export function ConnectorCallPreviewCard({
         </p>
       ) : null}
 
-      {/* Credential-Scope + maskierter Wert — KEIN Secret */}
+      {/* Credential scope + masked value — NO secret */}
       <p className="srf-cred__meta">
         Credential:{' '}
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
@@ -210,12 +210,12 @@ export function ConnectorCallPreviewCard({
         </span>
       </p>
 
-      {/* Auth-Kind */}
+      {/* Auth kind */}
       <p className="srf-cred__meta" style={{ color: 'var(--ink-3)', fontSize: 12 }}>
         Auth: {payload.authKind} · Trust: {payload.currentTrust}
       </p>
 
-      {/* DryRun-Hinweis */}
+      {/* DryRun hint */}
       {isDryRun ? (
         <p
           className="srf-cred__desc"
@@ -225,7 +225,7 @@ export function ConnectorCallPreviewCard({
         </p>
       ) : null}
 
-      {/* Fehleranzeige */}
+      {/* Error display */}
       {state === 'error' && errorMsg ? (
         <div className="srf-cred__error" role="alert">
           {errorMsg}

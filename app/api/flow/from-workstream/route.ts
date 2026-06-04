@@ -5,16 +5,16 @@
  *
  * Body: { workstreamId: string, workspaceId: string, name?: string }
  *
- * Liest die root-Plan-Steps eines (gelaufenen oder laufenden) Workstreams und
- * kompiliert sie via lib/flow/from-workstream.ts ZURÜCK in ein neues
- * flow_template + flow_steps (depends_on 1:1, Tool/Skill aus der
- * `| flow:`-rationale-Annotation rekonstruiert). Gibt {flowId} zurück →
- * wiederholbar via dem bestehenden POST /api/flow/[flowId]/run.
+ * Reads the root plan steps of a (finished or running) workstream and
+ * compiles them via lib/flow/from-workstream.ts BACK into a new
+ * flow_template + flow_steps (depends_on 1:1, tool/skill reconstructed from the
+ * `| flow:` rationale annotation). Returns {flowId} →
+ * repeatable via the existing POST /api/flow/[flowId]/run.
  *
- * Auth: Workspace-Member (Subject-Gate kopiert aus
- *   app/api/flow/compose-and-run/route.ts — 401 → 403). KEIN cross-scope.
+ * Auth: workspace member (subject gate copied from
+ *   app/api/flow/compose-and-run/route.ts — 401 → 403). NO cross-scope.
  *
- * ADDITIV: keine bestehende Route berührt, kein next build/start, :4200 bleibt.
+ * ADDITIVE: no existing route touched, no next build/start, :4200 stays.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -44,13 +44,13 @@ function isValidWorkspaceId(id: string): boolean {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
-  // 1. Auth-Gate (member-or-higher) — Vorlage compose-and-run/route.ts.
+  // 1. Auth gate (member-or-higher) — template compose-and-run/route.ts.
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: "auth-required" }, { status: 401 });
   }
 
-  // 2. Body parsen.
+  // 2. Parse body.
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     typeof body.workstreamId === "string" ? body.workstreamId : "";
   const workspaceId =
     typeof body.workspaceId === "string" ? body.workspaceId : "";
-  // name ist optional; verbatim (N1) durchgereicht, sonst undefined → Fallback.
+  // name is optional; passed through verbatim (N1), otherwise undefined → fallback.
   const name = typeof body.name === "string" ? body.name : undefined;
 
   if (workstreamId.trim().length === 0) {
@@ -78,21 +78,21 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 3. Workspace-Permission (member-or-higher; Viewer/fremde User → 403).
+  // 3. Workspace permission (member-or-higher; viewer/foreign user → 403).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  // 4. Rück-Kompilieren → flow_template + flow_steps. {flowId} zurück.
+  // 4. Back-compile → flow_template + flow_steps. Return {flowId}.
   try {
     const result = compileWorkstreamToFlow(getDb().$raw, {
       workstreamId,
       workspaceId,
       ...(name !== undefined ? { name } : {}),
     });
-    // Auto-Param-Extraktion (Slice 2b-3, fail-soft): aus den erfassten Läufen
-    // dieser Struktur die variablen Werte als {{param.*}} ableiten + das frisch
-    // gespeicherte Template parametrisieren. Bricht den Save NIE.
+    // Auto param extraction (Slice 2b-3, fail-soft): derive the variable values
+    // as {{param.*}} from the captured runs of this structure + parametrize the
+    // freshly saved template. NEVER breaks the save.
     let params: { key: string; observed: string[] }[] = [];
     let paramsHeuristic = false;
     try {
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       params = ap.params.map((p) => ({ key: p.key, observed: p.observed }));
       paramsHeuristic = ap.heuristic;
     } catch {
-      /* Auto-Param ist Komfort, kein Pflicht-Schritt */
+      /* Auto-param is a convenience, not a required step */
     }
     return NextResponse.json(
       { flowId: result.flowId, stepCount: result.steps.length, params, paramsHeuristic },

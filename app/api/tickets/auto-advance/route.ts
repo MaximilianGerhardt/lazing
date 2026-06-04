@@ -1,9 +1,9 @@
 /**
  * POST|GET /api/tickets/auto-advance
  *
- * Triggered by systemd-Timer (or manually) — läuft den Stale-Check
- * über alle offenen Tickets und markiert sie mit Tag 'stale' wenn
- * länger als N Tage keine Aktivität. Query-Param `?days=N` (default 14).
+ * Triggered by a systemd timer (or manually) — runs the stale check
+ * over all open tickets and marks them with the 'stale' tag if
+ * there has been no activity for more than N days. Query param `?days=N` (default 14).
  *
  * Auth (Bearer):
  *   - `Authorization: Bearer <LAZYOS_CRON_KEY>`   (cron preferred)

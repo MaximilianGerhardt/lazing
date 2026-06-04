@@ -3,24 +3,24 @@
  * personal-routine runner script.
  *
  * Differences:
- *   - Routine-Quelle: `routines`-Tabelle (yaml_config-Spalte) statt .yaml-File.
- *     Traversal-Guards entfallen; Zod-Validation bleibt.
+ *   - Routine source: the `routines` table (yaml_config column) instead of a .yaml file.
+ *     Traversal guards drop out; Zod validation stays.
  *   - Delivery:
- *       stdout            → stderr-Print (identisch)
+ *       stdout            → stderr print (identical)
  *       memory_write      → emitEvent(entityType='note', eventType='created',
- *                           payload={markdown, routineId}) — Event-Log ist
- *                           lazyOS' Memory-Äquivalent.
+ *                           payload={markdown, routineId}) — the event log is
+ *                           lazyOS' memory equivalent.
  *       ticket_create     → createTicket() in routine.workspaceId.
  *       push_send         → POST /api/push/send (Bearer LAZYOS_PUSH_SECRET).
  *       decision_request  → emitEvent(entityType='decision', eventType='approval_requested')
- *                           + push_send (so bekommt Max eine Notification UND
- *                           der Eintrag landet im Decision-Log).
- *   - Dedup: pro Run vor Delivery — prüft Events der letzten N Stunden auf
- *     passenden `dedupKey`-Marker im payload. Skippt wenn vorhanden.
- *   - Run-History: INSERT in `routine_runs` am Ende.
+ *                           + push_send (so the operator gets a notification AND
+ *                           the entry lands in the decision log).
+ *   - Dedup: per run before delivery — checks events of the last N hours for a
+ *     matching `dedupKey` marker in the payload. Skips if present.
+ *   - Run history: INSERT into `routine_runs` at the end.
  *
- * Kein Agent-Auto-Invocation (analog example-tool). `synthesize_via` landet im
- * Markdown-Header als Hinweis.
+ * No agent auto-invocation (like example-tool). `synthesize_via` lands in the
+ * markdown header as a hint.
  *
  * SAR-3 (Routine→Plan-Bridge, 2026-05-24):
  *   When action_kind='plan-dispatch' on the routines row (Migration 0099),
@@ -67,14 +67,14 @@ import { writeDecision } from "../workstreams/trace-repo";
 import { projectsRoot } from "../workspaces/projects-root";
 
 // ---------------------------------------------------------------------------
-// Konstanten
+// Constants
 // ---------------------------------------------------------------------------
 
-/** Pro Command timeboxed — analog example-tool. */
+/** Timeboxed per command — like example-tool. */
 const COMMAND_TIMEOUT_MS = 30_000;
 
 /**
- * stdout/stderr-Ceiling für Command-Output. 10 MB identisch zu example-tool.
+ * stdout/stderr ceiling for command output. 10 MB, identical to example-tool.
  */
 const MAX_BUFFER = 10 * 1024 * 1024;
 
@@ -116,12 +116,12 @@ export function validateYamlConfig(yamlString: string): NormalisedRoutine {
 // ---------------------------------------------------------------------------
 
 /**
- * Ruft einen Shell-Command im Workspace-Cwd auf. bash -c erlaubt Pipes
- * + variable Expansion wie example-tool. Shell-Injection-Surface akzeptabel, weil
- * YAML server-seitig authored ist (nicht User-Input aus dem Chat).
+ * Runs a shell command in the workspace cwd. bash -c allows pipes
+ * + variable expansion like example-tool. The shell-injection surface is acceptable because
+ * the YAML is authored server-side (not user input from the chat).
  *
- * Der Timebox verhindert, dass ein hängender Command den ganzen Tick blockt;
- * die kumulierte Tick-Laufzeit wird vom Aufrufer begrenzt.
+ * The timebox prevents a hanging command from blocking the whole tick;
+ * the cumulative tick runtime is bounded by the caller.
  */
 function runCommand(cmd: string, cwd: string): CommandResult {
   const startedAt = Date.now();
@@ -132,8 +132,8 @@ function runCommand(cmd: string, cwd: string): CommandResult {
     maxBuffer: MAX_BUFFER,
     env: {
       ...process.env,
-      // Defensiv: wir sind nicht example-tool, aber falls ein geschachtelter Hook
-      // das prüft — leer setzen. Harmless Passthrough sonst.
+      // Defensive: we are not example-tool, but in case a nested hook
+      // checks this — set it. Harmless passthrough otherwise.
       LAZYOS_ROUTINE_RUN: "1",
     },
   });
@@ -148,7 +148,7 @@ function runCommand(cmd: string, cwd: string): CommandResult {
 }
 
 // ---------------------------------------------------------------------------
-// Markdown-Rendering (identisch zu example-tool)
+// Markdown rendering (identical to example-tool)
 // ---------------------------------------------------------------------------
 
 function escapeFencedContent(s: string): string {
@@ -213,17 +213,17 @@ function renderMarkdown(
 }
 
 // ---------------------------------------------------------------------------
-// Dedup-Check
+// Dedup check
 // ---------------------------------------------------------------------------
 
 /**
- * Prüft, ob innerhalb `withinHours` ein Event mit payload.dedupKey === key
- * existiert. Genutzt für deadline-watch: dasselbe Ticket nicht öfter als
- * alle 12 h pushen.
+ * Checks whether an event with payload.dedupKey === key exists within
+ * `withinHours`. Used for deadline-watch: do not push the same ticket more often than
+ * every 12 h.
  *
- * Wir scannen die letzten `withinHours` Events im Workspace und parsen
- * payload (JSON-String in SQLite). Kein separater Index — bei 1-100
- * Events/Tag pro Workspace skaliert das problemlos.
+ * We scan the last `withinHours` events in the workspace and parse the
+ * payload (JSON string in SQLite). No separate index — for 1-100
+ * events/day per workspace this scales fine.
  */
 async function isDuplicateRecently(
   workspaceId: string,
@@ -303,13 +303,13 @@ interface PushResponse {
 }
 
 /**
- * Feuert einen Push via /api/push/send. Token-gated durch LAZYOS_PUSH_SECRET.
- * Im Runner laufen wir innerhalb desselben Node-Prozess, aber wir schlagen
- * über HTTP rein, weil der Push-Send-Handler die VAPID-Infra + Subscription-
- * Pflege kapselt — direktes in-process-Call würde die Abstraktion brechen.
+ * Fires a push via /api/push/send. Token-gated by LAZYOS_PUSH_SECRET.
+ * In the runner we run inside the same Node process, but we go in
+ * via HTTP because the push-send handler encapsulates the VAPID infra + subscription
+ * maintenance — a direct in-process call would break the abstraction.
  *
- * Fallback: wenn `LAZYOS_BASE_URL` nicht gesetzt ist, loggen wir nur und
- * geben einen synthetischen Ref zurück (Dev-Freundlichkeit).
+ * Fallback: if `LAZYOS_BASE_URL` is not set, we only log and
+ * return a synthetic ref (dev-friendliness).
  */
 async function deliverPushSend(
   routine: NormalisedRoutine,
@@ -327,9 +327,9 @@ async function deliverPushSend(
     return "no-secret";
   }
 
-  // Template-Variablen im Body füllen. Minimaler Scope für MVP:
-  //   {count}      → Anzahl erfolgreicher Collect-Commands (Proxy für Items)
-  //   {first_line} → Erste nicht-leere stdout-Zeile aller Commands
+  // Fill the template variables in the body. Minimal scope for the MVP:
+  //   {count}      → number of successful collect commands (proxy for items)
+  //   {first_line} → first non-empty stdout line of all commands
   const firstLine = markdown
     .split("\n")
     .find((l) => l.trim().length > 0 && !l.startsWith("#") && !l.startsWith("-"))
@@ -369,7 +369,7 @@ async function deliverDecisionRequest(
       `routine ${routine.id}: decision_request without push config`,
     );
   }
-  // 1) Decision-Event schreiben — Question aus push.title + body.
+  // 1) Write the decision event — question from push.title + body.
   const decisionId = `DEC-${ulid()}`;
   await emitEvent({
     segmentId: routine.workspaceId,
@@ -387,7 +387,7 @@ async function deliverDecisionRequest(
     },
     sensitivity: "medium",
   });
-  // 2) Push feuern (best-effort — Decision ist schon persisted).
+  // 2) Fire the push (best-effort — the decision is already persisted).
   try {
     await deliverPushSend(routine, markdown);
   } catch (err) {
@@ -420,10 +420,10 @@ function resolveWorkspaceCwd(workspaceId: string): string {
   // The default projects root is env-configurable (LAZYOS_PROJECTS_ROOT) and
   // falls back to a cross-platform home-dir path, never a hardcoded one.
   const candidate = resolve(projectsRoot(), workspaceId);
-  // Robustheit (2026-06-03): existiert der abgeleitete Pfad nicht (z.B. die
-  // Seed-Routinen mit workspace 'lazyos', für das es kein FS-Verzeichnis gibt),
-  // auf das Server-CWD (Repo-Root) ausweichen — sonst wirft spawnSync mit
-  // ENOENT und die Routine scheitert hart, bevor ein Command läuft.
+  // Robustness (2026-06-03): if the derived path does not exist (e.g. the
+  // seed routines with workspace 'lazyos', for which there is no FS directory),
+  // fall back to the server CWD (repo root) — otherwise spawnSync throws with
+  // ENOENT and the routine fails hard before a command runs.
   return existsSync(candidate) ? candidate : process.cwd();
 }
 
@@ -771,18 +771,18 @@ async function runPlanDispatch(
 // ---------------------------------------------------------------------------
 
 export interface ExecuteOptions {
-  /** Wenn gesetzt: überspringt den lastRunAt+nextRunAt-Update. Für event-getriggerte Runs. */
+  /** If set: skips the lastRunAt+nextRunAt update. For event-triggered runs. */
   skipScheduleUpdate?: boolean;
-  /** Optionaler Trigger-Marker (event-id, manual, cron) — landet im Run-Record. */
+  /** Optional trigger marker (event-id, manual, cron) — lands in the run record. */
   trigger?: "manual" | "cron" | "event";
 }
 
 /**
- * Lädt Routine aus DB, validiert YAML, führt aus, schreibt Run-Record,
- * und aktualisiert `last_run_at`/`next_run_at` (bei cron-Modus).
+ * Loads the routine from the DB, validates YAML, executes, writes the run record,
+ * and updates `last_run_at`/`next_run_at` (in cron mode).
  *
- * Wirft NICHT — alle Fehler landen als Run-Record mit status='failure'.
- * Der Aufrufer (Tick-Loop) darf auf 1-N Exceptions pro Batch NICHT reagieren.
+ * Does NOT throw — all errors land as a run record with status='failure'.
+ * The caller (tick loop) must NOT react to 1-N exceptions per batch.
  */
 export async function executeRoutine(
   routineId: string,
@@ -813,7 +813,7 @@ export async function executeRoutine(
     };
   }
 
-  // Insert running-marker row so the UI can show "läuft gerade".
+  // Insert a running-marker row so the UI can show "läuft gerade".
   db.insert(routineRuns)
     .values({
       id: runId,
@@ -910,7 +910,7 @@ export async function executeRoutine(
     const routine = validateYamlConfig(row.yamlConfig);
     const cwd = resolveWorkspaceCwd(routine.workspaceId);
 
-    // 1. Dedup-Check (wenn konfiguriert).
+    // 1. Dedup check (if configured).
     if (routine.dedup) {
       const dup = await isDuplicateRecently(
         routine.workspaceId,
@@ -1071,7 +1071,7 @@ async function updateSchedule(
 }
 
 // ---------------------------------------------------------------------------
-// Tick-Loop — von systemd-Timer oder API-Cronjob aufgerufen
+// Tick loop — called by a systemd timer or an API cron job
 // ---------------------------------------------------------------------------
 
 export interface TickResult {
@@ -1083,11 +1083,11 @@ export interface TickResult {
 }
 
 /**
- * Prüft alle aktiven Cron-Routinen und führt fällige (`next_run_at <= now`)
- * aus. Wird vom POST /api/routines/tick endpoint und/oder systemd-Timer
- * aufgerufen. Idempotent pro Tick (Lock nicht nötig für Single-Node MVP).
+ * Checks all active cron routines and runs the due ones (`next_run_at <= now`).
+ * Called by the POST /api/routines/tick endpoint and/or a systemd timer.
+ * Idempotent per tick (a lock is not needed for the single-node MVP).
  *
- * Hard-Cap: max. 10 Routines pro Tick, damit ein Backlog nicht alles blockt.
+ * Hard cap: max. 10 routines per tick so a backlog does not block everything.
  */
 export async function tick(now: number = Date.now()): Promise<TickResult> {
   const db = getDb();
@@ -1099,8 +1099,8 @@ export async function tick(now: number = Date.now()): Promise<TickResult> {
   const due = rows.filter((r) => r.nextRunAt !== null && r.nextRunAt <= now);
   const capped = due.slice(0, 10);
 
-  // Falls Cron-Routines noch kein nextRunAt haben (frisch angelegt),
-  // erstberechnen wir den jetzt — ohne sie sofort zu feuern.
+  // If cron routines do not yet have a nextRunAt (freshly created),
+  // we compute it now for the first time — without firing them immediately.
   const needsSchedule = rows.filter(
     (r) => r.cronExpr && r.nextRunAt === null,
   );
@@ -1129,7 +1129,7 @@ export async function tick(now: number = Date.now()): Promise<TickResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Event-Match-Helper (für heartbeat-stall etc.)
+// Event-match helper (for heartbeat-stall etc.)
 // ---------------------------------------------------------------------------
 
 export interface EventMatchCandidate {
@@ -1175,7 +1175,7 @@ export async function findEventTriggeredRoutines(
 }
 
 // ---------------------------------------------------------------------------
-// History-Helper (für API + UI)
+// History helper (for API + UI)
 // ---------------------------------------------------------------------------
 
 export async function getRunHistory(

@@ -104,7 +104,7 @@ export function SessionsList(): React.JSX.Element {
       groups.set(key, arr);
     }
     return Array.from(groups.entries()).sort((a, b) => {
-      // Aktuellen workspace zuerst, dann sortiert nach latest-activity
+      // Current workspace first, then sorted by latest activity
       if (a[0] === currentWorkspace.id) return -1;
       if (b[0] === currentWorkspace.id) return 1;
       const latestA = Math.max(...a[1].map((s) => s.lastActivity));
@@ -115,9 +115,9 @@ export function SessionsList(): React.JSX.Element {
 
   const handleResume = useCallback(
     async (session: SessionRow): Promise<void> => {
-      // Pseudo-Workspaces (`(root)`, `(tmp)`, `(home-dev)`) entsprechen keinem
-      // echten lazyOS-Workspace. In dem Fall resumen wir die Session in den
-      // gerade aktiven Workspace — Max landet im Chat genau dort.
+      // Pseudo-workspaces (`(root)`, `(tmp)`, `(home-dev)`) do not correspond to
+      // any real lazyOS workspace. In that case we resume the session into the
+      // currently active workspace — Max lands in the chat exactly there.
       const isPseudo =
         !session.workspaceId || session.workspaceId.startsWith('(');
       const targetWs = isPseudo ? currentWorkspace.id : session.workspaceId!;

@@ -3,27 +3,27 @@
 /**
  * LivePipeline — Phase WSC.1 (2026-04-26)
  *
- * Live-Card im Chat: zeigt Auto-Dispatch eines Masters mit allen
- * Sub-Tickets × 3 Stages (senior-dev → code-reviewer → critic).
+ * Live card in the chat: shows the auto-dispatch of a master with all
+ * sub-tickets × 3 stages (senior-dev → code-reviewer → critic).
  *
- * Ablauf:
- *   1. Auto-Dispatch-Spawner emittet 1× commented kind=auto-dispatch-overview
- *      am Master mit subTicketIds-Liste.
- *   2. event-to-surface mappt das auf <surface:live-pipeline>.
- *   3. ChatShell rendert die Card. Diese Component subscribiert auf
- *      useEventStream und reagiert auf:
- *        - commented kind=auto-dispatch-stage → markiert (sub, stage) als done
- *        - updated transition=auto_close_after_subs am Master → done-State
- *        - updated transition=auto_dispatch_failed → failed-State pro Sub
- *   4. Bei done-State: card zeigt "alle erledigt", Link zum Master.
+ * Flow:
+ *   1. The auto-dispatch spawner emits 1× commented kind=auto-dispatch-overview
+ *      on the master with a subTicketIds list.
+ *   2. event-to-surface maps that onto <surface:live-pipeline>.
+ *   3. ChatShell renders the card. This component subscribes to
+ *      useEventStream and reacts to:
+ *        - commented kind=auto-dispatch-stage → marks (sub, stage) as done
+ *        - updated transition=auto_close_after_subs on the master → done state
+ *        - updated transition=auto_dispatch_failed → failed state per sub
+ *   4. On the done state: the card shows "all done", link to the master.
  *
- * User sieht damit OHNE Master-Ticket-Click ob das System noch arbeitet
- * oder fertig ist. Direkt-Abfrage-Punkt: Bei einem 'critic'-Stage mit
- * @max-Mention im Output kann der User direkt im Chat antworten (Phase WSC.2).
+ * The user thus sees WITHOUT clicking the master ticket whether the system is
+ * still working or finished. Direct-query point: on a 'critic' stage with
+ * a @max mention in the output, the user can reply directly in the chat (Phase WSC.2).
  *
- * Welle 3.4 — Refactored: Inline-Styles → CSS-Klassen + Token-Bind.
- *   - 2px-Slider-Bug gefixt: → var(--radius-xs) (5px, bewusste Aufwertung)
- *   - 12px Card-Radius → var(--radius-md)
+ * Wave 3.4 — Refactored: inline styles → CSS classes + token bind.
+ *   - 2px slider bug fixed: → var(--radius-xs) (5px, deliberate upgrade)
+ *   - 12px card radius → var(--radius-md)
  */
 
 import { memo, useEffect, useState } from 'react';
@@ -69,8 +69,8 @@ function LivePipelineImpl({
   );
   const [allDone, setAllDone] = useState(false);
 
-  // Mount-Recovery: timeline der Sub-Tickets laden, vergangene
-  // auto-dispatch-stage-events anwenden.
+  // Mount recovery: load the timeline of the sub-tickets, apply past
+  // auto-dispatch-stage events.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -241,8 +241,8 @@ function DotIcon({ variant }: { variant: 'ok' | 'running' }) {
   return <span aria-hidden className={cls} />;
 }
 
-// Sub-Plan E (2026-04-30) — React.memo. subTickets ist Array — JSON.stringify
-// als Pragmatik (gleiche Begründung wie ConsensusActionCard).
+// Sub-Plan E (2026-04-30) — React.memo. subTickets is an array — JSON.stringify
+// as a pragmatic choice (same rationale as ConsensusActionCard).
 function livePipelinePropsEqual(prev: Props, next: Props): boolean {
   return (
     prev.workstreamId === next.workstreamId &&

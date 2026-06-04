@@ -1,7 +1,7 @@
 /**
- * DELETE /api/agents/profiles/[id] — Mitarbeiter-Profil archivieren (Soft-Delete).
+ * DELETE /api/agents/profiles/[id] — archive an employee profile (soft delete).
  *
- * Auth: eingeloggt; bei Workspace-Scope zusätzlich Membership.
+ * Auth: logged in; for workspace scope additionally membership.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -27,7 +27,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx): Promise<Response> {
   }
   const profile = getAgentProfile(id);
   if (!profile) return NextResponse.json({ error: 'not-found' }, { status: 404 });
-  // Workspace-scoptes Profil → Membership-Pflicht.
+  // Workspace-scoped profile → membership required.
   if (profile.workspaceId) {
     const role = getEffectiveWorkspaceRole(userId, profile.workspaceId);
     if (!canEditWorkspaceContent(role) || !hasRealWorkspaceMembership(userId, profile.workspaceId)) {

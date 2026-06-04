@@ -58,7 +58,7 @@ export function SystemPermissionsCard(): React.JSX.Element {
   const [copied, setCopied] = useState(false);
 
   const detect = useCallback(async () => {
-    // Benachrichtigungen
+    // Notifications
     if (typeof Notification !== 'undefined') {
       setNotif(
         Notification.permission === 'granted'

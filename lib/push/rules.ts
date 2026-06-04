@@ -1,21 +1,21 @@
 /**
- * Push-Rules — deklarativ.
+ * Push-Rules — declarative.
  *
- * Jede Regel hat:
- *   - id: stabil, im push_audit-Log sichtbar
- *   - when: Match-Predicate gegen ein LazyEvent
- *   - build: Notification-Body + URL
- *   - dedupKey: optionaler Schlüssel für Dedup (gleicher Key innerhalb
+ * Each rule has:
+ *   - id: stable, visible in the push_audit log
+ *   - when: match predicate against a LazyEvent
+ *   - build: notification body + URL
+ *   - dedupKey: optional key for dedup (same key within
  *               DEDUP_WINDOW_MS → skip). Default: `${ruleId}:${entityId}`.
- *   - rateLimit: per-rule Fenster+Max (zusätzlich zum Global-Cap).
- *   - stateful: optional, erlaubt der Regel einen internen Counter-State
- *               zu pflegen (z.B. "5 Errors in 5min"). Dafür gibt es eine
- *               separate countWindow-Helper-Function, die in-memory oder
- *               via dedup-Tabelle zählt.
+ *   - rateLimit: per-rule window+max (in addition to the global cap).
+ *   - stateful: optional, lets the rule maintain an internal counter state
+ *               (e.g. "5 errors in 5min"). For that there is a
+ *               separate countWindow helper function that counts in-memory or
+ *               via the dedup table.
  *
- * Neue Regeln: hier hinzufügen, tests in rules.test.ts erweitern.
- * Keine Regel darf `throw`en — Fehler im `when`/`build` werden vom
- * Trigger gefangen und als push_audit 'error'-Entry protokolliert.
+ * New rules: add here, extend tests in rules.test.ts.
+ * No rule may `throw` — errors in `when`/`build` are caught by the
+ * trigger and logged as a push_audit 'error' entry.
  */
 
 import type { LazyEvent } from "../events/types";
@@ -44,15 +44,15 @@ export function windowMsForRateLimit(rl: RuleRateLimit): number {
 }
 
 /**
- * Sub-Plan 03 — Pattern 4d: Priority-Floor pro Rule (2026-04-30).
+ * Sub-Plan 03 — Pattern 4d: Priority floor per rule (2026-04-30).
  *
- * Default-Priority pro Rule, konsistent mit dem User-Floor:
+ * Default priority per rule, consistent with the user floor:
  *   - 'p0' / 'p1' = deliver immediately (default)
- *   - 'p2' = digest-eligible (Sammel-Push 1×/h, in Sprint 1.1 implementiert)
+ *   - 'p2' = digest-eligible (batched push 1×/h, implemented in Sprint 1.1)
  *
- * Payload-Override (event.payload.pushPriority) ist möglich, aber nur
- * über Whitelist (siehe `resolvePriority`) — keine willkürliche
- * Eskalation durch Sub-Agents.
+ * A payload override (event.payload.pushPriority) is possible, but only
+ * via a whitelist (see `resolvePriority`) — no arbitrary
+ * escalation by sub-agents.
  */
 export type PushPriority = 'p0' | 'p1' | 'p2';
 
@@ -63,19 +63,19 @@ export interface PushRule {
   dedupKey?: (event: LazyEvent) => string;
   rateLimit?: RuleRateLimit;
   /**
-   * Sub-Plan 03 — Pattern 4d: Default-Priority der Rule. Falls nicht
-   * gesetzt, gilt 'p1' (Standard-Push). 'p2' = digest-eligible.
+   * Sub-Plan 03 — Pattern 4d: Default priority of the rule. If not
+   * set, 'p1' applies (standard push). 'p2' = digest-eligible.
    */
   priority?: PushPriority;
   /**
-   * Wenn gesetzt, wird die Regel nur ausgelöst wenn `countRecentEvents`
-   * einen Burst-Match meldet. Das ist unser Weg, "5 Errors in 5 Min" zu
-   * implementieren, ohne einen separaten Stateful-Agent zu bauen.
+   * When set, the rule is only triggered if `countRecentEvents`
+   * reports a burst match. This is our way to implement "5 errors in 5 min"
+   * without building a separate stateful agent.
    */
   burst?: {
     count: number;
     windowMs: number;
-    /** Key für den Burst-Counter (z.B. der Segment oder 'global'). */
+    /** Key for the burst counter (e.g. the segment or 'global'). */
     bucketKey: (event: LazyEvent) => string;
   };
 }
@@ -83,10 +83,10 @@ export interface PushRule {
 /**
  * Resolve final priority for a (rule, event)-pair.
  *
- * Whitelist-Logik:
- *   - Rule-default greift immer.
- *   - Event-payload kann SENKEN (nie eskalieren) — verhindert dass
- *     Sub-Agents stille Rules zu P0 aufmotzen.
+ * Whitelist logic:
+ *   - The rule default always applies.
+ *   - The event payload can LOWER (never escalate) — prevents
+ *     sub-agents from bumping quiet rules up to P0.
  */
 export function resolvePriority(rule: PushRule, event: LazyEvent): PushPriority {
   const ruleDefault: PushPriority = rule.priority ?? 'p1';
@@ -95,8 +95,8 @@ export function resolvePriority(rule: PushRule, event: LazyEvent): PushPriority 
       ? (event.payload['pushPriority'] as string).toLowerCase()
       : undefined;
   if (overrideRaw === 'p0' || overrideRaw === 'p1' || overrideRaw === 'p2') {
-    // Senkt bei höherer Default-Stufe (z.B. P0-Default + p2-Override = p2),
-    // lässt aber keine Eskalation zu (z.B. P2-Default + p0-Override = bleibt p2).
+    // Lowers when the default is higher (e.g. P0-default + p2-override = p2),
+    // but allows no escalation (e.g. P2-default + p0-override = stays p2).
     const order: Record<PushPriority, number> = { p0: 0, p1: 1, p2: 2 };
     return order[overrideRaw] >= order[ruleDefault] ? overrideRaw : ruleDefault;
   }
@@ -104,9 +104,9 @@ export function resolvePriority(rule: PushRule, event: LazyEvent): PushPriority 
 }
 
 /**
- * Sub-Plan 03 — Pattern 4d: Dedup-Key Suffix mit Priority.
- * P0 und P2 Pushes für gleiche Entity sollen NICHT denselben Dedup-Key
- * teilen — der P0 darf trotz P2-Vorgänger durchkommen.
+ * Sub-Plan 03 — Pattern 4d: Dedup-key suffix with priority.
+ * P0 and P2 pushes for the same entity should NOT share the same dedup key
+ * — the P0 may come through despite a P2 predecessor.
  */
 export function dedupKeyWithPriority(
   rule: PushRule,
@@ -119,7 +119,7 @@ export function dedupKeyWithPriority(
 }
 
 // ---------------------------------------------------------------------------
-// Helpers — typed payload-reads (LazyEvent.payload ist Record<string,unknown>)
+// Helpers — typed payload-reads (LazyEvent.payload is Record<string,unknown>)
 // ---------------------------------------------------------------------------
 
 function asStr(v: unknown): string | undefined {
@@ -141,10 +141,10 @@ function firstLine(s: string | undefined, max = 80): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Rule 1: neues P0-Ticket → sofortiger Push.
- * Event-Type 'ticket_created' wird von Stream C emittiert. Fallback
- * auf 'created' mit entityType='ticket' falls Stream C noch nicht auf
- * den neuen Event-Type gewechselt ist (defensive).
+ * Rule 1: new P0 ticket → immediate push.
+ * Event type 'ticket_created' is emitted by Stream C. Fallback
+ * to 'created' with entityType='ticket' in case Stream C has not yet switched
+ * to the new event type (defensive).
  */
 const ticketP0Created: PushRule = {
   id: "ticket-p0-created",
@@ -172,7 +172,7 @@ const ticketP0Created: PushRule = {
 };
 
 /**
- * Rule 2: Freigabe-Anfrage → Push (Max ist der Approver).
+ * Rule 2: approval request → push (the operator is the approver).
  */
 const approvalRequested: PushRule = {
   id: "approval-requested",
@@ -192,8 +192,8 @@ const approvalRequested: PushRule = {
 };
 
 /**
- * Rule 3: Workspace ist stale > 1h.
- * Event-Payload: { status: 'stale', lag_sec: number, workspaceId?: string }
+ * Rule 3: workspace is stale > 1h.
+ * Event payload: { status: 'stale', lag_sec: number, workspaceId?: string }
  */
 const workspaceStale: PushRule = {
   id: "workspace-stale",
@@ -216,14 +216,14 @@ const workspaceStale: PushRule = {
     };
   },
   dedupKey: (e) => `stale:${asStr(e.payload.workspaceId) ?? e.segmentId}`,
-  // Cap: max 1 stale-Push pro Workspace pro Tag — der grundsätzliche
-  // Dedup (5min) wäre zu eng, der Status wird minütlich emittiert.
+  // Cap: max 1 stale push per workspace per day — the basic
+  // dedup (5min) would be too tight, the status is emitted every minute.
   rateLimit: { per: "day", max: 1 },
   priority: 'p2',
 };
 
 /**
- * Rule 4: Error-Burst — 5 error_logged in 5 Min.
+ * Rule 4: error burst — 5 error_logged in 5 min.
  */
 const errorsBurst: PushRule = {
   id: "errors-burst",
@@ -245,8 +245,8 @@ const errorsBurst: PushRule = {
 };
 
 /**
- * Rule 5: Routine-Failure.
- * Event-Payload: { status: 'success' | 'failure', name?: string, routineId?: string }
+ * Rule 5: routine failure.
+ * Event payload: { status: 'success' | 'failure', name?: string, routineId?: string }
  */
 const routineFailed: PushRule = {
   id: "routine-failed",
@@ -270,8 +270,8 @@ const routineFailed: PushRule = {
 };
 
 /**
- * Rule 6: Phase AD · Master-Auto-Close nach allen Sub-Tickets done.
- * Event: updated mit transition='auto_close_after_subs'
+ * Rule 6: Phase AD · master auto-close after all sub-tickets done.
+ * Event: updated with transition='auto_close_after_subs'
  */
 const masterAutoClosed: PushRule = {
   id: "master-auto-closed",
@@ -295,8 +295,8 @@ const masterAutoClosed: PushRule = {
 };
 
 /**
- * Rule 7: Phase AD · Sub-Pipeline endgültig fehlgeschlagen (nach Retries).
- * Event: updated mit transition='auto_dispatch_failed'
+ * Rule 7: Phase AD · sub-pipeline finally failed (after retries).
+ * Event: updated with transition='auto_dispatch_failed'
  */
 const subDispatchFailed: PushRule = {
   id: "sub-dispatch-failed",
@@ -349,16 +349,16 @@ const sniperPauseStart: PushRule = {
       url: p.workstreamId
         ? `/workstreams/${encodeURIComponent(p.workstreamId)}`
         : "/workstreams",
-      // Tag pro Workstream — replace-Verhalten, keine Stacks bei
-      // mehreren Pausen im selben Workstream.
+      // Tag per workstream — replace behaviour, no stacks when there are
+      // multiple pauses in the same workstream.
       tag: `sniper-${p.workstreamId ?? e.entityId}`,
     };
   },
   dedupKey: (e) => {
     const p = (e.payload ?? {}) as { workstreamId?: string; after?: string };
-    // Pro Workstream + Phase ein Push (also nach Roast einer, nach V2
-    // einer, ...) — sonst würden alle 4 Pausen einen Push schicken,
-    // was zu viel ist.
+    // One push per workstream + phase (so one after Roast, one after V2,
+    // ...) — otherwise all 4 pauses would each send a push,
+    // which is too much.
     return `sniper-pause:${p.workstreamId ?? e.entityId}:${p.after ?? "roast"}`;
   },
   rateLimit: { per: "minute", max: 5 },
@@ -370,8 +370,8 @@ const sniperPauseStart: PushRule = {
 // ---------------------------------------------------------------------------
 
 /**
- * Rule (2026-04-29): Workstream-Stuck → Push. Stuck-Detector emittiert
- * `workstream-stuck`-Event wenn ein active-WS > 2 min keine neuen Events.
+ * Rule (2026-04-29): workstream stuck → push. The stuck detector emits
+ * a `workstream-stuck` event when an active WS has no new events for > 2 min.
  */
 const workstreamStuck: PushRule = {
   id: 'workstream-stuck',
@@ -396,8 +396,8 @@ const workstreamStuck: PushRule = {
 };
 
 /**
- * Rule (2026-04-29): Open-Questions im Plan → Push. Wenn V_n eine
- * `## Offene Fragen`-Section mit ≥ 1 Bullet hat, emit den Push-Trigger.
+ * Rule (2026-04-29): open questions in the plan → push. When V_n has an
+ * `## Offene Fragen` section with ≥ 1 bullet, emit the push trigger.
  */
 const planHasOpenQuestions: PushRule = {
   id: 'plan-open-questions',
@@ -428,12 +428,12 @@ const planHasOpenQuestions: PushRule = {
 // ---------------------------------------------------------------------------
 
 /**
- * Rule: Subplan wartet auf Freigabe (awaitingApproval:true).
- * Event: answer_required mit kind='approval'.
+ * Rule: subplan is awaiting approval (awaitingApproval:true).
+ * Event: answer_required with kind='approval'.
  *
- * Visibility-Gate greift im dispatchPushTriggers-Pfad NICHT automatisch
- * — muss der Emitter via isAnyClientVisible vorab prüfen (wie onChatMessageCompleted).
- * Hier: Dedup pro workstreamId + rateLimit verhindert Spam.
+ * The visibility gate does NOT apply automatically in the dispatchPushTriggers path
+ * — the emitter must check it up front via isAnyClientVisible (like onChatMessageCompleted).
+ * Here: dedup per workstreamId + rateLimit prevents spam.
  */
 const answerRequiredApproval: PushRule = {
   id: 'answer-required-approval',
@@ -457,8 +457,8 @@ const answerRequiredApproval: PushRule = {
 };
 
 /**
- * Rule: Connector-Call-Preview wartet auf Freigabe.
- * Event: answer_required mit kind='connector-preview'.
+ * Rule: connector-call preview is awaiting approval.
+ * Event: answer_required with kind='connector-preview'.
  */
 const answerRequiredConnectorPreview: PushRule = {
   id: 'answer-required-connector-preview',
@@ -482,10 +482,10 @@ const answerRequiredConnectorPreview: PushRule = {
 };
 
 /**
- * Rule: Offene Fragen in einer Chat-Antwort (Inline-Open-Questions-Card).
- * Wird via answer_required mit kind='open-questions' getriggert.
- * Emittiert von plan-dispatch / surface-emit sobald eine
- * Offene-Fragen-Section erkannt wird.
+ * Rule: open questions in a chat reply (inline open-questions card).
+ * Triggered via answer_required with kind='open-questions'.
+ * Emitted by plan-dispatch / surface-emit as soon as an
+ * open-questions section is detected.
  */
 const answerRequiredOpenQuestions: PushRule = {
   id: 'answer-required-open-questions',
@@ -509,12 +509,12 @@ const answerRequiredOpenQuestions: PushRule = {
 };
 
 /**
- * Rule (2026-05-25): Recovery-Sweep hat einen Workstream auf stuck gesetzt.
- * Event: answer_required mit kind='run-stuck'.
+ * Rule (2026-05-25): the recovery sweep set a workstream to stuck.
+ * Event: answer_required with kind='run-stuck'.
  *
- * Emittiert von lib/workstreams/recovery.ts via emitAnswerRequired.
- * Visibility-Gate greift bereits im emitAnswerRequired-Body (kein Push wenn
- * Tab sichtbar). Dedup pro Workstream-ID: max 1 stuck-Push alle 2h.
+ * Emitted by lib/workstreams/recovery.ts via emitAnswerRequired.
+ * The visibility gate already applies in the emitAnswerRequired body (no push when
+ * the tab is visible). Dedup per workstream ID: max 1 stuck push every 2h.
  */
 const runStuck: PushRule = {
   id: 'run-stuck',
@@ -533,16 +533,16 @@ const runStuck: PushRule = {
     };
   },
   dedupKey: (e) => `run-stuck:${e.entityId}`,
-  // Max 1 stuck-Push pro Workstream pro 2 Stunden — verhindert Spam wenn
-  // die Recovery mehrfach läuft bevor der User antwortet.
+  // Max 1 stuck push per workstream per 2 hours — prevents spam when
+  // the recovery runs multiple times before the user replies.
   rateLimit: { per: 'hour', max: 1 },
   priority: 'p1',
 };
 
 /**
- * Rule (P13, 2026-05-01): Synthesis nicht-falsifizierbar →
- * Devil's Advocate konnte keine Counter-Evidence finden, These ist
- * möglicherweise tautologisch. User soll aktiv re-formulieren.
+ * Rule (P13, 2026-05-01): synthesis non-falsifiable →
+ * the Devil's Advocate could find no counter-evidence, the thesis is
+ * possibly tautological. The user should actively re-formulate.
  */
 const synthesisUnfalsifiable: PushRule = {
   id: 'synthesis-unfalsifiable',
@@ -565,12 +565,12 @@ const synthesisUnfalsifiable: PushRule = {
 };
 
 /**
- * Rule (P2, 2026-06-02): Neue Kundennachricht in einem Workspace-Sub-Chat.
- * Event: subchat_message mit authorKind='external' (interne/system Nachrichten
- * lösen KEINEN Push aus — nur echte eingehende Kundennachrichten). Der Titel des
- * Sub-Chats kommt aus dem Payload (title). Dedup pro Sub-Chat: ein Push pro
- * Sub-Chat im Dedup-Fenster, damit eine schnelle Kunden-Nachrichtenfolge nicht
- * 10 Pushs erzeugt.
+ * Rule (P2, 2026-06-02): new customer message in a workspace sub-chat.
+ * Event: subchat_message with authorKind='external' (internal/system messages
+ * do NOT trigger a push — only genuine incoming customer messages). The title of
+ * the sub-chat comes from the payload (title). Dedup per sub-chat: one push per
+ * sub-chat in the dedup window, so a rapid sequence of customer messages does not
+ * produce 10 pushes.
  */
 const subchatExternalMessage: PushRule = {
   id: 'subchat-external-message',
@@ -586,10 +586,10 @@ const subchatExternalMessage: PushRule = {
     return {
       title: `Neue Kundennachricht in ${title}`,
       body: preview ? firstLine(preview, 100) : 'Neue Nachricht im Kundenchat',
-      // Deep-Link direkt in den Kundenchat-Thread (wie ein WhatsApp-Tap) — der
-      // Operator landet sofort im Gespräch zum Antworten. P1-Nav-Fix hält diese
-      // URL stabil (kein Redirect zu __org_root__). Frühere `/?workspace=`-URL
-      // wurde vom Home (liest `?ws=`) ignoriert → landete unscoped.
+      // Deep-link directly into the customer-chat thread (like a WhatsApp tap) — the
+      // operator lands in the conversation to reply immediately. The P1 nav fix keeps this
+      // URL stable (no redirect to __org_root__). The earlier `/?workspace=` URL
+      // was ignored by Home (which reads `?ws=`) → landed unscoped.
       url: `/workspaces/${encodeURIComponent(workspaceId)}/subchats/${encodeURIComponent(subchatId)}`,
       tag: `subchat-${subchatId}`,
     };
@@ -611,7 +611,7 @@ export const PUSH_RULES: readonly PushRule[] = [
   workstreamStuck,
   planHasOpenQuestions,
   synthesisUnfalsifiable,
-  // Sub-Chats (2026-06-02, P2) — neue externe Kundennachricht.
+  // Sub-Chats (2026-06-02, P2) — new external customer message.
   subchatExternalMessage,
   // B1 Answer-Required (2026-05-25)
   answerRequiredApproval,
@@ -622,7 +622,7 @@ export const PUSH_RULES: readonly PushRule[] = [
 ];
 
 /**
- * Test-Hook: liefert eine Regel nach id — nur für rules.test.ts.
+ * Test hook: returns a rule by id — only for rules.test.ts.
  */
 export function findRuleById(id: string): PushRule | undefined {
   return PUSH_RULES.find((r) => r.id === id);

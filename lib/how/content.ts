@@ -1,14 +1,14 @@
 /**
- * /how — Content für die 7 Sub-Pages.
+ * /how — content for the 7 sub-pages.
  *
- * Bewusst als Daten-Struktur, nicht als JSX:
- *   - Bilingual DE/EN, Default DE.
- *   - Single-Source für /how/[slug].
- *   - Keine Übersetzungs-Library — der Inhalt ist Teil des Produkts und
- *     ändert sich mit dem Code.
+ * Deliberately a data structure, not JSX:
+ *   - Bilingual DE/EN, default DE.
+ *   - Single source for /how/[slug].
+ *   - No translation library — the content is part of the product and
+ *     changes with the code.
  *
- * Texte sind absichtlich substanziell. Max muss aus der Page das mentale
- * Modell ableiten können, ohne den Code zu lesen.
+ * Texts are deliberately substantial. Max should be able to derive the mental
+ * model from the page without reading the code.
  */
 
 import type { Locale } from './locale';
@@ -20,13 +20,13 @@ export interface Section {
   body: Bi<string>;
   bullets?: Bi<string[]>;
   /**
-   * Optional: ein <surface:KIND>-Tag der im Chat zur Sektion gehört. Wird
-   * unterhalb des Body als kleines Code-Pill gerendert.
+   * Optional: a <surface:KIND> tag that belongs to the section in chat. Rendered
+   * below the body as a small code pill.
    */
   surfaceTag?: string;
   /**
-   * Optional: Code-Snippet (z.B. Shell-Beispiel oder Migration-Snippet).
-   * Wird als <pre><code> gerendert.
+   * Optional: code snippet (e.g. a shell example or migration snippet).
+   * Rendered as <pre><code>.
    */
   code?: string;
 }
@@ -36,9 +36,9 @@ export interface SubPageContent {
   title: Bi<string>;
   lead: Bi<string>;
   sections: Section[];
-  /** Pfade auf andere lazyOS-Routen (intern). */
+  /** Paths to other lazyOS routes (internal). */
   relatedRoutes: { href: string; label: Bi<string> }[];
-  /** Optional: Welche DB-Tabelle/Live-Stat in der Hero-Zeile zeigen. */
+  /** Optional: which DB table / live stat to show in the hero line. */
   liveStat?:
     | { kind: 'skills' }
     | { kind: 'workspaces' }
@@ -961,7 +961,7 @@ export function getSubPage(slug: string): SubPageContent | null {
   return SUB_PAGES.find((p) => p.slug === slug) ?? null;
 }
 
-/** Locale-aware Card-Subline, nur Stil — wird in der Übersicht verwendet. */
+/** Locale-aware card subline, style only — used in the overview. */
 export function subPageSubline(loc: Locale, slug: string): string {
   const map: Record<string, Bi<string>> = {
     workstreams: {

@@ -1,6 +1,6 @@
 /**
- * Test-Script: Manueller Trigger der seed-Routinen ohne HTTP-Auth.
- * Nur für lokale Verifikation (Sprint 2 E). Nicht in Production.
+ * Test script: manual trigger of the seed routines without HTTP auth.
+ * Only for local verification (Sprint 2 E). Not in production.
  */
 import { executeRoutine } from "../lib/routines/runner";
 

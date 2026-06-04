@@ -1,18 +1,18 @@
 /**
  * GET /api/terminal/[workspaceId]
  *
- * SSE-Stream für den Terminal-View (Phase T). Liefert ANSI-Output der
- * tmux-Session-Pane (interaktive Bash). Polling-basiert: alle 200 ms ein
- * Snapshot via capturePane, voller Pane-Inhalt geht durch xterm.js.
+ * SSE stream for the terminal view (Phase T). Delivers ANSI output of the
+ * tmux session pane (interactive bash). Polling-based: every 200 ms a
+ * snapshot via capturePane, the full pane content goes through xterm.js.
  *
- * Auth: Cookie-Session (lazyos-Auth). Whitelisting in middleware nicht
- * nötig, das default-API-Auth-Pattern greift.
+ * Auth: cookie session (lazyos auth). Whitelisting in middleware is not
+ * needed, the default API auth pattern applies.
  *
- * Output-Format (SSE event "snapshot"):
+ * Output format (SSE event "snapshot"):
  *   data: {"content": "<ansi-text>"}
  *
- * Heartbeats alle 15 s als ":\n\n" comments — verhindert dass Cloudflare
- * den Stream kappt.
+ * Heartbeats every 15 s as ":\n\n" comments — prevents Cloudflare from
+ * cutting the stream.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 
 const POLL_INTERVAL_MS = 200;
 const HEARTBEAT_INTERVAL_MS = 15_000;
-const PANE_INDEX = 2; // Interaktive Bash, von splitWindow als zweite Pane
+const PANE_INDEX = 2; // Interactive bash, created by splitWindow as the second pane
 
 interface Ctx {
   params: Promise<{ workspaceId: string }>;
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ error: 'invalid_workspace_id' }, { status: 400 });
   }
 
-  // Stelle sicher dass die tmux-Session existiert (creates wenn nötig).
+  // Make sure the tmux session exists (creates it if needed).
   try {
     await ensureSession(workspaceId);
   } catch (err) {
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
           const payload = `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
           controller.enqueue(encoder.encode(payload));
         } catch {
-          /* controller closed — cleanup läuft via abort */
+          /* controller closed — cleanup runs via abort */
         }
       };
 

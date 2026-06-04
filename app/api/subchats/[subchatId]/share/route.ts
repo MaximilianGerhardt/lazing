@@ -1,13 +1,13 @@
 /**
- * POST /api/subchats/[subchatId]/share   — externen Link verwalten (member-gated).
- *   { action: 'revoke' }                         → Link widerrufen
- *   { action: 'renew', hours?: number }          → Link erneuern (neuer Token + Ablauf)
- *   { action: 'regenerate' }                     → Token rotieren (Ablauf unverändert)
+ * POST /api/subchats/[subchatId]/share   — manage external link (member-gated).
+ *   { action: 'revoke' }                         → revoke link
+ *   { action: 'renew', hours?: number }          → renew link (new token + expiry)
+ *   { action: 'regenerate' }                     → rotate token (expiry unchanged)
  *
- * Auth: Member des Workspace (gespiegelt aus messages/route.ts). Mutationen über
- * lib/subchats/service. Bei renew/regenerate wird die VOLLE öffentliche URL als
- * `externalUrl` einmalig zurückgegeben (publicBaseUrl, kein localhost).
- * Gathering-Intelligence-Goal P2 (2026-06-02).
+ * Auth: member of the workspace (mirrored from messages/route.ts). Mutations via
+ * lib/subchats/service. On renew/regenerate the FULL public URL is returned once
+ * as `externalUrl` (publicBaseUrl, not localhost).
+ * Gathering-Intelligence goal P2 (2026-06-02).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -26,9 +26,9 @@ interface Ctx {
 }
 
 /**
- * Öffentliche Base-URL für teilbare Kunden-Links. Reihenfolge: ENV → Laufzeit-
- * Datei `data/public-url` (vom Tunnel-Manager LIVE aktualisiert, kein Neustart
- * nötig) → Request-Origin. Zentral in lib/hosting/public-base.ts.
+ * Public base URL for shareable customer links. Order: ENV → runtime
+ * file `data/public-url` (updated LIVE by the tunnel manager, no restart
+ * needed) → request origin. Centralized in lib/hosting/public-base.ts.
  */
 function publicBaseUrl(req: NextRequest): string {
   return publicBaseUrlFrom(req.nextUrl.origin);

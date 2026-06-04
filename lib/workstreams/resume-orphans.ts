@@ -1,122 +1,122 @@
 /**
- * Boot-Resume für verwaiste Iterate-/Plan-/Tier-Runs (Owner-Fix 2026-05-30, Opus 4.8).
+ * Boot resume for orphaned iterate/plan/tier runs (owner fix 2026-05-30, Opus 4.8).
  *
  * ────────────────────────────────────────────────────────────────────────────
- * EMPIRISCHES PROBLEM (Owner-Befund, live erlebt):
- *   Owner startete im „website"-Workspace einen Iterate-Build
- *   (lead→roaster-1→roaster-2→lead-v2). MITTEN im Lauf wurde der Next.js-Server
- *   (:4200) neu gestartet (Deploy). Befund:
- *     - Die tmux-Spawns sind detached (server/agents/tmux-spawn.ts:396) und
- *       überleben den Restart als isolierte Sessions.
- *     - ABER die In-Process-Orchestrierungs-Schleife in
- *       server/agents/tier-orchestrator.ts (runIterate / runIterateResume) — die
- *       das `.done`-Flag der tmux-Spawns pollt (tmux-spawn.ts:426) und die Wellen
- *       lead→roaster→v2 advanced — lebt im Next.js-PROZESS. Beim Restart
- *       VERWAIST der Run: niemand pollt mehr, niemand advanced die Welle.
- *     - sweepStaleWorkstreams (recovery.ts, alle 3 min) markiert solche Runs erst
- *       nach ~20 min als `stuck` + Notify. Es gibt KEIN Auto-Resume.
+ * EMPIRICAL PROBLEM (owner finding, experienced live):
+ *   The owner started an iterate build in the „website" workspace
+ *   (lead→roaster-1→roaster-2→lead-v2). MID-run the Next.js server
+ *   (:4200) was restarted (deploy). Finding:
+ *     - The tmux spawns are detached (server/agents/tmux-spawn.ts:396) and
+ *       survive the restart as isolated sessions.
+ *     - BUT the in-process orchestration loop in
+ *       server/agents/tier-orchestrator.ts (runIterate / runIterateResume) — which
+ *       polls the `.done` flag of the tmux spawns (tmux-spawn.ts:426) and advances the waves
+ *       lead→roaster→v2 — lives in the Next.js PROCESS. On a restart
+ *       the run is ORPHANED: nobody polls anymore, nobody advances the wave.
+ *     - sweepStaleWorkstreams (recovery.ts, every 3 min) marks such runs only
+ *       after ~20 min as `stuck` + notify. There is NO auto-resume.
  *
- *   ERWEITERUNG (2026-05-30 PM, Opus 4.8): die Plage trifft NICHT NUR Iterate-Runs.
- *   Der Owner sah nach EINEM Deploy 4 „unterbrochen, neu starten?"-Karten:
- *     - 2× Connector-Onboarding-SOP-Runs (heygen) — angelegt von
+ *   EXTENSION (2026-05-30 PM, Opus 4.8): the plague affects NOT JUST iterate runs.
+ *   The owner saw 4 "interrupted, restart?" cards after ONE deploy:
+ *     - 2× connector-onboarding SOP runs (heygen) — created by
  *       lib/connectors/auto-connect.ts:250 (createWorkstream) +
  *       :313 (executePlan).
- *     - 2× Website-/Flow-Runs — angelegt von lib/flow/execute.ts:184
- *       (workstreams-Insert) + lib/flow/compose-and-run.ts:220 (executePlan via
+ *     - 2× website/flow runs — created by lib/flow/execute.ts:184
+ *       (workstreams insert) + lib/flow/compose-and-run.ts:220 (executePlan via
  *       makeDefaultTrigger).
- *   BEIDE sind — anders als Iterate — KEINE event-sourced Tier-Wellen, sondern
- *   gewöhnliche `workstreams`-Runs (status='active') mit persistiertem
- *   `workstream_plan_steps`-Plan, abgearbeitet vom In-Process-`executePlan`
- *   (lib/workstreams/plan-executor.ts). Beim Restart verwaist auch dieser
- *   In-Process-Loop → niemand arbeitet die restlichen pending-Steps ab. Der alte
- *   Boot-Resume kannte aber NUR `loadIterateResumeContext` → für Plan-Runs gab er
- *   immer `ctx=null` zurück und terminalisierte sie (statt sie fortzusetzen).
- *   Diese Erweiterung fügt den PLAN-RUN-Resume-Pfad hinzu (siehe unten).
+ *   BOTH are — unlike iterate — NOT event-sourced tier waves but
+ *   ordinary `workstreams` runs (status='active') with a persisted
+ *   `workstream_plan_steps` plan, processed by the in-process `executePlan`
+ *   (lib/workstreams/plan-executor.ts). On a restart this
+ *   in-process loop is also orphaned → nobody processes the remaining pending steps. The old
+ *   boot resume, however, knew ONLY `loadIterateResumeContext` → for plan runs it always
+ *   returned `ctx=null` and terminalized them (instead of continuing them).
+ *   This extension adds the PLAN-RUN resume path (see below).
  *
  * ────────────────────────────────────────────────────────────────────────────
- * WIE DER ZWISCHENSTAND REKONSTRUIERT WIRD (der Kern) — je Run-Typ:
+ * HOW THE INTERMEDIATE STATE IS RECONSTRUCTED (the core) — per run type:
  *
- *   (A) ITERATE-RUN (event-sourced).
- *   Der Iterate-Fortschritt ist VOLLSTÄNDIG event-sourced. `loadIterateResumeContext`
- *   (tier-orchestrator.ts:1519) rekonstruiert den Zwischenstand AUSSCHLIESSLICH aus
- *   `events` auf dem `primary_ticket_id`:
- *     - die höchste `iterate-version` (mit Text)  = der zuletzt geschriebene Plan,
- *     - die zugehörigen `iterate-roast`-Outputs    = die Roaster-Findings dazu,
- *     - den originalen User-Prompt + ggf. User-Korrekturen.
- *   done-Flags / tmux-Session-Namen sind NICHT der Zwischenstand — sie sind nur der
- *   gerade laufende Spawn. Der echte Fortschritt steht in der Event-DB und überlebt
- *   jeden Restart.
+ *   (A) ITERATE RUN (event-sourced).
+ *   Iterate progress is FULLY event-sourced. `loadIterateResumeContext`
+ *   (tier-orchestrator.ts:1519) reconstructs the intermediate state EXCLUSIVELY from
+ *   `events` on the `primary_ticket_id`:
+ *     - the highest `iterate-version` (with text)  = the last written plan,
+ *     - the associated `iterate-roast` outputs     = the roaster findings for it,
+ *     - the original user prompt + any user corrections.
+ *   done flags / tmux session names are NOT the intermediate state — they are only the
+ *   currently running spawn. The real progress is in the event DB and survives
+ *   every restart.
  *
- *   → Ein Zwischenstand ist GENAU DANN sicher rekonstruierbar, wenn
- *     `loadIterateResumeContext` non-null zurückgibt (mindestens ein
- *     `iterate-version`-Event mit Text existiert). Dann ruft dieser Boot-Resume
- *     den BESTEHENDEN `runIterateResume`-Pfad auf (N4: nicht neu erfinden) — exakt
- *     denselben Pfad wie der user-getriggerte Sniper-Resume
+ *   → An intermediate state is safely reconstructible EXACTLY WHEN
+ *     `loadIterateResumeContext` returns non-null (at least one
+ *     `iterate-version` event with text exists). Then this boot resume calls
+ *     the EXISTING `runIterateResume` path (N4: don't reinvent) — exactly
+ *     the same path as the user-triggered sniper resume
  *     (/api/workstreams/[id]/resume).
  *
- *   (B) PLAN-RUN (Flow-Website ODER Connector-Onboarding-SOP) — step-status-sourced.
- *   Der Fortschritt eines Plan-Runs ist KEIN Event-Strom, sondern der `status`
- *   jedes `workstream_plan_steps`-Rows (plan-repo.ts:226 setPlanStepStatus —
- *   pending→active→done/failed). Genau das ist der rekonstruierbare Zwischenstand:
- *   welche Steps fertig sind und welche noch offen.
+ *   (B) PLAN RUN (flow website OR connector-onboarding SOP) — step-status-sourced.
+ *   The progress of a plan run is NOT an event stream but the `status`
+ *   of each `workstream_plan_steps` row (plan-repo.ts:226 setPlanStepStatus —
+ *   pending→active→done/failed). That is exactly the reconstructible intermediate state:
+ *   which steps are done and which are still open.
  *
- *   → Der BESTEHENDE `executePlan` (plan-executor.ts:472) IST von Natur aus ein
- *     idempotenter Resume-Pfad: er liest den persistierten Step-`status` als
- *     Start-Zustand (plan-executor.ts:630–633 `stepStatuses[id] = step.status ??
- *     'pending'`), behandelt done-Steps in der Ready-Queue als erledigt
- *     (isReady prüft `deps.every(d => stepStatuses[d]==='done')`, :1074) und
- *     spawnt NUR noch die pending-Steps neu. Already-done Steps werden NIE
- *     re-spawnt (R3). Ein Re-Aufruf von `executePlan` setzt den Lauf also exakt
- *     dort fort, wo der Restart ihn verwaiste — N4: kein Re-Invent, kein neuer
- *     Resume-Code. planId + coordKey lesen wir verlustfrei aus den persistierten
- *     root-Steps (jeder trägt plan_id + coord_key, workstream_plan_steps.ts:24/40).
+ *   → The EXISTING `executePlan` (plan-executor.ts:472) IS by nature an
+ *     idempotent resume path: it reads the persisted step `status` as the
+ *     start state (plan-executor.ts:630–633 `stepStatuses[id] = step.status ??
+ *     'pending'`), treats done steps in the ready queue as completed
+ *     (isReady checks `deps.every(d => stepStatuses[d]==='done')`, :1074) and
+ *     re-spawns ONLY the pending steps. Already-done steps are NEVER
+ *     re-spawned (R3). A re-call of `executePlan` thus continues the run exactly
+ *     where the restart orphaned it — N4: no reinvent, no new
+ *     resume code. We read planId + coordKey losslessly from the persisted
+ *     root steps (each carries plan_id + coord_key, workstream_plan_steps.ts:24/40).
  *
- *   → Ein Plan-Zwischenstand ist GENAU DANN rekonstruierbar, wenn der Workstream
- *     mindestens einen root-Plan-Step (depth=0) hat. Hat er KEINEN (weder
- *     iterate-version NOCH Plan-Steps), gibt es nichts Sicheres fortzusetzen.
+ *   → A plan intermediate state is reconstructible EXACTLY WHEN the workstream
+ *     has at least one root plan step (depth=0). If it has NONE (neither
+ *     iterate-version NOR plan steps), there is nothing safe to continue.
  *
- *   GEMEINSAMER FALL — kein Zwischenstand:
- *   Wenn weder (A) noch (B) greift (kein iterate-version-Event UND keine
- *   Plan-Steps — z.B. der Run wurde angelegt, aber der Lead/Compose hat noch
- *   nichts Persistentes geschrieben), terminalisieren wir den Run SOFORT (nicht
- *   erst nach 20 min) sauber auf `stuck` + ehrliche, handlungsleitende Notify
- *   (gleiche Mechanik wie der Recovery-Sweep). KEIN Schein-Resume.
- *
- * ────────────────────────────────────────────────────────────────────────────
- * R3-SICHERHEIT (NIE blind doppelt re-spawnen):
- *   Bevor ein Run als verwaist gilt, wird er auf Lebendigkeit geprüft:
- *     1. Liveness-Guard (wie im Recovery-Sweep): hat der Master einen aktiven
- *        Sub-Workstream mit recent `updated_at` (< SUB_ACTIVITY_WINDOW_MS), läuft
- *        die Welle noch → unangetastet.
- *     2. tmux-Session-Probe: existiert noch eine tmux-Session eines Sub-WS
- *        (`sessionExists`), läuft der Spawn evtl. noch → unangetastet (konservativ).
- *   Idempotenz (zwei Boots hintereinander dürfen nicht doppelt spawnen):
- *     - In-Process-Guard (resumeInProgress) gegen Doppel-Lauf im selben Prozess.
- *     - Atomarer Claim VOR dem Spawn: `UPDATE … SET updated_at=now WHERE id=? AND
- *       status='active' AND updated_at < cutoff`. Schlägt der Claim fehl
- *       (changes=0), hat ein anderer Lauf den Run schon gegriffen → skip. Der
- *       frische `updated_at` nimmt den Run zudem aus dem Orphan-Fenster eines
- *       direkt folgenden zweiten Boots.
+ *   COMMON CASE — no intermediate state:
+ *   When neither (A) nor (B) applies (no iterate-version event AND no
+ *   plan steps — e.g. the run was created but the lead/compose has not yet
+ *   written anything persistent), we terminalize the run IMMEDIATELY (not
+ *   only after 20 min) cleanly to `stuck` + an honest, action-guiding notify
+ *   (same mechanic as the recovery sweep). NO sham resume.
  *
  * ────────────────────────────────────────────────────────────────────────────
- * VERHÄLTNIS ZU DEN BESTEHENDEN SWEEPS (additiv, ersetzt nichts):
- *   - sweepStaleWorkstreams (recovery.ts, 3 min) bleibt UNVERÄNDERT — Back-Compat.
- *   - reapStaleWorkstreams (reap-stale.ts, 5 min) bleibt UNVERÄNDERT.
- *   Dieser Boot-Resume läuft EINMALIG beim Boot (kein Interval) und greift VOR
- *   dem Sweep: er versucht echtes Fortsetzen statt nur stuck-Markierung. Runs die
- *   er nicht resumen kann, terminalisiert er sofort — der Sweep würde sie 20 min
- *   später ohnehin auf `stuck` setzen, wir machen es deterministisch + sofort.
+ * R3 SAFETY (NEVER blindly re-spawn twice):
+ *   Before a run is considered orphaned, it is checked for liveness:
+ *     1. Liveness guard (as in the recovery sweep): if the master has an active
+ *        sub-workstream with recent `updated_at` (< SUB_ACTIVITY_WINDOW_MS), the
+ *        wave is still running → untouched.
+ *     2. tmux session probe: if a tmux session of a sub-WS still exists
+ *        (`sessionExists`), the spawn may still be running → untouched (conservative).
+ *   Idempotency (two boots in a row must not double-spawn):
+ *     - In-process guard (resumeInProgress) against a double run in the same process.
+ *     - Atomic claim BEFORE the spawn: `UPDATE … SET updated_at=now WHERE id=? AND
+ *       status='active' AND updated_at < cutoff`. If the claim fails
+ *       (changes=0), another run already grabbed the run → skip. The
+ *       fresh `updated_at` also takes the run out of the orphan window of a
+ *       directly following second boot.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * RELATIONSHIP TO THE EXISTING SWEEPS (additive, replaces nothing):
+ *   - sweepStaleWorkstreams (recovery.ts, 3 min) stays UNCHANGED — back-compat.
+ *   - reapStaleWorkstreams (reap-stale.ts, 5 min) stays UNCHANGED.
+ *   This boot resume runs ONCE at boot (no interval) and kicks in BEFORE
+ *   the sweep: it attempts a real continuation instead of just a stuck marking. Runs it
+ *   can't resume it terminalizes immediately — the sweep would set them to `stuck` 20 min
+ *   later anyway, we do it deterministically + immediately.
  *
  * Operating constraints:
- *   N4:  Wiederverwendung der BESTEHENDEN Resume-Pfade — runIterateResume für
- *        Iterate-Runs, executePlan für Plan-Runs (Flow/SOP-Onboarding). Kein
- *        neuer Resume-Code, keine zweite Execution-Engine.
- *   N6:  Deterministischer Zeit-Proxy (updated_at) + Liveness-Probe, kein LLM.
- *   N8:  Jede Resume-/Terminalisierungs-Entscheidung schreibt eine
- *        workstream_decisions-Row (warum resume vs. terminalisiert; je Pfad eine
- *        eigene Begründung — iterate vs. plan vs. terminalisiert).
- *   N10: content_hash in der Decision-Row (via writeDecision intern).
- *   Kein Secret in Logs/Trace/Notify (nur Name + Minuten + IDs).
+ *   N4:  Reuse of the EXISTING resume paths — runIterateResume for
+ *        iterate runs, executePlan for plan runs (flow/SOP onboarding). No
+ *        new resume code, no second execution engine.
+ *   N6:  Deterministic time proxy (updated_at) + liveness probe, no LLM.
+ *   N8:  Every resume/terminalization decision writes a
+ *        workstream_decisions row (why resume vs. terminalized; per path its
+ *        own rationale — iterate vs. plan vs. terminalized).
+ *   N10: content_hash in the decision row (internally via writeDecision).
+ *   No secret in logs/trace/notify (only name + minutes + IDs).
  */
 
 import { getDb } from '@/db/client';
@@ -126,17 +126,17 @@ import { emitAnswerRequired } from '@/lib/push/triggers';
 import { SUB_ACTIVITY_WINDOW_MS } from '@/lib/workstreams/recovery';
 
 // ---------------------------------------------------------------------------
-// Konfiguration
+// Configuration
 // ---------------------------------------------------------------------------
 
 /**
- * Orphan-Schwelle: ein `active` Workstream ohne updated_at-Fortschritt seit
- * dieser Zeit ist Resume-Kandidat. Default 4 min — bewusst KÜRZER als das
- * STALE_MS des Recovery-Sweeps (20 min): wir wollen den verwaisten Run beim Boot
- * SOFORT fortsetzen, nicht 20 min warten. 4 min liegt sicher oberhalb der
- * längsten Einzel-Phase (Opus-Lead ~4 min) — der Liveness-Guard + tmux-Probe
- * sichern zusätzlich gegen Fehl-Auswahl eines noch laufenden Runs ab.
- * Überschreibbar via ENV `LAZYOS_WS_ORPHAN_RESUME_MS`.
+ * Orphan threshold: an `active` workstream without updated_at progress since
+ * this time is a resume candidate. Default 4 min — deliberately SHORTER than the
+ * recovery sweep's STALE_MS (20 min): we want to continue the orphaned run at boot
+ * IMMEDIATELY, not wait 20 min. 4 min sits safely above the
+ * longest single phase (Opus lead ~4 min) — the liveness guard + tmux probe
+ * additionally guard against falsely selecting a still-running run.
+ * Overridable via ENV `LAZYOS_WS_ORPHAN_RESUME_MS`.
  */
 export const ORPHAN_RESUME_MS: number = (() => {
   const raw = process.env.LAZYOS_WS_ORPHAN_RESUME_MS;
@@ -147,30 +147,30 @@ export const ORPHAN_RESUME_MS: number = (() => {
   return 4 * 60_000; // 4 min
 })();
 
-/** Max. Anzahl verwaister Runs die pro Boot-Sweep behandelt werden. */
+/** Max. number of orphaned runs handled per boot sweep. */
 export const ORPHAN_MAX_PER_BOOT = 25;
 
 // ---------------------------------------------------------------------------
-// Ergebnis-Typen
+// Result types
 // ---------------------------------------------------------------------------
 
 export type OrphanOutcome =
-  | 'resumed' // echter runIterateResume-Pfad aufgerufen (Zwischenstand rekonstruierbar)
-  | 'terminated' // sofort sauber auf stuck terminalisiert (kein Zwischenstand)
-  | 'alive' // lebendig (Liveness-Guard / tmux) → unangetastet
-  | 'claim-lost' // anderer Lauf hat den Run zwischen SELECT und Claim gegriffen
-  | 'error'; // isolierter Fehler — Sweep läuft weiter
+  | 'resumed' // the real runIterateResume path was called (intermediate state reconstructible)
+  | 'terminated' // immediately cleanly terminalized to stuck (no intermediate state)
+  | 'alive' // alive (liveness guard / tmux) → untouched
+  | 'claim-lost' // another run grabbed the run between SELECT and claim
+  | 'error'; // isolated error — the sweep continues
 
-/** Welcher bestehende Resume-Pfad griff (nur bei outcome='resumed'). */
+/** Which existing resume path kicked in (only when outcome='resumed'). */
 export type ResumedKind = 'iterate' | 'plan';
 
 export interface OrphanRunResult {
   workstreamId: string;
   workspaceId: string;
   outcome: OrphanOutcome;
-  /** Bei 'resumed': über welchen bestehenden Pfad fortgesetzt wurde. */
+  /** On 'resumed': via which existing path it was continued. */
   resumedKind?: ResumedKind;
-  /** Bei 'resumed' (iterate): die Version von der aus fortgesetzt wurde. */
+  /** On 'resumed' (iterate): the version it was continued from. */
   resumedFromVersion?: number;
   detail?: string;
 }
@@ -183,18 +183,18 @@ export interface ResumeOrphansResult {
   errors: number;
   results: OrphanRunResult[];
   sweptAt: number;
-  /** true wenn ein anderer Boot-Sweep noch lief → dieser Lauf wurde abgebrochen. */
+  /** true when another boot sweep was still running → this run was aborted. */
   skippedDueToConcurrentSweep: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// In-Process-Guard
+// In-process guard
 // ---------------------------------------------------------------------------
 
 let resumeInProgress = false;
 
 // ---------------------------------------------------------------------------
-// Haupt-Funktion
+// Main function
 // ---------------------------------------------------------------------------
 
 interface OrphanCandidateRow {
@@ -205,14 +205,14 @@ interface OrphanCandidateRow {
 }
 
 /**
- * Findet verwaiste (nicht mehr orchestrierte) `active` Runs (Iterate, Flow,
- * SOP-Onboarding) und setzt sie sauber fort — via bestehendem runIterateResume-
- * Pfad (Iterate) bzw. executePlan-Pfad (Plan-Run: Flow/SOP) bei rekonstruier-
- * barem Zwischenstand, sonst sofortige saubere Terminalisierung + Notify.
+ * Finds orphaned (no longer orchestrated) `active` runs (iterate, flow,
+ * SOP onboarding) and continues them cleanly — via the existing runIterateResume
+ * path (iterate) or executePlan path (plan run: flow/SOP) on a reconstructible
+ * intermediate state, otherwise immediate clean terminalization + notify.
  *
- * Idempotent, R3-sicher, fail-soft (wirft nie). Beim Boot EINMALIG aufzurufen.
+ * Idempotent, R3-safe, fail-soft (never throws). To be called ONCE at boot.
  *
- * @param now Zeitreferenz (Default Date.now()). Testbar.
+ * @param now Time reference (default Date.now()). Testable.
  */
 export async function resumeOrphanedRuns(
   now: number = Date.now(),
@@ -247,11 +247,11 @@ async function runOrphanSweep(
   const db = getDb();
   const cutoff = now - ORPHAN_RESUME_MS;
 
-  // Nur `active` Runs sind orchestrierungs-tragend. `paused` Runs warten bewusst
-  // auf User-Input (Sniper-Window persistiert über waitForSniperPause, NICHT über
-  // den In-Process-Loop in einer Form, die ein Restart bräuchte). `stuck`/`done`/
-  // `archived` sind terminal — die fasst der Recovery-Sweep/Reaper an, nicht wir.
-  // Bounded via LIMIT (Schutz gegen „erster Boot nach langer Downtime").
+  // Only `active` runs carry orchestration. `paused` runs deliberately wait
+  // for user input (the sniper window persists via waitForSniperPause, NOT via
+  // the in-process loop in a form that would need a restart). `stuck`/`done`/
+  // `archived` are terminal — the recovery sweep/reaper handles those, not us.
+  // Bounded via LIMIT (protection against "first boot after long downtime").
   const rows = db.$raw
     .prepare(
       `SELECT id, workspace_id, name, updated_at
@@ -284,7 +284,7 @@ async function runOrphanSweep(
           aliveSkipped += 1;
           break;
         default:
-          break; // claim-lost: weder resumed noch terminated, kein Fehler
+          break; // claim-lost: neither resumed nor terminated, no error
       }
     } catch (err) {
       errors += 1;
@@ -323,23 +323,23 @@ async function runOrphanSweep(
 }
 
 // ---------------------------------------------------------------------------
-// Pro-Run-Behandlung
+// Per-run handling
 // ---------------------------------------------------------------------------
 
 /**
- * Behandelt einen einzelnen Orphan-Kandidaten:
- *   0. Liveness-Guard (recent aktiver Sub-WS) → 'alive', unangetastet.
- *   1. tmux-Session-Probe (existiert noch ein Sub-WS-tmux) → 'alive', unangetastet.
- *   2. Atomarer Claim → bei changes=0 → 'claim-lost' (anderer Lauf war schneller).
- *   3. Run-Typ-Klassifikation + bester bestehender Resume-Pfad (in dieser Reihenfolge):
- *      a) ITERATE: loadIterateResumeContext non-null → N8-Decision (resume) +
- *         runIterateResume (bestehender Pfad) → 'resumed' (kind=iterate).
- *      b) PLAN (Flow/SOP-Onboarding): root-Plan-Steps existieren → N8-Decision +
- *         executePlan (bestehender, idempotenter Resume-Pfad — done-Steps bleiben
- *         done, nur pending re-spawnt) → 'resumed' (kind=plan). Best-effort flippt
- *         ein etwaiger flow_runs-Row zurück auf 'running' (UI-Konsistenz).
- *      c) WEDER NOCH: sofortige saubere Terminalisierung auf 'stuck' + N8-Decision
- *         + Card + Push → 'terminated' (kein Schein-Resume).
+ * Handles a single orphan candidate:
+ *   0. Liveness guard (recent active sub-WS) → 'alive', untouched.
+ *   1. tmux session probe (a sub-WS tmux still exists) → 'alive', untouched.
+ *   2. Atomic claim → on changes=0 → 'claim-lost' (another run was faster).
+ *   3. Run-type classification + the best existing resume path (in this order):
+ *      a) ITERATE: loadIterateResumeContext non-null → N8 decision (resume) +
+ *         runIterateResume (existing path) → 'resumed' (kind=iterate).
+ *      b) PLAN (flow/SOP onboarding): root plan steps exist → N8 decision +
+ *         executePlan (existing, idempotent resume path — done steps stay
+ *         done, only pending re-spawned) → 'resumed' (kind=plan). Best-effort flips
+ *         any flow_runs row back to 'running' (UI consistency).
+ *      c) NEITHER: immediate clean terminalization to 'stuck' + N8 decision
+ *         + card + push → 'terminated' (no sham resume).
  */
 async function handleOrphanRun(
   row: OrphanCandidateRow,
@@ -349,9 +349,9 @@ async function handleOrphanRun(
   const db = getDb();
   const staleMinutes = Math.round((now - row.updated_at) / 60_000);
 
-  // 0. Liveness-Guard — identisch zum Recovery-Sweep: ein aktiver Sub-WS mit
-  //    recent updated_at bedeutet, die Welle läuft noch (Master-updated_at ist
-  //    nur deshalb alt, weil Sub-Spawns die eigene Row bumpen, nicht die Master).
+  // 0. Liveness guard — identical to the recovery sweep: an active sub-WS with
+  //    recent updated_at means the wave is still running (the master updated_at is
+  //    only old because sub-spawns bump their own row, not the master).
   const subActivityCutoff = now - SUB_ACTIVITY_WINDOW_MS;
   const liveSub = db.$raw
     .prepare(
@@ -373,10 +373,10 @@ async function handleOrphanRun(
     };
   }
 
-  // 1. tmux-Session-Probe (konservativ, R3): existiert noch eine tmux-Session
-  //    eines Sub-WS dieses Masters, läuft evtl. noch ein Spawn → unangetastet.
-  //    (Polling läuft zwar nicht mehr — aber wir re-spawnen NIE blind solange
-  //    irgendetwas am Run noch tmux-lebendig ist.)
+  // 1. tmux session probe (conservative, R3): if a tmux session of a sub-WS
+  //    of this master still exists, a spawn may still be running → untouched.
+  //    (Polling no longer runs — but we NEVER blindly re-spawn as long as
+  //    anything on the run is still tmux-alive.)
   const hasLiveTmux = await anySubWorkstreamTmuxAlive(row.id);
   if (hasLiveTmux) {
     return {
@@ -387,10 +387,10 @@ async function handleOrphanRun(
     };
   }
 
-  // 2. Atomarer Claim: nimmt den Run aus dem Orphan-Fenster, BEVOR wir spawnen.
-  //    WHERE-Guard auf status='active' AND updated_at < cutoff stellt sicher,
-  //    dass ein zweiter (paralleler oder direkt folgender) Boot-Sweep denselben
-  //    Run nicht ebenfalls greift — bei changes=0 hat ein anderer Lauf gewonnen.
+  // 2. Atomic claim: takes the run out of the orphan window BEFORE we spawn.
+  //    The WHERE guard on status='active' AND updated_at < cutoff ensures
+  //    that a second (parallel or directly following) boot sweep does not also grab the same
+  //    run — on changes=0 another run won.
   const claim = db.$raw
     .prepare(
       `UPDATE workstreams
@@ -408,15 +408,15 @@ async function handleOrphanRun(
     };
   }
 
-  // 3. Zwischenstand rekonstruierbar?
+  // 3. Intermediate state reconstructible?
   const { loadIterateResumeContext, runIterateResume } = await import(
     '@/server/agents/tier-orchestrator'
   );
   const ctx = await loadIterateResumeContext(row.id);
 
   if (ctx) {
-    // ── Echtes Resume via bestehendem Pfad (N4) ──────────────────────────────
-    // N8: Decision-Row VOR dem Spawn — ehrliche Begründung (warum resume).
+    // ── Real resume via the existing path (N4) ───────────────────────────────
+    // N8: decision row BEFORE the spawn — honest rationale (why resume).
     const rationale =
       `Boot-Resume: Server-Restart hat die In-Process-Orchestrierung verwaist ` +
       `(${staleMinutes}min ohne updated_at-Fortschritt, kein lebendiger Sub-WS/tmux). ` +
@@ -432,11 +432,11 @@ async function handleOrphanRun(
       actor: 'policy',
     });
 
-    // runIterateResume setzt selbst status='active', emittiert iterate-resumed,
-    // spawnt die nächste Welle und terminalisiert bei Konvergenz/Cap auf 'done'.
-    // Wir awaiten NICHT die ganze Welle (kann 1-3 min dauern) — fire-and-track,
-    // damit der Boot-Sweep alle Orphans zügig durchgeht. Fehler im Resume sind
-    // nicht-fatal für den Sweep (eigenes catch).
+    // runIterateResume itself sets status='active', emits iterate-resumed,
+    // spawns the next wave and terminalizes to 'done' on convergence/cap.
+    // We do NOT await the whole wave (can take 1-3 min) — fire-and-track,
+    // so the boot sweep goes through all orphans quickly. Errors in the resume are
+    // non-fatal for the sweep (its own catch).
     void runIterateResume(row.id).catch((err: unknown) => {
       console.warn(
         '[resume-orphans] runIterateResume fehlgeschlagen (non-fatal):',
@@ -455,21 +455,21 @@ async function handleOrphanRun(
     };
   }
 
-  // ── Kein Iterate-Zwischenstand → PLAN-RUN-Pfad probieren (Flow / SOP) ───────
-  // Flow-Website- und Connector-Onboarding-SOP-Runs sind gewöhnliche
-  // workstreams-Runs mit persistiertem workstream_plan_steps-Plan. Ihr
-  // Zwischenstand ist der Step-`status`. Hat der Run root-Plan-Steps, setzen wir
-  // ihn über den BESTEHENDEN, idempotenten executePlan fort (N4).
+  // ── No iterate intermediate state → try the PLAN-RUN path (flow / SOP) ──────
+  // Flow-website and connector-onboarding SOP runs are ordinary
+  // workstreams runs with a persisted workstream_plan_steps plan. Their
+  // intermediate state is the step `status`. If the run has root plan steps, we
+  // continue it via the EXISTING, idempotent executePlan (N4).
   const planResume = await resumePlanRunIfPlanSteps(row, staleMinutes);
   if (planResume) {
     return planResume;
   }
 
-  // ── Kein rekonstruierbarer Zwischenstand (weder iterate noch plan) → sofort ─
-  // sauber terminalisieren. Der Lead/Compose hat noch nichts Persistentes
-  // geschrieben (kein iterate-version-Event, keine Plan-Steps) — es gibt nichts
-  // Sicheres fortzusetzen. Statt Schein-Resume: deterministisch + SOFORT (nicht
-  // erst nach 20 min) auf 'stuck' + ehrliche, handlungsleitende Notify.
+  // ── No reconstructible intermediate state (neither iterate nor plan) → ──────
+  // terminalize cleanly immediately. The lead/compose has not yet written anything
+  // persistent (no iterate-version event, no plan steps) — there is nothing
+  // safe to continue. Instead of a sham resume: deterministically + IMMEDIATELY (not
+  // only after 20 min) to 'stuck' + an honest, action-guiding notify.
   await terminateUnresumableRun(row, now, staleMinutes);
   return {
     workstreamId: row.id,
@@ -480,34 +480,34 @@ async function handleOrphanRun(
 }
 
 /**
- * PLAN-RUN-Resume (Flow-Website ODER Connector-Onboarding-SOP).
+ * PLAN-RUN resume (flow website OR connector-onboarding SOP).
  *
- * Beide Run-Typen sind gewöhnliche `workstreams`-Runs mit persistiertem
- * `workstream_plan_steps`-Plan (depth=0), abgearbeitet vom In-Process-
- * `executePlan` — der beim Restart verwaist. Der Zwischenstand ist der
- * Step-`status` (pending/active/done/failed) jeder Step-Row.
+ * Both run types are ordinary `workstreams` runs with a persisted
+ * `workstream_plan_steps` plan (depth=0), processed by the in-process
+ * `executePlan` — which is orphaned on a restart. The intermediate state is the
+ * step `status` (pending/active/done/failed) of each step row.
  *
- * Rekonstruierbar ⇔ es existiert mindestens ein root-Plan-Step. Dann:
- *   - planId + coordKey verlustfrei aus den persistierten root-Steps lesen
- *     (jeder Step trägt beide Felder — workstream_plan_steps.ts:24/40). Kein
- *     erratenes Coord-Format: wir nehmen exakt das persistierte coord_key.
- *   - 'active'-Steps (Restart erwischte sie mitten im Spawn) auf 'pending'
- *     zurücksetzen, damit executePlan sie sicher neu fährt. 'done' bleibt 'done'
- *     (wird NIE re-spawnt — R3), 'failed' bleibt 'failed' (fehler-isoliert).
+ * Reconstructible ⇔ at least one root plan step exists. Then:
+ *   - read planId + coordKey losslessly from the persisted root steps
+ *     (each step carries both fields — workstream_plan_steps.ts:24/40). No
+ *     guessed coord format: we take exactly the persisted coord_key.
+ *   - reset 'active' steps (the restart caught them mid-spawn) to 'pending'
+ *     so executePlan safely re-runs them. 'done' stays 'done'
+ *     (NEVER re-spawned — R3), 'failed' stays 'failed' (error-isolated).
  *   - executePlan(workstreamId, workspaceId, planId, coordKey) fire-and-track —
- *     der bestehende, idempotente Resume-Pfad (N4). done-Steps werden als
- *     erledigt erkannt, nur pending-Steps neu gespawnt.
- *   - Best-effort: einen etwaigen flow_runs-Row dieses Workstreams zurück auf
- *     'running' flippen (UI-Konsistenz; ein SOP-Onboarding-Run hat keinen
- *     flow_runs-Row → no-op via WHERE).
+ *     the existing, idempotent resume path (N4). done steps are recognized as
+ *     completed, only pending steps re-spawned.
+ *   - Best-effort: flip any flow_runs row of this workstream back to
+ *     'running' (UI consistency; a SOP onboarding run has no
+ *     flow_runs row → no-op via WHERE).
  *
- * Liefert das resume-OrphanRunResult, ODER null, wenn der Run KEINE Plan-Steps
- * hat (dann fällt der Caller auf Terminalisierung zurück).
+ * Returns the resume OrphanRunResult, OR null when the run has NO plan steps
+ * (then the caller falls back to terminalization).
  *
- * WICHTIG (R3/Idempotenz): der atomare Claim (handleOrphanRun Schritt 2) hat den
- * Run bereits aus dem Orphan-Fenster genommen, BEVOR diese Funktion läuft — ein
- * zweiter Boot-Sweep greift denselben Run nicht erneut. executePlan selbst
- * re-spawnt keine done-Steps.
+ * IMPORTANT (R3/idempotency): the atomic claim (handleOrphanRun step 2) has already
+ * taken the run out of the orphan window BEFORE this function runs — a
+ * second boot sweep does not grab the same run again. executePlan itself
+ * re-spawns no done steps.
  */
 async function resumePlanRunIfPlanSteps(
   row: OrphanCandidateRow,
@@ -516,16 +516,16 @@ async function resumePlanRunIfPlanSteps(
   const { listRootPlanSteps } = await import('@/lib/workstreams/plan-repo');
   const rootSteps = listRootPlanSteps(row.id);
   if (rootSteps.length === 0) {
-    return null; // kein Plan-Zwischenstand → Caller terminalisiert
+    return null; // no plan intermediate state → caller terminalizes
   }
 
-  // planId + coordKey aus den persistierten Steps (verlustfrei, kein Raten).
+  // planId + coordKey from the persisted steps (lossless, no guessing).
   const planId = rootSteps[0]!.planId;
   const coordKey = rootSteps[0]!.coordKey;
 
-  // Step-Status-Verteilung für die ehrliche Decision-Begründung (kein Secret —
-  // nur Zähler). 'active'-Steps verwaisten mitten im Spawn → auf 'pending'
-  // zurücksetzen, damit executePlan sie deterministisch neu fährt.
+  // Step-status distribution for the honest decision rationale (no secret —
+  // only counters). 'active' steps were orphaned mid-spawn → reset to 'pending'
+  // so executePlan deterministically re-runs them.
   let doneCount = 0;
   let failedCount = 0;
   let pendingCount = 0;
@@ -540,12 +540,12 @@ async function resumePlanRunIfPlanSteps(
         failedCount += 1;
         break;
       case 'active': {
-        // Verwaister in-flight Step → zurück auf pending (re-fahrbar). Best-effort.
+        // Orphaned in-flight step → back to pending (re-runnable). Best-effort.
         try {
           setPlanStepStatus(s.id, 'pending');
           resetActive += 1;
         } catch {
-          /* non-fatal: executePlan behandelt active ohnehin nicht als done */
+          /* non-fatal: executePlan doesn't treat active as done anyway */
         }
         pendingCount += 1;
         break;
@@ -556,7 +556,7 @@ async function resumePlanRunIfPlanSteps(
     }
   }
 
-  // N8: Decision VOR dem Resume — ehrliche Begründung (warum plan-resume).
+  // N8: decision BEFORE the resume — honest rationale (why plan resume).
   const rationale =
     `Boot-Resume: Server-Restart hat den In-Process-Plan-Executor verwaist ` +
     `(${staleMinutes}min ohne updated_at-Fortschritt, kein lebendiger Sub-WS/tmux). ` +
@@ -574,12 +574,12 @@ async function resumePlanRunIfPlanSteps(
     actor: 'policy',
   });
 
-  // Best-effort: flow_runs-Row (falls vorhanden) zurück auf 'running'. Ein
-  // SOP-Onboarding-Run hat keinen → WHERE matcht nichts → no-op. Fail-soft.
+  // Best-effort: flow_runs row (if present) back to 'running'. A
+  // SOP onboarding run has none → WHERE matches nothing → no-op. Fail-soft.
   reviveFlowRunStatus(row.id);
 
-  // Resume via bestehendem Pfad. Fire-and-track (kann Minuten dauern) — Fehler
-  // sind non-fatal für den Sweep (eigenes catch), damit alle Orphans durchgehen.
+  // Resume via the existing path. Fire-and-track (can take minutes) — errors
+  // are non-fatal for the sweep (its own catch) so all orphans go through.
   const { executePlan } = await import('@/lib/workstreams/plan-executor');
   void executePlan({
     workstreamId: row.id,
@@ -604,12 +604,12 @@ async function resumePlanRunIfPlanSteps(
 }
 
 /**
- * Setzt einen etwaigen flow_runs-Row dieses Workstreams zurück auf 'running'
- * (best-effort, fail-soft). Direkter raw-UPDATE über das schon-vorhandene
- * db.$raw-Handle — kein Import des gesperrten Flow-Persistence-Moduls nötig.
- * WHERE-Guard auf workstream_id: ein SOP-Onboarding-Run (kein flow_runs-Row) →
- * changes=0 → harmloser no-op. Nur 'pending'/'failed'/'cancelled' werden auf
- * 'running' gehoben — ein bereits 'done' Flow-Run bleibt done (kein Re-Open).
+ * Resets any flow_runs row of this workstream back to 'running'
+ * (best-effort, fail-soft). A direct raw UPDATE via the already-present
+ * db.$raw handle — no import of the locked flow-persistence module needed.
+ * WHERE guard on workstream_id: a SOP onboarding run (no flow_runs row) →
+ * changes=0 → harmless no-op. Only 'pending'/'failed'/'cancelled' are raised to
+ * 'running' — an already-'done' flow run stays done (no re-open).
  */
 function reviveFlowRunStatus(workstreamId: string): void {
   try {
@@ -623,14 +623,14 @@ function reviveFlowRunStatus(workstreamId: string): void {
       )
       .run(Date.now(), workstreamId);
   } catch {
-    // flow_runs-Tabelle fehlt / DB-Fehler → non-fatal (SOP-Run braucht es nicht).
+    // flow_runs table missing / DB error → non-fatal (a SOP run doesn't need it).
   }
 }
 
 /**
- * Prüft, ob irgendein Sub-Workstream des Masters noch eine lebendige tmux-Session
- * hat. Fail-soft: bei jedem Fehler (DB / tmux nicht verfügbar) → false (kein
- * False-Positive-„alive", das echtes Resume blockieren würde).
+ * Checks whether any sub-workstream of the master still has a live tmux session.
+ * Fail-soft: on any error (DB / tmux unavailable) → false (no
+ * false-positive "alive" that would block a real resume).
  */
 async function anySubWorkstreamTmuxAlive(masterWorkstreamId: string): Promise<boolean> {
   const db = getDb();
@@ -656,29 +656,29 @@ async function anySubWorkstreamTmuxAlive(masterWorkstreamId: string): Promise<bo
   try {
     const { sessionExists } = await import('@/server/tmux-controller');
     for (const name of sessionNames) {
-      // sessionExists ist selbst try/catch-gewrappt + assertSafeSessionName.
-      // Bei einem unsicheren/kaputten Namen wirft assertSafeSessionName → wir
-      // werten das als „nicht lebendig" (kein Block), nicht als Fehler.
+      // sessionExists is itself try/catch-wrapped + assertSafeSessionName.
+      // On an unsafe/broken name, assertSafeSessionName throws → we
+      // count that as "not alive" (no block), not as an error.
       try {
         if (await sessionExists(name)) return true;
       } catch {
-        /* unsafe/kaputter Session-Name → nicht als lebendig werten */
+        /* unsafe/broken session name → don't count as alive */
       }
     }
   } catch {
-    // tmux-controller nicht importierbar (z.B. Edge) → fail-soft.
+    // tmux-controller not importable (e.g. Edge) → fail-soft.
     return false;
   }
   return false;
 }
 
 /**
- * Terminalisiert einen verwaisten Run OHNE rekonstruierbaren Zwischenstand sofort
- * sauber auf `stuck` + N8-Decision + Status-Card + Push. Spiegelt bewusst die
- * Notify-Mechanik des Recovery-Sweeps (terminateOrphanedRun), damit der User
- * dieselbe „Neu starten?"-Affordanz bekommt — nur sofort statt nach 20 min.
+ * Terminalizes an orphaned run WITHOUT a reconstructible intermediate state
+ * cleanly to `stuck` + N8 decision + status card + push, immediately. Deliberately mirrors the
+ * notify mechanic of the recovery sweep (terminateOrphanedRun) so the user
+ * gets the same "restart?" affordance — only immediately instead of after 20 min.
  *
- * Atomarer Status-Guard (active→stuck): kein Re-Push bei Race.
+ * Atomic status guard (active→stuck): no re-push on a race.
  */
 async function terminateUnresumableRun(
   row: OrphanCandidateRow,
@@ -696,7 +696,7 @@ async function terminateUnresumableRun(
     .run(now, row.id) as { changes?: number };
 
   if ((result.changes ?? 0) === 0) {
-    // Race: ein echter Agent-Finish o.Ä. hat den Status schon geändert.
+    // Race: a real agent finish or similar already changed the status.
     return;
   }
 
@@ -708,7 +708,7 @@ async function terminateUnresumableRun(
     `(deterministisch + sofort statt 20min-Sweep). Reason: ` +
     `orphan-no-intermediate-state:${staleMinutes}min. N4/N6/N8.`;
 
-  // N8: Decision-Row (best-effort).
+  // N8: decision row (best-effort).
   writeDecision({
     workspaceId: row.workspace_id,
     workstreamId: row.id,
@@ -718,9 +718,9 @@ async function terminateUnresumableRun(
     actor: 'policy',
   });
 
-  // Status-Card (Deep-Link „Neu starten") — Apple-Feed-Sauberkeit (2026-05-30):
-  // KEINE rohe URL/IDs im sichtbaren Text. Sauberer Satz + Resume-URL nur im
-  // `href` des Markdown-Links (Label „Neu starten"). Kein Secret im Content.
+  // Status card (deep link „Neu starten") — Apple-feed cleanliness (2026-05-30):
+  // NO raw URL/IDs in the visible text. A clean sentence + resume URL only in the
+  // `href` of the markdown link (label „Neu starten"). No secret in the content.
   const cardContent =
     `Ein Lauf wurde durch einen Neustart pausiert. ` +
     `[Neu starten](/?workspace=${encodeURIComponent(row.workspace_id)}&ws=${encodeURIComponent(
@@ -744,7 +744,7 @@ async function terminateUnresumableRun(
     );
   }
 
-  // Push (kind='run-stuck') — Visibility-Gate greift intern. Kein Secret.
+  // Push (kind='run-stuck') — the visibility gate kicks in internally. No secret.
   emitAnswerRequired({
     workspaceId: row.workspace_id,
     entityId: row.id,
@@ -755,10 +755,10 @@ async function terminateUnresumableRun(
 }
 
 // ---------------------------------------------------------------------------
-// Test-Helper
+// Test helper
 // ---------------------------------------------------------------------------
 
-/** Setzt den In-Process-Guard zurück. NUR in Tests verwenden. */
+/** Resets the in-process guard. Use ONLY in tests. */
 export function __resetResumeGuardForTests(): void {
   resumeInProgress = false;
 }

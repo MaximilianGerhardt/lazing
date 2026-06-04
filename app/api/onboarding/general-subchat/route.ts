@@ -1,19 +1,19 @@
 /**
- * POST /api/onboarding/general-subchat — idempotenter „Allgemein"-Default-Chat.
+ * POST /api/onboarding/general-subchat — idempotent „Allgemein" default chat.
  *
- * Bundle-B / Onboarding-Slice (2026-06-03). Eigene, dünne Route — bewusst NICHT
- * `POST /api/workspaces/[id]/subchats`, weil diese Route deren `publicBaseUrl`-
- * Logik unangetastet lässt (parallele Session) und der Onboarding-Flow ohnehin
- * keinen Share-Link braucht (der Founder holt den externen Link später aus der
- * bestehenden Subchat-Share-UI).
+ * Bundle-B / onboarding slice (2026-06-03). A dedicated, thin route — deliberately NOT
+ * `POST /api/workspaces/[id]/subchats`, because this route leaves their `publicBaseUrl`
+ * logic untouched (parallel session) and the onboarding flow does not need a
+ * share link anyway (the founder fetches the external link later from the
+ * existing subchat share UI).
  *
- * Sie ruft `ensureGeneralSubchat` (idempotent — gibt den vorhandenen aktiven
- * external-„Allgemein"-Sub-Chat zurück oder legt ihn an, 720h Share-Token).
+ * It calls `ensureGeneralSubchat` (idempotent — returns the existing active
+ * external „Allgemein" sub-chat or creates it, 720h share token).
  *
- * Auth-Gate: identisch zur Subchats-Route (member-gated) —
+ * Auth gate: identical to the subchats route (member-gated) —
  * `getEffectiveWorkspaceRole` + `canEditWorkspaceContent` + `hasRealWorkspaceMembership`.
- * Der Founder hat den Workspace in Schritt 2 selbst erstellt (direkte Edit-Membership,
- * siehe POST /api/workspaces), daher passiert das Gate.
+ * The founder created the workspace themselves in step 2 (direct edit membership,
+ * see POST /api/workspaces), so the gate passes.
  */
 
 import { NextResponse, type NextRequest } from "next/server";

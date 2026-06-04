@@ -1,28 +1,28 @@
 #!/usr/bin/env tsx
 /**
- * daily-full-sweep.ts — Stale-File-Detection + Re-Index-Suggestions (P12).
+ * daily-full-sweep.ts — Stale file detection + re-index suggestions (P12).
  *
- * Default: DRY-RUN. Listet welche Files in:
+ * Default: DRY-RUN. Lists which files in:
  *   - <standards dir>/**\/*.md          (LAZYOS_STANDARDS_DIR, default ~/standards)
  *   - <repo root>/CLAUDE.md             (LAZYOS_REPO_ROOT, default cwd)
- *   - ~/.claude/skills/**\/SKILL.md     (optional, fail-soft wenn fehlt)
- * eine mtime > als der jüngste rag_chunks-Eintrag für diesen sourceId haben
- * → Re-Index empfohlen.
+ *   - ~/.claude/skills/**\/SKILL.md     (optional, fail-soft if missing)
+ * have an mtime > the most recent rag_chunks entry for that sourceId
+ * → re-index recommended.
  *
- * Mit --apply wird tatsächlich indexSource() aufgerufen.
+ * With --apply, indexSource() is actually called.
  *
- * Output: Markdown-Suggestions-Doc nach `data/daily-sweep-suggestions.md`.
+ * Output: a markdown suggestions doc at `data/daily-sweep-suggestions.md`.
  *
- * REGELN aus P12-Auftrag:
- *   - KEIN Auto-Apply ohne --apply
- *   - KEIN Schreiben in den Standards-Ordner — read-only
- *   - Audit < 5s (nur mtime-Stat + sql-aggregation, keine Embedding-Calls
- *     im DRY-Pfad)
- *   - Fail-soft bei fehlenden Verzeichnissen
+ * RULES from the P12 assignment:
+ *   - NO auto-apply without --apply
+ *   - NO writing into the standards folder — read-only
+ *   - Audit < 5s (only mtime stat + sql aggregation, no embedding calls
+ *     in the DRY path)
+ *   - Fail-soft on missing directories
  *
  * Run:
  *   pnpm tsx scripts/daily-full-sweep.ts             (DRY-RUN)
- *   pnpm tsx scripts/daily-full-sweep.ts --apply     (wirklich re-indexen)
+ *   pnpm tsx scripts/daily-full-sweep.ts --apply     (actually re-index)
  *   pnpm tsx scripts/daily-full-sweep.ts --json      (machine-readable)
  */
 
@@ -56,7 +56,7 @@ interface FileCandidate {
 interface StaleVerdict extends FileCandidate {
   lastIndexedTs: number | null;
   staleByMs: number | null;
-  /** "fresh" (already up-to-date), "stale" (re-index empfohlen), "missing" (nie indexed). */
+  /** "fresh" (already up-to-date), "stale" (re-index recommended), "missing" (never indexed). */
   verdict: "fresh" | "stale" | "missing";
 }
 
@@ -298,10 +298,10 @@ export function renderSuggestions(verdicts: StaleVerdict[]): string {
 }
 
 async function applyReindex(verdicts: StaleVerdict[]): Promise<void> {
-  // P12 Welle 1: --apply ist intentional ein No-Op-Logger. Echtes Re-Indexen
-  // für Pseudo-Types braucht eine Indexer-Erweiterung in lib/rag/indexer.ts
-  // (sourceType-Whitelist um 'standard'/'memory'/'skill' erweitern, Reader
-  // pro Pseudo-Type). Das ist Welle 2.
+  // P12 wave 1: --apply is intentionally a no-op logger. Real re-indexing
+  // for pseudo-types needs an indexer extension in lib/rag/indexer.ts
+  // (extend the sourceType whitelist with 'standard'/'memory'/'skill', a reader
+  // per pseudo-type). That is wave 2.
   const todoCount = verdicts.filter(
     (v) => v.verdict === "missing" || v.verdict === "stale",
   ).length;
@@ -322,7 +322,7 @@ async function main(): Promise<void> {
   const verdicts = classifyCandidates(candidates);
   const tStat = Date.now() - t0;
 
-  // Output-Dir sicherstellen
+  // Ensure the output dir
   const outDir = path.dirname(OUTPUT_DOC);
   if (!existsSync(outDir)) {
     mkdirSync(outDir, { recursive: true });

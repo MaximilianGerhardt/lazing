@@ -1,24 +1,24 @@
 #!/usr/bin/env tsx
 /**
- * Weekly Retry Sniper — Echter Pattern 9 "Unlearning" (P14, 2026-05-01).
+ * Weekly Retry Sniper — the real Pattern 9 "Unlearning" (P14, 2026-05-01).
  *
- * Sonntags 21:00 (systemd-timer): lädt unresolved Failed-Experiments älter
- * als 14d, spawnt sie mit aktuellem Modell + frischer Perspektive neu, und
- * markiert resolved wenn der Re-Try-Output erfolgreich aussieht.
+ * Sundays 21:00 (systemd timer): loads unresolved failed experiments older
+ * than 14d, re-spawns them with the current model + a fresh perspective, and
+ * marks them resolved if the re-try output looks successful.
  *
- * Default ist DRY-RUN. `--apply` triggert echte Re-Spawns + DB-Updates.
+ * Default is DRY-RUN. `--apply` triggers real re-spawns + DB updates.
  *
- * Hard-Cap: 5 Experimente pro Run (Cost-Schutz, MAX-Plan TPM-Bucket).
+ * Hard cap: 5 experiments per run (cost protection, MAX-plan TPM bucket).
  *
- * Resolution-Heuristik (intentionally konservativ):
- *   - Output-Länge > 100 chars
- *   - keine Failure-Keywords ("geht nicht", "scheitert", "kann nicht")
- *   → markResolved + emitEvent. Sonst incrementRetryCount.
+ * Resolution heuristic (intentionally conservative):
+ *   - output length > 100 chars
+ *   - no failure keywords ("geht nicht", "scheitert", "kann nicht")
+ *   → markResolved + emitEvent. Otherwise incrementRetryCount.
  *
- * Wichtig (Spec):
- *   - KEIN Auto-Apply. Sub-Ticket-Pfad ist Pflicht.
- *   - Sub-Ticket: "Lösung gefunden — vorher fehlgeschlagen am <ts>"
- *   - Antrieb der echten Code-Changes erfolgt erst durch User-Klick im Ticket.
+ * Important (spec):
+ *   - NO auto-apply. The sub-ticket path is mandatory.
+ *   - Sub-ticket: "Lösung gefunden — vorher fehlgeschlagen am <ts>"
+ *   - The real code changes are driven only by a user click in the ticket.
  */
 
 import { emitEvent } from "@/lib/events/emit";
@@ -120,7 +120,7 @@ async function retryOne(
       const note = `Lösung gefunden — vorher fehlgeschlagen am ${new Date(exp.attemptedAt).toISOString()}`;
       markResolved(exp.id, note);
 
-      // Sub-Ticket via Event (entityType=ticket, ticketId neu generiert)
+      // Sub-ticket via event (entityType=ticket, ticketId newly generated)
       const ticketId = `tck_${ulid()}`;
       await emitEvent({
         segmentId: (exp.workspaceId as never) ?? "lazyos",
@@ -200,16 +200,16 @@ async function main(): Promise<void> {
   const resolved = outcomes.filter((o) => o.resolved).length;
   const failed = outcomes.filter((o) => !o.ok).length;
 
-  // Summary-Event auf segments 'lazyos': eventType='experiment_retry_batch'
+  // Summary event on the 'lazyos' segment: eventType='experiment_retry_batch'
   if (apply) {
     await emitEvent({
       segmentId: "lazyos",
       entityType: "phase",
       entityId: `experiment_retry_batch_${Date.now()}`,
-      // eventType nicht in offiziellem Enum — wir routen über push_sent
-      // mit payload-Discriminator. Spec verlangt 'experiment_retry_batch'
-      // → wir liefern das in payload.kind, und nutzen 'workflow.completed'
-      // als nächstgelegenen offiziellen EventType.
+      // eventType not in the official enum — we route via push_sent
+      // with a payload discriminator. The spec requires 'experiment_retry_batch'
+      // → we deliver that in payload.kind, and use 'workflow.completed'
+      // as the closest official event type.
       eventType: "workflow.completed",
       actor: "system",
       payload: {
@@ -247,7 +247,7 @@ async function main(): Promise<void> {
 
 main()
   .then(() => {
-    // DB-Loops (stuck-detector, etc.) blocken Process-Exit. Hard-exit.
+    // DB loops (stuck-detector, etc.) block the process exit. Hard exit.
     process.exit(0);
   })
   .catch((err) => {

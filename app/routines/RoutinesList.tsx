@@ -1,22 +1,22 @@
 "use client";
 
 /**
- * RoutinesList — Top-Level Client-Komponente fuer /routines.
+ * RoutinesList — top-level client component for /routines.
  *
- * Orchestriert:
- *   - Filter-Leiste (Status-Tabs + Workspace-Filter)
- *   - Header mit "+ Neue Routine"-Button
- *   - Liste von RoutineCards
- *   - Details-Panel (Slideout rechts)
- *   - New-Routine-Wizard (Modal zentriert)
+ * Orchestrates:
+ *   - filter bar (status tabs + workspace filter)
+ *   - header with "+ Neue Routine" button
+ *   - list of RoutineCards
+ *   - details panel (slideout on the right)
+ *   - new-routine wizard (centered modal)
  *
- * Per-Routine-State (toggle-busy, trigger-busy, last-trigger-result) lebt
- * hier — nicht in den Karten — damit bei Re-Renders keine Props-Drift passiert.
+ * Per-routine state (toggle-busy, trigger-busy, last-trigger-result) lives
+ * here — not in the cards — so that no props drift happens on re-renders.
  *
- * Workspace-Kontext: Default-Filter ist der aktuell aktive Workspace (via
- * `useCurrentWorkspace`). User kann auf "Alle Workspaces" wechseln.
+ * Workspace context: the default filter is the currently active workspace (via
+ * `useCurrentWorkspace`). The user can switch to "Alle Workspaces".
  *
- * Design: LazyOS v1.0 — Tokens aus globals.css.
+ * Design: LazyOS v1.0 — tokens from globals.css.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -59,21 +59,20 @@ export function RoutinesList({ initial }: Props) {
 
   const [list, setList] = useState<RoutineSummary[]>(initial);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  // Default: aktueller Workspace, aber mit "Alle" als Option.
+  // Default: current workspace, but with "Alle" as an option.
   const [workspaceFilter, setWorkspaceFilter] = useState<string>(
     currentWorkspace.id,
   );
 
-  // Keep workspace filter in sync when user wechselt global den Workspace.
-  // Nur wenn der User noch nicht explizit "Alle" oder einen anderen Filter
-  // gesetzt hat — wir pruefen das, indem wir ein letztes bekanntes Current
-  // merken.
+  // Keep workspace filter in sync when the user switches the workspace globally.
+  // Only if the user has not yet explicitly set "Alle" or another filter
+  // — we check this by remembering a last known current.
   const [lastSyncedWorkspace, setLastSyncedWorkspace] = useState(
     currentWorkspace.id,
   );
   useEffect(() => {
     if (currentWorkspace.id !== lastSyncedWorkspace) {
-      // Wenn User auf seinem alten Workspace-Filter war, folge.
+      // If the user was on their old workspace filter, follow along.
       if (workspaceFilter === lastSyncedWorkspace) {
         setWorkspaceFilter(currentWorkspace.id);
       }
@@ -103,15 +102,15 @@ export function RoutinesList({ initial }: Props) {
     Map<string, TriggerResult>
   >(new Map());
 
-  // --------- Workspace-Dropdown-Options ---------
-  // Basis: aus der Nav-API (live-discovered). Wir zeigen nur Workspaces, in
-  // denen Routinen existieren, plus den aktuellen (falls leer) plus "Alle".
+  // --------- Workspace dropdown options ---------
+  // Basis: from the Nav API (live-discovered). We only show workspaces that
+  // have routines, plus the current one (if empty) plus "Alle".
   const workspaceOptions = useMemo(() => {
     const seen = new Set<string>();
     const options: Array<{ id: string; label: string }> = [
       { id: ALL_WORKSPACES, label: "Alle Workspaces" },
     ];
-    // Workspaces mit Routinen.
+    // Workspaces with routines.
     const routineWorkspaces = new Set(list.map((r) => r.workspaceId));
     for (const ws of allWorkspaces) {
       if (routineWorkspaces.has(ws.id) || ws.id === currentWorkspace.id) {
@@ -121,7 +120,7 @@ export function RoutinesList({ initial }: Props) {
         }
       }
     }
-    // Orphan-Workspaces (in Routinen, aber nicht in Nav-API).
+    // Orphan workspaces (in routines, but not in the Nav API).
     for (const id of routineWorkspaces) {
       if (!seen.has(id)) {
         options.push({ id, label: id });
@@ -131,9 +130,9 @@ export function RoutinesList({ initial }: Props) {
     return options;
   }, [list, allWorkspaces, currentWorkspace.id]);
 
-  // --------- Wizard-Workspace-Options ---------
+  // --------- Wizard workspace options ---------
   const wizardWorkspaceOptions = useMemo(() => {
-    // Wizard: alle bekannten Workspaces der Nav-API.
+    // Wizard: all known workspaces of the Nav API.
     return allWorkspaces.map((ws) => ({ id: ws.id, label: ws.label }));
   }, [allWorkspaces]);
 
@@ -175,7 +174,7 @@ export function RoutinesList({ initial }: Props) {
     async (r: RoutineSummary) => {
       setBusy(r.id, true);
       const nextActive = !r.active;
-      // Optimistisch.
+      // Optimistic.
       setList((prev) =>
         prev.map((x) => (x.id === r.id ? { ...x, active: nextActive } : x)),
       );
@@ -276,7 +275,7 @@ export function RoutinesList({ initial }: Props) {
 
   return (
     <>
-      {/* Filter-Leiste */}
+      {/* Filter bar */}
       <div style={filterBarStyle}>
         <div style={tabRowStyle} role="tablist">
           {(
@@ -338,7 +337,7 @@ export function RoutinesList({ initial }: Props) {
         </label>
       </div>
 
-      {/* Liste / Empty */}
+      {/* List / Empty */}
       {filtered.length === 0 ? (
         <EmptyState
           kind={list.length === 0 ? "none" : "filtered"}
@@ -364,11 +363,11 @@ export function RoutinesList({ initial }: Props) {
         </div>
       )}
 
-      {/* Floating create-Button (unten rechts auf Mobile wuerde ein FAB sein;
-          Desktop: der Header-Button reicht. Den FAB lassen wir hier weg fuer
-          Zeichen-Economy.) */}
+      {/* Floating create button (bottom right on mobile would be a FAB;
+          desktop: the header button is enough. We omit the FAB here for
+          character economy.) */}
 
-      {/* Details-Panel */}
+      {/* Details panel */}
       {detail && (
         <RoutineDetailsPanel
           routineId={detail.id}

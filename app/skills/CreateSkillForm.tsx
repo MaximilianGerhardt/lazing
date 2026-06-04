@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * CreateSkillForm — Inline-Form für neue User-Skills.
+ * CreateSkillForm — inline form for new user skills.
  *
- * Minimaler Editor: Name, Focus-Prompt, Tier-Pref, Effort, Default-Count.
- * Server-Side-Auth läuft via Cookie (Middleware), der Form sendet plain
- * fetch ohne extra Header.
+ * Minimal editor: name, focus prompt, tier pref, effort, default count.
+ * Server-side auth runs via cookie (middleware); the form sends a plain
+ * fetch without an extra header.
  */
 
 import { useState, useTransition, type CSSProperties } from 'react';

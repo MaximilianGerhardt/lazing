@@ -1,8 +1,8 @@
 /**
- * GET /api/inbox/count — schlanker Endpoint für TopNav-Badge.
+ * GET /api/inbox/count — lean endpoint for the TopNav badge.
  *
- * Liefert nur die Total-Counts ohne die Items selber. Wird vom TopNav
- * ~alle 60s gepollt. Schnell + cache-friendly.
+ * Returns only the total counts without the items themselves. Polled by the
+ * TopNav ~every 60s. Fast + cache-friendly.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json({ total: 0, counts: {} });
   }
   try {
-    // Phase IA.5 — org-scope aus Cookie.
+    // Phase IA.5 — org scope from cookie.
     const cookieOrgId = req.cookies.get("lazyos.org")?.value
       ?? req.cookies.get("lazyos_org")?.value
       ?? null;

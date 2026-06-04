@@ -1,24 +1,24 @@
 /**
  * GET /api/chat/history/[workspaceId]
  *
- * Phase MS · 2026-04-26. Server-Read der Chat-History fuer einen Workspace.
- * Quelle: `events`-Tabelle, gefiltert auf `entity_type='chat_message'`.
+ * Phase MS · 2026-04-26. Server-side read of the chat history for a workspace.
+ * Source: the `events` table, filtered on `entity_type='chat_message'`.
  *
- * Auth: Cookie-basiert (gleicher Pattern wie /api/events/stream).
+ * Auth: cookie-based (same pattern as /api/events/stream).
  *
- * Query-Params:
+ * Query params:
  *   - limit  (default 60, max 200)
- *   - before (ISO-Timestamp; events mit createdAt < before)
+ *   - before (ISO timestamp; events with createdAt < before)
  *
  * Response:
  *   {
- *     items: HistoryItem[],   // chronologisch (oldest first)
- *     hasMore: boolean        // true wenn limit komplett gefuellt wurde
+ *     items: HistoryItem[],   // chronological (oldest first)
+ *     hasMore: boolean        // true if the limit was fully filled
  *   }
  *
- * Implementation: DESC-Query, dann reversed gemappt — so nehmen wir die
- * NEUESTE N Items, kein "fenster ab Start" was bei aktiver Workspace
- * dem User die alten Sachen statt der neuen zeigen wuerde.
+ * Implementation: DESC query, then mapped reversed — this way we take the
+ * NEWEST N items, not a "window from the start" which on an active workspace
+ * would show the user the old stuff instead of the new.
  */
 
 import { NextResponse } from "next/server";
@@ -52,9 +52,9 @@ export const dynamic = "force-dynamic";
 const DEFAULT_LIMIT = 60;
 const MAX_LIMIT = 200;
 
-// Akzeptiert echte Workspace-IDs, Sonder-Pseudos ((root)/(tmp)/__root__) und
-// den Org-Root-Scope `__org_root__:<orgId>` (Phase IA.1 — Org-scoped Chat).
-// Der optionale Prefix war bisher nicht erlaubt → der `:` wurde verworfen → 400.
+// Accepts real workspace IDs, special pseudos ((root)/(tmp)/__root__) and
+// the org-root scope `__org_root__:<orgId>` (Phase IA.1 — org-scoped chat).
+// The optional prefix was previously not allowed → the `:` was rejected → 400.
 const WORKSPACE_ID_REGEX = /^(?:__org_root__:)?[a-z0-9_()][a-z0-9_()-]{0,63}$/i;
 
 function rowToEvent(row: typeof events.$inferSelect): LazyEvent {
@@ -127,10 +127,10 @@ export async function GET(
   // ---- Query
   const db = getDb();
 
-  // Clear-Point (2026-06-02): jüngster „Verlauf leeren"-Marker für diesen
-  // Workspace. Append-only — wir löschen nichts, sondern blenden alle
-  // chat_message-Events VOR dem Marker aus. Best-effort: bei Fehler kein
-  // Cutoff (alte History bleibt sichtbar, kein Crash).
+  // Clear point (2026-06-02): the most recent „Verlauf leeren" marker for this
+  // workspace. Append-only — we delete nothing, but hide all
+  // chat_message events BEFORE the marker. Best-effort: on error no
+  // cutoff (old history stays visible, no crash).
   let clearPointMs: number | undefined;
   try {
     const clearRow = db
@@ -148,10 +148,10 @@ export async function GET(
       .all();
     if (clearRow.length > 0) clearPointMs = clearRow[0]!.createdAt;
   } catch {
-    /* non-fatal — kein Cutoff */
+    /* non-fatal — no cutoff */
   }
 
-  // Q1: chat_message events (existing scope — User/Assistant-Bubbles).
+  // Q1: chat_message events (existing scope — user/assistant bubbles).
   const chatClauses = [
     eq(events.entityType, "chat_message"),
     eq(events.segmentId, workspaceId),
@@ -165,11 +165,11 @@ export async function GET(
   const chatWhere =
     chatClauses.length === 1 ? chatClauses[0] : and(...chatClauses);
 
-  // Q2: workstream-Aktivitaet (ticket/updated, ticket/commented).
-  // Wir laden hier breit (nur entityType + eventType + segmentId) und
-  // filtern per JS auf payload-Felder — JSON-extract ueber Drizzle/SQLite
-  // ist fragil und der Volume ist klein (10er-Bereich pro Workspace pro
-  // Stunde). Limit doppelt damit auch nach JS-Filter genug uebrig bleibt.
+  // Q2: workstream activity (ticket/updated, ticket/commented).
+  // We load broadly here (only entityType + eventType + segmentId) and
+  // filter on payload fields in JS — JSON-extract via Drizzle/SQLite
+  // is fragile and the volume is small (tens per workspace per
+  // hour). Double the limit so enough remains even after the JS filter.
   const wsClauses = [
     eq(events.entityType, "ticket"),
     eq(events.segmentId, workspaceId),
@@ -194,9 +194,9 @@ export async function GET(
       .limit(limit)
       .all();
 
-    // Wir nehmen 4×limit als raw-Window — 4× Sicherheitsfaktor weil wir in JS
-    // auf payload.transition / payload.kind filtern (nicht jede ticket-update
-    // ist Workstream-Event; status_changed-only Updates landen z.B. raus).
+    // We take 4×limit as the raw window — 4× safety factor because we filter
+    // in JS on payload.transition / payload.kind (not every ticket update
+    // is a workstream event; e.g. status_changed-only updates drop out).
     wsRows = db
       .select()
       .from(events)
@@ -221,18 +221,18 @@ export async function GET(
     .map((ev) => chatMessageEventToHistoryItem(ev))
     .filter((item): item is NonNullable<typeof item> => item !== null);
 
-  // ---- Streaming-Recovery V2 (2026-04-27) -----------------------------
-  // Fuer jede Row in `streaming_snapshots` (Migration 0018) hangen wir
-  // ein synthetisches Assistant-HistoryItem an. Die Existenz der Row =
-  // "kein chat_message_completed bisher" (DELETE-after-completed-Vertrag).
-  // State-Heuristik:
-  //   now - updated_at < 10s  → 'streaming' (Writer noch lebendig)
-  //   sonst                    → 'aborted'  (Server-Crash, 1500ms-Takt aus)
+  // ---- Streaming recovery V2 (2026-04-27) -----------------------------
+  // For each row in `streaming_snapshots` (migration 0018) we append
+  // a synthetic assistant history item. The existence of the row =
+  // "no chat_message_completed yet" (DELETE-after-completed contract).
+  // State heuristic:
+  //   now - updated_at < 10s  → 'streaming' (writer still alive)
+  //   otherwise                → 'aborted'  (server crash, 1500ms beat off)
   //
-  // Gefiltert auf Snapshots, deren pendingPromptId in den geladenen
-  // chat_message_sent-Events vorkommt — sonst wuerden Snapshots aus
-  // dem Pre-`before`-Zeitfenster oder aus parallelen Tabs hier auftauchen
-  // und die Reihenfolge zerschiessen.
+  // Filtered to snapshots whose pendingPromptId appears in the loaded
+  // chat_message_sent events — otherwise snapshots from
+  // the pre-`before` time window or from parallel tabs would show up here
+  // and break the ordering.
   let streamingItems: HistoryItem[] = [];
   try {
     type SnapshotRow = {
@@ -253,7 +253,7 @@ export async function GET(
       .all(workspaceId) as SnapshotRow[];
 
     if (snapshotRows.length > 0) {
-      // Set der pendingPromptIds, die wir geladen haben (Reihenfolge-Anker).
+      // Set of the pendingPromptIds we loaded (ordering anchor).
       const knownPids = new Set<string>();
       for (const it of items) {
         if (it.pendingPromptId) knownPids.add(it.pendingPromptId);
@@ -292,9 +292,9 @@ export async function GET(
             }
           }
           const item: HistoryItem = {
-            // ID-Konvention: snapshot-Items bekommen `snap-<pendingPromptId>`
-            // damit sie nicht mit echten Event-ULIDs kollidieren und der
-            // Client sie via prefix-check erkennen kann.
+            // ID convention: snapshot items get `snap-<pendingPromptId>`
+            // so they do not collide with real event ULIDs and the
+            // client can recognize them via a prefix check.
             id: `snap-${r.pending_prompt_id}`,
             role: 'assistant',
             content: r.partial_content,
@@ -306,8 +306,8 @@ export async function GET(
             inCodeBlock: r.in_code_block === 1,
             toolState: parsedToolState,
             snapshotUpdatedAt: new Date(r.updated_at).toISOString(),
-            // pendingPromptId mitgeben damit der Client die Snapshot-
-            // Bubble eindeutig dem User-Prompt zuordnen kann.
+            // Pass pendingPromptId so the client can uniquely associate the
+            // snapshot bubble with the user prompt.
             pendingPromptId: r.pending_prompt_id,
           };
           return item;
@@ -321,12 +321,12 @@ export async function GET(
     streamingItems = [];
   }
 
-  // Snapshot-Items chronologisch hinter den letzten user-Bubble einsortieren,
-  // der dieselbe pendingPromptId teilt. Wenn die History bereits ein
-  // chat_message_sent-Item fuer diese pid enthaelt, kommt der Snapshot
-  // direkt danach (Assistant-Bubble in Antwort darauf). Wenn nicht
-  // (Edge-Case: sent-Event in einem geladenen, completed in keinem,
-  // beide vor `before`), haengen wir am Ende an.
+  // Insert snapshot items chronologically after the last user bubble
+  // that shares the same pendingPromptId. If the history already contains a
+  // chat_message_sent item for this pid, the snapshot comes
+  // right after it (assistant bubble in reply to it). If not
+  // (edge case: sent event in a loaded one, completed in none,
+  // both before `before`), we append at the end.
   const merged: HistoryItem[] = [];
   const placedPids = new Set<string>();
   for (const it of items) {
@@ -350,8 +350,8 @@ export async function GET(
   // (Eslint-clean: re-assign over a let-binding instead of mutating const.)
   const finalItems: HistoryItem[] = merged;
 
-  // Workstream-Events filtern + mappen. Limit auf `limit` damit wir den
-  // Client nicht mit 200+ Toasts erschlagen wenn der Workspace heiss lief.
+  // Filter + map workstream events. Limit to `limit` so we do not
+  // overwhelm the client with 200+ toasts when the workspace ran hot.
   const chronologicalWs = [...wsRows]
     .reverse()
     .map((row) => rowToEvent(row))

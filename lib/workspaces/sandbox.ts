@@ -1,28 +1,28 @@
 /**
- * Sandbox-Mode-Helper (P16, 2026-05-01).
+ * Sandbox-mode helper (P16, 2026-05-01).
  * ---------------------------------------
  *
- * Anne (Legaly-AI, Quote): „was ist worst case... was sind die Rahmen-
+ * Anne (Legaly-AI, quote): „was ist worst case... was sind die Rahmen-
  * bedingungen und dann in diesem Spielfeld, was klar abgesteckt ist, dann
  * aber auch Entscheidungen frei und schnell zuzulassen."
  *
- * Sandbox-Mode = „Spielfeld klar abgesteckt + freie Hand IM Spielfeld":
+ * Sandbox mode = "playing field clearly staked out + free hand WITHIN the field":
  *
- *   - Auto-Approve nach Synthesis (kein User-Click für Sub-Dispatch).
- *   - Keine Push-Notifications für Routine-Events
- *     (z.B. master-auto-closed, sub-dispatched-success).
- *   - Loop-Guard, Multi-Account-Isolation, Credential-Gates bleiben AKTIV.
+ *   - Auto-approve after synthesis (no user click for sub-dispatch).
+ *   - No push notifications for routine events
+ *     (e.g. master-auto-closed, sub-dispatched-success).
+ *   - Loop guard, multi-account isolation, credential gates stay ACTIVE.
  *
  * Constraint:
- *   Sandbox-Mode ist NUR auf workspace.sensitivity='low' aktivierbar.
- *   sensitivity='medium' / 'high' sind explizit ausgeschlossen — das
- *   ist die „klar abgesteckte Rahmenbedingung". Der Guard `isSandbox()`
- *   enforct das auch wenn jemand das Feld direkt in der DB auf 1 setzt.
+ *   Sandbox mode can ONLY be activated on workspace.sensitivity='low'.
+ *   sensitivity='medium' / 'high' are explicitly excluded — that
+ *   is the "clearly staked-out boundary condition". The guard `isSandbox()`
+ *   enforces this even if someone sets the field directly to 1 in the DB.
  *
- * NICHT in Sandbox erlaubt:
- *   - Loop-Guard deaktivieren (NIE — Memory: „Drei Pflicht-Schichten OBLIGAT.")
- *   - Credential-Gates aufweichen (TECH-008/012)
- *   - Cross-Org-Bypässe
+ * NOT allowed in sandbox:
+ *   - Disabling the loop guard (NEVER — memory: „Drei Pflicht-Schichten OBLIGAT.")
+ *   - Softening credential gates (TECH-008/012)
+ *   - Cross-org bypasses
  */
 
 import { eq } from "drizzle-orm";
@@ -37,12 +37,12 @@ export interface SandboxableWorkspace {
 }
 
 /**
- * Reine Funktion (test-friendly): liest beide Felder, gibt true wenn
- * sandbox aktiv UND sensitivity erlaubt ist.
+ * Pure function (test-friendly): reads both fields, returns true when
+ * sandbox is active AND sensitivity allows it.
  *
- * Default-Verhalten:
+ * Default behavior:
  *   - sandboxMode undefined / 0 → false
- *   - sensitivity != 'low' → false (auch bei sandboxMode=1 — Safety-Floor)
+ *   - sensitivity != 'low' → false (even with sandboxMode=1 — safety floor)
  */
 export function isSandbox(ws: SandboxableWorkspace): boolean {
   if (ws.sensitivity !== "low") return false;
@@ -50,14 +50,14 @@ export function isSandbox(ws: SandboxableWorkspace): boolean {
 }
 
 /**
- * Constraint-Check für die Toggle-Route. Returnt einen sprechenden Grund
- * wenn die Aktivierung NICHT erlaubt ist, sonst null.
+ * Constraint check for the toggle route. Returns a descriptive reason
+ * when activation is NOT allowed, otherwise null.
  */
 export function sandboxRejectionReason(
   ws: SandboxableWorkspace,
   enable: boolean,
 ): string | null {
-  if (!enable) return null; // Deaktivieren ist immer ok
+  if (!enable) return null; // Deactivating is always ok
   if (ws.sensitivity !== "low") {
     return "sandbox-only-on-low-sensitivity";
   }
@@ -65,9 +65,9 @@ export function sandboxRejectionReason(
 }
 
 /**
- * DB-Write: setzt das Flag und aktualisiert updated_at.
- * Wirft wenn der Workspace nicht existiert oder das Constraint verletzt
- * wird. Caller (API-Route) muss vorher Permission + Sensitivity prüfen.
+ * DB write: sets the flag and updates updated_at.
+ * Throws when the workspace does not exist or the constraint is
+ * violated. The caller (API route) must check permission + sensitivity first.
  */
 export async function setSandboxMode(
   workspaceId: string,
@@ -101,11 +101,11 @@ export async function setSandboxMode(
 }
 
 /**
- * Convenience: lade Workspace direkt aus DB und prüfe Sandbox.
- * Für Hot-Path-Caller (Approval-Service, Push-Service) gedacht.
+ * Convenience: load the workspace directly from the DB and check sandbox.
+ * Intended for hot-path callers (approval service, push service).
  *
- * Returnt false wenn Workspace nicht existiert (defensiv: keine
- * Auto-Approve-Privilegien für Phantom-IDs).
+ * Returns false when the workspace does not exist (defensive: no
+ * auto-approve privileges for phantom IDs).
  */
 export async function workspaceIsSandbox(
   workspaceId: string,
@@ -132,13 +132,13 @@ export async function workspaceIsSandbox(
 }
 
 /**
- * Push-Suppression-Liste für Sandbox-Workspaces. Routine-Events die
- * im Sandbox-Mode KEIN Push triggern sollen. Caller (push-service)
- * filtert vor dem Send.
+ * Push-suppression list for sandbox workspaces. Routine events that
+ * should NOT trigger a push in sandbox mode. The caller (push service)
+ * filters before sending.
  *
- * Critical-Events (z.B. credential-violation, loop-guard-tripped,
- * security-alert) sind hier BEWUSST NICHT enthalten — die müssen
- * auch im Sandbox notifiziert werden.
+ * Critical events (e.g. credential-violation, loop-guard-tripped,
+ * security-alert) are DELIBERATELY NOT included here — they must
+ * be notified even in sandbox.
  */
 export const SANDBOX_SUPPRESSED_PUSH_RULES: ReadonlySet<string> = new Set([
   "master-auto-closed",

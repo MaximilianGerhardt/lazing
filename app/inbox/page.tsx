@@ -1,8 +1,8 @@
 /**
- * /inbox — Phase IB Action-Required-View.
+ * /inbox — Phase IB action-required view.
  *
- * Server-Component. Liest current-user, aggregiert pending Items via
- * `lib/inbox/aggregate.ts`. Apple-Keynote-Stil, sortiert nach Priorität.
+ * Server component. Reads current-user, aggregates pending items via
+ * `lib/inbox/aggregate.ts`. Apple keynote style, sorted by priority.
  */
 
 import { redirect } from "next/navigation";
@@ -41,9 +41,9 @@ export default async function InboxPage(): Promise<React.JSX.Element> {
     redirect("/login");
   }
 
-  // Phase IA.5 — org-gefilterte Inbox. Cookie `lazyos.org` (vom OrgSwitcher
-  // gesetzt) entscheidet welche Org gerade aktiv ist. Fallback: erste
-  // verfügbare Org des Users.
+  // Phase IA.5 — org-filtered inbox. Cookie `lazyos.org` (set by the
+  // OrgSwitcher) decides which org is currently active. Fallback: the user's
+  // first available org.
   const c = await cookies();
   const cookieOrgId = c.get("lazyos.org")?.value ?? c.get("lazyos_org")?.value ?? null;
   let activeOrgId: string | undefined;

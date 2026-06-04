@@ -1,39 +1,39 @@
 /**
  * Auto-Connect Flow — ACL5-E (2026-05-24).
  *
- * `maybeAutoConnect(prompt, ctx)` wird hybrid im Chat-Stream-Prozess aufgerufen
- * (fire-and-forget, analog plan-dispatch). Es macht KEINEN echten Connector-Call —
- * nur Detect / Setup / Preview. Echter Call nur nach User-Approve via
+ * `maybeAutoConnect(prompt, ctx)` is called hybrid in the chat-stream process
+ * (fire-and-forget, analogous to plan-dispatch). It makes NO real connector call —
+ * only detect / setup / preview. A real call happens only after user approval via
  * POST /api/connectors/invoke.
  *
- * ── Ablauf ────────────────────────────────────────────────────────────────────
- *   1. detectConnector(prompt, ctx) — deterministisch (N6, kein LLM, kein I/O).
+ * ── Flow ──────────────────────────────────────────────────────────────────────
+ *   1. detectConnector(prompt, ctx) — deterministic (N6, no LLM, no I/O).
  *      missing='no-connector' → no-op, return {acted:false}.
  *
- *   2. missing='profile' → connector-onboarding-SOP anstoßen (non-destruktiv,
- *      über bestehende SOP→plan-Brücke). Status-Card emittieren.
+ *   2. missing='profile' → kick off the connector-onboarding SOP (non-destructive,
+ *      via the existing SOP→plan bridge). Emit a status card.
  *
- *   3. missing='credential' → credential-request-Surface emittieren
- *      (provider/scopeKind/why). KEIN Secret in der Card.
+ *   3. missing='credential' → emit a credential-request surface
+ *      (provider/scopeKind/why). NO secret in the card.
  *
- *   4. missing='none' (Profil + Credential da) → previewCall(...)
- *      → connector-call-preview-Surface emittieren (S5: Endpoint, Payload-Keys,
- *      maskiertes Credential, dryRun-Label falls LIVE off) mit Approve-Action.
+ *   4. missing='none' (profile + credential present) → previewCall(...)
+ *      → emit a connector-call-preview surface (S5: endpoint, payload keys,
+ *      masked credential, dryRun label if LIVE off) with an approve action.
  *
  * ── Constraints ───────────────────────────────────────────────────────────────
- *   - NICHT-DESTRUKTIV: kein echter Netzwerk-Call hier.
- *   - Secret NIE in Card/Transcript/SSE/Log.
- *   - Prozess-Lokalität: muss im Next-Prozess (:4200) laufen (broadcast ist
- *     In-Process-EventEmitter). Nie im agent-server (:4201) aufrufen.
- *   - Codex ist per B1-Sicherheits-Fix ausgeschlossen (destruktiver Code-Mode).
- *   - Fire-and-forget: Fehler nie an den Chat-Stream propagieren.
- *   - N8: Audit über previewCall (schreibt preview-Row).
- *   - N6: detectConnector ist deterministisch — kein LLM im Hot-Path.
+ *   - NON-DESTRUCTIVE: no real network call here.
+ *   - Secret NEVER in card/transcript/SSE/log.
+ *   - Process locality: must run in the Next process (:4200) (broadcast is an
+ *     in-process EventEmitter). Never call it in the agent-server (:4201).
+ *   - Codex is excluded by the B1 security fix (destructive code mode).
+ *   - Fire-and-forget: never propagate errors to the chat stream.
+ *   - N8: audit via previewCall (writes a preview row).
+ *   - N6: detectConnector is deterministic — no LLM in the hot path.
  *
- * ── Wo eingehängt ────────────────────────────────────────────────────────────
- *   app/api/chat/stream/route.ts — analog zum plan-dispatch-Hybrid-Block:
+ * ── Where it is wired in ──────────────────────────────────────────────────────
+ *   app/api/chat/stream/route.ts — analogous to the plan-dispatch hybrid block:
  *     void maybeAutoConnect(prompt, { workspaceId, userId }).catch(...)
- *   Keine Auswirkung auf den normalen Antwort-Stream.
+ *   No effect on the normal answer stream.
  */
 
 import { detectConnector } from '@/lib/connectors/detect';
@@ -60,8 +60,8 @@ import { ulid } from '@/lib/ulid';
 export interface AutoConnectCtx {
   workspaceId: string;
   userId: string;
-  /** Optionales Request-Abort-Signal (wird nicht an detectConnector weitergereicht,
-   *  nur für künftige async-Pfade reserviert). */
+  /** Optional request abort signal (not forwarded to detectConnector,
+   *  reserved only for future async paths). */
   signal?: AbortSignal;
 }
 
@@ -70,13 +70,13 @@ export type AutoConnectResult =
   | { acted: true; action: 'onboarding' | 'credential-request' | 'preview'; provider: string };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Interne Hilfsfunktionen
+// Internal helper functions
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Synchroner Existenz-Check auf api_credentials (COUNT-Query, kein Decrypt).
- * Wird als hasCredential-Callback in detectConnector injiziert (N6-konform:
- * detect.ts selbst greift nie auf api_credentials zu).
+ * Synchronous existence check on api_credentials (COUNT query, no decrypt).
+ * Injected as the hasCredential callback into detectConnector (N6-compliant:
+ * detect.ts itself never touches api_credentials).
  */
 function buildHasCredential(workspaceId: string): (provider: string) => boolean {
   return (provider: string): boolean => {
@@ -90,43 +90,43 @@ function buildHasCredential(workspaceId: string): (provider: string) => boolean 
         .get(workspaceId, provider) as { n: number } | undefined;
       return (row?.n ?? 0) > 0;
     } catch {
-      // Fail-closed: wenn DB nicht erreichbar → 'credential' (kein 'none').
+      // Fail-closed: if the DB is unreachable → 'credential' (not 'none').
       return false;
     }
   };
 }
 
 /**
- * Pseudo-workstreamId für emitOrUpdateCard: ACL5-E-Connector-Karten haben
- * keinen echten Workstream. Wir nutzen ein deterministisches Präfix + Provider,
- * damit One-Card-Pro-Kind-Dedup greift (gleicher Provider → gleiche Card).
+ * Pseudo workstreamId for emitOrUpdateCard: ACL5-E connector cards have
+ * no real workstream. We use a deterministic prefix + provider, so that the
+ * one-card-per-kind dedup takes effect (same provider → same card).
  */
 function connectorCardWorkstreamId(provider: string): string {
   return `acl5e-connector-${provider}`;
 }
 
 /**
- * Onboarding-Workstream-Dedup (Bug-Fix 2026-05-30).
+ * Onboarding-workstream dedup (bug fix 2026-05-30).
  *
- * Root-cause: jeder Chat-Prompt mit `missing='profile'` für denselben Provider
- * rief triggerOnboardingSop() → createWorkstream() AUF — ohne zu prüfen, ob für
- * diesen Provider+Workspace bereits ein laufendes Onboarding existiert. Folge:
- * 3+ gleichzeitige „Connector-Onboarding: heygen"-Workstreams.
+ * Root cause: every chat prompt with `missing='profile'` for the same provider
+ * CALLED triggerOnboardingSop() → createWorkstream() — without checking whether
+ * a running onboarding already exists for this provider+workspace. Result:
+ * 3+ simultaneous „Connector-Onboarding: heygen" workstreams.
  *
- * Diese Funktion liefert einen bereits AKTIVEN/laufenden Onboarding-Workstream
- * für denselben Provider+Workspace zurück (oder null). Status 'active' und
- * 'paused' gelten als „läuft noch" (ein pausierter Onboarding-Flow wartet i.d.R.
- * auf Owner-Input und darf nicht parallel neu gespawnt werden). 'done',
- * 'archived' und 'stuck' gelten als abgeschlossen/tot → ein erneuter Versuch ist
- * dann legitim.
+ * This function returns an already ACTIVE/running onboarding workstream
+ * for the same provider+workspace (or null). Status 'active' and
+ * 'paused' count as "still running" (a paused onboarding flow usually waits
+ * for owner input and must not be spawned anew in parallel). 'done',
+ * 'archived' and 'stuck' count as finished/dead → a renewed attempt is
+ * then legitimate.
  *
- * N6: deterministisch, reiner DB-Read, kein LLM, kein I/O.
- * N9: workspace_id ist der Isolation-Anker der Query — nie provider-only.
+ * N6: deterministic, pure DB read, no LLM, no I/O.
+ * N9: workspace_id is the isolation anchor of the query — never provider-only.
  *
- * Match auf `name = 'Connector-Onboarding: <safeProviderId>'` — exakt der Name,
- * den triggerOnboardingSop() bei createWorkstream() setzt (Single-Source).
- * Fail-open auf null (kein bestehender Run): bei DB-Fehler lieber EINEN
- * zusätzlichen Onboarding-Run als gar keinen — das Onboarding ist non-destruktiv.
+ * Matches on `name = 'Connector-Onboarding: <safeProviderId>'` — exactly the name
+ * that triggerOnboardingSop() sets at createWorkstream() (single source).
+ * Fail-open to null (no existing run): on a DB error prefer ONE
+ * additional onboarding run over none — onboarding is non-destructive.
  */
 function findActiveOnboardingWorkstreamId(
   workspaceId: string,
@@ -148,39 +148,39 @@ function findActiveOnboardingWorkstreamId(
       | undefined;
     return row?.id ?? null;
   } catch {
-    // Fail-open: kein bestehender Run erkannt → erlaube neuen (non-destruktiv).
+    // Fail-open: no existing run detected → allow a new one (non-destructive).
     return null;
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Onboarding-SOP-Pfad
+// Onboarding-SOP path
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Startet den Connector-Onboarding-SOP für einen Provider ohne Katalog-Profil
- * (missing='profile'). Non-destruktiv: kein echter Netzwerk-Call, kein Spawn.
+ * Starts the connector-onboarding SOP for a provider without a catalog profile
+ * (missing='profile'). Non-destructive: no real network call, no spawn.
  *
- * Ablauf (P1-#5, echte SOP-Brücke, kein reiner Toast mehr):
- *   1. Sucht 'connector-onboarding'-SOP in der Registry via getSop/listSops.
- *   2. Wenn SOP gefunden: expandSopToPlanNodes → createWorkstream →
- *      insertProposedPlan (in Transaktion) → executePlan (text-only, codex
- *      excluded, NON-DESTRUCTIVE) — identisch zur SAR-3 runPlanDispatch Path A.
- *   3. Status-Card emittieren mit Verweis auf den erzeugten Workstream.
- *   4. Wenn SOP NICHT gefunden: Fallback auf Warn-Toast (bisheriges Verhalten),
- *      damit der Flow nie crasht.
+ * Flow (P1-#5, real SOP bridge, no longer just a toast):
+ *   1. Looks up the 'connector-onboarding' SOP in the registry via getSop/listSops.
+ *   2. If the SOP is found: expandSopToPlanNodes → createWorkstream →
+ *      insertProposedPlan (in a transaction) → executePlan (text-only, codex
+ *      excluded, NON-DESTRUCTIVE) — identical to SAR-3 runPlanDispatch Path A.
+ *   3. Emit a status card referencing the created workstream.
+ *   4. If the SOP is NOT found: fall back to a warn toast (previous behavior),
+ *      so the flow never crashes.
  *
  * Constraints:
- *   - NICHT-DESTRUKTIV: executePlan ist text-only (engine.chat()), keine
- *     Datei-Schreiboperationen, kein codex.
- *   - NON-SECRET: kein Credential-Wert im Card-Payload.
- *   - N1: goalPrompt (provider-Name als Kontext) verbatim in Workstream-Beschreibung.
- *   - N8: writeDecision dokumentiert die Routing-Entscheidung.
- *   - N9: workspaceId als ManifestCoord auf allen persistierten Rows.
- *   - N10: insertProposedPlan stempelt contentHash auf jeden Plan-Step-Row.
+ *   - NON-DESTRUCTIVE: executePlan is text-only (engine.chat()), no
+ *     file-write operations, no codex.
+ *   - NON-SECRET: no credential value in the card payload.
+ *   - N1: goalPrompt (provider name as context) verbatim in the workstream description.
+ *   - N8: writeDecision documents the routing decision.
+ *   - N9: workspaceId as ManifestCoord on all persisted rows.
+ *   - N10: insertProposedPlan stamps contentHash on every plan-step row.
  *
- * Fehlerbehandlung: wirft NICHT — alle Fehler landen als Console-warn
- * (fire-and-forget, analog maybeAutoConnect Aufrufer).
+ * Error handling: does NOT throw — all errors land as a console.warn
+ * (fire-and-forget, analogous to the maybeAutoConnect caller).
  */
 async function triggerOnboardingSop(args: {
   provider: string;
@@ -189,10 +189,10 @@ async function triggerOnboardingSop(args: {
 }): Promise<void> {
   const { provider, workspaceId } = args;
 
-  // ── 1. Suche nach 'connector-onboarding'-SOP ────────────────────────────
-  // Canonical built-in SOP-ID — falls kein expliziter SOP existiert, suchen
-  // wir nach dem namen "Research → Synthesize → Draft → Review" (built-in seed)
-  // als Fallback. Der eigentliche connector-onboarding-SOP ist workspace-scoped.
+  // ── 1. Look up the 'connector-onboarding' SOP ───────────────────────────
+  // Canonical built-in SOP id — if no explicit SOP exists, we look up
+  // the name "Research → Synthesize → Draft → Review" (built-in seed)
+  // as a fallback. The actual connector-onboarding SOP is workspace-scoped.
   const CONNECTOR_ONBOARDING_SOP_NAME_PATTERNS = [
     'connector-onboarding',
     'connector onboarding',
@@ -209,10 +209,10 @@ async function triggerOnboardingSop(args: {
     );
     if (found) sopId = found.id;
   } catch {
-    // Best-effort — Registry nicht erreichbar → Fallback
+    // Best-effort — registry unreachable → fallback
   }
 
-  // ── 2. Wenn kein matching SOP: Warn-Toast-Fallback (kein Crash) ─────────
+  // ── 2. If no matching SOP: warn-toast fallback (no crash) ───────────────
   if (!sopId) {
     const sopHint = `Kein Connector-Onboarding-SOP für '${provider}' im Katalog. Onboarding erforderlich.`;
     await emitOrUpdateCard({
@@ -232,7 +232,7 @@ async function triggerOnboardingSop(args: {
     return;
   }
 
-  // ── 3. SOP gefunden → expandSopToPlanNodes → createWorkstream → persist ─
+  // ── 3. SOP found → expandSopToPlanNodes → createWorkstream → persist ────
   const sop = getSop(sopId);
   if (!sop) {
     // SOP ID resolved but now archived or gone — fallback to toast.
@@ -266,12 +266,12 @@ async function triggerOnboardingSop(args: {
   // characters that could slip through from a crafted detectConnector result.
   const safeProviderId = provider.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
 
-  // ── DEDUP (Bug-Fix 2026-05-30) ──────────────────────────────────────────
-  // Existiert bereits ein aktiver/pausierter Onboarding-Workstream für genau
-  // diesen Provider+Workspace → NICHT neu spawnen. Stattdessen die bestehende
-  // Status-Card (idempotent via connectorCardWorkstreamId) erneut emittieren,
-  // damit der Owner den laufenden Run sieht, und früh zurückkehren.
-  // Verhindert die 3+ parallelen „Connector-Onboarding: heygen"-Workstreams.
+  // ── DEDUP (bug fix 2026-05-30) ──────────────────────────────────────────
+  // If an active/paused onboarding workstream already exists for exactly
+  // this provider+workspace → do NOT spawn a new one. Instead re-emit the
+  // existing status card (idempotent via connectorCardWorkstreamId),
+  // so the owner sees the running run, and return early.
+  // Prevents the 3+ parallel „Connector-Onboarding: heygen" workstreams.
   const existingWsId = findActiveOnboardingWorkstreamId(trustedWorkspaceId, safeProviderId);
   if (existingWsId) {
     writeDecision({
@@ -302,7 +302,7 @@ async function triggerOnboardingSop(args: {
     return;
   }
 
-  // N1: verbatim goal prompt — provider name + "Connector-Profil anlegen"
+  // N1: verbatim goal prompt — provider name + "create connector profile"
   const goalPrompt = `Connector-Profil für '${provider}' anlegen (automatisches Onboarding via SOP '${sop.name}').`;
 
   // Deterministic node IDs: acl5e prefix + safeProviderId + sopId + counter.
@@ -370,7 +370,7 @@ async function triggerOnboardingSop(args: {
     actor: 'agent',
   });
 
-  // ── 4. Status-Card mit Workstream-Verweis emittieren ────────────────────
+  // ── 4. Emit the status card with a workstream reference ─────────────────
   // Card first — executePlan is fire-and-forget so the user sees progress
   // immediately, even if execution is delayed.
   await emitOrUpdateCard({
@@ -411,22 +411,22 @@ async function triggerOnboardingSop(args: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// maybeAutoConnect — Hauptfunktion
+// maybeAutoConnect — main function
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Hybrid-Auto-Connect im Next-Prozess.
+ * Hybrid auto-connect in the Next process.
  *
- * Muss im Next-Prozess (:4200) laufen — broadcast ist In-Process-EventEmitter.
- * Codex ausgeschlossen (B1-Sicherheits-Fix).
+ * Must run in the Next process (:4200) — broadcast is an in-process EventEmitter.
+ * Codex excluded (B1 security fix).
  *
- * Fehlerbehandlung: der Caller (stream/route.ts) ruft diese Funktion per
- * `void maybeAutoConnect(...).catch(console.warn)` — jede Exception landet
- * im warn-Log, nie im Chat-Stream.
+ * Error handling: the caller (stream/route.ts) invokes this function via
+ * `void maybeAutoConnect(...).catch(console.warn)` — every exception lands
+ * in the warn log, never in the chat stream.
  *
- * @param prompt  - Roher Chat-Prompt.
- * @param ctx     - workspaceId + userId (Pflicht), optionales signal.
- * @returns       AutoConnectResult — Caller ignoriert diesen Wert.
+ * @param prompt  - Raw chat prompt.
+ * @param ctx     - workspaceId + userId (required), optional signal.
+ * @returns       AutoConnectResult — the caller ignores this value.
  */
 export async function maybeAutoConnect(
   prompt: string,
@@ -434,50 +434,50 @@ export async function maybeAutoConnect(
 ): Promise<AutoConnectResult> {
   const { workspaceId, userId } = ctx;
 
-  // 1. Deterministisches Gate (N6, kein LLM, kein async, kein I/O außer DB-read).
+  // 1. Deterministic gate (N6, no LLM, no async, no I/O except a DB read).
   const detection = detectConnector(prompt, {
     workspaceId,
     hasCredential: buildHasCredential(workspaceId),
   });
 
-  // missing='no-connector': kein Connector-Bezug → no-op.
+  // missing='no-connector': no connector reference → no-op.
   if (detection.missing === 'no-connector' || detection.provider === null) {
     return { acted: false, reason: 'no-connector-detected' };
   }
 
   const provider = detection.provider;
 
-  // 2. missing='profile': Profil fehlt → Onboarding anstoßen + Status-Card.
+  // 2. missing='profile': profile missing → kick off onboarding + status card.
   if (detection.missing === 'profile') {
     await triggerOnboardingSop({ provider, workspaceId, userId });
     return { acted: true, action: 'onboarding', provider };
   }
 
-  // 3. missing='credential': Credential fehlt → credential-request-Card emittieren.
-  //    SECURITY: KEIN secret-Feld im Payload. Nur provider, scopeKind, workspaceId, why.
+  // 3. missing='credential': credential missing → emit a credential-request card.
+  //    SECURITY: NO secret field in the payload. Only provider, scopeKind, workspaceId, why.
   if (detection.missing === 'credential') {
-    // Auth-Profil ableiten: API-Key vs OAuth vs engine-backed (kein Secret).
+    // Derive the auth profile: API key vs OAuth vs engine-backed (no secret).
     const authProfile = deriveProviderAuthProfile(provider);
 
     const cardPayload = {
       provider,
       scopeKind: 'workspace' as const,
       workspaceId,
-      // `why` wird aus dem rationale generiert — kein Secret, kein Payload.
+      // `why` is generated from the rationale — no secret, no payload.
       why: buildWhyText(provider, detection.neededCapabilities),
-      // 2026-05-30: Auth-Profil für die mobile Credential/OAuth-Surface.
-      // authKind steuert, ob API-Key-Eingabe oder OAuth-Start-Button gerendert wird.
+      // 2026-05-30: auth profile for the mobile credential/OAuth surface.
+      // authKind controls whether an API-key input or an OAuth-start button is rendered.
       authKind: authProfile.authKind,
       engineBacked: authProfile.engineBacked,
       docsUrl: authProfile.docsUrl,
       signupUrl: authProfile.signupUrl,
       credentialFieldHint: authProfile.credentialFieldHint,
-      // Erste benötigte Capability als Kontext (kein Secret).
+      // First required capability as context (no secret).
       capability: detection.neededCapabilities[0] ?? null,
     };
 
-    // SECURITY CHECK: assertNoSecret stellt sicher dass kein secret-Feld versehentlich
-    // in den Card-Payload geraten ist (defensiv, sollte strukturell nie passieren).
+    // SECURITY CHECK: assertNoSecret ensures that no secret field has accidentally
+    // slipped into the card payload (defensive, should structurally never happen).
     assertNoSecretInPayload(cardPayload);
 
     await emitOrUpdateCard({
@@ -493,14 +493,14 @@ export async function maybeAutoConnect(
     return { acted: true, action: 'credential-request', provider };
   }
 
-  // 4. missing='none': Profil + Credential vorhanden → Preview-Card emittieren.
-  //    previewCall liefert maskiertes Credential + Payload-Keys (kein Secret-Wert).
+  // 4. missing='none': profile + credential present → emit a preview card.
+  //    previewCall returns a masked credential + payload keys (no secret value).
   if (detection.missing === 'none') {
-    // Erste erkannte Capability nutzen (deterministisch, N6).
+    // Use the first detected capability (deterministic, N6).
     const capability = detection.neededCapabilities[0] ?? 'default';
 
-    // previewCall: S5 — kein Netzwerk-Call, schreibt N8-Audit-Row für phase='preview'.
-    // Wirft nicht — Fehler in previewCall müssen hier abgefangen werden.
+    // previewCall: S5 — no network call, writes an N8 audit row for phase='preview'.
+    // Does not throw — errors in previewCall must be caught here.
     let preview;
     try {
       preview = previewCall({
@@ -512,16 +512,16 @@ export async function maybeAutoConnect(
         requiredCaps: detection.neededCapabilities.slice(0, 3),
       });
     } catch (previewErr) {
-      // previewCall darf nicht den Auto-Connect-Flow killen (best-effort).
+      // previewCall must not kill the auto-connect flow (best-effort).
       console.warn('[auto-connect] previewCall fehlgeschlagen (non-fatal):', previewErr);
       return { acted: false, reason: 'preview-error' };
     }
 
-    // Connector-call-preview-Card zusammenbauen.
-    // SECURITY: kein Secret-Wert — nur maskiertes credentialPreview aus previewCall.
+    // Assemble the connector-call-preview card.
+    // SECURITY: no secret value — only the masked credentialPreview from previewCall.
     const previewCardPayload = buildPreviewCardPayload(preview, provider, capability);
 
-    // SECURITY CHECK: sicherstellen dass kein secret im Card-Payload ist.
+    // SECURITY CHECK: ensure no secret is in the card payload.
     assertNoSecretInPayload(previewCardPayload as unknown as Record<string, unknown>);
 
     await emitOrUpdateCard({
@@ -534,9 +534,9 @@ export async function maybeAutoConnect(
       actor: 'system',
     });
 
-    // B2 (2026-05-25): answer_required-Push für connector-call-preview.
-    // Best-effort / non-fatal — Visibility-Gate im Helper-Body.
-    // Kein Secret: preview enthält nur Provider-Name + Capability-Label.
+    // B2 (2026-05-25): answer_required push for connector-call-preview.
+    // Best-effort / non-fatal — visibility gate in the helper body.
+    // No secret: preview contains only the provider name + capability label.
     emitAnswerRequired({
       workspaceId,
       entityId: connectorCardWorkstreamId(provider),
@@ -548,32 +548,32 @@ export async function maybeAutoConnect(
     return { acted: true, action: 'preview', provider };
   }
 
-  // Exhaustive: missing-Wert nicht behandelt (defensive Fallback).
+  // Exhaustive: missing value not handled (defensive fallback).
   return { acted: false, reason: `unhandled-missing-${String(detection.missing)}` };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Interne Bau-Hilfsfunktionen
+// Internal builder helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut einen kurzen menschenlesbaren „why"-Text für die credential-request-Card.
- * Kein LLM, deterministisch, kein Secret.
+ * Builds a short human-readable „why" text for the credential-request card.
+ * No LLM, deterministic, no secret.
  */
 /**
- * Auth-Profil eines Providers für die credential-request-Surface (2026-05-30).
+ * Auth profile of a provider for the credential-request surface (2026-05-30).
  *
- * Leitet aus dem Connector-Katalog (`auth_kind`) + dem Onboarding-SOP ab, OB
- * der Provider einen API-Key braucht oder einen OAuth-Flow, plus Owner-relevante
- * Begleit-Infos (Doku-/Signup-Link, Feld-Hinweis, engineBacked).
+ * Derives from the connector catalog (`auth_kind`) + the onboarding SOP WHETHER
+ * the provider needs an API key or an OAuth flow, plus owner-relevant
+ * accompanying info (docs/signup link, field hint, engineBacked).
  *
- * authKind-Mapping (closed enum CONNECTOR_AUTH_KINDS):
- *   'oauth'  → OAuth-Flow (Auth-starten-Button).
- *   'none'   → engine-backed (kein Credential nötig — z.B. imagegen2).
- *   sonst    → 'apikey' (api_key | pat | custom → API-Key-Eingabe).
+ * authKind mapping (closed enum CONNECTOR_AUTH_KINDS):
+ *   'oauth'  → OAuth flow (start-auth button).
+ *   'none'   → engine-backed (no credential needed — e.g. imagegen2).
+ *   else     → 'apikey' (api_key | pat | custom → API-key input).
  *
- * Kein Secret, deterministisch (N6), reiner DB-Read. Fail-open auf 'apikey'
- * (der sichere Default: API-Key-Eingabe statt einem nicht verdrahteten OAuth).
+ * No secret, deterministic (N6), pure DB read. Fail-open to 'apikey'
+ * (the safe default: API-key input instead of a non-wired OAuth).
  */
 type DerivedAuthKind = 'apikey' | 'oauth' | 'none';
 
@@ -595,12 +595,12 @@ function deriveProviderAuthProfile(provider: string): ProviderAuthProfile {
       docsUrl = (profile as { docsUrl?: string | null }).docsUrl ?? null;
     }
   } catch {
-    // Katalog nicht erreichbar → Default unten.
+    // Catalog unreachable → default below.
   }
 
   const sop = getOnboardingSop(provider);
 
-  // engineBacked: SOP-Marker hat Vorrang; sonst auth_kind='none'.
+  // engineBacked: the SOP marker takes precedence; otherwise auth_kind='none'.
   const engineBacked = sop?.engineBacked === true || catalogAuthKind === 'none';
 
   let authKind: DerivedAuthKind;
@@ -609,7 +609,7 @@ function deriveProviderAuthProfile(provider: string): ProviderAuthProfile {
   } else if (catalogAuthKind === 'oauth') {
     authKind = 'oauth';
   } else {
-    // api_key | pat | custom | unbekannt → API-Key-Eingabe (sicherer Default).
+    // api_key | pat | custom | unknown → API-key input (safer default).
     authKind = 'apikey';
   }
 
@@ -631,22 +631,22 @@ function buildWhyText(provider: string, capabilities: string[]): string {
 }
 
 /**
- * Baut einen minimalen Infer-Payload aus den Capability-Namen.
- * Nur Keys, keine Werte — dient der Payload-Summary-Vorschau.
- * Kein Secret, kein PII.
+ * Builds a minimal inferred payload from the capability names.
+ * Keys only, no values — serves the payload-summary preview.
+ * No secret, no PII.
  */
 function buildInferredPayload(capabilities: string[]): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
   for (const cap of capabilities.slice(0, 5)) {
-    // Capability-Namen als Keys → symbolische Marker (keine echten Werte).
+    // Capability names as keys → symbolic markers (no real values).
     payload[cap] = `<${cap}>`;
   }
   return payload;
 }
 
 /**
- * Baut den connector-call-preview-Card-Payload aus dem CallPreview-Objekt.
- * SECURITY: credentialPreview ist bereits maskiert (aus previewCall) — kein Secret.
+ * Builds the connector-call-preview card payload from the CallPreview object.
+ * SECURITY: credentialPreview is already masked (from previewCall) — no secret.
  */
 function buildPreviewCardPayload(
   preview: import('@/lib/connectors/invoke').CallPreview,
@@ -661,21 +661,21 @@ function buildPreviewCardPayload(
     baseUrl: preview.baseUrl,
     payloadSummary: preview.payloadSummary,
     credentialScope: preview.credentialScope,
-    // credentialPreview: maskierter Wert aus maskedPreview() — NIE der Klartext.
+    // credentialPreview: masked value from maskedPreview() — NEVER the plaintext.
     credentialPreview: preview.credentialPreview,
     authKind: preview.authKind,
     payloadHash: preview.payloadHash,
     currentTrust: preview.currentTrust,
-    // dryRun: true wenn LAZYOS_CONNECTOR_LIVE nicht aktiv — klar gelabelt.
+    // dryRun: true when LAZYOS_CONNECTOR_LIVE is not active — clearly labeled.
     dryRun: !preview.liveEnabled,
     liveEnabled: preview.liveEnabled,
   };
 }
 
 /**
- * SECURITY: wirft wenn irgendein bekanntes Secret-Feld im Payload-Objekt ist.
- * Defensiv — strukturell sollte kein Secret je in einen Card-Payload geraten,
- * aber diese Guard macht das explizit zur Laufzeit überprüfbar.
+ * SECURITY: throws if any known secret field is in the payload object.
+ * Defensive — structurally no secret should ever end up in a card payload,
+ * but this guard makes that explicitly checkable at runtime.
  */
 function assertNoSecretInPayload(payload: Record<string, unknown>): void {
   const FORBIDDEN_IN_CARD = new Set([
@@ -693,12 +693,12 @@ function assertNoSecretInPayload(payload: Record<string, unknown>): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ConnectorCallPreviewPayload — Surface-Card-Payload-Typ (kein Secret)
+// ConnectorCallPreviewPayload — surface-card payload type (no secret)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Payload für die connector-call-preview-Surface.
- * SECURITY: enthält KEIN secret-Feld. credentialPreview ist maskiert.
+ * Payload for the connector-call-preview surface.
+ * SECURITY: contains NO secret field. credentialPreview is masked.
  */
 export interface ConnectorCallPreviewPayload {
   provider: string;
@@ -706,16 +706,16 @@ export interface ConnectorCallPreviewPayload {
   callId: string;
   mcpTool: string | null;
   baseUrl: string | null;
-  /** Payload-Zusammenfassung: Keys + Typen, KEINE Werte. */
+  /** Payload summary: keys + types, NO values. */
   payloadSummary: Record<string, string>;
-  /** Scope-Identifier, kein Secret. z.B. 'workspace:ws-123'. */
+  /** Scope identifier, no secret. e.g. 'workspace:ws-123'. */
   credentialScope: string;
-  /** Maskierter Credential-Vorschau-Wert. NIE der Klartext. null wenn kein Credential. */
+  /** Masked credential preview value. NEVER the plaintext. null if no credential. */
   credentialPreview: string | null;
   authKind: string;
   payloadHash: string;
   currentTrust: 'ask' | 'auto';
-  /** true → LAZYOS_CONNECTOR_LIVE ist off → echter Call würde Dry-Run sein. */
+  /** true → LAZYOS_CONNECTOR_LIVE is off → a real call would be a dry run. */
   dryRun: boolean;
   liveEnabled: boolean;
 }

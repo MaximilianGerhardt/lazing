@@ -72,8 +72,8 @@ export function wrapWithSandbox(
   const mode = opts?.mode ?? resolveSandboxMode();
 
   if (mode === 'off') {
-    // Debug-Notausgang. Laut + sichtbar warnen — niemand soll versehentlich
-    // mit ausgeschalteter FS-Sandbox produktiv laufen.
+    // Debug escape hatch. Warn loudly + visibly — nobody should accidentally
+    // run in production with the FS sandbox switched off.
     console.warn(
       '[fs-sandbox] WARNUNG: LAZYOS_FS_SANDBOX=off — FS-Sandbox ist DEAKTIVIERT. ' +
         'Der Spawn kann beliebige absolute Pfade lesen (Live-DB, Secrets, andere Projekte). ' +
@@ -82,7 +82,7 @@ export function wrapWithSandbox(
     return { command: innerCmd, profilePath: null, cleanup: NOOP };
   }
 
-  // --- enforce: Profil rendern + in eine eigene Temp-Datei schreiben -------
+  // --- enforce: render the profile + write it to its own temp file -------
   const profileText = renderSeatbeltProfile(spec);
 
   // Own exclusive temp directory per spawn (avoids collisions +

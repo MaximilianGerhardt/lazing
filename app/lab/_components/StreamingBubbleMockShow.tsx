@@ -1,20 +1,20 @@
 'use client';
 
 /**
- * StreamingBubbleMockShow — Lab-Showcase fuer die Live-Streaming-Bubble
- * (Welle 1 · 2026-05-03 · Sub-Plan dazzling-quilt).
+ * StreamingBubbleMockShow — lab showcase for the live streaming bubble
+ * (wave 1 · 2026-05-03 · sub-plan dazzling-quilt).
  *
- * Skripted-Mock: Phase wechselt connecting → reading → tool → writing
- * in 1s-Intervallen. Wiederholt sich alle 5s. Dient als Decision-Feature
- * im /lab/streaming-bubble fuer das "Agent arbeitet"-Indikator-Design.
+ * Scripted mock: phase changes connecting → reading → tool → writing
+ * at 1s intervals. Repeats every 5s. Serves as a decision feature
+ * in /lab/streaming-bubble for the "agent is working" indicator design.
  *
- * Sub-Plan B-konform: keine Modals/Overlays. Reines Render der
- * .bub-live-CSS-Klassen aus app/components.css.
+ * Sub-plan B compliant: no modals/overlays. Pure render of the
+ * .bub-live CSS classes from app/components.css.
  *
- * Wir mocken hier visuell die exakte Struktur die `StreamingAssistant`
- * in lib/chat/ChatShell.tsx rendert — da die Komponente nicht exportiert
- * ist, replizieren wir nur das DOM. Single-Source-of-Truth bleibt
- * useTypingIndicator (das wir hier auch verwenden).
+ * Here we visually mock the exact structure that `StreamingAssistant`
+ * in lib/chat/ChatShell.tsx renders — since the component is not exported,
+ * we only replicate the DOM. The single source of truth remains
+ * useTypingIndicator (which we also use here).
  */
 
 import { useEffect, useState } from 'react';
@@ -137,7 +137,7 @@ export function StreamingBubbleMockShow(): React.JSX.Element {
         <button
           type="button"
           onClick={() => {
-            // Mock-Stop: einfach zu Schritt 0 zurueck.
+            // Mock stop: simply back to step 0.
             setStepIdx(0);
           }}
           className="bub-live__stop"

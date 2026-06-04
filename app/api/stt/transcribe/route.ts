@@ -1,12 +1,12 @@
 /**
  * POST /api/stt/transcribe
  *
- * Audio-Proxy zum lokalen faster-whisper-Service auf Port 4202 (via VPS-Web-
- * Tunnel oder lokal). Nimmt Audio-Blob entgegen, forwarded mit Bearer-Auth,
- * gibt JSON {text, duration_ms, segments?} zurück.
+ * Audio proxy to the local faster-whisper service on port 4202 (via VPS web
+ * tunnel or local). Accepts an audio blob, forwards it with bearer auth,
+ * returns JSON {text, duration_ms, segments?}.
  *
- * Auth: Cookie-Session (Middleware gated), Proxy nutzt LAZYOS_CHAT_KEY als
- * Bearer für den Service.
+ * Auth: cookie session (middleware gated), proxy uses LAZYOS_CHAT_KEY as the
+ * bearer for the service.
  */
 
 import { NextResponse } from "next/server";
@@ -18,9 +18,9 @@ export const dynamic = "force-dynamic";
 const MAX_BODY_BYTES = 20 * 1024 * 1024;
 
 function resolveSttUrl(): string | null {
-  // Wenn LAZYOS_WEB_URL gesetzt ist (Vercel-Environment), proxien wir über
-  // den VPS-Web-Tunnel auf dessen eigenen /api/stt/transcribe-Endpoint.
-  // Auf VPS selbst fällt der Code auf http://127.0.0.1:4202 zurück.
+  // If LAZYOS_WEB_URL is set (Vercel environment), we proxy via the
+  // VPS web tunnel to its own /api/stt/transcribe endpoint.
+  // On the VPS itself the code falls back to http://127.0.0.1:4202.
   if (process.env.LAZYOS_STT_URL) return process.env.LAZYOS_STT_URL;
   if (process.env.LAZYOS_WEB_URL) {
     const base = process.env.LAZYOS_WEB_URL.replace(/\/+$/, "");
@@ -68,7 +68,7 @@ export async function POST(req: Request): Promise<Response> {
 
   // Pass lang-Query through
   const lang = new URL(req.url).searchParams.get("lang") ?? "de";
-  // Stream-body direkt weiterreichen — kein Buffering im Memory
+  // Pass the stream body through directly — no buffering in memory
   const body = await req.arrayBuffer();
   if (body.byteLength > MAX_BODY_BYTES) {
     return NextResponse.json(

@@ -1,28 +1,28 @@
 /**
- * RAG-Embedder (Sprint 2 / Strang B, 2026-04-30).
+ * RAG embedder (Sprint 2 / strand B, 2026-04-30).
  *
- * Lokal-First via @huggingface/transformers v3 — `Xenova/all-MiniLM-L6-v2`.
- * Output: 384-dim float32, mean-pooled, normalisiert (für Cosine ohne
- * Division durch Norm).
+ * Local-first via @huggingface/transformers v3 — `Xenova/all-MiniLM-L6-v2`.
+ * Output: 384-dim float32, mean-pooled, normalized (for cosine without
+ * division by the norm).
  *
  * Benchmark on a typical VPS:
- *   - Pipeline-Init (warm-cache):  ~166ms
- *   - Cold-First-Embed:            ~11ms
- *   - Warm-Avg pro Chunk:          ~6ms (3-15ms range)
+ *   - Pipeline init (warm cache):  ~166ms
+ *   - Cold first embed:            ~11ms
+ *   - Warm avg per chunk:          ~6ms (3-15ms range)
  *
- * Lazy-load: Modell wird beim ersten Call gepullt (~25 MB ONNX) und
- * dann im Process-Memory gehalten. KEINE GPU, KEINE Cuda, KEINE API-Credits.
+ * Lazy-load: the model is pulled on the first call (~25 MB ONNX) and
+ * then kept in process memory. NO GPU, NO Cuda, NO API credits.
  *
- * MAX-Plan-Konformität: Embedding ist 100% lokal. Keine Anthropic-,
- * OpenAI-, Voyage-, Cohere-Calls.
+ * MAX-plan compliance: embedding is 100% local. No Anthropic,
+ * OpenAI, Voyage, or Cohere calls.
  *
- * Loop-Guard: Bei Init-Fail > 3 wird der Embedder als „dead" markiert
- * und wirft sofort. Das verhindert Boot-Schleifen wenn das ONNX-Modell
- * korrupt ist (HF-Cache löschen + neu pullen reicht).
+ * Loop-guard: after init-fail > 3 the embedder is marked „dead"
+ * and throws immediately. This prevents boot loops when the ONNX model
+ * is corrupt (deleting the HF cache + re-pulling is enough).
  *
- * Hinweis: Wir nutzen @huggingface/transformers (Successor von Xenova v2)
- * weil v2 sharp@0.32 als Hard-Dep zog (sharp Native-Binary fehlt im
- * pnpm-Layout). v3 hat sharp optional und runs on a modern multi-core CPU sub-10ms.
+ * Note: we use @huggingface/transformers (successor of Xenova v2)
+ * because v2 pulled sharp@0.32 as a hard dep (the sharp native binary is missing in the
+ * pnpm layout). v3 has sharp optional and runs on a modern multi-core CPU sub-10ms.
  */
 
 let _pipeline: ((text: string, opts: object) => Promise<{ data: Float32Array }>) | null = null;
@@ -40,7 +40,7 @@ async function getPipeline(): Promise<
     throw new Error('rag-embedder-circuit-open');
   }
   try {
-    // Dynamic-Import damit Server-Boot ohne RAG-Use die Library nicht zieht.
+    // Dynamic import so the server boot does not pull the library without RAG use.
     const tx = (await import('@huggingface/transformers')) as unknown as {
       env: { allowLocalModels: boolean; useBrowserCache: boolean; cacheDir?: string };
       pipeline: (
@@ -54,7 +54,7 @@ async function getPipeline(): Promise<
     if (process.env.LAZYOS_RAG_CACHE_DIR) {
       tx.env.cacheDir = process.env.LAZYOS_RAG_CACHE_DIR;
     }
-    // dtype: 'q8' = quantized 8-bit (3-4× kleiner als fp32, vergleichbare Qualität).
+    // dtype: 'q8' = quantized 8-bit (3-4× smaller than fp32, comparable quality).
     const pipeline = await tx.pipeline('feature-extraction', MODEL_NAME, {
       dtype: 'q8',
     });
@@ -71,8 +71,8 @@ async function getPipeline(): Promise<
 }
 
 /**
- * Erzeugt einen normalisierten 384-dim Embedding-Vector für einen Text-Chunk.
- * Mean-Pooling + L2-Normalize (für Cosine-Similarity ohne Division).
+ * Produces a normalized 384-dim embedding vector for a text chunk.
+ * Mean-pooling + L2-normalize (for cosine similarity without division).
  */
 export async function embed(text: string): Promise<Float32Array> {
   if (typeof text !== 'string' || text.length === 0) {
@@ -87,7 +87,7 @@ export async function embed(text: string): Promise<Float32Array> {
 }
 
 /**
- * Pack-Helper: Float32Array → Buffer (für SQLite-BLOB).
+ * Pack helper: Float32Array → Buffer (for SQLite BLOB).
  */
 export function packEmbedding(vec: Float32Array): Buffer {
   if (vec.length !== EMBEDDING_DIM) {
@@ -97,21 +97,21 @@ export function packEmbedding(vec: Float32Array): Buffer {
 }
 
 /**
- * Unpack-Helper: Buffer → Float32Array.
+ * Unpack helper: Buffer → Float32Array.
  */
 export function unpackEmbedding(buf: Buffer): Float32Array {
   if (buf.byteLength !== EMBEDDING_DIM * 4) {
     throw new Error(`rag-unpack-bad-bytes: ${buf.byteLength}`);
   }
-  // Zero-Copy: View auf den Buffer.
+  // Zero-copy: a view onto the buffer.
   return new Float32Array(buf.buffer, buf.byteOffset, EMBEDDING_DIM);
 }
 
 /**
- * Cosine-Similarity zweier normalisierter Embeddings.
- * Da beide L2-normalisiert sind: Cosine = Dot-Product. Spart sqrt+div.
+ * Cosine similarity of two normalized embeddings.
+ * Since both are L2-normalized: cosine = dot product. Saves sqrt+div.
  *
- * Returns [-1, +1]. 1 = identisch. 0 = orthogonal.
+ * Returns [-1, +1]. 1 = identical. 0 = orthogonal.
  */
 export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   if (a.length !== b.length) {
@@ -125,24 +125,24 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
 }
 
 /**
- * Server-Startup-Warmup: lädt die Pipeline vorab damit der erste User-Request
- * nicht die ~166ms ONNX-Init-Latenz trägt. Non-fatal: circuit-open oder fehlendes
- * ONNX-Paket werden still geschluckt (server startet trotzdem).
+ * Server-startup warmup: pre-loads the pipeline so the first user request
+ * does not carry the ~166ms ONNX init latency. Non-fatal: circuit-open or a missing
+ * ONNX package are swallowed silently (the server starts anyway).
  *
- * Aufgerufen via Next.js Instrumentation-Hook (`instrumentation.ts` im Repo-Root,
+ * Called via the Next.js instrumentation hook (`instrumentation.ts` at the repo root,
  * `process.env.NEXT_RUNTIME === 'nodejs'`).
  */
 export async function warmupEmbedder(): Promise<void> {
   try {
     await getPipeline();
   } catch {
-    /* non-fatal: circuit-open (_initFails >= MAX_INIT_FAILS) oder ONNX fehlt */
+    /* non-fatal: circuit-open (_initFails >= MAX_INIT_FAILS) or ONNX missing */
   }
 }
 
 /**
- * Brute-Force Top-K Retrieval. Bei < 50k Chunks unter 30ms auf VPS-CPU.
- * Bei größeren Indizes: Sub-Plan B11 (HNSW) ziehen.
+ * Brute-force top-K retrieval. Under 30ms on VPS CPU for < 50k chunks.
+ * For larger indices: pull in Sub-Plan B11 (HNSW).
  */
 export interface RetrievalCandidate {
   id: string;

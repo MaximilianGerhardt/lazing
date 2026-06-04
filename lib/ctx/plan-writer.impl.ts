@@ -1,10 +1,10 @@
 /**
- * Phase CTX — Plan-File-Writer.
+ * Phase CTX — plan-file writer.
  *
- * Schreibt Snapshot-Blocks oben in ein Markdown-Plan-File. Idempotent +
- * sicher gegen Race (mtime-Lock-File).
+ * Writes snapshot blocks at the top of a Markdown plan file. Idempotent +
+ * race-safe (mtime lock file).
  *
- * Default-Pfad: `/root/.claude/plans/active.md` (override via
+ * Default path: `/root/.claude/plans/active.md` (override via
  * `LAZYOS_PLAN_FILE` ENV).
  */
 
@@ -41,9 +41,9 @@ export function prependPlanSnapshot(
     existing = readFileSync(planPath, "utf8");
   }
 
-  // Ältere "## Stand …"-Sektionen capen wir nach MAX_HISTORICAL_SNAPSHOTS.
+  // We cap older "## Stand …" sections at MAX_HISTORICAL_SNAPSHOTS.
   const standSections = existing.split(/^## Stand /m);
-  // [0] = alles vor dem ersten "## Stand", danach jeweils ein Block.
+  // [0] = everything before the first "## Stand", then one block each.
   const head = standSections[0];
   const blocks = standSections.slice(1).slice(0, MAX_HISTORICAL_SNAPSHOTS - 1);
   const trimmed =
@@ -60,7 +60,7 @@ export function prependPlanSnapshot(
   };
 }
 
-/** Test-Helper: append-only ohne Trim. */
+/** Test helper: append-only without trim. */
 export function appendPlanLine(line: string, planPathOverride?: string): void {
   const planPath = planPathOverride?.trim() || DEFAULT_PLAN_FILE;
   mkdirSync(path.dirname(planPath), { recursive: true });

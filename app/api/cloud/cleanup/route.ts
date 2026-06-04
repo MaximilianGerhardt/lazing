@@ -1,11 +1,11 @@
 /**
- * GET/POST /api/cloud/cleanup — periodischer Cron-Endpoint.
+ * GET/POST /api/cloud/cleanup — periodic cron endpoint.
  *
- * Konsolidiert magic-token-purge, share-token-purge,
- * soft-deleted-artifact-storage-sweep, audit-log-retention.
+ * Consolidates magic-token purge, share-token purge,
+ * soft-deleted-artifact-storage sweep, audit-log retention.
  *
- * Triggern: täglich via lazyos-routine ODER manuell durch CLI.
- * Idempotent — mehrfaches Aufrufen pro Tag verursacht nur leere Sweeps.
+ * Trigger: daily via a lazyos-routine OR manually through the CLI.
+ * Idempotent — calling it multiple times per day only causes empty sweeps.
  */
 
 import { NextResponse, type NextRequest } from "next/server";

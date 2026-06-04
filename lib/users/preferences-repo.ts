@@ -1,31 +1,30 @@
 /**
- * User-Preferences Repository (Owner-Fix Live-Test 2026-05-28).
+ * User-Preferences Repository (owner fix, live test 2026-05-28).
  *
- * Owner-Befund (verbatim):
+ * Owner finding (verbatim):
  *   „Vollzugriff war bereits aktiviert. im neuen Workspace war es nicht
  *    aktiviert. Ggf. diese Einstellung Systemübergreifend nutzbar machen."
  *
- * Verantwortung dieses Moduls:
- *   - Schreibt & liest `user_preferences` (Migration 0114).
- *   - Kapselt N10 content_hash (sha256 über kanonisches JSON).
- *   - Provider-Pattern bewahrt N4 (additiv, keine Änderung an `users` oder
+ * Responsibility of this module:
+ *   - Writes & reads `user_preferences` (migration 0114).
+ *   - Encapsulates N10 content_hash (sha256 over canonical JSON).
+ *   - The provider pattern preserves N4 (additive, no change to `users` or
  *     `lazyos_permission_modes`).
  *
- * Konsumenten:
- *   - POST /api/workspaces           — liest den Default beim Anlegen und
- *                                       seedet `lazyos_permission_modes`
- *                                       für die neue Workspace SOFORT.
- *   - PATCH /api/permission/[wsId]/mode — schreibt den Default auf den vom
- *                                          User explizit gewählten Mode
- *                                          (Owner-Direktive: User-Default
- *                                          folgt der letzten expliziten Aktion).
- *   - GET /api/user/preferences      — UI-Fallback für AllAccessToggle, wenn
- *                                       der Workspace keinen expliziten Mode
- *                                       hat.
+ * Consumers:
+ *   - POST /api/workspaces           — reads the default on creation and
+ *                                       seeds `lazyos_permission_modes`
+ *                                       for the new workspace IMMEDIATELY.
+ *   - PATCH /api/permission/[wsId]/mode — writes the default to the mode the
+ *                                          user explicitly chose
+ *                                          (owner directive: the user default
+ *                                          follows the last explicit action).
+ *   - GET /api/user/preferences      — UI fallback for AllAccessToggle when
+ *                                       the workspace has no explicit mode.
  *
- * Konvention: das Repo selbst kennt KEINE Workspaces — es schreibt rein die
- * cross-workspace User-Settings. Pro-Workspace-State bleibt in
- * `lazyos_permission_modes` (Single-Source-of-Truth pro Workspace).
+ * Convention: the repo itself knows NO workspaces — it writes purely the
+ * cross-workspace user settings. Per-workspace state stays in
+ * `lazyos_permission_modes` (single source of truth per workspace).
  */
 
 import { createHash } from "node:crypto";
@@ -36,7 +35,7 @@ import {
   type PermissionMode,
 } from "../../lib-v1/permission/settings/schema";
 
-/** Whitelist gespiegelt aus Migration 0114 CHECK-Constraint. */
+/** Whitelist mirrored from the migration 0114 CHECK constraint. */
 const SOURCE_VALUES = new Set([
   "system",
   "permission-toggle",
@@ -86,9 +85,9 @@ function rowToPrefs(row: Row): UserPreferences {
 }
 
 /**
- * N10 content_hash über die fachlichen Felder. Wir lassen `created_at`,
- * `updated_at`, `id`, `content_hash` bewusst aus dem Hash heraus — sie sind
- * Provenance-Metadaten, nicht der eigentliche Inhalt der „belief".
+ * N10 content_hash over the domain fields. We deliberately leave `created_at`,
+ * `updated_at`, `id`, `content_hash` out of the hash — they are
+ * provenance metadata, not the actual content of the "belief".
  */
 function hashPrefs(
   userId: string,
@@ -111,9 +110,9 @@ function hashPrefs(
 }
 
 /**
- * Liest die Preferences-Row für den User. NULL = der User hat keine Row
- * (frisch — alle Defaults sind ungesetzt, der Aufrufer entscheidet was das
- * heißt: typischerweise „sicherer Default 'ask'").
+ * Reads the preferences row for the user. NULL = the user has no row
+ * (fresh — all defaults are unset; the caller decides what that
+ * means: typically "safe default 'ask'").
  */
 export function getUserPreferences(userId: string): UserPreferences | null {
   if (!userId) return null;
@@ -130,15 +129,15 @@ export function getUserPreferences(userId: string): UserPreferences | null {
       .get(userId) as Row | undefined;
     return row ? rowToPrefs(row) : null;
   } catch {
-    // Tabelle fehlt (frische DB) → kein Fehler werfen, der Aufrufer
-    // soll den sicheren Default selbst wählen.
+    // Table missing (fresh DB) → don't throw; the caller
+    // should pick the safe default itself.
     return null;
   }
 }
 
 /**
- * Bequemer Reader für genau das Feld, das alle Aufrufer interessieren.
- * Liefert NULL wenn keine Row existiert ODER `default_permission_mode IS NULL`.
+ * Convenient reader for exactly the field all callers care about.
+ * Returns NULL when no row exists OR `default_permission_mode IS NULL`.
  */
 export function getUserDefaultPermissionMode(
   userId: string,
@@ -149,23 +148,23 @@ export function getUserDefaultPermissionMode(
 export interface SetDefaultPermissionModeArgs {
   userId: string;
   mode: PermissionMode | null;
-  /** N1: VERBATIM weiter — kein .slice. */
+  /** N1: passed through VERBATIM — no .slice. */
   reason?: string | null;
-  /** N8 Provenance. Default 'api'. */
+  /** N8 provenance. Default 'api'. */
   source?: UserPreferences["source"];
 }
 
 /**
- * Setzt (upserts) den User-Default-Permission-Mode. Idempotent.
+ * Sets (upserts) the user default permission mode. Idempotent.
  *
- * Aufrufer-Pattern (Owner-Direktive 2026-05-28):
- *   - Wenn der User in PATCH /api/permission/[wsId]/mode den Workspace-Mode
- *     ändert, wird ZUSÄTZLICH der User-Default auf denselben Mode gesetzt
- *     (source='permission-toggle'). So folgt der Default der letzten
- *     expliziten Owner-Aktion.
- *   - GET /api/user/preferences liest das Feld dann beim Mount eines neuen
- *     Workspaces ohne explizite Permission-Row, damit der Toggle ohne
- *     zweiten Klick den korrekten Stand zeigt.
+ * Caller pattern (owner directive 2026-05-28):
+ *   - When the user changes the workspace mode in PATCH /api/permission/[wsId]/mode,
+ *     the user default is ADDITIONALLY set to the same mode
+ *     (source='permission-toggle'). So the default follows the last
+ *     explicit owner action.
+ *   - GET /api/user/preferences then reads the field on mount of a new
+ *     workspace without an explicit permission row, so the toggle shows the
+ *     correct state without a second click.
  */
 export function setUserDefaultPermissionMode({
   userId,
@@ -203,7 +202,7 @@ export function setUserDefaultPermissionMode({
   // Re-read for a stable return shape (and ensures the row really landed).
   const after = getUserPreferences(userId);
   if (!after) {
-    // Should not happen — upsert just succeeded.
+    // Should not happen — the upsert just succeeded.
     throw new Error("setUserDefaultPermissionMode: row vanished after upsert");
   }
   return after;

@@ -1,8 +1,8 @@
 /**
  * /workflows — Pattern 4 Welle 2.2 Landing.
  *
- * Liste aller WorkflowDefinitions als Cards. Active-Run-Counts via direkter
- * DB-Aggregation pro Workflow-ID. Server-Component.
+ * List of all WorkflowDefinitions as cards. Active-run counts via direct
+ * DB aggregation per workflow ID. Server component.
  */
 
 import { redirect } from 'next/navigation';
@@ -50,7 +50,7 @@ export default async function WorkflowsLandingPage(): Promise<React.JSX.Element>
   const definitions = Object.values(WORKFLOW_REGISTRY);
   const activeCounts = await loadActiveRunCounts();
 
-  // Voll-implementierte Workflows zuerst, Stubs danach.
+  // Fully implemented workflows first, stubs afterwards.
   const sorted = [...definitions].sort((a, b) => {
     const aStub = a.states.length === 1 && a.states[0]?.id === 'noop';
     const bStub = b.states.length === 1 && b.states[0]?.id === 'noop';

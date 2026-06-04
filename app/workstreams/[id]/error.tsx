@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * Error-Boundary für /workstreams/[id]. Zeigt statt einer leeren Seite
- * eine Diagnose-Karte mit Stack + Retry-Button. Für lazyOS einzeln-User
- * wichtig — wir wollen wissen was schief geht, nicht raten.
+ * Error boundary for /workstreams/[id]. Instead of an empty page, shows
+ * a diagnosis card with stack + retry button. Important for lazyOS single-user
+ * — we want to know what goes wrong, not guess.
  */
 
 import type { CSSProperties } from 'react';

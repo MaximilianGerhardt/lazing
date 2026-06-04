@@ -1,13 +1,13 @@
 /**
  * GET /api/reasoning-audit/unverified
  *
- * Top-50 unverifizierte Audit-Rows, sortiert nach Stake-Phase. Synthesis und
- * Cross-Roast haben höchste Priorität (User-relevante Endprodukte), V_n
- * niedriger (Iteration), Roaster ganz unten (Critic-Beifang).
+ * Top-50 unverified audit rows, sorted by stake phase. Synthesis and
+ * cross-roast have the highest priority (user-relevant end products), V_n
+ * lower (iteration), roaster at the very bottom (critic by-catch).
  *
- * Privacy-Gate: requireSession.
+ * Privacy gate: requireSession.
  *
- * Pattern 5 Welle 3 (2026-05-01).
+ * Pattern 5 wave 3 (2026-05-01).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -33,9 +33,9 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   const db = getDb();
-  // Stake-basiertes ORDER BY: synthesis(0) > cross-roast(1) > sniper-inject(2)
+  // Stake-based ORDER BY: synthesis(0) > cross-roast(1) > sniper-inject(2)
   // > swarm-synthesis(3) > sub-spawn(4) > v_n(5) > roaster(6) > rest(7).
-  // Innerhalb gleicher Stake: ts DESC.
+  // Within the same stake: ts DESC.
   const stakeExpr = sql<number>`CASE
     WHEN ${reasoningAudit.phase} = 'synthesis' THEN 0
     WHEN ${reasoningAudit.phase} = 'cross-roast' THEN 1

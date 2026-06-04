@@ -1,8 +1,8 @@
 /**
- * GET  /api/subchats/[subchatId]/questions  — Fragen + Optionen + Antworten lesen.
- * POST /api/subchats/[subchatId]/questions  — eine Frage anspinnen (intern, member).
+ * GET  /api/subchats/[subchatId]/questions  — read questions + options + answers.
+ * POST /api/subchats/[subchatId]/questions  — spin up a question (internal, member).
  *
- * Question-Spinning Slice 1 (2026-06-03). Auth: Member des Workspace.
+ * Question-Spinning Slice 1 (2026-06-03). Auth: member of the workspace.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -92,8 +92,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   const options = Array.isArray(body.options)
     ? body.options.filter((o): o is string => typeof o === 'string')
     : [];
-  // KI-auto-anspinnen: vom Operator freigegebener KI-Vorschlag → als 'ai'
-  // markiert (die KI fragt), aber durch den Operator ausgelöst (kein Auto-Send).
+  // AI auto-spin: operator-approved AI suggestion → marked as 'ai'
+  // (the AI asks), but triggered by the operator (no auto-send).
   const aiAuthored = body.aiAuthored === true;
   const { question, options: opts } = spinQuestion({
     subchatId,

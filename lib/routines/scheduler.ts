@@ -1,23 +1,23 @@
 /**
- * Cron-Expression-Parser + next-run Berechnung.
+ * Cron-expression parser + next-run computation.
  *
- * Standard 5-Feld-Cron (minute hour day-of-month month day-of-week).
- * Unterstützte Ausdrücke pro Feld:
- *   - `*`                : jeder Wert
- *   - `N`                : exakt N (int)
- *   - `A,B,C`            : Liste
- *   - `A-B`              : Range (inklusive)
- *   - `* /N` oder `A-B/N`: Step (every N)
+ * Standard 5-field cron (minute hour day-of-month month day-of-week).
+ * Supported expressions per field:
+ *   - `*`                : any value
+ *   - `N`                : exactly N (int)
+ *   - `A,B,C`            : list
+ *   - `A-B`              : range (inclusive)
+ *   - `* /N` or `A-B/N`  : step (every N)
  *
- * Nicht unterstützt:
- *   - `@hourly`, `@daily`, `@reboot` etc. (bewusst weggelassen — YAGNI)
- *   - Weekday-Names (`MON`, `TUE` …)
+ * Not supported:
+ *   - `@hourly`, `@daily`, `@reboot` etc. (deliberately omitted — YAGNI)
+ *   - weekday names (`MON`, `TUE` …)
  *
- * Zeitzone: intern UTC. the owner's Brief-Routine läuft `0 8 * * *` in UTC, was
- * Berlin-Sommer (UTC+2) = 10:00 entspricht. Phase 6 kann pro Routine eine
- * TZ-Override einführen; für Single-User-MVP reicht UTC.
+ * Timezone: internally UTC. The owner's brief routine runs `0 8 * * *` in UTC, which
+ * corresponds to Berlin summer (UTC+2) = 10:00. Phase 6 can introduce a
+ * per-routine TZ override; for the single-user MVP, UTC is enough.
  *
- * Referenz: https://en.wikipedia.org/wiki/Cron#CRON_expression
+ * Reference: https://en.wikipedia.org/wiki/Cron#CRON_expression
  */
 
 interface FieldSpec {
@@ -39,7 +39,7 @@ export interface ParsedCron {
   dom: Set<number>;
   month: Set<number>;
   dow: Set<number>;
-  /** True wenn day-of-month UND day-of-week jeweils `*` — Standard-Fall. */
+  /** True when day-of-month AND day-of-week are each `*` — the standard case. */
   domStar: boolean;
   dowStar: boolean;
 }
@@ -52,7 +52,7 @@ export class CronParseError extends Error {
 }
 
 /**
- * Parst ein Cron-Feld in ein Set zulässiger Werte.
+ * Parses a cron field into a set of allowed values.
  */
 function parseField(input: string, spec: FieldSpec): Set<number> {
   const result = new Set<number>();
@@ -122,8 +122,8 @@ export function parseCron(expr: string): ParsedCron {
 }
 
 /**
- * Validate-only helper — für API-Layer damit 400er mit nützlicher Message
- * zurück kommen statt 500.
+ * Validate-only helper — for the API layer so that 400s come back with a useful
+ * message instead of a 500.
  */
 export function isValidCron(expr: string): { ok: true } | { ok: false; error: string } {
   try {
@@ -135,18 +135,18 @@ export function isValidCron(expr: string): { ok: true } | { ok: false; error: st
 }
 
 /**
- * Berechnet den nächsten Match ab `fromMs` (exklusive — nie derselbe
- * Moment). Gibt ms-Epoch zurück oder `null` falls in den nächsten 4 Jahren
- * kein Match (= offensichtlich falscher Ausdruck).
+ * Computes the next match from `fromMs` (exclusive — never the same
+ * moment). Returns ms-epoch or `null` if there is no match in the next 4 years
+ * (= obviously wrong expression).
  *
- * Algorithmus: minute-weise vorspulen bis alle Felder passen. 4-Jahres-
- * Ceiling verhindert Endlosschleifen (z.B. `0 0 31 2 *` — 31. Februar).
+ * Algorithm: fast-forward minute by minute until all fields match. The 4-year
+ * ceiling prevents infinite loops (e.g. `0 0 31 2 *` — February 31st).
  */
 export function nextRunAt(expr: string, fromMs: number): number | null {
   const parsed = parseCron(expr);
-  const MAX_ITERATIONS = 60 * 24 * 366 * 4; // 4 Jahre in Minuten
+  const MAX_ITERATIONS = 60 * 24 * 366 * 4; // 4 years in minutes
 
-  // Starte bei fromMs + 1 Minute, sekundengenau auf Minuten-Boundary.
+  // Start at fromMs + 1 minute, snapped to the second on a minute boundary.
   let cursor = new Date(fromMs);
   cursor.setUTCSeconds(0, 0);
   cursor = new Date(cursor.getTime() + 60_000);
@@ -163,12 +163,12 @@ export function nextRunAt(expr: string, fromMs: number): number | null {
       continue;
     }
     if (!parsed.hour.has(hr)) {
-      // Springe auf nächste Stunde bei Minute 0.
+      // Jump to the next hour at minute 0.
       cursor = new Date(cursor.getTime() + (60 - min) * 60_000);
       continue;
     }
     if (!parsed.month.has(mon)) {
-      // Springe auf nächsten Monat, Tag 1 00:00.
+      // Jump to the next month, day 1 00:00.
       const next = new Date(
         Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1),
       );
@@ -176,8 +176,8 @@ export function nextRunAt(expr: string, fromMs: number): number | null {
       continue;
     }
 
-    // Cron-Quirk: wenn BEIDE dom und dow gesetzt sind (nicht `*`),
-    // matcht ENTWEDER dom ODER dow (OR-Semantik). Sonst AND.
+    // Cron quirk: when BOTH dom and dow are set (not `*`),
+    // EITHER dom OR dow matches (OR semantics). Otherwise AND.
     const domMatch = parsed.dom.has(dom);
     const dowMatch = parsed.dow.has(dow);
     let dayOk: boolean;
@@ -192,7 +192,7 @@ export function nextRunAt(expr: string, fromMs: number): number | null {
     }
 
     if (!dayOk) {
-      // Springe auf nächsten Tag 00:00.
+      // Jump to the next day 00:00.
       const nextDay = new Date(
         Date.UTC(
           cursor.getUTCFullYear(),

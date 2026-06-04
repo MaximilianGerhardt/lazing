@@ -142,7 +142,7 @@ function normalizeState(s: string | undefined): WorkflowState {
 }
 
 function transitionFromEvent(ev: LazyEventLike): WorkflowState | null {
-  // Direkter State im Payload
+  // Direct state in the payload
   const payload = ev.payload ?? {};
   const direct =
     typeof payload.workflowState === 'string'
@@ -152,7 +152,7 @@ function transitionFromEvent(ev: LazyEventLike): WorkflowState | null {
         : null;
   if (direct) return normalizeState(direct);
 
-  // Aus event-type ableiten
+  // Derive from event type
   switch (ev.type) {
     case 'approval_requested':
       return 'review';

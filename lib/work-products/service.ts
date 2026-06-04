@@ -1,15 +1,15 @@
 /**
- * Work-Products Service (Sprint 2 · Section 7I).
+ * Work-Products service (sprint 2 · section 7I).
  *
- * Writes gehen durch diesen Service, damit (a) Ticket-Existenz geprueft
- * wird und (b) ein `work_product_attached` Event emittiert wird.
+ * Writes go through this service so that (a) ticket existence is checked
+ * and (b) a `work_product_attached` event is emitted.
  *
- * Lesezugriffe sind dagegen direkter SQL-Select — Work-Products sind
- * keine Projektion aus dem Event-Log, sondern eine eigene Tabelle.
- * (Anders als Tickets: das Event ist nur ein Signal, der State lebt
+ * Reads, by contrast, are direct SQL selects — work products are
+ * not a projection of the event log but a table of their own.
+ * (Unlike tickets: the event is just a signal, the state lives
  * in `work_products`.)
  *
- * Soft-Delete: Status='superseded' statt DELETE.
+ * Soft delete: status='superseded' instead of DELETE.
  */
 
 import { and, desc, eq } from "drizzle-orm";
@@ -27,8 +27,8 @@ import type {
 } from "./schema";
 
 // ---------------------------------------------------------------------------
-// ID-Helfer — WP-<nanoid(10)> in Crockford-Base32-Alphabet (keine externe
-// nanoid-Dependency; ulid.ts liefert das Alphabet bereits indirekt).
+// ID helper — WP-<nanoid(10)> in the Crockford base32 alphabet (no external
+// nanoid dependency; ulid.ts already provides the alphabet indirectly).
 // ---------------------------------------------------------------------------
 
 const ID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -105,9 +105,8 @@ export interface CreateWorkProductInput {
   content: string;
   mime?: string;
   status?: WorkProductStatus;
-  /** Wer legt an? Default 'user' (kein Actor-Prefix, nicht verwechseln
-   *  mit LazyEvent-Actor — dort MUSS es 'user:*' / 'agent:*' / 'system'
-   *  sein). */
+  /** Who is creating it? Default 'user' (no actor prefix; not to be confused
+   *  with the LazyEvent actor — there it MUST be 'user:*' / 'agent:*' / 'system'). */
   createdBy?: string;
 }
 
@@ -116,7 +115,7 @@ export interface UpdateWorkProductInput {
   content?: string;
   mime?: string;
   status?: WorkProductStatus;
-  /** Actor fuer das `updated`-Event. */
+  /** Actor for the `updated` event. */
   actor?: ActorType;
 }
 
@@ -165,7 +164,7 @@ export async function getWorkProduct(
 export async function createWorkProduct(
   input: CreateWorkProductInput,
 ): Promise<WorkProduct> {
-  // 1. Ticket muss existieren — saubere 404 aus API herleiten.
+  // 1. Ticket must exist — derive a clean 404 from the API.
   const ticket = await projectTicket(input.ticketId);
   if (!ticket) {
     throw new WorkProductNotFoundError(input.ticketId);
@@ -195,8 +194,8 @@ export async function createWorkProduct(
     })
     .run();
 
-  // 2. Event emittieren — projeziert sauber in die Timeline.
-  //    Event-Actor muss dem LazyEvent-Actor-Contract entsprechen.
+  // 2. Emit event — projects cleanly into the timeline.
+  //    The event actor must conform to the LazyEvent actor contract.
   const eventActor: ActorType = normalizeActor(createdBy);
   await emitEvent({
     segmentId: ticket.segmentId,
@@ -214,8 +213,8 @@ export async function createWorkProduct(
     sensitivity: "low",
   });
 
-  // Auto-Advance: Wenn das Work-Product direkt als "final" angehängt wird,
-  // schliessen wir das Ticket (Handoff-Punkt 3).
+  // Auto-advance: when the work product is attached directly as "final",
+  // we close the ticket (handoff point 3).
   if (status === "final") {
     await autoAdvanceOnWorkProductFinal(input.ticketId).catch(() => undefined);
   }
@@ -264,8 +263,8 @@ export async function updateWorkProduct(
     .where(eq(workProducts.id, wpId))
     .run();
 
-  // Status-Uebergaenge kriegen ein eigenes Event fuer die Timeline.
-  // Phase ORG (2026-04-27): Default `system` statt `user:max`-Fake.
+  // Status transitions get their own event for the timeline.
+  // Phase ORG (2026-04-27): default `system` instead of a `user:max` fake.
   const actor: ActorType = patch.actor ?? "system";
   if (patch.status && patch.status !== current.status) {
     await emitEvent({
@@ -285,8 +284,8 @@ export async function updateWorkProduct(
       sensitivity: "low",
     });
 
-    // Auto-Advance: Work-Product auf final → Ticket schliessen
-    // (Handoff-Punkt 3).
+    // Auto-advance: work product set to final → close the ticket
+    // (handoff point 3).
     if (patch.status === "final" && current.status !== "final") {
       await autoAdvanceOnWorkProductFinal(ticketId).catch(() => undefined);
     }
@@ -328,9 +327,9 @@ function normalizeActor(createdBy: string): ActorType {
   ) {
     return createdBy as ActorType;
   }
-  // Phase ORG: Bare-`user`-Marker (Legacy-Daten) bekommt keinen
-  // erfundenen User-Namen mehr. System ist semantisch korrekt für
-  // unattributed legacy-input.
+  // Phase ORG: a bare `user` marker (legacy data) no longer gets an
+  // invented user name. System is semantically correct for
+  // unattributed legacy input.
   if (createdBy === "user") return "system";
   // Fallback: safe prefix.
   return `user:${createdBy}` as ActorType;

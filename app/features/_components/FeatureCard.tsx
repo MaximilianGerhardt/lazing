@@ -3,10 +3,10 @@
 //
 // app/features/_components/FeatureCard — Server-Component, render-only.
 //
-// Token-only Farben (var(--…)) gemäss laz.ing Design Manifest v1.0:
-//   Pitch-Black Canvas + SF Pro Display (--font-display) + 0.5px Lines.
-// KEINE neuen Hex-Werte. KEIN shadcn. Mobile-first: 375px-tauglich,
-// Card-Padding 16px, Pills wrap, Refs als kleine Mono-Pills.
+// Token-only colors (var(--…)) per laz.ing Design Manifest v1.0:
+//   pitch-black canvas + SF Pro Display (--font-display) + 0.5px lines.
+// NO new hex values. NO shadcn. Mobile-first: 375px-capable,
+// card padding 16px, pills wrap, refs as small mono pills.
 
 import type { CSSProperties } from 'react';
 

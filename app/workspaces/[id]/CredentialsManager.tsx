@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * CredentialsManager — Vercel-style verschluesselter Key-Manager.
+ * CredentialsManager — Vercel-style encrypted key manager.
  *
- * Liste mit masked-preview, Add-Form (NAME=VALUE, optional Description),
- * Reveal-Button (zeigt Klartext + setzt last_revealed_at) + Loeschen.
- * Die KI im Chat kann via <surface:credential-prompt> einen neuen Key
- * anfordern; das Form unten erfaellt den gleichen Endpoint.
+ * List with masked preview, add form (NAME=VALUE, optional description),
+ * reveal button (shows plaintext + sets last_revealed_at) + delete.
+ * The AI in the chat can request a new key via <surface:credential-prompt>;
+ * the form below serves the same endpoint.
  */
 
 import { useEffect, useState, useTransition, type CSSProperties } from 'react';
@@ -63,7 +63,7 @@ export function CredentialsManager({ workspaceId }: Props) {
 
   const reveal = async (credId: string): Promise<void> => {
     if (revealedId === credId && revealedValue !== null) {
-      // Toggle off — verstecke wieder
+      // Toggle off — hide again
       setRevealedId(null);
       setRevealedValue(null);
       return;
@@ -82,7 +82,7 @@ export function CredentialsManager({ workspaceId }: Props) {
       };
       setRevealedId(credId);
       setRevealedValue(data.credential.value);
-      // 30s timeout — automatisch wieder verstecken
+      // 30s timeout — automatically hide again
       window.setTimeout(() => {
         setRevealedId((cur) => (cur === credId ? null : cur));
         setRevealedValue(null);

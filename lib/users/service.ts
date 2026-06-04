@@ -1,8 +1,8 @@
 /**
- * Users-Service (Phase ORG SP-2).
+ * Users service (phase ORG SP-2).
  *
- * Business-Layer über `lib/users/repo.ts`. Kapselt Subject-Resolution
- * (currentUser via Header) und audit-relevante Operationen.
+ * Business layer over `lib/users/repo.ts`. Encapsulates subject resolution
+ * (currentUser via header) and audit-relevant operations.
  */
 
 import { ulid } from "@/lib/ulid";
@@ -18,12 +18,12 @@ import {
 import type { UserRow } from "@/db/schema/users";
 
 /**
- * Lade den aktuell authentisierten User aus der DB.
- * Returnt `null` wenn:
- *   - Subject ist kein User (agent/system/anon)
- *   - userId nicht in DB
- *   - User ist suspended/deleted
- *   - userId ist BOOTSTRAP_USER_ID (Legacy-Cookie ohne Backfill)
+ * Load the currently authenticated user from the DB.
+ * Returns `null` when:
+ *   - the subject is not a user (agent/system/anon)
+ *   - userId is not in the DB
+ *   - the user is suspended/deleted
+ *   - userId is BOOTSTRAP_USER_ID (legacy cookie without backfill)
  */
 export function loadCurrentUser(req: RequestLike): UserRow | null {
   const id = currentUserId(req);
@@ -33,10 +33,10 @@ export function loadCurrentUser(req: RequestLike): UserRow | null {
 }
 
 /**
- * Idempotent Email-bound User-Lookup mit Auto-Create.
- * Wird vom Magic-Link-Verify aufgerufen (SP-3): Email kommt aus dem
- * Token, displayName ist initial die Email-Lokalpart, kann später
- * im Onboarding überschrieben werden.
+ * Idempotent email-bound user lookup with auto-create.
+ * Called by the magic-link verify (SP-3): the email comes from the
+ * token, displayName is initially the email local part and can later
+ * be overwritten during onboarding.
  */
 export function ensureUserFromEmail(input: {
   email: string;

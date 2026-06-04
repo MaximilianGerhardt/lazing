@@ -1,12 +1,12 @@
 /**
- * One-Shot RAG-Indexer (Slice 1, 2026-05-23).
+ * One-shot RAG indexer (Slice 1, 2026-05-23).
  *
- * Indiziert die Chat-History EINES Workspace in `rag_chunks`, damit der
- * Live-Chat (server/workspace-session.ts → retrieve()) tatsächlich Kontext
- * zieht. Bewusst NUR `chat`-Sources (Workspace-`path` ist in der lokalen DB
- * leer → File-Indexing liefert nichts). Heavy-Job: lädt den lokalen Embedder
- * (Xenova all-MiniLM-L6-v2, 384-dim) — daher als bewusster One-Shot, nicht im
- * Hot-Path.
+ * Indexes the chat history of ONE workspace into `rag_chunks` so the
+ * live chat (server/workspace-session.ts → retrieve()) actually pulls
+ * context. Deliberately ONLY `chat` sources (the workspace `path` is empty in
+ * the local DB → file indexing yields nothing). Heavy job: loads the local
+ * embedder (Xenova all-MiniLM-L6-v2, 384-dim) — hence a deliberate one-shot,
+ * not in the hot path.
  *
  * Usage:  tsx scripts/rag-index-oneshot.ts [workspaceId=default] [maxChat=300]
  */

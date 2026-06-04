@@ -12,9 +12,9 @@ export const DEFAULT_WORKSPACE_ID = 'lazyos';
 export const ROOT_WORKSPACE_ID = '__root__';
 
 /**
- * Root-Workspace — Cross-Workspace-Modus für Max (Handoff-Punkt 2).
- * Agent hat in diesem Modus Permission, in JEDEM Workspace zu operieren:
- * Tickets anlegen, Routinen triggern, neue Projekte starten, Meta-Ops.
+ * Root workspace — cross-workspace mode for Max (handoff point 2).
+ * In this mode the agent has permission to operate in EVERY workspace:
+ * creating tickets, triggering routines, starting new projects, meta-ops.
  */
 export const ROOT_WORKSPACE: Workspace = {
   id: ROOT_WORKSPACE_ID,
@@ -37,19 +37,19 @@ export function isRootWorkspace(id: string | null | undefined): boolean {
 }
 
 /**
- * Virtuelle / aggregierende Workspace-IDs, die KEINE echte, einzelne
- * Workspace-Membership besitzen:
- *   - `__root__`            Cross-Workspace-Modus (alle Projekte)
- *   - `__all__`             kombinierte Sicht
- *   - `__org_root__:<org>`  Org-Root-Aggregation (mehrere Workspaces einer Org)
+ * Virtual / aggregating workspace IDs that have NO real, single
+ * workspace membership:
+ *   - `__root__`            cross-workspace mode (all projects)
+ *   - `__all__`             combined view
+ *   - `__org_root__:<org>`  org-root aggregation (multiple workspaces of one org)
  *
- * Member-/Scope-gated Per-Workspace-Endpoints (z.B.
+ * Member-/scope-gated per-workspace endpoints (e.g.
  * `GET /api/state/projection/[workspaceId]`, `GET /api/permission/[…]/mode`)
- * antworten für diese IDs zwangsläufig mit 403 — es gibt keine
- * `hasRealWorkspaceMembership`-Zeile für eine Aggregation. Clients MÜSSEN den
- * Fetch deshalb überspringen, statt im Poll-Takt 403er zu produzieren
- * (Console-Spam, vergeudetes Netzwerk). Gleiches Muster wie
- * `AllAccessToggle` den `__root__/mode`-GET skippt.
+ * inevitably respond with 403 for these IDs — there is no
+ * `hasRealWorkspaceMembership` row for an aggregation. Clients MUST therefore
+ * skip the fetch instead of producing 403s on every poll tick
+ * (console spam, wasted network). Same pattern as
+ * `AllAccessToggle` skipping the `__root__/mode` GET.
  */
 export function isVirtualWorkspaceId(id: string | null | undefined): boolean {
   if (!id) return false;
@@ -59,21 +59,21 @@ export function isVirtualWorkspaceId(id: string | null | undefined): boolean {
 /**
  * Static fallback — explicit empty.
  *
- * 2026-04-30: User-Inject „Beispielprojekte in der Navigation statt die echten".
- * Vorher waren 11 hardcoded Workspaces hier als Fallback bei API-Fail. Risiko:
- * wenn Auth-Cookie fehlt oder /api/workspaces leer antwortet während Hydration,
- * sah User Demo-Workspaces statt seiner echten 24 aus der DB.
+ * 2026-04-30: user inject „Beispielprojekte in der Navigation statt die echten".
+ * Previously 11 hardcoded workspaces lived here as a fallback on API failure. Risk:
+ * if the auth cookie is missing or /api/workspaces responds empty during hydration,
+ * the user saw demo workspaces instead of their real 24 from the DB.
  *
- * Jetzt explizit leer — bei API-Fail rendert Nav leer (deutliches Signal:
- * „Auth kaputt" statt verfälscht „falsche Workspaces sichtbar"). Echter Bug-
- * Fix wäre Auth-Race im useWorkspaces-Hook, aber leerer Fallback ist sicherer
- * als 11 falsche Einträge.
+ * Now explicitly empty — on API failure the nav renders empty (a clear signal:
+ * "auth broken" instead of a falsified "wrong workspaces visible"). The real bug
+ * fix would be the auth race in the useWorkspaces hook, but an empty fallback is safer
+ * than 11 wrong entries.
  */
 export const STATIC_WORKSPACES: readonly Workspace[] = [] as const;
 
 if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
-  // dev-only Hint falls jemand auf Demo-Daten setzt
-  // (Build-Time-Warning — Runtime-`useWorkspaces` zeigt eigenen Toast bei API-Fail)
+  // dev-only hint in case someone relies on demo data
+  // (build-time warning — runtime `useWorkspaces` shows its own toast on API failure)
 }
 
 export function findWorkspaceById(

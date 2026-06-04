@@ -1,15 +1,15 @@
 /**
  * GET /api/subchats/activity
  *
- * AGGREGAT über alle Workspaces, auf die der eingeloggte User Zugriff hat —
- * Grundlage für die proaktive Sub-Chat-Karte im zentralen Hauptchat
- * (Gathering-Intelligence in den Hauptchat holen, 2026-06-02).
+ * AGGREGATE across all workspaces the logged-in user has access to —
+ * the basis for the proactive sub-chat card in the central main chat
+ * (pulling gathering-intelligence into the main chat, 2026-06-02).
  *
- * Der Hauptchat sitzt i.d.R. auf dem Org-Root (virtueller Workspace), die
- * Kundenchats hängen an realen Kunden-Workspaces. Deshalb darf die Karte NICHT
- * an „current workspace" hängen, sondern aggregiert workspace-übergreifend —
- * jede Zeile trägt ihren Workspace (Kunde) als Kontext. Jeder Workspace wird
- * einzeln member-gegated (N2/N9 bleibt gewahrt).
+ * The main chat usually sits on the org root (virtual workspace), while the
+ * customer chats hang off real customer workspaces. Therefore the card must NOT
+ * be tied to the "current workspace" but aggregates across workspaces —
+ * each row carries its workspace (customer) as context. Each workspace is
+ * member-gated individually (N2/N9 stays preserved).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -36,14 +36,14 @@ export async function GET(req: NextRequest): Promise<Response> {
     for (const ws of wsIds) {
       const role = getEffectiveWorkspaceRole(userId, ws);
       if (!canEditWorkspaceContent(role) || !hasRealWorkspaceMembership(userId, ws)) {
-        continue; // kein Zugriff → überspringen (fail-closed)
+        continue; // no access → skip (fail-closed)
       }
-      // viewerUserId → unreadCount pro Sub-Chat (Unread-Badges im Hauptchat/Drawer).
+      // viewerUserId → unreadCount per sub-chat (unread badges in main chat/drawer).
       for (const a of getSubchatActivity(ws, userId)) {
         out.push({ ...a, workspaceId: ws, workspaceLabel: labels[ws] ?? ws });
       }
     }
-    // Jüngste externe Aktivität zuerst (nulls ans Ende).
+    // Most recent external activity first (nulls to the end).
     out.sort(
       (a, b) =>
         ((b.lastExternalTs as number | null) ?? 0) -

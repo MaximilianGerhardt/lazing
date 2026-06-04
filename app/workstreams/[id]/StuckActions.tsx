@@ -3,13 +3,13 @@
 /**
  * StuckActions — Sub-Plan 01c (2026-04-29).
  *
- * Wird im Workstream-Detail oben gerendert wenn der Workstream
- * status='stuck' ist (= nach Service-Restart hängen geblieben). Bietet:
+ * Rendered at the top of the workstream detail when the workstream is
+ * status='stuck' (= got stuck after a service restart). Offers:
  *
  *   - „Resume von V_{n+1}"  → POST /api/workstreams/[id]/resume
  *   - „Cancel + done"       → POST /api/workstreams/[id]/cancel
  *
- * Polling /api/workstreams/[id]/pause-status für Live-Status.
+ * Polls /api/workstreams/[id]/pause-status for live status.
  */
 
 import { useState, useTransition } from 'react';
@@ -56,10 +56,10 @@ export function StuckActions({ workstreamId, initialStatus }: Props): React.JSX.
           `V${body.producedVersion ?? '?'} produziert${body.isFinal ? ' (final)' : ''}.`,
         );
         setStatus(body.isFinal ? 'done' : 'active');
-        // Phase 01c-fix (2026-04-29): UI on-the-fly aktualisieren —
-        // router.refresh() lädt die Server-Component neu, damit der
-        // gesamte Page-Status (Header-Badge, Events-Liste, Sub-Tickets)
-        // aktuelle Daten zeigt, nicht nur die StuckActions-Card.
+        // Phase 01c-fix (2026-04-29): update the UI on-the-fly —
+        // router.refresh() re-loads the server component so that the
+        // entire page state (header badge, events list, sub-tickets)
+        // shows current data, not just the StuckActions card.
         startTransition(() => router.refresh());
       }
     } catch (err) {

@@ -22,10 +22,10 @@ import { findOrgById, findUserOrgMembership, listOrgsForUser } from '@/lib/orgs/
 import { currentUserIdResolved } from '@/lib/security/subject-server';
 import { getUserDefaultPermissionMode } from '@/lib/users/preferences-repo';
 import { bridgeOrLocal } from '@/lib/vps-bridge/route-helpers';
-// Owner-Bug-Fix 2026-05-29 (F2 ID-Kollisions-Schutz):
-// disambiguateWorkspaceId verhindert, dass ein neu erstellter Workspace
-// mit gleichem Label (= gleicher Slug) Audit-Spuren des Vorgängers
-// adoptiert (z.B. alten chat_ledger.coord_key).
+// Owner bug fix 2026-05-29 (F2 ID collision protection):
+// disambiguateWorkspaceId prevents a newly created workspace
+// with the same label (= same slug) from adopting the predecessor's audit
+// traces (e.g. an old chat_ledger.coord_key).
 import { disambiguateWorkspaceId } from '@/lib/workspaces/cleanup';
 import { PERMISSION_MODES, type PermissionMode } from '../../../lib-v1/permission/settings/schema';
 
@@ -39,9 +39,9 @@ interface WorkspaceRow {
   sensitivity: string | null;
   archived: number | null;
   organization_id: string | null;
-  /** Phase IA-Konsolidierung 2026-04-29: workspace-Type für Section-Gruppierung. */
+  /** Phase IA consolidation 2026-04-29: workspace type for section grouping. */
   workspace_type: string | null;
-  /** 2026-05-03: User-driven Sub-Segmentierung innerhalb einer Org. */
+  /** 2026-05-03: user-driven sub-segmentation within an org. */
   context_group: string | null;
   org_name: string | null;
   org_type: string | null;
@@ -145,13 +145,13 @@ export async function GET(): Promise<Response> {
 }
 
 /**
- * POST /api/workspaces — Phase AU.3.4 Workspace-Create.
+ * POST /api/workspaces — Phase AU.3.4 workspace create.
  *
  * Body: { id?, label, sensitivity?, organizationId, path? }
  *
- * Auth: User muss in `organizationId` mindestens member sein. Bei ID
- * ohne Slug bauen wir einen aus dem Label. Workspace-Membership wird
- * automatisch als „inherits-from-org" für den User gesetzt.
+ * Auth: user must be at least a member of `organizationId`. For an id
+ * without a slug we build one from the label. Workspace membership is set
+ * automatically as "inherits-from-org" for the user.
  */
 interface CreateWorkspaceBody {
   id?: string;
@@ -160,22 +160,22 @@ interface CreateWorkspaceBody {
   organizationId?: string;
   path?: string;
   /**
-   * 2026-05-03: Workspace-Type-Whitelist. Default 'default' (= „Sonstig").
-   * Ungültige Werte fallen auf 'default' zurück (silent fallback statt 400,
-   * weil das Field optional ist und client-seitig vorgewählt wird).
+   * 2026-05-03: workspace-type whitelist. Default 'default' (= "Other").
+   * Invalid values fall back to 'default' (silent fallback instead of 400,
+   * because the field is optional and preselected on the client side).
    */
   workspaceType?: string;
   /**
-   * 2026-05-03: Optionaler User-driven Kontext-Tag für Sub-Segmentierung.
-   * Trim, max 32 Zeichen. Leer/whitespace-only → NULL.
+   * 2026-05-03: optional user-driven context tag for sub-segmentation.
+   * Trimmed, max 32 chars. Empty/whitespace-only → NULL.
    */
   contextGroup?: string;
   /**
-   * ACL-3 (2026-05-24): Credential-Isolation-Toggle.
-   * 'inherit'  — darf Org-Credentials als Fallback nutzen (Standard intern).
-   * 'isolated' — ausschließlich eigene Credentials, kein Org-Fallback (extern).
-   * Wenn nicht übergeben: wird aus Org-Type abgeleitet (client → isolated,
-   * sonst inherit). Explizit übergebener Wert gewinnt immer.
+   * ACL-3 (2026-05-24): credential-isolation toggle.
+   * 'inherit'  — may use org credentials as a fallback (default internal).
+   * 'isolated' — exclusively own credentials, no org fallback (external).
+   * If not passed: derived from the org type (client → isolated,
+   * otherwise inherit). An explicitly passed value always wins.
    */
   credentialIsolation?: string;
 }
@@ -191,12 +191,12 @@ const WORKSPACE_TYPES = new Set([
   'default',
 ]);
 const CONTEXT_GROUP_MAX = 32;
-/** ACL-3: Credential-Isolation Whitelist. */
+/** ACL-3: credential-isolation whitelist. */
 const CREDENTIAL_ISOLATION_VALUES = new Set(['inherit', 'isolated']);
 /**
- * Org-/Workspace-Rollen mit Edit-Recht (rank ≥ member, s. lib/security/permissions
- * ROLE_RANK). Genutzt bei der Workspace-Erstellung: Org-Wahl bevorzugt eine
- * Edit-Org, und der Ersteller bekommt eine direkte Edit-Membership.
+ * Org/workspace roles with edit rights (rank ≥ member, see lib/security/permissions
+ * ROLE_RANK). Used during workspace creation: org choice prefers an
+ * edit org, and the creator gets a direct edit membership.
  */
 const WORKSPACE_EDIT_ROLES = new Set(['founder', 'admin', 'member']);
 
@@ -255,10 +255,10 @@ export async function POST(req: NextRequest): Promise<Response> {
         { status: 422 },
       );
     }
-    // Fix B2 (2026-06-02): NICHT blind die erste Org nehmen — bevorzuge eine, in
-    // der der User editieren darf (rank ≥ member). Sonst landete ein per
-    // Quick-Create angelegter Workspace in einer Viewer-Org und war sofort
-    // read-only-degradiert (projection/permission 403). Fallback: erste Org.
+    // Fix B2 (2026-06-02): do NOT blindly take the first org — prefer one in
+    // which the user may edit (rank ≥ member). Otherwise a workspace created via
+    // quick-create landed in a viewer org and was immediately
+    // read-only-degraded (projection/permission 403). Fallback: first org.
     const owned = orgs.find((o) => {
       const m = findUserOrgMembership(userId, o.id);
       return m !== null && WORKSPACE_EDIT_ROLES.has(m.role);
@@ -271,7 +271,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Permission: User muss in der Org member oder höher sein.
+  // Permission: user must be a member of the org or higher.
   const membership = findUserOrgMembership(userId, orgId);
   if (!membership) {
     return NextResponse.json(
@@ -293,30 +293,30 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // Owner-Bug-Fix 2026-05-29 — F2: Workspace-ID-Kollisions-Schutz.
+  // Owner bug fix 2026-05-29 — F2: workspace-ID collision protection.
   //
-  // Symptom (verbatim N1, Owner-Live-Test):
+  // Symptom (verbatim N1, owner live test):
   //   „Ich nehme den Namen PA Website 2 und öffne den Chat nach dem neu
   //    erstellen und dann it da der alte Chatverlauf drin…"
   //
-  // Root-Cause: slugify(label)='example-website-2' war IDENTISCH mit der
-  // gelöschten Vorgänger-Workspace. Tabellen, die per `coord_key` /
-  // `workspace_id` joinen (chat_ledger, …) hatten stale Rows aus dem
-  // Cleanup übersehen → die NEUE Workspace „adoptierte" sie.
+  // Root cause: slugify(label)='example-website-2' was IDENTICAL to the
+  // deleted predecessor workspace. Tables that join via `coord_key` /
+  // `workspace_id` (chat_ledger, …) had stale rows missed by the
+  // cleanup → the NEW workspace "adopted" them.
   //
-  // Schutz: wenn der Slug AUTO-DERIVED ist (kein expliziter body.id),
-  // probieren wir nicht nur ob er in `workspaces.id` frei ist, sondern
-  // ob er IRGENDWO in workspace-gebundenen Tabellen Spuren hinterlässt
+  // Protection: if the slug is AUTO-DERIVED (no explicit body.id),
+  // we probe not only whether it is free in `workspaces.id`, but
+  // whether it leaves traces ANYWHERE in workspace-bound tables
   // (chat_ledger.coord_key, workstreams.workspace_id, lazyos_permission_*,
-  // events.segment_id, …). Bei Treffer hängen wir `-2`, `-3`, … an, bis
-  // der Slug *audit-frei* ist. Notausgang: 4-stelliger Random-Suffix.
+  // events.segment_id, …). On a hit we append `-2`, `-3`, … until
+  // the slug is *audit-free*. Emergency exit: 4-digit random suffix.
   //
-  // Label bleibt verbatim (Owner sieht weiter „PA Website 2"); NUR die
-  // interne `id` wird disambiguiert.
+  // The label stays verbatim (the owner still sees "PA Website 2"); ONLY the
+  // internal `id` is disambiguated.
   //
-  // Wenn der User EXPLIZIT eine `id` übergeben hat, machen wir das NICHT —
-  // ein expliziter ID-Wunsch bekommt das alte Verhalten (409 bei Konflikt),
-  // weil der User damit signalisiert dass er weiß was er tut.
+  // If the user EXPLICITLY passed an `id`, we do NOT do this —
+  // an explicit id wish gets the old behavior (409 on conflict),
+  // because with it the user signals that they know what they are doing.
   // ──────────────────────────────────────────────────────────────────────
   const db = getDb();
   if (!explicitId) {
@@ -329,9 +329,9 @@ export async function POST(req: NextRequest): Promise<Response> {
         id = disambiguated;
       }
     } catch (err) {
-      // F2 ist additiv + fail-soft: wenn der Probe scheitert, fallen wir
-      // auf die alte Logik zurück (409 bei collision). Im schlimmsten
-      // Fall sieht der Owner den alten Chat — kein neuer Bug.
+      // F2 is additive + fail-soft: if the probe fails, we fall back
+      // to the old logic (409 on collision). In the worst
+      // case the owner sees the old chat — no new bug.
       console.warn('[workspaces POST] F2 disambiguation skipped (non-fatal):', err);
     }
   }
@@ -340,12 +340,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     body.sensitivity === 'high' || body.sensitivity === 'normal'
       ? body.sensitivity
       : 'low';
-  // Fix A1 (2026-06-02): Neue Workspaces bekommen einen NUTZBAREN FS-Pfad.
-  // Ohne Pfad konnte der Chat-Agent (workspace-session, cwd=ws.path) keine
-  // Dateien schreiben → ein „bau mir das"-Intent fiel auf Klärungsfragen
-  // zurück statt zu bauen (der beobachtete Brainstorm→Bau-Loop). Expliziter
-  // Pfad gewinnt; sonst der deterministische Default `<projectsRoot>/<id>`.
-  // Verzeichnis best-effort anlegen, damit der erste Build sofort funktioniert.
+  // Fix A1 (2026-06-02): new workspaces get a USABLE FS path.
+  // Without a path the chat agent (workspace-session, cwd=ws.path) could not
+  // write files → a "build me this" intent fell back to clarifying questions
+  // instead of building (the observed brainstorm→build loop). An explicit
+  // path wins; otherwise the deterministic default `<projectsRoot>/<id>`.
+  // Create the directory best-effort so the first build works immediately.
   const explicitPath =
     typeof body.path === 'string' && body.path.trim().length > 0
       ? body.path.slice(0, 500)
@@ -360,23 +360,23 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 2026-05-03: Workspace-Type Whitelist + Default-Fallback.
+  // 2026-05-03: workspace-type whitelist + default fallback.
   const workspaceType =
     typeof body.workspaceType === 'string' &&
     WORKSPACE_TYPES.has(body.workspaceType)
       ? body.workspaceType
       : 'default';
 
-  // 2026-05-03: Context-Group — trim, max 32 chars, NULL wenn leer.
+  // 2026-05-03: context group — trim, max 32 chars, NULL when empty.
   let contextGroup: string | null = null;
   if (typeof body.contextGroup === 'string') {
     const trimmed = body.contextGroup.trim().slice(0, CONTEXT_GROUP_MAX);
     contextGroup = trimmed.length > 0 ? trimmed : null;
   }
 
-  // ACL-3 (2026-05-24): Credential-Isolation-Ableitung.
-  // Regel: explizit übergebener Wert gewinnt. Sonst: Org-Type 'client' → 'isolated',
-  // alle anderen Org-Types → 'inherit'.
+  // ACL-3 (2026-05-24): credential-isolation derivation.
+  // Rule: an explicitly passed value wins. Otherwise: org type 'client' → 'isolated',
+  // all other org types → 'inherit'.
   let credentialIsolation: 'inherit' | 'isolated';
   if (
     typeof body.credentialIsolation === 'string' &&
@@ -384,12 +384,12 @@ export async function POST(req: NextRequest): Promise<Response> {
   ) {
     credentialIsolation = body.credentialIsolation as 'inherit' | 'isolated';
   } else {
-    // Ableiten aus Org-Type: 'client' = externer Kunde → immer isoliert.
+    // Derive from org type: 'client' = external customer → always isolated.
     const org = findOrgById(orgId);
     credentialIsolation = org?.type === 'client' ? 'isolated' : 'inherit';
   }
 
-  // Conflict-Check (db wurde oben bereits via getDb() initialisiert für F2).
+  // Conflict check (db was already initialized above via getDb() for F2).
   const existing = db.$raw
     .prepare('SELECT id FROM workspaces WHERE id = ?')
     .get(id) as { id: string } | undefined;
@@ -422,15 +422,15 @@ export async function POST(req: NextRequest): Promise<Response> {
       now,
     );
 
-  // Workspace-Membership für den Ersteller.
-  // Fix B1 (2026-06-02): Der Ersteller BESITZT seinen Workspace — direkte
-  // (inherits_from_org=0) Membership mit Edit-Rolle. Sonst erbte er die
-  // Org-Rolle (inherits_from_org=1); bei einer Viewer-Org ließ
-  // getEffectiveWorkspaceRole (Schritt 1 wird nur bei !inheritsFromOrg genutzt)
-  // auf die Viewer-Org-Rolle durchfallen → member-gated Reads (projection,
-  // permission-mode) 403en → jeder frische Workspace war read-only-degradiert.
-  // Edit-fähige Org-Rolle wird übernommen; sonst Default 'admin' (du hast ihn
-  // erstellt → du verwaltest ihn).
+  // Workspace membership for the creator.
+  // Fix B1 (2026-06-02): the creator OWNS their workspace — direct
+  // (inherits_from_org=0) membership with an edit role. Otherwise they inherited
+  // the org role (inherits_from_org=1); with a viewer org
+  // getEffectiveWorkspaceRole (step 1 is only used when !inheritsFromOrg)
+  // fell through to the viewer org role → member-gated reads (projection,
+  // permission-mode) 403'd → every fresh workspace was read-only-degraded.
+  // An edit-capable org role is taken over; otherwise default 'admin' (you
+  // created it → you manage it).
   const memId = `wm_${Math.random().toString(36).slice(2, 8)}_${now}`;
   const creatorRole = WORKSPACE_EDIT_ROLES.has(membership.role)
     ? membership.role
@@ -445,35 +445,35 @@ export async function POST(req: NextRequest): Promise<Response> {
     .run(memId, userId, id, creatorRole, now, now);
 
   // ──────────────────────────────────────────────────────────────────────
-  // Owner-Fix Live-Test 2026-05-28: System-übergreifender Permission-Mode.
+  // Owner fix live test 2026-05-28: cross-system permission mode.
   //
-  // Wenn der User bereits einen Default-Permission-Mode hinterlegt hat
+  // If the user has already stored a default permission mode
   // (lib/users/preferences-repo.ts → user_preferences.default_permission_mode)
-  // UND der Default sinnvoll ist (NICHT 'ask' — 'ask' ist der UI-Default,
-  // den die Pill ohnehin zeigt wenn keine explizite Row existiert), seeden
-  // wir die `lazyos_permission_modes`-Row der neuen Workspace SOFORT mit
-  // dem User-Default.
+  // AND the default is meaningful (NOT 'ask' — 'ask' is the UI default
+  // the pill shows anyway when no explicit row exists), we seed
+  // the new workspace's `lazyos_permission_modes` row IMMEDIATELY with
+  // the user default.
   //
-  // Wirkung: der nächste Browser-Mount der `AllAccessToggle`-Pill liest den
-  // expliziten Workspace-Mode (er ist jetzt da) und zeigt den korrekten
-  // Stand, ohne dass der Owner erst toggeln muss.
+  // Effect: the next browser mount of the `AllAccessToggle` pill reads the
+  // explicit workspace mode (it is now there) and shows the correct
+  // state, without the owner having to toggle first.
   //
-  // Sicherheits-Kontrolle:
-  //   - Wir schreiben den Mode NUR für die soeben angelegte Workspace
-  //     (Owner ist per definitionem Member → autorisiert).
-  //   - Wir leaken den User-Default NICHT in Workspaces fremder User —
-  //     fremde User sehen ihn ohnehin nie, weil sie keine Preference-Row
-  //     unter unserem `user_id` lesen.
-  //   - N8 Audit: wir schreiben in EINER Transaktion die mode-row + audit-
-  //     row mit klarem `reason='seeded-from-user-default'`, damit später
-  //     erkennbar ist, dass nicht der User selbst diesen Mode aktiv gesetzt
-  //     hat sondern der System-Default-Mechanismus.
-  //   - N10 content_hash: über die fachlichen Felder (sha256 / canonical-JSON),
-  //     identisch zur PATCH-Route in app/api/permission/[workspaceId]/mode.
-  //   - Wir schlucken Fehler aus dem Seed, weil die Workspace-Anlage selbst
-  //     bereits erfolgreich war — der User sieht im schlimmsten Fall die
-  //     Pill „AUS" und kann manuell toggeln (also der heutige Status, mit
-  //     dem Owner-Fix als Best-Effort-Aufstockung obendrauf).
+  // Security control:
+  //   - We write the mode ONLY for the just-created workspace
+  //     (the owner is by definition a member → authorized).
+  //   - We do NOT leak the user default into other users' workspaces —
+  //     other users never see it anyway, because they do not read a preference
+  //     row under our `user_id`.
+  //   - N8 audit: in ONE transaction we write the mode row + audit
+  //     row with a clear `reason='seeded-from-user-default'`, so that later
+  //     it is recognizable that it was not the user who actively set this mode
+  //     but the system default mechanism.
+  //   - N10 content_hash: over the domain fields (sha256 / canonical JSON),
+  //     identical to the PATCH route in app/api/permission/[workspaceId]/mode.
+  //   - We swallow errors from the seed, because the workspace creation itself
+  //     already succeeded — in the worst case the user sees the
+  //     pill "OFF" and can toggle manually (i.e. today's status, with
+  //     the owner fix as a best-effort top-up on top).
   try {
     const userDefault = getUserDefaultPermissionMode(userId);
     if (
@@ -551,7 +551,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       persistSeed();
     }
   } catch (err) {
-    // Best-effort: der Workspace ist bereits angelegt. Fallback = manueller Toggle.
+    // Best-effort: the workspace is already created. Fallback = manual toggle.
     console.warn('[workspaces POST] permission-mode seed failed (non-fatal):', err);
   }
 

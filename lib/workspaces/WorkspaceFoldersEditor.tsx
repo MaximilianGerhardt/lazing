@@ -1,23 +1,23 @@
 'use client';
 
 /**
- * WorkspaceFoldersEditor — der Editor „Welche Ordner gehören zu diesem Projekt?"
+ * WorkspaceFoldersEditor — the "Which folders belong to this project?" editor.
  *
- * Owner-Leitprinzip (verbatim): „Das System vereinfacht und führt komplizierte
+ * Owner guiding principle (verbatim): „Das System vereinfacht und führt komplizierte
  * Prozesse automatisch aus, der Nutzer muss gar nicht darüber nachdenken."
- * → Der Nutzer sagt NUR „diese Ordner gehören zu diesem Projekt". Er konfiguriert
- *   NIEMALS Sandbox/Sicherheit/Deny-Liste — das bleibt unsichtbar (FS-3..FS-5).
+ * → The user ONLY says "these folders belong to this project". They NEVER
+ *   configure sandbox/security/deny-list — that stays invisible (FS-3..FS-5).
  *
  * Surface:
- *   - Headline nutzer-orientiert (NICHT „Sandbox-Roots konfigurieren").
- *   - Liste der Roots: Pfad · ro/rw-Toggle · Remove.
- *   - Der primäre Root trägt ein „primär"-Badge und ist NICHT löschbar.
- *   - Ein „Ordner hinzufügen"-Input (absoluter Pfad).
- *   - Optimistic UI gegen /api/workspaces/[id]/fs-roots.
+ *   - User-oriented headline (NOT "configure sandbox roots").
+ *   - List of roots: path · ro/rw toggle · remove.
+ *   - The primary root carries a "primary" badge and is NOT deletable.
+ *   - An "add folder" input (absolute path).
+ *   - Optimistic UI against /api/workspaces/[id]/fs-roots.
  *
- * Stil: laz.ing Design Manifest v1.0 — Pitch-Black #070707, SF Pro Display,
- * brand-gradient (--a-now) NUR auf aktivem Marker, 240ms cubic-bezier. Kein
- * Hex direkt in TSX (nur var(--token, #fallback)). Keine Emojis. Vorbild:
+ * Style: laz.ing Design Manifest v1.0 — pitch-black #070707, SF Pro Display,
+ * brand-gradient (--a-now) ONLY on the active marker, 240ms cubic-bezier. No
+ * hex directly in TSX (only var(--token, #fallback)). No emojis. Model:
  * lib/chat/EnginePill.tsx.
  */
 
@@ -42,9 +42,9 @@ export interface FsRoot {
 
 interface Props {
   workspaceId: string;
-  /** Optional: vorab geladene Roots (SSR/Test). Sonst per fetch geladen. */
+  /** Optional: pre-loaded roots (SSR/test). Otherwise loaded via fetch. */
   initialRoots?: FsRoot[];
-  /** Optional: fetch-Override für Tests. Default = globaler fetch. */
+  /** Optional: fetch override for tests. Default = global fetch. */
   fetchImpl?: typeof fetch;
 }
 
@@ -62,7 +62,7 @@ export function WorkspaceFoldersEditor({
 
   const base = `/api/workspaces/${encodeURIComponent(workspaceId)}/fs-roots`;
 
-  // Mount: Roots laden (nur wenn nicht vorab übergeben).
+  // Mount: load roots (only if not passed in beforehand).
   useEffect(() => {
     if (initialRoots != null) return;
     let cancelled = false;
@@ -79,7 +79,7 @@ export function WorkspaceFoldersEditor({
     return () => {
       cancelled = true;
     };
-    // base ist von workspaceId abgeleitet; doFetch ist stabil.
+    // base is derived from workspaceId; doFetch is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
@@ -122,8 +122,8 @@ export function WorkspaceFoldersEditor({
         prev.map((r) => (r.id === root.id ? { ...r, access: next } : r)),
       );
       try {
-        // Re-add toggelt access (POST ist idempotent über UNIQUE(ws,absPath) +
-        // Update-on-conflict im Repo, FS-1). Integrator kann das auf PATCH heben.
+        // Re-add toggles access (POST is idempotent via UNIQUE(ws,absPath) +
+        // update-on-conflict in the repo, FS-1). The integrator can raise this to PATCH.
         const res = await doFetch(base, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -131,7 +131,7 @@ export function WorkspaceFoldersEditor({
         });
         if (!res.ok) throw new Error('toggle failed');
       } catch {
-        // Rollback bei Fehler.
+        // Roll back on error.
         setRoots((prev) =>
           prev.map((r) => (r.id === root.id ? { ...r, access: root.access } : r)),
         );
@@ -143,7 +143,7 @@ export function WorkspaceFoldersEditor({
 
   const removeRoot = useCallback(
     async (root: FsRoot) => {
-      if (root.role === 'primary') return; // primär ist nicht löschbar.
+      if (root.role === 'primary') return; // primary is not deletable.
       const prev = roots;
       setRoots((cur) => cur.filter((r) => r.id !== root.id)); // optimistic.
       try {
@@ -339,7 +339,7 @@ const primaryBadgeStyle: CSSProperties = {
   textTransform: 'uppercase',
   padding: '3px 8px',
   borderRadius: 999,
-  // brand-gradient NUR hier (aktiver/ausgezeichneter Marker = der primäre Root).
+  // brand-gradient ONLY here (the active/highlighted marker = the primary root).
   color: 'var(--sheet, #070707)',
   background: 'var(--a-now, #c9ff4d)',
 };
@@ -423,7 +423,7 @@ function addBtnStyle(enabled: boolean): CSSProperties {
     borderRadius: 10,
     whiteSpace: 'nowrap',
     color: enabled ? 'var(--sheet, #070707)' : 'var(--ink-3, #6b6b6b)',
-    // primäre Aktion → brand-gradient nur wenn aktiv.
+    // primary action → brand-gradient only when active.
     background: enabled ? 'var(--a-now, #c9ff4d)' : 'var(--sheet-2, #0e0e0e)',
     border: '0.5px solid var(--line-2, #1f1f1f)',
     transition: 'background 240ms cubic-bezier(0.16, 1, 0.3, 1)',

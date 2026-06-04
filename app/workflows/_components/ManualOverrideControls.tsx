@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * ManualOverrideControls — Client.
+ * ManualOverrideControls — client.
  *
- * Pattern 4 Welle 2.2 (2026-05-01).
+ * Pattern 4 Wave 2.2 (2026-05-01).
  *
- * Pro Transition ein Button. POST → /api/workflows/runs/[runId] mit
- * { targetState }. Refresh nach Erfolg via router.refresh().
+ * One button per transition. POST → /api/workflows/runs/[runId] with
+ * { targetState }. Refresh on success via router.refresh().
  *
- * Bei 409 (manualOverride='forbid') wird die Antwort als rote Inline-
- * Meldung gerendert.
+ * On 409 (manualOverride='forbid') the response is rendered as a red inline
+ * message.
  */
 
 import { useRouter } from 'next/navigation';

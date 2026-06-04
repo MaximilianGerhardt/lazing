@@ -5,7 +5,7 @@
 //
 // Hard-enforces:
 //   - INV depth cap (0..MAX_SUBPLAN_DEPTH=3) at insert time
-//   - N1 verbatim title + rationale (kein .slice in Insert)
+//   - N1 verbatim title + rationale (no .slice on insert)
 //   - N9 coord_key validation (NOT NULL + ManifestCoord-shape)
 //   - N10 content_hash stamp + verification
 
@@ -118,14 +118,14 @@ export function insertPlanStep(input: InsertPlanStepInput): WorkstreamPlanStepRo
       ? JSON.stringify(input.step.allowedTools)
       : null;
 
-  // Migration 0110 — Dependency-Graph + Subplan-Gruppierung.
-  //   depends_on : verbatim JSON-Array (N1) wenn der Caller explizite Kanten
-  //                kennt, sonst null (KEINE erfundenen Abhängigkeiten — der
-  //                Parallel-Executor wertet null als "sofort ready").
-  //   group_id   : konservativer Default = parentStepId (subplan-Steps gehören
-  //                zu ihrem Parent), sonst null (root-Steps = keine Gruppe),
-  //                außer der Caller überschreibt explizit.
-  // Beide Felder sind Orchestrierungs-Metadaten und NICHT Teil des content_hash.
+  // Migration 0110 — dependency graph + subplan grouping.
+  //   depends_on : a verbatim JSON array (N1) when the caller knows explicit
+  //                edges, otherwise null (NO fabricated dependencies — the
+  //                parallel executor treats null as "immediately ready").
+  //   group_id   : conservative default = parentStepId (subplan steps belong
+  //                to their parent), otherwise null (root steps = no group),
+  //                unless the caller overrides explicitly.
+  // Both fields are orchestration metadata and NOT part of the content_hash.
   const dependsOnJson: string | null =
     input.dependsOn && input.dependsOn.length > 0
       ? JSON.stringify(input.dependsOn)
@@ -191,11 +191,11 @@ export function insertPlanStep(input: InsertPlanStepInput): WorkstreamPlanStepRo
  * Insert every step of a ProposedPlan in ONE transaction.
  * Returns the inserted rows in source-order.
  *
- * Critic-Fix B1 (2026-05-23): tatsächlich transaktional gemacht — der frühere
- * Body lief eine Schleife autonomer `.run()`s ohne TX (der Doc-Comment log).
- * Wirft `insertPlanStep` mitten im Plan, rollt better-sqlite3 alle bereits
- * eingefügten Steps zurück → kein halb-persistierter Plan. Nestet via Savepoint,
- * wenn ein Caller mehrere insertProposedPlan in eine äußere TX klammert.
+ * Critic fix B1 (2026-05-23): actually made transactional — the former
+ * body ran a loop of standalone `.run()`s without a TX (the doc comment lied).
+ * If `insertPlanStep` throws mid-plan, better-sqlite3 rolls back all already-
+ * inserted steps → no half-persisted plan. Nests via savepoint
+ * when a caller brackets multiple insertProposedPlan calls in an outer TX.
  */
 export function insertProposedPlan(
   input: InsertProposedPlanInput,

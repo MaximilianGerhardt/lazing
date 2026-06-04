@@ -1,18 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * Phase AU.0 — Default-Org-Seed für fresh-installation.
+ * Phase AU.0 — default-org seed for a fresh installation.
  *
- * Legt eine generische Default-Org + Default-Workspace an, sodass eine
- * fresh-installation von lazyOS sofort lauffähig ist. Idempotent.
+ * Creates a generic default org + default workspace so a fresh installation
+ * of lazyOS is immediately runnable. Idempotent.
  *
- * KEINE persönlichen Daten. Generisch für jeden Operator.
+ * NO personal data. Generic for any operator.
  *
- *   - Default-Org-ID:       LAZYOS_DEFAULT_ORG_ID  (default "workspace")
- *   - Default-Org-Name:     LAZYOS_DEFAULT_ORG_NAME (default "My Workspace")
- *   - Default-Workspace-ID: LAZYOS_DEFAULT_WORKSPACE_ID (default "default")
+ *   - Default org ID:       LAZYOS_DEFAULT_ORG_ID  (default "workspace")
+ *   - Default org name:     LAZYOS_DEFAULT_ORG_NAME (default "My Workspace")
+ *   - Default workspace ID: LAZYOS_DEFAULT_WORKSPACE_ID (default "default")
  *
- * Wird aus scripts/lazyos-setup.ts aufgerufen, kann aber auch standalone
- * ausgeführt werden:
+ * Called from scripts/lazyos-setup.ts, but can also be run standalone:
  *
  *   pnpm tsx scripts/seed-default-org.ts
  */

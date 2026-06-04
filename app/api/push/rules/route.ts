@@ -1,14 +1,14 @@
 /**
  * GET  /api/push/rules
- *   Listet alle PUSH_RULES + ihren aktuellen Override-Status.
+ *   Lists all PUSH_RULES + their current override status.
  *   Response: { rules: [{ id, defaultPriority, level, locked, enabled }] }
  *   - enabled = level !== 'silent'
  *
  * PATCH /api/push/rules
  *   Body: { ruleId: string, enabled: boolean }
- *   Setzt level='silent' + locked=1 wenn enabled=false (User schaltet
- *   die Rule explizit aus). Setzt locked=0 (löscht den Pin) wenn
- *   enabled=true — der Decay-Algorithmus übernimmt wieder.
+ *   Sets level='silent' + locked=1 when enabled=false (user explicitly
+ *   turns the rule off). Sets locked=0 (clears the pin) when
+ *   enabled=true — the decay algorithm takes over again.
  *
  * Authentication: OPEN (MVP, single-user).
  */

@@ -29,14 +29,14 @@ export const ragChunks = sqliteTable('rag_chunks', {
   sourceVersion: integer('source_version'),
   chunkIndex: integer('chunk_index').notNull(),
   text: text('text').notNull(),
-  /** packed float32 × 384 (1536 bytes für all-MiniLM-L6-v2). */
+  /** packed float32 × 384 (1536 bytes for all-MiniLM-L6-v2). */
   embedding: blob('embedding', { mode: 'buffer' }).notNull(),
-  /** Approx-Token-Count (Budget-Cap im Retriever). */
+  /** Approx token count (budget cap in the retriever). */
   tokenCount: integer('token_count'),
-  /** 'low' | 'med' (high NIE im Index — Privacy-Gate). */
+  /** 'low' | 'med' (high NEVER in the index — privacy gate). */
   sensitivity: text('sensitivity').notNull().default('low'),
   indexedAt: integer('indexed_at').notNull(),
-  /** Optional: Auto-Purge nach N Tagen. */
+  /** Optional: auto-purge after N days. */
   expiresAt: integer('expires_at'),
 });
 
@@ -48,7 +48,7 @@ export const ragIndexerState = sqliteTable('rag_indexer_state', {
   totalChunks: integer('total_chunks').notNull().default(0),
   totalTokens: integer('total_tokens').notNull().default(0),
   failedRuns: integer('failed_runs').notNull().default(0),
-  /** Loop-Guard: bei Fail > N → 1 (Indexer pausiert). */
+  /** Loop guard: on fail > N → 1 (indexer pauses). */
   circuitOpen: integer('circuit_open').notNull().default(0),
   updatedAt: integer('updated_at').notNull(),
 });
@@ -101,7 +101,7 @@ export const ragCrossWorkspaceAudit = sqliteTable(
     id: text('id').primaryKey(),
     userId: text('user_id').notNull(),
     query: text('query').notNull(),
-    /** JSON-Array der workspace_ids im Result. */
+    /** JSON array of the workspace_ids in the result. */
     workspacesSeen: text('workspaces_seen').notNull(),
     hits: integer('hits').notNull(),
     reason: text('reason'),

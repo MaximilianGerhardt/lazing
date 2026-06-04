@@ -1,11 +1,11 @@
 /**
- * POST /api/routines/[id]/trigger — Manual-Run.
+ * POST /api/routines/[id]/trigger — manual run.
  *
  * Response: { runId, status, output (first 2000 chars), error? }
  *
- * Läuft synchron — bei langen Commands kann das bis 30 s dauern (pro
- * Command). Der UI-Client sollte einen Loading-State zeigen. Für die
- * 3 Seed-Routinen reicht das.
+ * Runs synchronously — for long commands this can take up to 30 s (per
+ * command). The UI client should show a loading state. For the
+ * 3 seed routines this is enough.
  */
 
 import { NextResponse, type NextRequest } from "next/server";

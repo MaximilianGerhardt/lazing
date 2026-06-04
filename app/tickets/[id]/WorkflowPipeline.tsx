@@ -1,26 +1,26 @@
 "use client";
 
 /**
- * WorkflowPipeline — 5-Step FSM-Visualisierung im Ticket-Detail.
+ * WorkflowPipeline — 5-step FSM visualization in the ticket detail.
  *
  * Steps: draft → review → approved → executed → closed
- * Alt-Pfad: rejected (ausgegraut-rot, wird nur gezeigt wenn state=rejected
- * oder irgendein Reject-Event in der Timeline war).
+ * Alt path: rejected (grayed-out red, only shown when state=rejected
+ * or there was any reject event in the timeline).
  *
  * Actions:
  *   - state=draft: "Freigabe anfordern" (request_approval)
  *   - state=review: "Freigeben" + "Ablehnen"
  *   - state=approved: "Ausführen" + "Ablehnen"
- *   - state=executed: "Schließen" + "Überarbeitung" (Rework → request_approval)
+ *   - state=executed: "Schließen" + "Überarbeitung" (rework → request_approval)
  *   - state=rejected: "Wieder öffnen" (reopen)
- *   - state=closed: keine Actions
+ *   - state=closed: no actions
  *
- * Design: Pitch-Black Canvas, 5 State-Pills im Grid, aktiver State mit
- * radialem Glow in --a-now (segment-abhängig) oder --a-clientb (grün)
- * für approved/executed/closed. Rejected bekommt --a-danger.
+ * Design: pitch-black canvas, 5 state pills in a grid, the active state with
+ * a radial glow in --a-now (segment-dependent) or --a-clientb (green)
+ * for approved/executed/closed. Rejected gets --a-danger.
  *
- * Bewusst keine shadcn/ui — LazyOS hat eigene Component-IDs. Wir bauen
- * direkt mit CSS-Variablen-Tokens aus `app/globals.css`.
+ * Deliberately no shadcn/ui — LazyOS has its own component IDs. We build
+ * directly with CSS-variable tokens from `app/globals.css`.
  */
 
 import { useState, useTransition, type CSSProperties } from "react";
@@ -37,7 +37,7 @@ import {
 interface Props {
   ticketId: string;
   state: WorkflowState;
-  /** Accent-Token-Name für die aktive Pille (ohne `var(--...)`-Wrap). */
+  /** Accent token name for the active pill (without the `var(--...)` wrap). */
   accentVar?: string;
 }
 
@@ -258,8 +258,8 @@ export function WorkflowPipeline({
 }
 
 // ---------------------------------------------------------------------------
-// Styles — Inline weil wir keinen Global-CSS-Namespace für diese Komponente
-// pflegen wollen. Tokens via CSS-Variablen.
+// Styles — inline because we don't want to maintain a global CSS namespace for
+// this component. Tokens via CSS variables.
 // ---------------------------------------------------------------------------
 
 const containerStyle: CSSProperties = {

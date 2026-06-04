@@ -1,9 +1,9 @@
 /**
- * /innovate/[scope] — Phase IN Mockup-Page (2026-04-29).
+ * /innovate/[scope] — Phase IN mockup page (2026-04-29).
  *
- * Marketing-USP-Demo. Zeigt was passiert WENN der User den Innovation-
- * Button drückt — heute Konzept, kein echtes Spawn. Code-Skeleton-
- * Endpoint /api/innovate gibt 501 zurück mit dokumentiertem Vertrag.
+ * Marketing USP demo. Shows what happens WHEN the user presses the
+ * innovation button — today a concept, no real spawn. The code-skeleton
+ * endpoint /api/innovate returns 501 with a documented contract.
  */
 
 import { redirect } from "next/navigation";

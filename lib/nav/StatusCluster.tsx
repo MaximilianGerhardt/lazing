@@ -1,31 +1,31 @@
 'use client';
 
 /**
- * StatusCluster — eine einzige Status-Pille für Mobile-TopNav.
+ * StatusCluster — a single status pill for the mobile TopNav.
  *
- * 2026-05-03 Welle B — Apple-pure Mobile-Density-Cut.
+ * 2026-05-03 wave B — Apple-pure mobile density cut.
  *
- * Aggregiert vier Indicators (Tpm + Observatory + Activity + Push) zu
- * einer einzigen Glance-Pille:
+ * Aggregates four indicators (Tpm + Observatory + Activity + Push) into
+ * a single glance pill:
  *
- *   - idle     -> ~6px Dot in var(--ink-3) (ruhig, kein "Staub"), keine Outline
- *   - running  -> Dot var(--a-now) + subtle 1px pill-outline
- *   - warn     -> Dot var(--a-warn) + pulse-Animation 1.4s loop
- *   - error    -> Dot var(--a-danger) + pulse
+ *   - idle     -> ~6px dot in var(--ink-3) (calm, no "dust"), no outline
+ *   - running  -> dot var(--a-now) + subtle 1px pill outline
+ *   - warn     -> dot var(--a-warn) + pulse animation 1.4s loop
+ *   - error    -> dot var(--a-danger) + pulse
  *
- * Tap-Surface: >=44×44 (a11y) — als wrapper-min-sizing TSX-seitig erzwungen;
- * der sichtbare Dot bleibt ~6px (Box in components.css).
+ * Tap surface: >=44×44 (a11y) — enforced as wrapper min-sizing on the TSX side;
+ * the visible dot stays ~6px (box in components.css).
  *
- * Tap öffnet ein Status-Sheet (selbe Mechanik wie SessionControls — Bottom-
- * Sheet auf Mobile, Popover auf Desktop) mit den 4 Sub-Indicators als Rows
- * und ihren existing Detail-Komponenten (TpmIndicator/ObservatoryIndicator/
- * BackgroundActivityIndicator/PushToggle wiederverwendet — kein Reimplement).
+ * A tap opens a status sheet (same mechanics as SessionControls — bottom
+ * sheet on mobile, popover on desktop) with the 4 sub-indicators as rows
+ * and their existing detail components (TpmIndicator/ObservatoryIndicator/
+ * BackgroundActivityIndicator/PushToggle reused — no reimplement).
  *
- * Polling-Hooks werden nicht doppelt erzeugt: jede Sub-Komponente macht ihr
- * eigenes Polling. Wir poll'n hier zusätzlich nur die zwei Top-Level-Werte
- * (activity + observatory) um die Severity zu bestimmen — leichtgewichtig.
+ * Polling hooks are not created twice: each sub-component does its own
+ * polling. Here we additionally poll only the two top-level values
+ * (activity + observatory) to determine the severity — lightweight.
  *
- * Tokens-only, keine inline-hex.
+ * Tokens-only, no inline hex.
  */
 
 import {
@@ -46,21 +46,21 @@ import { AutoModeToggle } from './AutoModeToggle';
 import { CompactButton } from './CompactButton';
 
 // ───────────────────────────────────────────────────────────────────────────
-//  Severity-Probe (lightweight — die Sub-Components pollen separat).
+//  Severity probe (lightweight — the sub-components poll separately).
 // ───────────────────────────────────────────────────────────────────────────
 
 type Severity = 'idle' | 'running' | 'warn' | 'error';
 
 interface ProbeResult {
   severity: Severity;
-  /** Description für Aria/Title. */
+  /** Description for aria/title. */
   summary: string;
 }
 
 const PROBE_INTERVAL_MS = 30_000;
 
 async function probeStatus(signal: AbortSignal): Promise<ProbeResult> {
-  // Best-effort: zwei parallele Calls. Wenn einer fehlschlägt, fallback idle.
+  // Best-effort: two parallel calls. If one fails, fall back to idle.
   try {
     const [actRes, hbRes] = await Promise.all([
       fetch('/api/activity/live', { cache: 'no-store', signal }).catch(
@@ -134,7 +134,7 @@ export function StatusCluster({
 
   const sheetId = useId();
 
-  // Probe-Polling (lightweight — Detail-Indicators pollen separat).
+  // Probe polling (lightweight — the detail indicators poll separately).
   useEffect(() => {
     let cancelled = false;
     const ctrlRef: { current: AbortController | null } = { current: null };

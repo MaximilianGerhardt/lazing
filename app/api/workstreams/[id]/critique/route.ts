@@ -1,8 +1,8 @@
 /**
  * POST /api/workstreams/[id]/critique — BACKPORT-03 (2026-05-23).
  *
- * Schreibt einen Critic-Verdict für einen plan-step. Operator-facing
- * Endpoint für manuelle Verdicts + Operator-Override (INV-18).
+ * Writes a critic verdict for a plan-step. Operator-facing
+ * endpoint for manual verdicts + operator override (INV-18).
  *
  * Body:
  *   {
@@ -122,7 +122,7 @@ export async function POST(
     }
   }
 
-  // Standard-Critic-Pfad — writeCriticRoundForStep mit critic-pending state.
+  // Standard critic path — writeCriticRoundForStep with critic-pending state.
   const stateForRound: CriticLoopState = {
     kind: 'critic-pending',
     iteration: body.iteration,

@@ -1,21 +1,21 @@
 'use client';
 
 /**
- * FsmGraph — SVG-Visualisierung der Workflow-FSM.
+ * FsmGraph — SVG visualization of the workflow FSM.
  *
- * Pattern 4 Welle 2.3 (2026-05-01).
+ * Pattern 4 Wave 2.3 (2026-05-01).
  *
- * Layout: Layer-basiert via topologische Tiefe (BFS vom initial-State).
- * States sind rounded-rects mit `--radius-md`, gefärbt nach llmSlot:
- *   - 'none'           : neutral (--ink-2 stroke, kein fill)
- *   - 'fixed-prompt'   : gestrichelt (stroke-dasharray)
- *   - 'free-inference' : durchgezogen mit AI-Prefix im Header
+ * Layout: layer-based via topological depth (BFS from the initial state).
+ * States are rounded rects with `--radius-md`, colored by llmSlot:
+ *   - 'none'           : neutral (--ink-2 stroke, no fill)
+ *   - 'fixed-prompt'   : dashed (stroke-dasharray)
+ *   - 'free-inference' : solid with an AI prefix in the header
  *
- * Aktiver State (ctx.activeStateId, optional) wird mit --a-now highlighted.
+ * The active state (ctx.activeStateId, optional) is highlighted with --a-now.
  *
- * Welle 2.3 hält die SVG-Logik bewusst minimal: Greedy-Layer-Layout, manueller
- * Pfeil-Path, kein Dagre/Elk-Dep. Für 7-State-Sprint reicht das. Wenn Workflows
- * mit > 12 States kommen, swap auf elkjs (Welle 4+).
+ * Wave 2.3 deliberately keeps the SVG logic minimal: greedy layer layout, manual
+ * arrow path, no Dagre/Elk dep. For the 7-state sprint that's enough. When workflows
+ * with > 12 states arrive, swap to elkjs (Wave 4+).
  */
 
 import type { CSSProperties } from 'react';
@@ -67,8 +67,8 @@ function buildLayout(
   height: number;
   byId: Map<string, PositionedNode | PositionedTerminal>;
 } {
-  // BFS für Layer-Zuweisung. Nicht-erreichbare States kommen in einen
-  // separaten Bucket am Ende.
+  // BFS for layer assignment. Unreachable states go into a
+  // separate bucket at the end.
   const layerById = new Map<string, number>();
   const stateById = new Map<string, GraphState>();
   for (const s of states) stateById.set(s.id, s);
@@ -111,7 +111,7 @@ function buildLayout(
     layers.set(l, list);
   }
 
-  // Terminal in eigener Spalte rechts.
+  // Terminal in its own column on the right.
   const terminalLayer = hasTerminal ? Math.max(maxLayer + 1, layerById.size === 0 ? 1 : maxLayer + 1) : -1;
 
   const sortedLayers = [...layers.keys()].sort((a, b) => a - b);
@@ -167,12 +167,12 @@ function edgePath(
 ): string {
   const a = nodeCenter(from);
   const b = nodeCenter(to);
-  // Right-edge → left-edge wenn nach rechts
+  // Right-edge → left-edge when going to the right
   const fromX = b.cx > a.cx ? from.x + NODE_W : b.cx < a.cx ? from.x : a.cx;
   const toX = b.cx > a.cx ? to.x : b.cx < a.cx ? to.x + NODE_W : b.cx;
   const fromY = a.cy;
   const toY = b.cy;
-  // Bezier mit horizontaler Tangente
+  // Bezier with a horizontal tangent
   const dx = toX - fromX;
   const ctrl = Math.max(36, Math.abs(dx) * 0.4);
   return `M ${fromX} ${fromY} C ${fromX + ctrl} ${fromY}, ${toX - ctrl} ${toY}, ${toX} ${toY}`;

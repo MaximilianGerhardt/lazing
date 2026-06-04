@@ -90,7 +90,7 @@ function authGuard(req: NextRequest, workspaceId: string):
  * routes through `buildRootSystemPrompt`, NOT through `resolveChatToolAccess`,
  * so nothing reads a mode for them.
  *
- * Stabilitäts-Fix (2026-05-30, Reliability-Sweep): the home route `/` mounts
+ * Stability fix (2026-05-30, reliability sweep): the home route `/` mounts
  * `AllAccessToggle` with the synthetic `__root__` workspace as its default.
  * The toggle already guards `isRootWorkspace` and skips the mount-GET, but a
  * first-paint race (before `currentWorkspace` resolves) can still fire the GET
@@ -155,16 +155,16 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
 interface PatchBody {
   mode?: unknown;
   /**
-   * Owner-Fix Live-Test 2026-05-28 — User-Default-Propagation.
+   * Owner fix live test 2026-05-28 — user-default propagation.
    *
-   * Default-Verhalten ist `'follow'` (Owner-Direktive: „wenn ich Vollzugriff
-   * einschalte, will ich das überall haben"). Der User-Default wird also bei
-   * jedem expliziten PATCH MIT-aktualisiert. Wer das nicht will (z.B. ein
-   * Server-Job, der einen Workspace-Mode ohne User-Lerneffekt setzt), kann
-   * `propagateToUserDefault: 'skip'` mitgeben.
+   * Default behaviour is `'follow'` (owner directive: „wenn ich Vollzugriff
+   * einschalte, will ich das überall haben"). So the user default is also
+   * updated on every explicit PATCH. Whoever does not want that (e.g. a
+   * server job that sets a workspace mode without a user learning effect) can
+   * pass `propagateToUserDefault: 'skip'`.
    *
-   * 'follow' wird als String erwartet, nicht als boolean — damit Logs ehrlich
-   * lesbar sind ("propagateToUserDefault: 'follow'" statt "true").
+   * 'follow' is expected as a string, not a boolean — so logs are honestly
+   * readable ("propagateToUserDefault: 'follow'" instead of "true").
    */
   propagateToUserDefault?: 'follow' | 'skip';
 }
@@ -262,25 +262,25 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
     persist();
 
     // ──────────────────────────────────────────────────────────────────────
-    // Owner-Fix Live-Test 2026-05-28: User-Default-Propagation.
+    // Owner fix live test 2026-05-28: user-default propagation.
     //
-    // Spiegel den vom User soeben gewählten Mode auf seinen
-    // system-übergreifenden Default (`user_preferences.default_permission_mode`),
-    // damit ein als nächstes angelegter Workspace ohne weiteren Toggle den
-    // gleichen Stand zeigt.
+    // Mirror the mode the user just chose onto their
+    // system-wide default (`user_preferences.default_permission_mode`),
+    // so that a workspace created next shows the same state without another
+    // toggle.
     //
-    // Owner-Direktive (verbatim 2026-05-28): „Vollzugriff war bereits
+    // Owner directive (verbatim 2026-05-28): „Vollzugriff war bereits
     // aktiviert. im neuen Workspace war es nicht aktiviert. Ggf. diese
     // Einstellung Systemübergreifend nutzbar machen."
     //
-    // Sicherheits-Hinweis: dieser Schritt schreibt KEINE Workspace-Permission.
-    // Die Pro-Workspace-Wahrheit bleibt `lazyos_permission_modes` (eben oben
-    // geschrieben). `user_preferences` ist NUR die UI/Seed-Hinweis-Schicht.
-    // Fremde Workspaces können nichts vererben — sie haben entweder einen
-    // expliziten Mode oder fallen zur Laufzeit auf den sicheren Default zurück.
+    // Security note: this step writes NO workspace permission.
+    // The per-workspace truth stays `lazyos_permission_modes` (just written
+    // above). `user_preferences` is ONLY the UI/seed-hint layer.
+    // Foreign workspaces can inherit nothing — they either have an
+    // explicit mode or fall back at runtime to the safe default.
     //
-    // Failure-Mode: wenn das Preference-Update wirft, geben wir den PATCH
-    // trotzdem als erfolgreich zurück — der Workspace-Mode steht ja.
+    // Failure mode: if the preference update throws, we still return the PATCH
+    // as successful — the workspace mode is set, after all.
     const propagate: 'follow' | 'skip' =
       body.propagateToUserDefault === 'skip' ? 'skip' : 'follow';
     let userDefaultUpdated = false;
@@ -294,8 +294,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx): Promise<Response> {
         });
         userDefaultUpdated = true;
       } catch (err) {
-        // Non-fatal: der Workspace-Mode ist bereits persistiert. Wir loggen
-        // und melden dem Client ehrlich, dass der Default-Spiegel nicht griff.
+        // Non-fatal: the workspace mode is already persisted. We log
+        // and honestly tell the client that the default mirror did not take.
         console.warn(
           '[permission/mode PATCH] user-default propagation failed (non-fatal):',
           err,

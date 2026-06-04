@@ -157,7 +157,7 @@ export async function resolveAndConsumeShare(
   } catch {
     throw new ShareError("Artifact nicht mehr verfügbar.", "artifact-missing");
   }
-  // Inkrement views + last_viewed.
+  // Increment views + last_viewed.
   db.update(shareTokens)
     .set({
       currentViews: token.currentViews + 1,

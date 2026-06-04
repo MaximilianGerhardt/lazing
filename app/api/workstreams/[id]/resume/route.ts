@@ -1,10 +1,10 @@
 /**
  * POST /api/workstreams/[id]/resume — Sub-Plan 01c (2026-04-29).
  *
- * User-Trigger: hängenden Workstream nach Service-Restart wiederbeleben.
- * Spawnt eine Welle V_{n+1} (Lead + 2 Roaster + Pause). Wenn V5 oder
- * Konvergenz erreicht: status='done'. Sonst bleibt active mit Pause —
- * User kann erneut Resume bei Tod.
+ * User trigger: revive a hanging workstream after a service restart.
+ * Spawns a wave V_{n+1} (lead + 2 roasters + pause). If V5 or
+ * convergence is reached: status='done'. Otherwise it stays active with a pause —
+ * the user can resume again on death.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -68,15 +68,15 @@ export async function POST(
     );
   }
 
-  // Resume async im Hintergrund — Endpoint kehrt sofort zurück.
-  // Caller bekommt 202 + ein „resumed-fromVersion"-Event-Marker.
+  // Resume async in the background — the endpoint returns immediately.
+  // The caller gets 202 + a "resumed-fromVersion" event marker.
   let initialAck;
   try {
     const { runIterateResume } = await import(
       '@/server/agents/tier-orchestrator'
     );
-    // Fire-and-Track: das await wartet eine ganze Welle (~1-3 min).
-    // UI pollt den Status via /api/workstreams/[id]/pause-status.
+    // Fire-and-track: the await waits a whole wave (~1-3 min).
+    // The UI polls the status via /api/workstreams/[id]/pause-status.
     initialAck = runIterateResume(workstreamId);
   } catch (err) {
     return NextResponse.json(
@@ -88,7 +88,7 @@ export async function POST(
     );
   }
 
-  // Awaite — gibt Frontend einen klaren „one wave done"-Marker
+  // Await — gives the frontend a clear "one wave done" marker
   try {
     const result = await initialAck;
     return NextResponse.json({

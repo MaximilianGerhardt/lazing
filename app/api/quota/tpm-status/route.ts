@@ -1,9 +1,9 @@
 /**
  * GET /api/quota/tpm-status
  *
- * Phase QA · 2026-04-28. TPM-Budget-Status für TopNav-Pill.
- * No-auth: Diagnose-Read, kein Secret. Wenn das System unter Last
- * ist, soll JEDER Tab den Status sehen können (auch ungetypter Caller).
+ * Phase QA · 2026-04-28. TPM budget status for the TopNav pill.
+ * No-auth: diagnostic read, no secret. When the system is under load,
+ * EVERY tab should be able to see the status (even an untyped caller).
  *
  * Response:
  *   { current, max, pct, level, recentSpawns, recommendedDelayMs }
@@ -21,9 +21,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest): Promise<Response> {
   try {
-    // Phase MU.4 — Wenn der eingeloggte User `claude_max_status='own'` hat,
-    // zeigen wir seinen privaten TPM-Verbrauch (rolling 60s seiner eigenen
-    // Spawns). Sonst: globale Sicht (shared MAX-Plan).
+    // Phase MU.4 — when the logged-in user has `claude_max_status='own'`,
+    // we show their private TPM consumption (rolling 60s of their own
+    // spawns). Otherwise: global view (shared MAX plan).
     const userId = currentUserIdResolved(req);
     let scope: 'shared' | 'own' = 'shared';
     let scopeUserId: string | null = null;
@@ -40,8 +40,8 @@ export async function GET(req: NextRequest): Promise<Response> {
         ? getTpmStatus(undefined, { userId: scopeUserId })
         : getTpmStatus();
 
-    // Sprint C (2026-04-29) — Top-Consumers (Sub-Workstreams) der letzten 60s.
-    // Quelle: workstreams-Rows die im Window upgedated wurden, sortiert nach
+    // Sprint C (2026-04-29) — top consumers (sub-workstreams) of the last 60s.
+    // Source: workstreams rows updated in the window, sorted by
     // tokens_in+tokens_out DESC. Cap 3.
     const topConsumers = computeTopConsumers();
 

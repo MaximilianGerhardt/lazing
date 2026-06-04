@@ -6,10 +6,10 @@ import { Lightbox } from '@/lib/subchats/ui/Lightbox';
 
 export interface DocumentProps {
   /**
-   * Artifact-ID (ART-<ULID>). OPTIONAL: ein vom Agent referenziertes
-   * Dokument (z.B. `<surface:document>{filename,mime,workspace}</surface:document>`)
-   * hat keine ID — dann rendern wir eine reine Datei-Karte ohne
-   * Download-/Preview-Aktionen (es gibt kein Artefakt zum Streamen).
+   * Artifact ID (ART-<ULID>). OPTIONAL: a document referenced by the agent
+   * (e.g. `<surface:document>{filename,mime,workspace}</surface:document>`)
+   * has no ID — then we render a plain file card without
+   * download/preview actions (there is no artifact to stream).
    */
   id?: string | null;
   filename: string;
@@ -18,13 +18,13 @@ export interface DocumentProps {
   pages?: number | null;
   workspace?: string;
   workspaceLabel?: string;
-  /** Nur wenn `id` vorhanden — sonst kein Stream-Endpoint. */
+  /** Only if `id` is present — otherwise no stream endpoint. */
   downloadUrl?: string;
   previewUrl?: string;
   thumbnailUrl?: string;
   createdBy?: string;
   createdAt?: string;
-  /** Wenn `true`, blendet die Preview-Modal-Logik aus. */
+  /** If `true`, hides the preview-modal logic. */
   noPreview?: boolean;
 }
 
@@ -59,19 +59,19 @@ function formatBytes(b: number): string {
 }
 
 /**
- * Robuster Download-Trigger.
+ * Robust download trigger.
  *
- * Browsergeschmack ist beim `<a download>` Attribut inkonsistent — vor
- * allem iOS Safari ignoriert es und navigiert stattdessen. Wir holen die
- * Datei daher als Blob, packen sie in eine ObjectURL und triggern dann
- * eine künstliche `<a>`-Navigation. Das funktioniert auf allen Plattformen
- * weil der Browser bei einem Blob-URL nicht weiß WAS für ein Doc das war
- * — der `download`-Hint zwingt ihn dann zum Save-Dialog.
+ * Browser behavior with the `<a download>` attribute is inconsistent — above
+ * all iOS Safari ignores it and navigates instead. We therefore fetch the
+ * file as a blob, wrap it in an objectURL and then trigger
+ * an artificial `<a>` navigation. This works on all platforms
+ * because the browser, given a blob URL, doesn't know WHAT kind of doc it was
+ * — the `download` hint then forces it to a save dialog.
  *
- * Fallback: wenn fetch fehlschlägt (z.B. Auth abgelaufen), öffnen wir die
- * URL im neuen Tab — der Server sendet `Content-Disposition: attachment`
- * für /api/cloud/<id>, der Browser-PDF-Viewer zeigt zumindest einen
- * Save-Dialog.
+ * Fallback: if fetch fails (e.g. auth expired), we open the
+ * URL in a new tab — the server sends `Content-Disposition: attachment`
+ * for /api/cloud/<id>, the browser's PDF viewer shows at least a
+ * save dialog.
  */
 async function triggerDownload(url: string, filename: string): Promise<void> {
   try {
@@ -85,31 +85,31 @@ async function triggerDownload(url: string, filename: string): Promise<void> {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    // Object-URL nach kurzer Zeit freigeben (Browser hat downloaded)
+    // Release the object URL after a short delay (browser has downloaded)
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
   } catch (err) {
-    // Fallback — neue Tab triggert serverseitiges Content-Disposition.
+    // Fallback — a new tab triggers server-side Content-Disposition.
     console.warn('[doc-download] blob-path failed, falling back', err);
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 }
 
 /**
- * DOC-01 Document-Card — WhatsApp/Telegram-Style.
+ * DOC-01 document card — WhatsApp/Telegram style.
  *
- * Selbst-gestyled über Inline-Styles + Manifest-v1.0-Tokens
- * (`var(--token, #fallback)`). KEINE externen CSS-Klassen — die
- * `lazyos-doc-card__*`-Klassen existierten nie im Stylesheet, daher
- * rendert die alte Variante komplett ungestyled.
+ * Self-styled via inline styles + Manifest v1.0 tokens
+ * (`var(--token, #fallback)`). NO external CSS classes — the
+ * `lazyos-doc-card__*` classes never existed in the stylesheet, so
+ * the old variant renders completely unstyled.
  *
- * Zwei Modi:
- *   1) Bild (mime image/*) → großes abgerundetes Inline-Thumbnail,
- *      Tap → Lightbox (Vollbild). WhatsApp-Bild-Bubble.
- *   2) Dokument (PDF/Doc/…) → kompakte Datei-Karte mit Icon-Tile +
- *      Name + Größe/Pages, Tap → Preview-Modal (PDF inline) oder Download.
+ * Two modes:
+ *   1) Image (mime image/*) → large rounded inline thumbnail,
+ *      tap → lightbox (full-screen). WhatsApp image bubble.
+ *   2) Document (PDF/Doc/…) → compact file card with an icon tile +
+ *      name + size/pages, tap → preview modal (PDF inline) or download.
  *
- * ID-tolerant: ohne `id` (Agent-Referenz) rendern wir nur die Datei-Karte
- * ohne Download/Preview-Aktionen — es gibt kein Artefakt zum Streamen.
+ * ID-tolerant: without `id` (agent reference) we render only the file card
+ * without download/preview actions — there is no artifact to stream.
  */
 export function Document(props: DocumentProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
@@ -119,8 +119,8 @@ export function Document(props: DocumentProps): React.JSX.Element {
   const isImage = props.mime.startsWith('image/');
   const inlineSafe = isPdf || isImage || props.mime === 'text/plain';
 
-  // Ein referenziertes Dokument (Agent-Surface) ohne ID hat keine
-  // Stream-Endpoints. Alle id-abhängigen URLs sind dann undefined.
+  // A referenced document (agent surface) without an ID has no
+  // stream endpoints. All id-dependent URLs are then undefined.
   const hasArtifact = typeof props.id === 'string' && props.id.length > 0;
   const downloadUrl =
     props.downloadUrl ?? (hasArtifact ? `/api/cloud/${props.id}` : undefined);
@@ -142,7 +142,7 @@ export function Document(props: DocumentProps): React.JSX.Element {
     }
   };
 
-  // ----- Modus 1: Bild-Bubble (WhatsApp-Style) -----
+  // ----- Mode 1: image bubble (WhatsApp style) -----
   if (showImageCover && previewUrl) {
     return (
       <div style={imageWrapStyle} role="group">
@@ -168,10 +168,10 @@ export function Document(props: DocumentProps): React.JSX.Element {
           </span>
         </button>
         {open && !props.noPreview ? (
-          // 2026-06-03 (Owner-Feedback „Fullscreen nicht optimal"): Bilder im
-          // echten Lightbox (Pinch-Zoom/Swipe/Spring, „komplett ansehen") statt
-          // im generischen PreviewModal. PDFs/Text laufen weiter über das Modal
-          // (Modus 2 unten). Single-Image → images:[{url,filename}], index 0.
+          // 2026-06-03 (owner feedback "fullscreen not optimal"): images in
+          // the real lightbox (pinch-zoom/swipe/spring, "view in full") instead of
+          // the generic PreviewModal. PDFs/text still run through the modal
+          // (mode 2 below). Single image → images:[{url,filename}], index 0.
           <Lightbox
             images={[{ url: previewUrl, filename: props.filename }]}
             index={0}
@@ -183,7 +183,7 @@ export function Document(props: DocumentProps): React.JSX.Element {
     );
   }
 
-  // ----- Modus 2: Datei-Karte (Telegram-Style) -----
+  // ----- Mode 2: file card (Telegram style) -----
   const interactive = hasArtifact && !props.noPreview;
   return (
     <div style={cardStyle} role="group">
@@ -311,7 +311,7 @@ function PreviewModal({
   mime,
   onClose,
 }: PreviewModalProps): React.JSX.Element {
-  // Esc-Key schließt — Standard-A11y.
+  // Esc key closes — standard a11y.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose();

@@ -153,8 +153,8 @@ export const codexCli: ChatEngine = {
       '--skip-git-repo-check',
       ...sandboxFlags,
     ];
-    // 2026-06-03 (Owner): Codex als SCHNELLE Variante — gpt-5.5 + service_tier
-    // "fast" (die „1,5×"-Schnellstufe). req.model gewinnt; env-überschreibbar.
+    // 2026-06-03 (Owner): Codex as the FAST variant — gpt-5.5 + service_tier
+    // "fast" (the „1,5×" fast tier). req.model wins; env-overridable.
     const codexModel = req.model || process.env.LAZYOS_CODEX_MODEL || 'gpt-5.5';
     args.push('-c', `model="${codexModel}"`);
     args.push('-c', 'service_tier="fast"');

@@ -48,11 +48,11 @@ import { WorkflowCard, type WorkflowPhase, type WorkflowStaticStep } from './Wor
 // BACKPORT-03 + BACKPORT-02 (2026-05-23) — Plan-First + Subagent-Fleet surfaces.
 import { SubplanCard } from './SubplanCard';
 import { SubagentFleetCard } from './SubagentFleetCard';
-// ACL5-B (2026-05-24) — Credential-Request-Surface.
+// ACL5-B (2026-05-24) — credential-request surface.
 import { CredentialRequestCard } from './CredentialRequestCard';
-// ACL5-E (2026-05-24) — Connector-Call-Preview-Surface.
+// ACL5-E (2026-05-24) — connector-call-preview surface.
 import { ConnectorCallPreviewCard } from './ConnectorCallPreviewCard';
-// A1 (2026-05-25) — Permission-Setup-Surface.
+// A1 (2026-05-25) — permission-setup surface.
 import { PermissionSetupCard, type PermissionModeChoice } from './PermissionSetupCard';
 import type { ConnectorCallPreviewPayload } from '@/lib/connectors/auto-connect';
 import type { ProposedPlan, PlanStep } from '@/lib/plan-first/orchestrate-plan';
@@ -72,9 +72,9 @@ import {
   type OnboardingSopStep,
 } from '@/lib/connectors/onboarding-sop';
 import { estimateCost, type CostEstimate } from '@/lib/connectors/pricing';
-// W2.2 (2026-05-30): aktionierbare Flow-Knoten → DERSELBE Submit-Pfad wie der
-// ActionDeck-Pin. `executeGateAction` klickt die echte Stream-Card-Aktion (ein
-// POST, kein zweites Routing); `BlockingGateKind` ist das Gate-Vokabular.
+// W2.2 (2026-05-30): actionable flow nodes → THE SAME submit path as the
+// ActionDeck pin. `executeGateAction` clicks the real stream-card action (one
+// POST, no second routing); `BlockingGateKind` is the gate vocabulary.
 import { executeGateAction } from './ActionDeck';
 import type { BlockingGateKind, BlockingGateState } from '../projection/types';
 
@@ -89,7 +89,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-/** className-Joiner (falsy → weggefiltert). */
+/** className joiner (falsy → filtered out). */
 function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
 }
@@ -110,28 +110,28 @@ function numArr(v: unknown): number[] | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Run-Cockpit Suppress-Registry (Owner-Fix 2026-05-28).
+// Run-cockpit suppress registry (owner fix 2026-05-28).
 //
-// Wenn fuer einen (workspaceId, workstreamId) bereits eine
-// `<surface:run-cockpit>`-Card aktiv ist, sollen die drei alten Sub-Cards
-// (`sub-workstreams`, `iterate-pipeline`, `iterate-version`) NICHT mehr im
-// Strom auftauchen — die Cockpit-Card bundelt sie sichtbar in EINER Surface.
+// When a `<surface:run-cockpit>` card is already active for a
+// (workspaceId, workstreamId), the three old sub-cards
+// (`sub-workstreams`, `iterate-pipeline`, `iterate-version`) should NO longer
+// appear in the stream — the cockpit card bundles them visibly in ONE surface.
 //
-// Cross-Message-Koordination: jede chat_message_completed-Event rendert eine
-// eigene Bubble; das suppress-Wissen muss ueber alle Bubbles hinweg geteilt
-// werden. Wir nutzen daher einen React-Context der ein lebendes Set von
-// `coordKey` (= `workspaceId/workstreamId`) traegt. Die RunCockpitCard
-// registriert sich beim Mount via `useEffect` und unregisters beim Unmount;
-// die suppressible Surfaces fragen via `useRunCockpitActive(coordKey)` ab und
-// rendern `null`, wenn der Coord aktiv ist.
+// Cross-message coordination: every chat_message_completed event renders its
+// own bubble; the suppress knowledge must be shared across all bubbles.
+// We therefore use a React context that carries a live set of
+// `coordKey` (= `workspaceId/workstreamId`). The RunCockpitCard
+// registers itself on mount via `useEffect` and unregisters on unmount;
+// the suppressible surfaces query via `useRunCockpitActive(coordKey)` and
+// render `null` when the coord is active.
 //
-// Provider-frei: ohne Provider liefert `useRunCockpitActive` immer `false`
-// (Back-Compat — Tests/Voice/API-Konsumenten ohne Provider sehen die alten
-// Cards unveraendert). Mounten muss ChatShell den Provider — in der unrelated
-// Test-Umgebung bleibt das Verhalten bit-identisch.
+// Provider-free: without a provider `useRunCockpitActive` always returns `false`
+// (back-compat — tests/voice/API consumers without a provider see the old
+// cards unchanged). ChatShell must mount the provider — in the unrelated
+// test environment the behavior stays bit-identical.
 //
-// SECURITY: das Set traegt nur Coord-Strings (workspaceId+workstreamId aus
-// Surface-Payloads — beide werden bereits broadcast emittiert), kein Secret.
+// SECURITY: the set carries only coord strings (workspaceId+workstreamId from
+// surface payloads — both are already broadcast emitted), no secret.
 // ---------------------------------------------------------------------------
 
 interface RunCockpitRegistryActions {
@@ -146,21 +146,21 @@ interface RunCockpitRegistry extends RunCockpitRegistryActions {
 const RunCockpitRegistryContext = createContext<RunCockpitRegistry | null>(null);
 
 /**
- * Pre-Pass-Provider — markiert die Coord-Keys, fuer die im aktuellen Stream
- * bereits eine run-cockpit-Surface aktiv ist. Beim Mount der RunCockpitCard
- * wird sein `coordKey` registriert; die drei Legacy-Surfaces fragen via
- * `useRunCockpitActive` ab und supprimieren sich selbst.
+ * Pre-pass provider — marks the coord keys for which a run-cockpit surface
+ * is already active in the current stream. On mount of the RunCockpitCard
+ * its `coordKey` is registered; the three legacy surfaces query via
+ * `useRunCockpitActive` and suppress themselves.
  *
- * Wird in ChatShell oberhalb des Surface-Renderings gemountet. Ohne Provider
- * funktioniert die Suppression-Logik nicht — die alten Cards bleiben dann
- * sichtbar (Back-Compat fuer Tests und externe Renderer).
+ * Mounted in ChatShell above the surface rendering. Without a provider
+ * the suppression logic does not work — the old cards then stay
+ * visible (back-compat for tests and external renderers).
  *
- * Implementations-Hinweis (Owner-Fix 2026-05-28): register/unregister
- * referenzieren das aktuelle `setActive` ueber `useCallback` mit konstanter
- * Deps-Liste (`[]`) — der Provider-Wert behaelt stabile Funktions-
- * Referenzen. Das ist wichtig, damit `useRunCockpitRegistration` NICHT in
- * einer Endlos-Re-Render-Schleife landet (register-Aufruf → setActive →
- * neuer Context-Value → useEffect re-runs → register-Aufruf).
+ * Implementation note (owner fix 2026-05-28): register/unregister
+ * reference the current `setActive` via `useCallback` with a constant
+ * deps list (`[]`) — the provider value keeps stable function
+ * references. This is important so that `useRunCockpitRegistration` does NOT
+ * end up in an endless re-render loop (register call → setActive →
+ * new context value → useEffect re-runs → register call).
  */
 export function RunCockpitRegistryProvider({
   children,
@@ -171,8 +171,8 @@ export function RunCockpitRegistryProvider({
     () => new Set<string>(),
   );
 
-  // Stable Function-Refs: useCallback mit konstanter Deps-Liste damit der
-  // Provider-Value identisch bleibt, solange sich `active` nicht aendert.
+  // Stable function refs: useCallback with a constant deps list so the
+  // provider value stays identical as long as `active` does not change.
   const register = useCallback((coordKey: string): void => {
     if (!coordKey) return;
     setActive((prev) => {
@@ -195,8 +195,8 @@ export function RunCockpitRegistryProvider({
 
   const value = useMemo<RunCockpitRegistry>(
     () => ({ active, register, unregister }),
-    // active aendert sich bei jedem register/unregister → Suppression-
-    // Consumer rendern neu. register/unregister sind stabil (siehe oben).
+    // active changes on every register/unregister → suppression
+    // consumers re-render. register/unregister are stable (see above).
     [active, register, unregister],
   );
 
@@ -208,9 +208,9 @@ export function RunCockpitRegistryProvider({
 }
 
 /**
- * Liefert true, wenn fuer den uebergebenen Coord-Key
- * (`workspaceId/workstreamId`) eine run-cockpit-Surface bereits aktiv ist.
- * Provider-frei: ohne Provider immer false (Legacy-Cards rendern weiter).
+ * Returns true when a run-cockpit surface is already active for the given
+ * coord key (`workspaceId/workstreamId`).
+ * Provider-free: without a provider always false (legacy cards keep rendering).
  */
 function useRunCockpitActive(coordKey: string | null): boolean {
   const ctx = useContext(RunCockpitRegistryContext);
@@ -219,18 +219,18 @@ function useRunCockpitActive(coordKey: string | null): boolean {
 }
 
 /**
- * Mount-Hook fuer die RunCockpitCard. Registriert ihren Coord-Key beim
- * Mount, unregisters beim Unmount. Provider-frei (ohne Provider: no-op).
+ * Mount hook for the RunCockpitCard. Registers its coord key on
+ * mount, unregisters on unmount. Provider-free (without a provider: no-op).
  *
- * Deps: NUR `coordKey` (und die stabilen register/unregister-Refs aus dem
- * Provider) — der Context selbst kommt aus useContext aber wird NICHT in
- * deps gepackt, sonst gibt es Endlos-Re-Render. Stattdessen lesen wir
- * register/unregister einmal beim Mount und nutzen sie im Cleanup.
+ * Deps: ONLY `coordKey` (and the stable register/unregister refs from the
+ * provider) — the context itself comes from useContext but is NOT packed into
+ * deps, otherwise there is an endless re-render. Instead we read
+ * register/unregister once on mount and use them in the cleanup.
  */
 function useRunCockpitRegistration(coordKey: string | null): void {
   const ctx = useContext(RunCockpitRegistryContext);
-  // Stable Funktions-Refs aus dem Provider → wir koennen sie als Effect-
-  // Deps nutzen, ohne dass active-Change einen Re-Run triggert.
+  // Stable function refs from the provider → we can use them as effect
+  // deps without an active change triggering a re-run.
   const register = ctx?.register;
   const unregister = ctx?.unregister;
   useEffect(() => {
@@ -242,7 +242,7 @@ function useRunCockpitRegistration(coordKey: string | null): void {
   }, [register, unregister, coordKey]);
 }
 
-/** Helper: baut den Coord-Key aus zwei Strings. Gibt null wenn unvollstaendig. */
+/** Helper: builds the coord key from two strings. Returns null if incomplete. */
 function buildCockpitCoordKey(
   workspaceId: string | undefined,
   workstreamId: string | undefined,
@@ -252,28 +252,28 @@ function buildCockpitCoordKey(
 }
 
 // ---------------------------------------------------------------------------
-// F18 (2026-05-30) — Pinned-Decision-Registry.
+// F18 (2026-05-30) — pinned-decision registry.
 //
-// Owner-Direktive F18 (verbatim-nah): „Entscheidung benötigt / Gates IMMER
-// unten über dem Chat angepinnt." Eine offene Decision/quickchoice wird jetzt
-// von `projectWorkspaceState` als blockingGate erfasst → der ActionDeck pinnt
-// sie unten. Damit es KEINE zwei lauten Kopien gibt (eine im Feed, eine
-// gepinnt), markiert ChatShell die Headline der aktuell GEPINNTEN Decision in
-// diesem Context; die in-feed `<surface:decision>`-/`<surface:quickchoice>`-
-// Karte fragt via `useDecisionPinned(headline)` ab und rendert dann eine
-// RUHIGE Referenz (collapsed, nicht-aktionierbar, N8-Beleg) statt der lauten
-// Karte. So bleibt der Verlauf erhalten, ohne den Owner doppelt anzuspringen.
+// Owner directive F18 (near-verbatim): „Entscheidung benötigt / Gates IMMER
+// unten über dem Chat angepinnt." An open decision/quickchoice is now captured
+// by `projectWorkspaceState` as a blockingGate → the ActionDeck pins
+// it at the bottom. So that there are NO two loud copies (one in the feed, one
+// pinned), ChatShell marks the headline of the currently PINNED decision in
+// this context; the in-feed `<surface:decision>`/`<surface:quickchoice>`
+// card queries via `useDecisionPinned(headline)` and then renders a
+// QUIET reference (collapsed, non-actionable, N8 evidence) instead of the loud
+// card. This way the history is preserved without jumping the owner twice.
 //
-// Provider-frei (Back-Compat): ohne Provider liefert `useDecisionPinned` immer
-// false → die in-feed-Karte rendert unverändert laut (Tests/Voice/externe
-// Renderer ohne ChatShell-Provider sehen das alte Verhalten bit-identisch).
+// Provider-free (back-compat): without a provider `useDecisionPinned` always returns
+// false → the in-feed card renders loud unchanged (tests/voice/external
+// renderers without the ChatShell provider see the old behavior bit-identical).
 //
-// SECURITY: das Set trägt nur die verbatim Decision-Headline (bereits
-// broadcastete Surface-Payload), kein Secret.
+// SECURITY: the set carries only the verbatim decision headline (already
+// broadcast surface payload), no secret.
 // ---------------------------------------------------------------------------
 
 interface PinnedDecisionRegistry {
-  /** Verbatim-Headlines der aktuell GEPINNTEN Decisions (i.d.R. genau eine). */
+  /** Verbatim headlines of the currently PINNED decisions (usually exactly one). */
   pinned: ReadonlySet<string>;
 }
 
@@ -281,16 +281,16 @@ const PinnedDecisionRegistryContext =
   createContext<PinnedDecisionRegistry | null>(null);
 
 /**
- * Provider — ChatShell mountet ihn oberhalb des Surface-Renderings und übergibt
- * die Headline der aktuell gepinnten Decision (aus `selectPinnedItem`). Die
- * in-feed Decision/QuickChoice-Karte mit derselben Headline supprimiert sich
- * dann zur ruhigen Referenz.
+ * Provider — ChatShell mounts it above the surface rendering and passes
+ * the headline of the currently pinned decision (from `selectPinnedItem`). The
+ * in-feed decision/QuickChoice card with the same headline then suppresses
+ * itself to the quiet reference.
  */
 export function PinnedDecisionRegistryProvider({
   pinnedHeadline,
   children,
 }: {
-  /** Headline der gepinnten Decision, oder null/undefined wenn keine. */
+  /** Headline of the pinned decision, or null/undefined if none. */
   pinnedHeadline?: string | null;
   children: ReactNode;
 }): ReactNode {
@@ -308,9 +308,9 @@ export function PinnedDecisionRegistryProvider({
 }
 
 /**
- * true, wenn eine in-feed Decision/QuickChoice mit dieser Headline aktuell
- * UNTEN gepinnt ist → die Feed-Karte rendert ruhig statt laut. Provider-frei:
- * ohne Provider immer false (Back-Compat).
+ * true when an in-feed decision/QuickChoice with this headline is currently
+ * pinned at the BOTTOM → the feed card renders quiet instead of loud. Provider-free:
+ * without a provider always false (back-compat).
  */
 function useDecisionPinned(headline: string | null | undefined): boolean {
   const ctx = useContext(PinnedDecisionRegistryContext);
@@ -401,17 +401,17 @@ function DecisionCard({
 }) {
   const { reply } = useSurfaceAction();
 
-  // F18: ist genau DIESE Decision aktuell unten gepinnt (ActionDeck)? Dann
-  // rendert die Feed-Karte RUHIG (N8-Beleg/Referenz) statt laut — keine zwei
-  // konkurrierenden Kopien. Provider-frei → false (Back-Compat: laute Karte).
+  // F18: is exactly THIS decision currently pinned at the bottom (ActionDeck)? Then
+  // the feed card renders QUIET (N8 evidence/reference) instead of loud — no two
+  // competing copies. Provider-free → false (back-compat: loud card).
   const pinned = useDecisionPinned(headline);
 
-  // Genau eine empfohlene Option (deterministisch): server-markiert oder erste.
+  // Exactly one recommended option (deterministic): server-marked or the first.
   const hasRecommended = options.some((o) => o.recommended);
 
   if (pinned) {
-    // Ruhige Referenz: nicht-aktionierbar, collapsed. Der Owner agiert über den
-    // gepinnten ActionDeck unten; hier bleibt nur der verbatim Beleg (N1/N8).
+    // Quiet reference: non-actionable, collapsed. The owner acts via the
+    // pinned ActionDeck at the bottom; here only the verbatim evidence remains (N1/N8).
     return (
       <div
         className="srf-decision srf-decision--pinned-ref"
@@ -424,16 +424,16 @@ function DecisionCard({
         </span>
         <span className="srf-decision-ref-text">
           <span className="srf-decision-ref-kicker">Unten angepinnt</span>
-          {/* N1: verbatim Headline — CSS klemmt visuell, Text bleibt vollständig. */}
+          {/* N1: verbatim headline — CSS clamps visually, the text stays complete. */}
           <span className="srf-decision-ref-headline">{headline}</span>
         </span>
       </div>
     );
   }
 
-  // Laute Karte (nicht gepinnt). data-test-Hooks am Wrapper + je Option, damit
-  // der ActionDeck (executeGateAction) den ECHTEN Button klicken kann — EIN
-  // Submit-Pfad (reply(label)), kein zweiter fetch.
+  // Loud card (not pinned). data-test hooks on the wrapper + per option, so
+  // the ActionDeck (executeGateAction) can click the REAL button — ONE
+  // submit path (reply(label)), no second fetch.
   return (
     <div
       className="srf-decision srf-decision--live"
@@ -445,19 +445,19 @@ function DecisionCard({
         sub={sub}
         options={options.map((o, i) => ({
           ...o,
-          // Wenn der Server KEINE recommended-Option markiert hat, wird die
-          // erste zur empfohlenen Primär-Aktion (deckungsgleich mit
-          // extractGateOptions in der Projektion → Deck + Feed stimmen überein).
+          // If the server marked NO recommended option, the
+          // first becomes the recommended primary action (congruent with
+          // extractGateOptions in the projection → deck + feed match).
           recommended: o.recommended || (!hasRecommended && i === 0),
           onSelect: () => reply(o.label),
         }))}
         mode={options.length === 2 ? 'binary' : options.length === 1 ? 'confirm' : 'multi'}
       />
-      {/* Test-/Deck-Hooks: pro Option ein data-test-Button, der DENSELBEN
-          reply(label) auslöst wie die sichtbare .dopt-Zeile. Visuell verborgen
-          (aria-hidden) — er ist NUR der programmatische Klick-Anker für
-          executeGateAction; der Owner klickt die sichtbare Decision-Zeile.
-          KEIN zweiter Submit-Pfad: beide Wege rufen exakt reply(label). */}
+      {/* Test/deck hooks: per option a data-test button that triggers THE SAME
+          reply(label) as the visible .dopt row. Visually hidden
+          (aria-hidden) — it is ONLY the programmatic click anchor for
+          executeGateAction; the owner clicks the visible decision row.
+          NO second submit path: both ways call exactly reply(label). */}
       <div className="srf-decision-hooks" aria-hidden="true" data-test="surface-decision-hooks">
         {options.map((o, i) => (
           <button
@@ -626,7 +626,7 @@ function renderPipeline(data: unknown): ReactNode {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Toast — variant + title + body. Klein, aber stark präsent.
+// Toast — variant + title + body. Small, but strongly present.
 // ---------------------------------------------------------------------------
 
 function renderToast(data: unknown): ReactNode {
@@ -650,7 +650,7 @@ function renderToast(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// QuickChoice — 2-3 Buttons mit Primary + optional sublabels.
+// QuickChoice — 2-3 buttons with a primary + optional sublabels.
 // ---------------------------------------------------------------------------
 
 interface QuickChoiceOpt {
@@ -672,16 +672,16 @@ interface QuickChoiceOpt {
  *      2. zusätzliche normale Chat-Nachricht mit nur dem Button-Label.
  *    Das kann Kontext und Routing zerstören."
  *
- * FIX (additiv, backward-compat):
- *   Neues Payload-Feld `behavior?: 'reply-and-event' | 'event-only'`.
- *   - 'reply-and-event' (Default) → bisheriges Verhalten, beides feuert.
- *     Backward-Compat für jeden bestehenden quickchoice-Caller, der KEIN
- *     `behavior` setzt.
- *   - 'event-only' → NUR dispatchEvent, KEIN reply(label). Verwendet von
- *     Callern wie Flow-Studio Medien-Stil-Wahl (lib/flow/media-styles.ts
- *     ::buildMediaStyleChoicePayload), wo das Re-Post an
- *     /api/flow/compose-and-run die alleinige Wahrheit ist und der zusätzliche
- *     Chat-Turn das Routing zerstören würde (Akzeptanz: „Klick auf Flow-Style-
+ * FIX (additive, backward-compat):
+ *   New payload field `behavior?: 'reply-and-event' | 'event-only'`.
+ *   - 'reply-and-event' (default) → previous behavior, both fire.
+ *     Backward-compat for every existing quickchoice caller that does NOT
+ *     set `behavior`.
+ *   - 'event-only' → ONLY dispatchEvent, NO reply(label). Used by
+ *     callers like Flow Studio media-style choice (lib/flow/media-styles.ts
+ *     ::buildMediaStyleChoicePayload), where the re-post to
+ *     /api/flow/compose-and-run is the sole truth and the additional
+ *     chat turn would destroy the routing (acceptance: „Klick auf Flow-Style-
  *     Quickchoice erzeugt genau einen Request an /api/flow/compose-and-run.").
  */
 type QuickChoiceBehavior = 'reply-and-event' | 'event-only';
@@ -695,17 +695,17 @@ function QuickChoiceCard({
 }) {
   const { reply } = useSurfaceAction();
 
-  // F18: QuickChoice ist option-only (keine Headline). Die Projektion matcht
-  // die gepinnte Decision über die Option-Label-Signatur (join ' · ') — wir
-  // bilden hier dieselbe Signatur, damit sich die Feed-Karte ruhig stellt, wenn
-  // GENAU diese QuickChoice unten gepinnt ist. Provider-frei → false.
+  // F18: QuickChoice is option-only (no headline). The projection matches
+  // the pinned decision via the option-label signature (join ' · ') — we
+  // form the same signature here, so the feed card goes quiet when
+  // EXACTLY this QuickChoice is pinned at the bottom. Provider-free → false.
   const signature = options.map((o) => o.label).join(' · ');
   const pinned = useDecisionPinned(signature);
 
   const hasPrimary = options.some((o) => o.primary);
 
-  // Eine Option-Auswahl: behavior-Switch erhalten (event-only feuert NUR das
-  // Window-Event, Default beides) — UNVERÄNDERT (Back-Compat, kein Doppel-Routing).
+  // One option selection: behavior switch preserved (event-only fires ONLY the
+  // window event, default both) — UNCHANGED (back-compat, no double routing).
   const select = (o: QuickChoiceOpt): void => {
     if (behavior !== 'event-only') {
       reply(o.label);
@@ -729,7 +729,7 @@ function QuickChoiceCard({
         </span>
         <span className="srf-quickchoice-ref-text">
           <span className="srf-quickchoice-ref-kicker">Unten angepinnt</span>
-          {/* N1: verbatim Option-Labels als Beleg. */}
+          {/* N1: verbatim option labels as evidence. */}
           <span className="srf-quickchoice-ref-headline">{signature}</span>
         </span>
       </div>
@@ -743,8 +743,8 @@ function QuickChoiceCard({
       data-quickchoice="true"
     >
       <QuickChoice options={options.map((o) => ({ ...o, onSelect: () => select(o) }))} />
-      {/* Test-/Deck-Hooks (aria-hidden, programmatischer Klick-Anker) — DENSELBEN
-          select(o) wie die sichtbare Zeile. KEIN zweiter Submit-Pfad. */}
+      {/* Test/deck hooks (aria-hidden, programmatic click anchor) — THE SAME
+          select(o) as the visible row. NO second submit path. */}
       <div className="srf-decision-hooks" aria-hidden="true" data-test="surface-decision-hooks">
         {options.map((o, i) => (
           <button
@@ -786,9 +786,9 @@ function renderQuickChoice(data: unknown): ReactNode {
     ];
   });
   if (options.length === 0) return null;
-  // behavior aus dem Payload extrahieren — alles ausser dem expliziten
-  // String 'event-only' fällt auf 'reply-and-event' zurück (Default,
-  // Backward-Compat). Unbekannte Werte → Default (defensiv).
+  // Extract behavior from the payload — anything other than the explicit
+  // string 'event-only' falls back to 'reply-and-event' (default,
+  // backward-compat). Unknown values → default (defensive).
   const rawBehavior = (data as { behavior?: unknown }).behavior;
   const behavior: QuickChoiceBehavior =
     rawBehavior === 'event-only' ? 'event-only' : 'reply-and-event';
@@ -796,7 +796,7 @@ function renderQuickChoice(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Approval — ticketId + title, rendered als Decision mit Approve/Reject.
+// Approval — ticketId + title, rendered as a decision with approve/reject.
 // ---------------------------------------------------------------------------
 
 function ApprovalCard({
@@ -862,7 +862,7 @@ function renderApproval(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// milestone — Apple-Keynote Completion-Card (Phase NEU)
+// milestone — Apple-Keynote completion card (Phase NEU)
 // ---------------------------------------------------------------------------
 
 function renderMilestone(data: unknown): ReactNode {
@@ -882,11 +882,11 @@ function renderMilestone(data: unknown): ReactNode {
         after: str(ba.after),
       }
     : undefined;
-  // P11 (2026-05-01): Synthesis-Cards bekommen optional auditId für
-  // Source-Chip-Row im Footer. Mapper in event-to-surface.ts setzt das Feld.
+  // P11 (2026-05-01): synthesis cards optionally get an auditId for the
+  // source-chip row in the footer. The mapper in event-to-surface.ts sets the field.
   const auditId = str(data.auditId) ?? str(data.audit_id);
-  // Apple-UX (2026-05-30): `variant: 'quiet'` für entprominenzierte Info-
-  // Milestones (z.B. Plan-Synthese) — ruhige Info-Zeile statt Keynote-Card.
+  // Apple-UX (2026-05-30): `variant: 'quiet'` for de-prominenced info
+  // milestones (e.g. plan synthesis) — a calm info line instead of a keynote card.
   const variant = str(data.variant) === 'quiet' ? 'quiet' : undefined;
   return (
     <MilestoneCard
@@ -904,10 +904,10 @@ function renderMilestone(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// preview — Fertigstellungs-/Deployment-Surface (2026-05-27).
-// Große, handy-taugliche tippbare Karte: öffnet die (Tailscale-)Vorschau-URL
-// im Browser (target=_blank → funktioniert am Smartphone). So bekommt der
-// Owner nach einem Build sofort einen testbaren Link IM Chat.
+// preview — completion/deployment surface (2026-05-27).
+// Large, phone-friendly tappable card: opens the (Tailscale) preview URL
+// in the browser (target=_blank → works on the smartphone). This way the
+// owner gets a testable link IN the chat immediately after a build.
 // ---------------------------------------------------------------------------
 
 function renderPreview(data: unknown): ReactNode {
@@ -1005,22 +1005,22 @@ function renderPreview(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// discovery — Recherche-Vorphase VOR Plan-Decompose (Slice C, 2026-05-29)
+// discovery — research pre-phase BEFORE plan decompose (Slice C, 2026-05-29)
 // ---------------------------------------------------------------------------
 //
 // Owner-Befund (verbatim, 2026-05-29): „Ich sehe niemanden der die Website
 // recherchiert oder sich ansieht, da müsste doch eine Art Browser Bash erstmal
-// kommen usw oder nicht?! Analyse, Recherche…". plan-dispatch fetcht jetzt
-// vom Owner referenzierte URLs VOR dem Decompose; diese Card zeigt den Fort-
-// schritt + die Snapshot-Titel + erkannte Doku-Anforderungen.
+// kommen usw oder nicht?! Analyse, Recherche…". plan-dispatch now fetches
+// URLs referenced by the owner BEFORE the decompose; this card shows the
+// progress + the snapshot titles + detected doc requirements.
 //
 // Design:
-//   - collapsed-default (1-Zeiler mit Domain-Liste + Status), expand-on-tap.
-//   - Mobile-first: ≥44px Touch-Target am Header.
-//   - Token-only (var(--…) mit Hex-Fallback wie renderPreview).
-//   - „Dokument anfordern"-Anker pro pendingDocRequest (placeholder action;
-//     der reale Endpoint folgt im Doku-Anforderungs-Slice — die Karte
-//     bietet hier nur den UX-Anker, kein Submit).
+//   - collapsed-default (one-liner with domain list + status), expand-on-tap.
+//   - Mobile-first: ≥44px touch target on the header.
+//   - Token-only (var(--…) with hex fallback like renderPreview).
+//   - „Dokument anfordern" anchor per pendingDocRequest (placeholder action;
+//     the real endpoint follows in the doc-request slice — the card
+//     here only offers the UX anchor, no submit).
 
 interface DiscoveryUrlPayload {
   url: string;
@@ -1036,7 +1036,7 @@ function isDiscoveryUrl(x: unknown): x is DiscoveryUrlPayload {
   return true;
 }
 
-/** Extracts the host of a fetched URL für die collapsed-Header-Liste. */
+/** Extracts the host of a fetched URL for the collapsed header list. */
 function hostOf(u: string): string {
   const m = /^https?:\/\/([^\/\s?#]+)/i.exec(u);
   return m ? (m[1] ?? u) : u;
@@ -1053,7 +1053,7 @@ function renderDiscovery(data: unknown): ReactNode {
   const running = status === 'running';
   const hosts = urls.map((u) => hostOf(u.url));
 
-  // Header-Text: „Discovery · example-agency.example · example.com" oder „Discovery läuft …"
+  // Header text: „Discovery · example-agency.example · example.com" or „Discovery läuft …"
   const headerHosts = hosts.slice(0, 3).join(' · ');
   const headerSuffix = hosts.length > 3 ? ` +${hosts.length - 3}` : '';
   const headerText = running
@@ -1144,7 +1144,7 @@ function renderDiscovery(data: unknown): ReactNode {
       </summary>
 
       <div style={{ padding: '4px 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* URL-Liste */}
+        {/* URL list */}
         {urls.length > 0 ? (
           <div data-test="surface-discovery-urls" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {urls.map((u) => (
@@ -1225,7 +1225,7 @@ function renderDiscovery(data: unknown): ReactNode {
           </div>
         ) : null}
 
-        {/* Dokument-Anforderungs-Liste */}
+        {/* Document-request list */}
         {docs.length > 0 ? (
           <div data-test="surface-discovery-docs" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div
@@ -1258,7 +1258,7 @@ function renderDiscovery(data: unknown): ReactNode {
           </div>
         ) : null}
 
-        {/* Leer-Hinweis (nur wenn weder URLs noch Docs) */}
+        {/* Empty hint (only if neither URLs nor docs) */}
         {urls.length === 0 && docs.length === 0 && !running ? (
           <div style={{ fontSize: 12.5, color: 'var(--ink-3, #80848c)' }}>
             Keine Quellen oder Dokumente im Prompt erkannt.
@@ -1270,24 +1270,24 @@ function renderDiscovery(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// form — Generic strukturierte Eingabe (Sub-Plan C, 2026-04-30)
+// form — generic structured input (Sub-Plan C, 2026-04-30)
 // ---------------------------------------------------------------------------
 
 function renderForm(data: unknown): ReactNode {
   if (!isObject(data)) return null;
-  // Schema-Validation passiert in FormPromptCard.tsx via validateFormSchema.
-  // Hier nur ein minimaler Shape-Check, dann durchreichen — die Card
-  // rendert eigene Error-States bei invalidem Schema.
+  // Schema validation happens in FormPromptCard.tsx via validateFormSchema.
+  // Here only a minimal shape check, then pass through — the card
+  // renders its own error states on an invalid schema.
   const title = str(data.title);
   const fields = Array.isArray(data.fields) ? data.fields : null;
   const endpoint = isObject(data.endpoint) ? data.endpoint : null;
   if (!title || !fields || !endpoint) return null;
-  // Cast zu unbekanntem Schema — FormPromptCard validiert intern.
+  // Cast to an unknown schema — FormPromptCard validates internally.
   return <FormPromptCard schema={data as unknown as FormSchema} />;
 }
 
 // ---------------------------------------------------------------------------
-// credential-prompt — KI fragt nach API-Key, encrypted-storage Pfad
+// credential-prompt — AI asks for an API key, encrypted-storage path
 // ---------------------------------------------------------------------------
 
 function renderCredentialPrompt(data: unknown): ReactNode {
@@ -1306,7 +1306,7 @@ function renderCredentialPrompt(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// workflow-pipeline — Live-Pipeline-Card im Chat (FSM-State live)
+// workflow-pipeline — live pipeline card in the chat (FSM state live)
 // ---------------------------------------------------------------------------
 
 function renderWorkflowPipeline(data: unknown): ReactNode {
@@ -1325,7 +1325,7 @@ function renderWorkflowPipeline(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// rate-limit-retry — Phase RL.2 Auto-Retry-Toast bei Anthropic-TPM-Throttle
+// rate-limit-retry — Phase RL.2 auto-retry toast on an Anthropic TPM throttle
 // ---------------------------------------------------------------------------
 
 function RateLimitRetryWrapper({
@@ -1364,7 +1364,7 @@ function renderRateLimitRetry(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// consensus-action — Phase AC.3 Auto-Countdown / Quick-Start / Disagreement
+// consensus-action — Phase AC.3 auto-countdown / quick-start / disagreement
 // ---------------------------------------------------------------------------
 
 function renderConsensusAction(data: unknown): ReactNode {
@@ -1377,7 +1377,7 @@ function renderConsensusAction(data: unknown): ReactNode {
   const consensusLevel = consensusLevelRaw as ConsensusLevel;
   const masterTicketId = str(data.masterTicketId) ?? str(data.master_ticket_id);
   const initialDispatched = data.dispatched === true;
-  // Sub-Plan 04 (2026-04-29) — Outlier-Inline statt extern.
+  // Sub-Plan 04 (2026-04-29) — outlier inline instead of external.
   const rawOutliers = (data as { outliers?: unknown }).outliers;
   const outliers = Array.isArray(rawOutliers)
     ? rawOutliers
@@ -1420,8 +1420,8 @@ function renderConsensusAction(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// iterate-pipeline — Sub-Plan 04 Welle 2 (2026-04-29) Phase=iterate
-// Eine lebende Card pro Workstream während V1...V5. Pollt pause-status.
+// iterate-pipeline — Sub-Plan 04 Wave 2 (2026-04-29) Phase=iterate
+// One living card per workstream during V1...V5. Polls pause-status.
 // ---------------------------------------------------------------------------
 
 function renderIteratePipeline(data: unknown): ReactNode {
@@ -1431,10 +1431,10 @@ function renderIteratePipeline(data: unknown): ReactNode {
   if (!workstreamId || !workspaceId) return null;
   const workstreamName = str(data.workstreamName) ?? str(data.name);
   const maxVersion = num(data.maxVersion) ?? num(data.max_version);
-  // Owner-Fix 2026-05-28: Suppress wenn bereits eine Run-Cockpit-Card fuer
-  // denselben (workspaceId, workstreamId) aktiv ist — die Cockpit-Card
-  // bundelt die Iterate-Pipeline-Info. Wrapper-Komponente, weil Hooks im
-  // pure-Renderer nicht erlaubt sind.
+  // Owner fix 2026-05-28: suppress when a run-cockpit card is already active for
+  // the same (workspaceId, workstreamId) — the cockpit card
+  // bundles the iterate-pipeline info. Wrapper component, because hooks are
+  // not allowed in the pure renderer.
   return (
     <IteratePipelineSuppressible
       workstreamId={workstreamId}
@@ -1454,7 +1454,7 @@ function IteratePipelineSuppressible(props: {
   const coordKey = buildCockpitCoordKey(props.workspaceId, props.workstreamId);
   const suppress = useRunCockpitActive(coordKey);
   if (suppress) {
-    // suppressed by run-cockpit (Owner-Fix 2026-05-28)
+    // suppressed by run-cockpit (owner fix 2026-05-28)
     return null;
   }
   return (
@@ -1468,7 +1468,7 @@ function IteratePipelineSuppressible(props: {
 }
 
 // ---------------------------------------------------------------------------
-// sub-workstreams — Sprint C (2026-04-29). Tree-View aller Sub-Agents.
+// sub-workstreams — Sprint C (2026-04-29). Tree view of all sub-agents.
 // ---------------------------------------------------------------------------
 
 function renderSubWorkstreams(data: unknown): ReactNode {
@@ -1477,8 +1477,8 @@ function renderSubWorkstreams(data: unknown): ReactNode {
     str(data.masterWorkstreamId) ?? str(data.workstreamId);
   const workspaceId = str(data.workspaceId);
   if (!masterWorkstreamId || !workspaceId) return null;
-  // Owner-Fix 2026-05-28: Suppress wenn bereits eine Run-Cockpit-Card fuer
-  // denselben (workspaceId, masterWorkstreamId) aktiv ist.
+  // Owner fix 2026-05-28: suppress when a run-cockpit card is already active for
+  // the same (workspaceId, masterWorkstreamId).
   return (
     <SubWorkstreamsSuppressible
       masterWorkstreamId={masterWorkstreamId}
@@ -1497,7 +1497,7 @@ function SubWorkstreamsSuppressible(props: {
   );
   const suppress = useRunCockpitActive(coordKey);
   if (suppress) {
-    // suppressed by run-cockpit (Owner-Fix 2026-05-28)
+    // suppressed by run-cockpit (owner fix 2026-05-28)
     return null;
   }
   return (
@@ -1509,7 +1509,7 @@ function SubWorkstreamsSuppressible(props: {
 }
 
 // ---------------------------------------------------------------------------
-// live-pipeline — Phase WSC.1 Auto-Dispatch-Live-View im Chat
+// live-pipeline — Phase WSC.1 auto-dispatch live view in the chat
 // ---------------------------------------------------------------------------
 
 function renderLivePipeline(data: unknown): ReactNode {
@@ -1542,7 +1542,7 @@ function renderLivePipeline(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// live-swarm — live-updating Heatmap der Tier-Spawn-Aktivitaet
+// live-swarm — live-updating heatmap of the tier-spawn activity
 // ---------------------------------------------------------------------------
 
 function renderLiveSwarm(data: unknown): ReactNode {
@@ -1568,10 +1568,10 @@ function renderLiveSwarm(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// tier-choice — Multi-Agent-Plan-Detection + Tier-Mix-Wahl (Phase P).
-// Sub-Plan A (2026-04-30): Picker zeigt jetzt die echten Iterate-Presets
-// (Schnell/Standard/Tief) und persistiert die Wahl als presetId, damit
-// runIterate sie wirklich umsetzt.
+// tier-choice — multi-agent plan detection + tier-mix choice (Phase P).
+// Sub-Plan A (2026-04-30): the picker now shows the real iterate presets
+// (Schnell/Standard/Tief) and persists the choice as presetId, so that
+// runIterate actually applies it.
 // ---------------------------------------------------------------------------
 
 import {
@@ -1621,9 +1621,9 @@ function renderTierChoice(data: unknown): ReactNode {
   const recommendationBasis = str(data.recommendation_basis);
   const ticketTitle = str(data.planTitle) ?? str(data.workstreamName) ?? title;
   const workspaceId = str(data.workspaceId);
-  // Sub-Plan A (2026-04-30): Wir bauen Presets immer aus tier-presets.ts.
-  // Falls der Server doch eigene Presets schickt (Legacy-Pfad), werden sie
-  // ignoriert — die Wahrheit ist die Single-Source-of-Truth in tier-presets.
+  // Sub-Plan A (2026-04-30): we always build presets from tier-presets.ts.
+  // If the server does send its own presets (legacy path), they are
+  // ignored — the truth is the single source of truth in tier-presets.
   const presets = buildIteratePresets();
   return (
     <TierChoiceCard
@@ -1656,7 +1656,7 @@ function TierChoiceCard({
 
   const handlePick = async (preset: TierPreset): Promise<void> => {
     if (!workspaceId) return;
-    // 1. Workstream auto-anlegen
+    // 1. Auto-create the workstream
     try {
       const resp = await fetch('/api/workstreams', {
         method: 'POST',
@@ -1675,9 +1675,9 @@ function TierChoiceCard({
       };
       const wsId = data.workstream?.id;
       if (!wsId) return;
-      // 2. Master-Plan-Ticket + Iterate-Spawn ausloesen mit presetId.
-      // Server persistiert (mode='iterate', iterate_config_json=PRESET_JSON)
-      // BEVOR runIterate spawnt — runIterateMode liest dann die Config.
+      // 2. Trigger the master-plan ticket + iterate spawn with presetId.
+      // The server persists (mode='iterate', iterate_config_json=PRESET_JSON)
+      // BEFORE runIterate spawns — runIterateMode then reads the config.
       const spawnResp = await fetch(
         `/api/workstreams/${encodeURIComponent(wsId)}/spawn`,
         {
@@ -1697,8 +1697,8 @@ function TierChoiceCard({
         };
         masterTicketId = spawnData.masterTicketId;
       }
-      // 3. Bestätigungs-Message pushen (kein live-swarm mehr — Iterate
-      // hat seine eigene IteratePipelineCard, die der Orchestrator emittiert).
+      // 3. Push a confirmation message (no more live-swarm — iterate
+      // has its own IteratePipelineCard that the orchestrator emits).
       pushAssistant(
         `**Workstream angelegt** · ${preset.label} mit ${preset.totalAgents === 1 ? '1 Agent' : `~${preset.totalAgents} Agenten`} (~${preset.estMinutes} min).${
           masterTicketId ? `\n\nMaster-Ticket: \`${masterTicketId}\`` : ''
@@ -1709,9 +1709,9 @@ function TierChoiceCard({
     }
   };
 
-  // Welle 4 (2026-05-01): tier-Block auf .srf-fallback* CSS-Klassen
-  // umgestellt (Token-bind, kein Inline-Style). Recommended-Border via
-  // CSS-Var-Override statt JS-Style-Spread.
+  // Wave 4 (2026-05-01): tier block switched to .srf-fallback* CSS classes
+  // (token bind, no inline style). Recommended border via
+  // CSS-var override instead of a JS style spread.
   return (
     <div className="srf-fallback" role="region" aria-label={title}>
       <div className="srf-fallback__header">
@@ -1812,7 +1812,7 @@ const tierFooterStyle: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
-// Terminal — lines von shell output; prompt / host / dim / error / ok / etc.
+// Terminal — lines of shell output; prompt / host / dim / error / ok / etc.
 // ---------------------------------------------------------------------------
 
 function renderTerminal(data: unknown): ReactNode {
@@ -1842,7 +1842,7 @@ function renderTerminal(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Heartbeat — count + label. Simple Ripple für Projekt-Pulse.
+// Heartbeat — count + label. Simple ripple for the project pulse.
 // ---------------------------------------------------------------------------
 
 function renderHeartbeat(data: unknown): ReactNode {
@@ -1854,7 +1854,7 @@ function renderHeartbeat(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Workspace — Single workspace-Label als Pill, optional mit palette accent.
+// Workspace — single workspace label as a pill, optionally with a palette accent.
 // ---------------------------------------------------------------------------
 
 function renderWorkspace(data: unknown): ReactNode {
@@ -1869,7 +1869,7 @@ function renderWorkspace(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Routine — kompakte Info-Zeile (reuse Toast-Struktur für MVP).
+// Routine — compact info line (reuses the toast structure for the MVP).
 // ---------------------------------------------------------------------------
 
 function renderRoutine(data: unknown): ReactNode {
@@ -1891,8 +1891,8 @@ function renderRoutine(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Agent — zeigt einen Sub-Agent (role + status + optional task-preview).
-// Nutzt TMC/Teammate-Card.
+// Agent — shows a sub-agent (role + status + optional task preview).
+// Uses the TMC/Teammate card.
 // ---------------------------------------------------------------------------
 
 function renderAgent(data: unknown): ReactNode {
@@ -1936,8 +1936,8 @@ function renderAgent(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Swarm — Konsens-Heatmap (n Zellen, pro Variant gefärbt).
-// Nutzt CHR/Heatmap aus der Design-Library.
+// Swarm — consensus heatmap (n cells, colored per variant).
+// Uses CHR/Heatmap from the design library.
 // ---------------------------------------------------------------------------
 
 function renderSwarm(data: unknown): ReactNode {
@@ -1963,17 +1963,17 @@ function renderSwarm(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Document / Folder / CloudBrowser — Workspace-Cloud (Sprint X · 2026-04-27)
+// Document / Folder / CloudBrowser — workspace cloud (Sprint X · 2026-04-27)
 // ---------------------------------------------------------------------------
 
 function renderDocument(data: unknown): ReactNode {
   if (!isObject(data)) return null;
-  // ID ist OPTIONAL: ein vom Agent referenziertes Dokument
-  // (`<surface:document>{filename,mime,workspace}</surface:document>`) hat
-  // keine Artifact-ID. Ohne ID rendern wir trotzdem eine saubere Datei-Karte
-  // (statt Rohtext-Fallback) — nur ohne Download/Preview-Links, weil es kein
-  // gespeichertes Artefakt zum Streamen gibt. Pflichtfeld ist allein der
-  // `filename` (sonst gibt es nichts Sinnvolles zu zeigen).
+  // ID is OPTIONAL: a document referenced by the agent
+  // (`<surface:document>{filename,mime,workspace}</surface:document>`) has
+  // no artifact ID. Without an ID we still render a clean file card
+  // (instead of a raw-text fallback) — only without download/preview links, because there is no
+  // stored artifact to stream. The only required field is the
+  // `filename` (otherwise there is nothing meaningful to show).
   const id = str(data.id);
   const filename = str(data.filename) ?? str(data.title) ?? str(data.name);
   const mime = str(data.mime) ?? 'application/octet-stream';
@@ -1985,8 +1985,8 @@ function renderDocument(data: unknown): ReactNode {
         ? Number(bytesRaw)
         : 0;
   if (!filename) return null;
-  // URLs nur ableiten wenn eine ID existiert — sonst undefined lassen,
-  // damit die Card keine 404-Links / kaputten <img>-Cover zeigt.
+  // Only derive URLs if an ID exists — otherwise leave undefined,
+  // so the card does not show 404 links / broken <img> covers.
   const downloadUrl = id
     ? (str(data.downloadUrl) ?? `/api/cloud/${id}`)
     : undefined;
@@ -2049,16 +2049,16 @@ function renderFolder(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// open-questions — Sub-Plan D (2026-04-30). QuickChoice-Buttons im Chat.
+// open-questions — Sub-Plan D (2026-04-30). QuickChoice buttons in the chat.
 // ---------------------------------------------------------------------------
-// 2026-05-25 Bug-Fix UX1: Rendert jetzt ChatInlineOpenQuestions (Stepper) statt
-// OpenQuestionsSurface. Die alte Variante hat jeden Antwort-Klick sofort als
-// separaten Chat-Turn via /inject abgesetzt. Der Stepper hält alle Antworten
-// lokal (answers/drafts) und sendet EINMAL mit reply() wenn der User "Antworten
-// absenden" klickt. workstreamId ist für den Stepper nicht erforderlich —
-// reply() im SurfaceActionContext übernimmt das finale Absenden.
-// OpenQuestionsSurface bleibt für den workspace-mode (workspaceId-Polling-Pfad)
-// als Alt-Pfad erhalten; der workspace-mode hat keine aktiven in-chat-Call-Sites.
+// 2026-05-25 bug-fix UX1: now renders ChatInlineOpenQuestions (stepper) instead of
+// OpenQuestionsSurface. The old variant immediately sent every answer click as a
+// separate chat turn via /inject. The stepper holds all answers
+// locally (answers/drafts) and sends ONCE with reply() when the user clicks "Antworten
+// absenden". workstreamId is not required for the stepper —
+// reply() in the SurfaceActionContext handles the final send.
+// OpenQuestionsSurface remains for the workspace mode (workspaceId polling path)
+// as an alternate path; the workspace mode has no active in-chat call sites.
 
 function renderOpenQuestions(data: unknown): ReactNode {
   if (!isObject(data)) return null;
@@ -2068,7 +2068,7 @@ function renderOpenQuestions(data: unknown): ReactNode {
     .filter(isObject)
     .map((q) => {
       const id = str(q.id) ?? '';
-      // Surface-Payload nutzt `q` als Feldname; PlanQuestion erwartet `text`.
+      // The surface payload uses `q` as the field name; PlanQuestion expects `text`.
       const text = str(q.q) ?? str(q.text) ?? '';
       const options = Array.isArray(q.options)
         ? q.options
@@ -2089,7 +2089,7 @@ function renderOpenQuestions(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// bug-fix-swarm — Sprint H (2026-04-30). 3 parallele Diagnose-Spawns.
+// bug-fix-swarm — Sprint H (2026-04-30). 3 parallel diagnosis spawns.
 // ---------------------------------------------------------------------------
 
 function renderBugFixSwarm(data: unknown): ReactNode {
@@ -2112,10 +2112,10 @@ function renderBugFixSwarm(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// bug-fix-pipeline — Welle 2 (Sub-Plan Auto-Swarm Bug-Fix · 2026-05-03).
-// Re-uses BugFixSwarmCard mit der workstreamId als swarmId-Surrogate.
-// Polling endpoint: /api/bugs/pipeline/[workstreamId]. Backend emittiert
-// `bug_fix_pipeline_phase`-Events, die Card subscribed/polled darauf.
+// bug-fix-pipeline — Wave 2 (Sub-Plan Auto-Swarm Bug-Fix · 2026-05-03).
+// Re-uses BugFixSwarmCard with the workstreamId as a swarmId surrogate.
+// Polling endpoint: /api/bugs/pipeline/[workstreamId]. The backend emits
+// `bug_fix_pipeline_phase` events; the card subscribes/polls for them.
 // ---------------------------------------------------------------------------
 
 function renderBugFixPipeline(data: unknown): ReactNode {
@@ -2127,8 +2127,8 @@ function renderBugFixPipeline(data: unknown): ReactNode {
   const bugDescription =
     str(data.bugDescription) ?? str(data.bug_description) ?? '';
   if (!workstreamId || !workspaceId) return null;
-  // Wir nutzen workstreamId als swarmId-Surrogat — die Pipeline-Card
-  // identifiziert sich per workstreamId, nicht per swarm-uuid.
+  // We use workstreamId as the swarmId surrogate — the pipeline card
+  // identifies itself by workstreamId, not by swarm-uuid.
   return (
     <BugFixSwarmCard
       swarmId={`pipeline-${workstreamId}`}
@@ -2141,7 +2141,7 @@ function renderBugFixPipeline(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Welle 7 (2026-05-01) — Loop-Phase-Coverage
+// Wave 7 (2026-05-01) — loop-phase coverage
 // ---------------------------------------------------------------------------
 
 const LOOP_PHASE_KINDS: ReadonlyArray<LoopPhaseKind> = [
@@ -2197,8 +2197,8 @@ function renderIterateRoast(data: unknown): ReactNode {
 
 function renderIterateVersion(data: unknown): ReactNode {
   if (!isObject(data)) return null;
-  // Owner-Fix 2026-05-28: Suppress wenn bereits eine Run-Cockpit-Card fuer
-  // denselben (workspaceId, workstreamId) aktiv ist.
+  // Owner fix 2026-05-28: suppress when a run-cockpit card is already active for
+  // the same (workspaceId, workstreamId).
   return (
     <IterateVersionSuppressible
       workstreamId={str(data.workstreamId)}
@@ -2222,7 +2222,7 @@ function IterateVersionSuppressible(props: {
   const coordKey = buildCockpitCoordKey(props.workspaceId, props.workstreamId);
   const suppress = useRunCockpitActive(coordKey);
   if (suppress) {
-    // suppressed by run-cockpit (Owner-Fix 2026-05-28)
+    // suppressed by run-cockpit (owner fix 2026-05-28)
     return null;
   }
   return (
@@ -2300,13 +2300,13 @@ function renderCloudBrowser(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// subplan — BACKPORT-03 (2026-05-23). Rendert eine ProposedPlan-Card mit
-// step-Liste, complexity-Chip und optionalem Approve/Edit/Decline-Flow.
-// `data` kommt als `unknown` aus JSON.parse — wir prüfen jedes Pflichtfeld
-// bevor wir casten. Malformes JSON → return null (kein Crash im Chat-Stream).
+// subplan — BACKPORT-03 (2026-05-23). Renders a ProposedPlan card with
+// a step list, complexity chip and optional approve/edit/decline flow.
+// `data` comes as `unknown` from JSON.parse — we check every required field
+// before casting. Malformed JSON → return null (no crash in the chat stream).
 // ---------------------------------------------------------------------------
 
-/** Guard: prüft ob `v` ein valider PlanStep ist (Pflichtfelder: id, index, title, rationale). */
+/** Guard: checks whether `v` is a valid PlanStep (required fields: id, index, title, rationale). */
 function isPlanStep(v: unknown): v is PlanStep {
   if (!isObject(v)) return false;
   return (
@@ -2318,29 +2318,29 @@ function isPlanStep(v: unknown): v is PlanStep {
 }
 
 // ---------------------------------------------------------------------------
-// SubplanCardWrapper — BACKPORT-03 Approve-Wiring (2026-05-23).
-// Kapselt den Freigabe-Flow: POST /api/workstreams/:id/execute-plan → pushAssistant.
-// Muster: analog TierChoiceCard weiter oben (useSurfaceAction + fetch + pushAssistant).
+// SubplanCardWrapper — BACKPORT-03 approve wiring (2026-05-23).
+// Encapsulates the approval flow: POST /api/workstreams/:id/execute-plan → pushAssistant.
+// Pattern: analogous to TierChoiceCard further up (useSurfaceAction + fetch + pushAssistant).
 // ---------------------------------------------------------------------------
 
-/** Alle Props, die renderSubplan extrahiert hat, gebündelt übergeben. */
+/** All props that renderSubplan extracted, passed in bundled. */
 interface SubplanCardWrapperProps {
   plan: ProposedPlan;
   depth: number;
   awaitingApproval: boolean;
   stepStatuses: Record<string, 'pending' | 'active' | 'done' | 'failed' | 'in-critic' | 'fix-iter-1' | 'fix-iter-2' | 'escalated' | 'cancelled'> | undefined;
-  /** workstreamId aus dem surfacePayload — undefined wenn Payload unvollständig. */
+  /** workstreamId from the surfacePayload — undefined if the payload is incomplete. */
   workstreamId: string | undefined;
   /**
-   * Der Root-Step, der diesen Subplan ausgelöst hat (depth-1-Cards).
-   * Null bei der Root-Card (depth 0) oder wenn der Payload das Feld nicht enthält.
-   * SubplanCard nutzt es für den Header „Subplan — <parentStep.title>".
+   * The root step that triggered this subplan (depth-1 cards).
+   * Null on the root card (depth 0) or when the payload does not contain the field.
+   * SubplanCard uses it for the header „Subplan — <parentStep.title>".
    */
   parentStep: PlanStep | null;
   /**
-   * Owner-Fix 2026-05-28: Card startet eingeklappt auch bei depth < 2 wenn
-   * der Surface-Payload `collapsed:true` traegt (gesetzt von plan-dispatch
-   * fuer Child-Subplaene). depth >= 2 erzwingt weiterhin Collapse.
+   * Owner fix 2026-05-28: the card starts collapsed even at depth < 2 when
+   * the surface payload carries `collapsed:true` (set by plan-dispatch
+   * for child subplans). depth >= 2 still forces collapse.
    */
   initialCollapsed: boolean;
 }
@@ -2356,12 +2356,12 @@ function SubplanCardWrapper({
 }: SubplanCardWrapperProps) {
   const { pushAssistant } = useSurfaceAction();
 
-  // handleApprove: POST execute-plan → Bestätigung oder Fehler-Meldung im Chat.
-  // onApprove ist (planId: string) => void auf der SubplanCard-Seite —
-  // wir starten den fetch ohne await auf der Render-Ebene.
+  // handleApprove: POST execute-plan → confirmation or error message in the chat.
+  // onApprove is (planId: string) => void on the SubplanCard side —
+  // we start the fetch without an await at the render level.
   const handleApprove = (planId: string): void => {
     if (!workstreamId) {
-      // Kein workstreamId im Payload — defensiv abbrechen statt blinder POST.
+      // No workstreamId in the payload — abort defensively instead of a blind POST.
       pushAssistant('Plan konnte nicht freigegeben werden — workstreamId fehlt im Payload.');
       return;
     }
@@ -2385,7 +2385,7 @@ function SubplanCardWrapper({
       });
   };
 
-  // handleDecline: kein API-Call nötig — Nutzerfeedback im Chat reicht.
+  // handleDecline: no API call needed — user feedback in the chat is enough.
   const handleDecline = (_planId: string): void => {
     pushAssistant('Plan verworfen.');
   };
@@ -2394,9 +2394,9 @@ function SubplanCardWrapper({
     <SubplanCard
       depth={depth}
       plan={plan}
-      // parentStep: aus dem Payload gelesen (depth-1-Cards liefern den Root-Step,
-      // Root-Card und unvollständige Payloads landen bei null → SubplanCard zeigt
-      // „unbekannter Parent" als Fallback (s. SubplanCard.tsx Zeile 84).
+      // parentStep: read from the payload (depth-1 cards provide the root step,
+      // the root card and incomplete payloads land at null → SubplanCard shows
+      // „unbekannter Parent" as a fallback (see SubplanCard.tsx line 84).
       parentStep={parentStep}
       awaitingApproval={awaitingApproval}
       stepStatuses={stepStatuses}
@@ -2410,35 +2410,35 @@ function SubplanCardWrapper({
 function renderSubplan(data: unknown): ReactNode {
   if (!isObject(data)) return null;
 
-  // Pflichtfelder von ProposedPlan prüfen.
+  // Check the required fields of ProposedPlan.
   const id = str(data.id);
   const originalIntent = str(data.originalIntent);
   const complexityRaw = str(data.estimatedComplexity);
   const proposedAt = num(data.proposedAt) ?? 0;
   if (!id || !originalIntent) return null;
 
-  // estimatedComplexity muss in {M, L, XL} liegen.
+  // estimatedComplexity must be in {M, L, XL}.
   const estimatedComplexity =
     complexityRaw === 'M' || complexityRaw === 'L' || complexityRaw === 'XL'
       ? complexityRaw
-      : 'M'; // defensiver Fallback: wir rendern lieber als M statt gar nicht
+      : 'M'; // defensive fallback: we'd rather render as M than not at all
 
-  // steps: jedes Element wird durch isPlanStep geschützt.
+  // steps: each element is protected by isPlanStep.
   const rawSteps = Array.isArray(data.steps) ? data.steps : [];
   const steps: PlanStep[] = rawSteps.filter(isPlanStep);
-  // Mindestens einen Step brauchen wir — sonst ist der Plan bedeutungslos.
+  // We need at least one step — otherwise the plan is meaningless.
   if (steps.length === 0) return null;
 
   const plan: ProposedPlan = { id, originalIntent, steps, estimatedComplexity, proposedAt };
 
-  // depth: integer ≥ 0 aus payload, Fallback 0.
+  // depth: integer ≥ 0 from the payload, fallback 0.
   const depthRaw = num(data.depth);
   const depth = typeof depthRaw === 'number' && depthRaw >= 0 ? Math.floor(depthRaw) : 0;
 
-  // awaitingApproval: explizit true → true; alles andere → false.
+  // awaitingApproval: explicit true → true; anything else → false.
   const awaitingApproval = data.awaitingApproval === true;
 
-  // stepStatuses: Record<string, Status> — defensiv: nur Strings als Values.
+  // stepStatuses: Record<string, Status> — defensive: only strings as values.
   const VALID_STEP_STATUSES = new Set([
     'pending', 'active', 'done', 'failed', 'in-critic',
     'fix-iter-1', 'fix-iter-2', 'escalated', 'cancelled',
@@ -2456,22 +2456,22 @@ function renderSubplan(data: unknown): ReactNode {
     if (hasAny) stepStatuses = ssMap;
   }
 
-  // workstreamId: aus Payload lesen — der Plan-Dispatch setzt surfacePayload.workstreamId.
+  // workstreamId: read from the payload — plan-dispatch sets surfacePayload.workstreamId.
   const workstreamId = str(data.workstreamId);
 
-  // parentStep: Shape-Guard via isPlanStep (Pflichtfelder: id + title).
-  // Depth-1-Cards liefern den Root-Step der sie ausgelöst hat; Root-Card und
-  // Payloads ohne das Feld landen bei null. SubplanCard rendert dann
-  // „unbekannter Parent" als Fallback (N1-konform: kein Silent-Null-Render).
+  // parentStep: shape guard via isPlanStep (required fields: id + title).
+  // Depth-1 cards provide the root step that triggered them; the root card and
+  // payloads without the field land at null. SubplanCard then renders
+  // „unbekannter Parent" as a fallback (N1-conformant: no silent null render).
   const parentStep: PlanStep | null = isPlanStep(data.parentStep) ? data.parentStep : null;
 
-  // Owner-Fix 2026-05-28: collapsed:true im Payload (gesetzt von plan-dispatch
-  // fuer Child-Subplaene, lib/plan-first/plan-dispatch.ts:251) erzwingt die
-  // Pill-Variante. Backwards-compat: missing/false ⇒ wie bisher
-  // (depth >= 2 erzwingt Collapse durch die SubplanCard selbst).
+  // Owner fix 2026-05-28: collapsed:true in the payload (set by plan-dispatch
+  // for child subplans, lib/plan-first/plan-dispatch.ts:251) forces the
+  // pill variant. Backwards-compat: missing/false ⇒ as before
+  // (depth >= 2 forces collapse via the SubplanCard itself).
   const initialCollapsed = data.collapsed === true;
 
-  // SubplanCardWrapper kapselt Approve/Decline-Wiring via useSurfaceAction.
+  // SubplanCardWrapper encapsulates approve/decline wiring via useSurfaceAction.
   return (
     <SubplanCardWrapper
       plan={plan}
@@ -2487,16 +2487,16 @@ function renderSubplan(data: unknown): ReactNode {
 
 // ---------------------------------------------------------------------------
 // credential-request — ACL5-B (2026-05-24).
-// Secret-Eingabe-Surface für einen Provider-API-Key. Der Secret-Wert geht
-// AUSSCHLIESSLICH über POST /api/connectors/[provider]/credential in den
-// Vault — niemals in Chat/SSE/Ledger. Surface-Payload trägt KEIN secret-Feld.
+// Secret-entry surface for a provider API key. The secret value goes
+// EXCLUSIVELY into the vault via POST /api/connectors/[provider]/credential
+// — never into chat/SSE/ledger. The surface payload carries NO secret field.
 // ---------------------------------------------------------------------------
 
 function renderCredentialRequest(data: unknown): ReactNode {
   if (!isObject(data)) return null;
   const provider = str(data.provider);
   const workspaceId = str(data.workspaceId);
-  // Pflichtfelder: provider + workspaceId.
+  // Required fields: provider + workspaceId.
   if (!provider || !workspaceId) return null;
 
   const scopeKindRaw = str(data.scopeKind);
@@ -2506,9 +2506,9 @@ function renderCredentialRequest(data: unknown): ReactNode {
   const why = str(data.why) ?? str(data.reason) ?? str(data.description);
   const docsUrl = str(data.docsUrl) ?? str(data.docs_url);
 
-  // FIX-B (2026-05-30): mobiles Connector-Auth-Surface — authKind/engineBacked/
-  // capability/signupUrl/credentialFieldHint aus dem Payload durchreichen.
-  // Rückwärtskompatibel: fehlt das Feld → CredentialRequestCard fällt auf 'apikey'.
+  // FIX-B (2026-05-30): mobile connector-auth surface — pass authKind/engineBacked/
+  // capability/signupUrl/credentialFieldHint through from the payload.
+  // Backwards-compatible: if the field is missing → CredentialRequestCard falls back to 'apikey'.
   const authKindRaw = str(data.authKind) ?? '';
   const authKind: 'apikey' | 'oauth' | 'none' = ['apikey', 'oauth', 'none'].includes(
     authKindRaw,
@@ -2520,9 +2520,9 @@ function renderCredentialRequest(data: unknown): ReactNode {
   const signupUrl = str(data.signupUrl);
   const credentialFieldHint = str(data.credentialFieldHint);
 
-  // configFields: optionale Plain-Text-Felder (baseUrl, version).
-  // SECURITY: diese Liste darf NIEMALS ein "secret"/"key"/"token"-Feld enthalten —
-  // solche Werte gehen über den dedizierten secret-Input, nicht über configFields.
+  // configFields: optional plain-text fields (baseUrl, version).
+  // SECURITY: this list must NEVER contain a "secret"/"key"/"token" field —
+  // such values go through the dedicated secret input, not through configFields.
   const rawCfg = Array.isArray(data.configFields) ? data.configFields : [];
   const configFields = rawCfg
     .filter(isObject)
@@ -2530,7 +2530,7 @@ function renderCredentialRequest(data: unknown): ReactNode {
       const key = str(f.key);
       const label = str(f.label);
       if (!key || !label) return null;
-      // Kein secret-/token-/key-Feld als configField erlaubt.
+      // No secret/token/key field allowed as a configField.
       if (/secret|token|api.?key|password/i.test(key)) return null;
       return { key, label, placeholder: str(f.placeholder) };
     })
@@ -2554,19 +2554,19 @@ function renderCredentialRequest(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// subagent-fleet — BACKPORT-02 (2026-05-23). Rendert bis zu 5 Subagent-Panes
-// als koordinierten Fleet-View (status, abort, diff). Malformes oder leeres
-// panes-Array → return null. Die Card selbst greift intern auf
-// SUBAGENT_FLEET_MAX_PANES (5) zurück — wir reichen einfach alle validen
-// Panes durch, ohne hier erneut zu slicen.
+// subagent-fleet — BACKPORT-02 (2026-05-23). Renders up to 5 subagent panes
+// as a coordinated fleet view (status, abort, diff). Malformed or empty
+// panes array → return null. The card itself internally falls back to
+// SUBAGENT_FLEET_MAX_PANES (5) — we simply pass all valid
+// panes through, without slicing again here.
 // ---------------------------------------------------------------------------
 
-/** Erlaubte Werte für SubagentPaneRole (von SubagentFleetCard.types). */
+/** Allowed values for SubagentPaneRole (from SubagentFleetCard.types). */
 const VALID_PANE_ROLES = new Set<string>([
   'architect', 'coder', 'tester', 'reviewer', 'security', 'perf', 'generic',
 ]);
 
-/** Erlaubte Werte für SubagentPaneStatus. */
+/** Allowed values for SubagentPaneStatus. */
 const VALID_PANE_STATUSES = new Set<string>([
   'queued', 'running', 'done', 'failed', 'aborted',
 ]);
@@ -2574,11 +2574,11 @@ const VALID_PANE_STATUSES = new Set<string>([
 function renderSubagentFleet(data: unknown): ReactNode {
   if (!isObject(data)) return null;
 
-  // fleetTitle ist Pflicht für einen sinnvollen Header.
+  // fleetTitle is required for a meaningful header.
   const fleetTitle = str(data.fleetTitle) ?? str(data.title);
   if (!fleetTitle) return null;
 
-  // panes: Array prüfen, jeden Eintrag defensiv validieren.
+  // panes: check the array, validate each entry defensively.
   const rawPanes = Array.isArray(data.panes) ? data.panes : null;
   if (!rawPanes) return null;
 
@@ -2588,7 +2588,7 @@ function renderSubagentFleet(data: unknown): ReactNode {
     const title = str(raw.title);
     const roleRaw = str(raw.role);
     const statusRaw = str(raw.status);
-    // Pflichtfelder: subagentId, title, role (in Whitelist), status (in Whitelist).
+    // Required fields: subagentId, title, role (in whitelist), status (in whitelist).
     if (!subagentId || !title) return [];
     const role: SubagentPaneRole = VALID_PANE_ROLES.has(roleRaw ?? '')
       ? (roleRaw as SubagentPaneRole)
@@ -2614,15 +2614,15 @@ function renderSubagentFleet(data: unknown): ReactNode {
     return [pane];
   });
 
-  // Null bei 0 validen Panes (defensiv — die Card macht dasselbe intern).
+  // Null on 0 valid panes (defensive — the card does the same internally).
   if (panes.length === 0) return null;
 
-  // activePaneId ist optional — nur reichen wenn String.
+  // activePaneId is optional — only pass through if a string.
   const activePaneId = str(data.activePaneId);
-  // CP-2 (UX-Audit 2026-05-28): workstreamId aus dem Payload ziehen, damit
-  // die Abort-Action das korrekte Workspace-Permission-Gate trifft. Wenn der
-  // Payload keinen Wert mitliefert, bleibt der Abort-Button dark (kein
-  // blinder POST gegen 'unknown').
+  // CP-2 (UX audit 2026-05-28): pull workstreamId from the payload, so
+  // the abort action hits the correct workspace permission gate. If the
+  // payload provides no value, the abort button stays dark (no
+  // blind POST against 'unknown').
   const workstreamIdFromPayload = str(data.workstreamId);
 
   return (
@@ -2636,22 +2636,22 @@ function renderSubagentFleet(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// SubagentFleetCardWired — CP-2 / UX-Audit 2026-05-28.
-// Hookt onResolve in einen optimistic-UI + fail-soft POST gegen
+// SubagentFleetCardWired — CP-2 / UX audit 2026-05-28.
+// Hooks onResolve into an optimistic UI + fail-soft POST against
 // /api/workstreams/[workstreamId]/subagent/[paneId]/abort.
 //
-// Vor diesem Wrapper waren Abort / Diff Buttons der SubagentFleetCard tot
-// (`onResolve={undefined}`, expliziter Kommentar im Renderer). Diff bleibt
-// Phase-2 (kein Backend-Endpoint), Abort + Dismiss + Abort-Fleet werden
-// jetzt verdrahtet:
+// Before this wrapper, the SubagentFleetCard's abort / diff buttons were dead
+// (`onResolve={undefined}`, explicit comment in the renderer). Diff stays
+// phase-2 (no backend endpoint), abort + dismiss + abort-fleet are
+// now wired:
 //   - abort-pane    → POST … /subagent/{paneId}/abort
-//   - abort-fleet   → POST je laufender Pane (sequentiell, fail-soft)
-//   - dismiss       → no-op (Card-Local-State); kein Backend nötig
-//   - open-diff     → no-op-Stub (TODO: Diff-Surface anbinden)
+//   - abort-fleet   → POST per running pane (sequential, fail-soft)
+//   - dismiss       → no-op (card-local state); no backend needed
+//   - open-diff     → no-op stub (TODO: hook up the diff surface)
 //
-// Optimistic UI: lokaler aborting-State markiert die Pane sofort, der POST
-// läuft im Hintergrund. Bei 4xx/5xx kein Rollback (Pane bleibt aborted aus
-// User-Sicht), aber die Fehler-ID landet im console-error für Diagnose.
+// Optimistic UI: a local aborting state marks the pane immediately, the POST
+// runs in the background. On 4xx/5xx no rollback (the pane stays aborted from
+// the user's view), but the error ID lands in the console-error for diagnostics.
 // ---------------------------------------------------------------------------
 
 interface SubagentFleetCardWiredProps {
@@ -2667,8 +2667,8 @@ function SubagentFleetCardWired({
   activePaneId,
   workstreamId,
 }: SubagentFleetCardWiredProps): ReactNode {
-  // Optimistic-Layer: paneIds, die der User lokal abgebrochen hat. Werden
-  // sofort in den Status 'aborted' überlagert.
+  // Optimistic layer: paneIds the user aborted locally. They are
+  // immediately overlaid into the status 'aborted'.
   const [optimisticAborts, setOptimisticAborts] = useState<ReadonlySet<string>>(
     () => new Set<string>(),
   );
@@ -2676,8 +2676,8 @@ function SubagentFleetCardWired({
   const sendAbort = useCallback(
     async (paneId: string): Promise<void> => {
       if (!workstreamId) {
-        // Defensiv: ohne workstreamId würden wir 'unknown' POSTen — der
-        // Server lehnt das eh ab, aber wir verschicken nichts.
+        // Defensive: without workstreamId we would POST 'unknown' — the
+        // server rejects that anyway, but we send nothing.
         // eslint-disable-next-line no-console
         console.warn(
           '[SubagentFleetCardWired] abort skipped — payload missing workstreamId',
@@ -2685,7 +2685,7 @@ function SubagentFleetCardWired({
         );
         return;
       }
-      // Optimistic: sofort als aborted markieren.
+      // Optimistic: mark as aborted immediately.
       setOptimisticAborts((prev) => {
         if (prev.has(paneId)) return prev;
         const next = new Set(prev);
@@ -2723,7 +2723,7 @@ function SubagentFleetCardWired({
           void sendAbort(event.subagentId);
           return;
         case 'abort-fleet': {
-          // Alle running/queued Panes hintereinander abbrechen — fail-soft.
+          // Abort all running/queued panes in sequence — fail-soft.
           for (const p of panes) {
             if (p.status === 'running' || p.status === 'queued') {
               void sendAbort(p.subagentId);
@@ -2734,7 +2734,7 @@ function SubagentFleetCardWired({
         case 'expand-pane':
         case 'open-diff':
         case 'dismiss':
-          // Phase-2 Stubs — die Card schließt lokal über Eltern-State.
+          // Phase-2 stubs — the card closes locally via parent state.
           return;
         default:
           return;
@@ -2743,8 +2743,8 @@ function SubagentFleetCardWired({
     [panes, sendAbort],
   );
 
-  // Optimistic-Overlay anwenden: lokal abgebrochene Panes als aborted
-  // anzeigen, BEVOR das SSE-Update vom Backend nachfließt.
+  // Apply the optimistic overlay: show locally aborted panes as aborted,
+  // BEFORE the SSE update flows in from the backend.
   const overlaidPanes = useMemo<readonly SubagentPane[]>(() => {
     if (optimisticAborts.size === 0) return panes;
     return panes.map((p) =>
@@ -2769,11 +2769,11 @@ function SubagentFleetCardWired({
 
 // ---------------------------------------------------------------------------
 // connector-call-preview — ACL5-E (2026-05-24).
-// S5-Preview: Approve-Action → POST /api/connectors/invoke.
-// Payload darf KEIN secret-Feld enthalten (defensiv geprüft in auto-connect.ts).
-// workspaceId kommt aus dem Payload (emitOrUpdateCard setzt workspaceId ins
-// coords-Feld, aber nicht in den Surface-Payload selbst — wir lesen es aus
-// dem Card-Payload, das auto-connect.ts korrekt befüllt hat).
+// S5 preview: approve action → POST /api/connectors/invoke.
+// The payload must contain NO secret field (defensively checked in auto-connect.ts).
+// workspaceId comes from the payload (emitOrUpdateCard sets workspaceId in the
+// coords field, but not in the surface payload itself — we read it from
+// the card payload that auto-connect.ts filled correctly).
 // ---------------------------------------------------------------------------
 
 function renderConnectorCallPreview(data: unknown): ReactNode {
@@ -2781,11 +2781,11 @@ function renderConnectorCallPreview(data: unknown): ReactNode {
   const provider = str(data.provider);
   const capability = str(data.capability);
   const workspaceId = str(data.workspaceId) ?? str(data.credentialScope)?.split(':')[1];
-  // Pflichtfelder: provider + capability.
+  // Required fields: provider + capability.
   if (!provider || !capability) return null;
 
-  // Defensive Payload-Rekonstruktion — nur bekannte sichere Felder durchlassen.
-  // SECURITY: kein 'secret'/'token'-Feld darf aus `data` ins Payload gelangen.
+  // Defensive payload reconstruction — only let known safe fields through.
+  // SECURITY: no 'secret'/'token' field may pass from `data` into the payload.
   const payloadSummary: Record<string, string> = {};
   if (isObject(data.payloadSummary)) {
     for (const [k, v] of Object.entries(data.payloadSummary)) {
@@ -2804,7 +2804,7 @@ function renderConnectorCallPreview(data: unknown): ReactNode {
     baseUrl: str(data.baseUrl) ?? null,
     payloadSummary,
     credentialScope: str(data.credentialScope) ?? `workspace:${workspaceId ?? 'unknown'}`,
-    // credentialPreview: maskierter Wert aus previewCall — NIE der Klartext.
+    // credentialPreview: masked value from previewCall — NEVER the plaintext.
     credentialPreview: str(data.credentialPreview) ?? null,
     authKind: str(data.authKind) ?? 'api_key',
     payloadHash: str(data.payloadHash) ?? '',
@@ -2823,9 +2823,9 @@ function renderConnectorCallPreview(data: unknown): ReactNode {
 
 // ---------------------------------------------------------------------------
 // permission-setup — A1 (2026-05-25).
-// Einmalige Modus-Auswahl fuer einen Workspace. Erscheint genau einmal.
+// One-time mode selection for a workspace. Appears exactly once.
 // Payload: { workspaceId: string, currentMode?: string | null }
-// SECURITY: kein secret-Feld. PATCH-Route ist auth-gated.
+// SECURITY: no secret field. The PATCH route is auth-gated.
 // ---------------------------------------------------------------------------
 
 const VALID_SETUP_MODES = new Set<string>(['freerein', 'lane', 'ask']);
@@ -2851,19 +2851,19 @@ function renderPermissionSetup(data: unknown): ReactNode {
 
 // ---------------------------------------------------------------------------
 // flow-graph — Flow Studio P3 (2026-05-27).
-// Visuelle Flow-Graph-Surface (n8n/make-Stil) als custom-SVG + HTML-Nodes —
-// KEINE neue Dependency (kein React-Flow/dagre); Begruendung im Plan
+// Visual flow-graph surface (n8n/make style) as custom SVG + HTML nodes —
+// NO new dependency (no React-Flow/dagre); rationale in the plan
 // docs/plans/2026-05-27_flow-studio-architecture.md §3.
 //
-// Layout: einfacher topologischer DAG-Level-Algorithmus inline. Nodes ohne
-// eingehende Kante = Ebene 0; jede weitere Node = max(parent-Ebene)+1. Pro
-// Ebene eine Reihe (horizontal); auf schmal (≤640px) vertikale Stapelung —
-// hier via flex-wrap + max-width, damit es ohne JS-Resize-Listener
-// mobil-tauglich bleibt (Avatar liest am iPhone).
+// Layout: simple topological DAG-level algorithm inline. Nodes without
+// an incoming edge = level 0; every further node = max(parent level)+1. Per
+// level a row (horizontal); on narrow (≤640px) vertical stacking —
+// here via flex-wrap + max-width, so it stays mobile-capable without a JS-resize
+// listener (the avatar reads on the iPhone).
 //
-// Pitch-Black/Apple-Disziplin: ruhig, viel Luft, ein Status-Dot pro Node.
-// P3 = reines Rendering; Tap = nur visuelles Feedback (kein Handler noetig).
-// Live-Wiring (Speisung aus flow_steps/plan-step-Status) folgt bewusst spaeter.
+// Pitch-Black/Apple discipline: calm, lots of air, one status dot per node.
+// P3 = pure rendering; tap = only visual feedback (no handler needed).
+// Live wiring (feeding from flow_steps/plan-step status) deliberately follows later.
 // ---------------------------------------------------------------------------
 
 type FlowNodeStatus = 'idle' | 'running' | 'done' | 'needs-input' | 'failed';
@@ -2875,22 +2875,22 @@ interface FlowNode {
   tool?: string;
   status: FlowNodeStatus;
   /**
-   * P-now (2026-05-27): zeigt dieser Node auf ein noch ungekoppeltes Tool?
-   * Steuert den „koppeln"-Hinweis im Detail-Panel. Default false — ohne das
-   * Feld bleibt das Rendering identisch zum P3-Stand.
+   * P-now (2026-05-27): does this node point to a not-yet-coupled tool?
+   * Controls the „koppeln" hint in the detail panel. Default false — without the
+   * field the rendering stays identical to the P3 state.
    */
   needsCoupling?: boolean;
   /**
-   * W2.2 (2026-05-30): bei `needs-input` der Gate-Kind, auf den der Node-Tap
-   * zielt. Das Detail-Panel baut daraus einen minimalen BlockingGateState und
-   * ruft `executeGateAction` — DERSELBE Pfad wie der ActionDeck-Pin (ein POST,
-   * kein Doppel-Routing). Optional — ohne das Feld bleibt der Node informativ.
+   * W2.2 (2026-05-30): on `needs-input` the gate kind the node tap
+   * targets. The detail panel builds a minimal BlockingGateState from it and
+   * calls `executeGateAction` — THE SAME path as the ActionDeck pin (one POST,
+   * no double routing). Optional — without the field the node stays informative.
    */
   gateKind?: BlockingGateKind;
   /**
-   * W2.2: ein `done` Assembly-/Serve-Knoten kann eine Vorschau-URL tragen. Das
-   * Detail-Panel zeigt dann „Vorschau öffnen" (öffnet die URL — der `renderPreview`-
-   * Link-Pfad 1:1). Optional — ohne URL kein Button.
+   * W2.2: a `done` assembly/serve node can carry a preview URL. The
+   * detail panel then shows „Vorschau öffnen" (opens the URL — the `renderPreview`
+   * link path 1:1). Optional — without a URL no button.
    */
   previewUrl?: string;
 }
@@ -2908,8 +2908,8 @@ const FLOW_NODE_STATUSES: ReadonlyArray<FlowNodeStatus> = [
   'failed',
 ];
 
-// W2.2: erlaubte Gate-Kinds für aktionierbare needs-input-Knoten (Spiegel von
-// BlockingGateKind in projection/types — der executeGateAction-Pfad kennt sie).
+// W2.2: allowed gate kinds for actionable needs-input nodes (mirror of
+// BlockingGateKind in projection/types — the executeGateAction path knows them).
 const BLOCKING_GATE_KINDS: ReadonlyArray<BlockingGateKind> = [
   'credential-request',
   'connector-call-preview',
@@ -2926,7 +2926,7 @@ const FLOW_RUN_STATUSES: ReadonlyArray<FlowRunStatus> = [
   'failed',
 ];
 
-/** Status-Dot-Farbe je Node-Status. Token-bind mit Hex-Fallback (renderPreview-Muster). */
+/** Status-dot color per node status. Token bind with hex fallback (renderPreview pattern). */
 function flowStatusColor(status: FlowNodeStatus): string {
   switch (status) {
     case 'running':
@@ -2944,11 +2944,11 @@ function flowStatusColor(status: FlowNodeStatus): string {
 }
 
 /**
- * Topologisches Schicht-Layout: weist jeder Node eine Ebene zu.
- * Ebene = max(parent-Ebene)+1, Roots (keine eingehende Kante) = 0.
- * Zyklen-sicher: feste Iterations-Obergrenze (#nodes) — wer nach so vielen
- * Runden noch nicht stabil ist (Zyklus), bleibt auf der zuletzt berechneten
- * Ebene stehen statt eine Endlosschleife zu erzeugen.
+ * Topological layer layout: assigns each node a level.
+ * Level = max(parent level)+1, roots (no incoming edge) = 0.
+ * Cycle-safe: fixed iteration upper bound (#nodes) — whoever is not stable after
+ * that many rounds (a cycle) stays at the last computed
+ * level instead of producing an endless loop.
  */
 function computeFlowLevels(
   nodes: FlowNode[],
@@ -2956,7 +2956,7 @@ function computeFlowLevels(
 ): Map<string, number> {
   const level = new Map<string, number>();
   for (const n of nodes) level.set(n.id, 0);
-  // Eingehende Kanten pro Node (nur valide, dangling sind vorab gefiltert).
+  // Incoming edges per node (only valid ones, dangling are pre-filtered).
   const parents = new Map<string, string[]>();
   for (const n of nodes) parents.set(n.id, []);
   for (const e of edges) {
@@ -2987,7 +2987,7 @@ function computeFlowLevels(
 function renderFlowGraph(data: unknown): ReactNode {
   if (!isObject(data)) return null;
 
-  // nodes parsen — Pflichtfelder id + label. Status defensiv normalisieren.
+  // parse nodes — required fields id + label. Normalize status defensively.
   const rawNodes = Array.isArray(data.nodes) ? data.nodes : null;
   const nodes: FlowNode[] = rawNodes
     ? rawNodes.flatMap((raw): FlowNode[] => {
@@ -3000,7 +3000,7 @@ function renderFlowGraph(data: unknown): ReactNode {
           statusRaw && (FLOW_NODE_STATUSES as readonly string[]).includes(statusRaw)
             ? (statusRaw as FlowNodeStatus)
             : 'idle';
-        // W2.2: gateKind (nur sinnvoll bei needs-input) defensiv normalisieren.
+        // W2.2: normalize gateKind (only meaningful on needs-input) defensively.
         const gateKindRaw = str(raw.gateKind);
         const gateKind: BlockingGateKind | undefined =
           gateKindRaw &&
@@ -3014,9 +3014,9 @@ function renderFlowGraph(data: unknown): ReactNode {
             skill: str(raw.skill),
             tool: str(raw.tool),
             status,
-            // P-now: ein Node kann auf ein ungekoppeltes Tool zeigen
-            // (`needsCoupling: true` oder reason-Hinweis). Optional — Default
-            // false, damit das bestehende Rendering unveraendert bleibt.
+            // P-now: a node can point to an uncoupled tool
+            // (`needsCoupling: true` or a reason hint). Optional — default
+            // false, so the existing rendering stays unchanged.
             needsCoupling: isObject(raw) && raw.needsCoupling === true,
             ...(gateKind ? { gateKind } : {}),
             ...(str(raw.previewUrl) ? { previewUrl: str(raw.previewUrl) } : {}),
@@ -3025,12 +3025,12 @@ function renderFlowGraph(data: unknown): ReactNode {
       })
     : [];
 
-  // Leere/fehlende nodes → nichts rendern (kein Throw).
+  // Empty/missing nodes → render nothing (no throw).
   if (nodes.length === 0) return null;
 
   const nodeIds = new Set(nodes.map((n) => n.id));
 
-  // edges parsen — dangling (from/to nicht in nodes) werden ignoriert.
+  // parse edges — dangling ones (from/to not in nodes) are ignored.
   const rawEdges = Array.isArray(data.edges) ? data.edges : [];
   const edges: FlowEdge[] = rawEdges.flatMap((raw): FlowEdge[] => {
     if (!isObject(raw)) return [];
@@ -3042,10 +3042,10 @@ function renderFlowGraph(data: unknown): ReactNode {
   });
 
   const title = str(data.title);
-  // Apple-Pass (2026-05-30): expliziter Untertitel (SOP-Detail). Der Titel wird
-  // im Header auf 1 Zeile geclampt (line-clamp:1), das Detail steht — falls die
-  // Payload `subtitle` mitliefert — darunter im 13pt-Untertitel. Kein Ableiten
-  // per Titel-Split (würde den sinntragenden Titel-Kopf zerschneiden, N1).
+  // Apple pass (2026-05-30): explicit subtitle (SOP detail). The title is
+  // clamped to 1 line in the header (line-clamp:1), the detail — if the
+  // payload provides `subtitle` — sits below it in the 13pt subtitle. No deriving
+  // via a title split (would cut the meaning-bearing title head, N1).
   const subtitle = str(data.subtitle);
   const runStatusRaw = str(data.runStatus);
   const runStatus: FlowRunStatus =
@@ -3053,21 +3053,21 @@ function renderFlowGraph(data: unknown): ReactNode {
       ? (runStatusRaw as FlowRunStatus)
       : 'idle';
 
-  // Stream C (2026-05-27): workstreamId + workspaceId aus der Payload — die
-  // FlowGraphCard braucht beide fuer „Als Prozess speichern" (POST
-  // /api/flow/from-workstream). Optional: ohne sie bleibt der Button verborgen
-  // (z.B. /design-Preview), das Rendering ist sonst identisch.
+  // Stream C (2026-05-27): workstreamId + workspaceId from the payload — the
+  // FlowGraphCard needs both for „Als Prozess speichern" (POST
+  // /api/flow/from-workstream). Optional: without them the button stays hidden
+  // (e.g. /design preview), the rendering is otherwise identical.
   const workstreamId = str(data.workstreamId);
   const workspaceId = str(data.workspaceId);
-  // C2 (2026-05-27): ein Flow-Graph kann EINGEKLAPPT starten — dann zeigt die
-  // Card nur einen tippbaren „Prozess ansehen"-Chip, der die volle Surface
-  // oeffnet. Owner-SOLL: „muss nicht dauerhaft sein, aber klickbar → oeffnet
-  // die Surface". Default false (heutiges Verhalten: sofort sichtbar).
+  // C2 (2026-05-27): a flow graph can start COLLAPSED — then the
+  // card shows only a tappable „Prozess ansehen" chip that opens the full surface.
+  // Owner intent: „muss nicht dauerhaft sein, aber klickbar → oeffnet
+  // die Surface". Default false (today's behavior: visible immediately).
   const startCollapsed = data.collapsed === true;
 
-  // P-now (2026-05-27): die tappbaren Nodes brauchen lokalen State (offene
-  // node-id) → eigene Komponente. Reines Parsing bleibt in renderFlowGraph,
-  // damit die bestehende, getestete Parse-Logik unveraendert ist.
+  // P-now (2026-05-27): the tappable nodes need local state (open
+  // node-id) → its own component. Pure parsing stays in renderFlowGraph,
+  // so the existing, tested parse logic is unchanged.
   return (
     <FlowGraphCard
       nodes={nodes}
@@ -3101,25 +3101,25 @@ function FlowGraphCard({
   workspaceId?: string;
   startCollapsed?: boolean;
 }): ReactNode {
-  // WICHTIG (React hook rules): ALLE useState-Aufrufe stehen VOR jedem
-  // bedingten return (collapsed). Sonst springt die Hook-Reihenfolge zwischen
-  // den Renders — verboten. Deshalb wird openNodeId hier oben mit-deklariert.
-  // C2: collapse/expand-State. Startet eingeklappt, wenn die Payload es sagt.
+  // IMPORTANT (React hook rules): ALL useState calls are BEFORE any
+  // conditional return (collapsed). Otherwise the hook order jumps between
+  // renders — forbidden. That is why openNodeId is co-declared up here.
+  // C2: collapse/expand state. Starts collapsed when the payload says so.
   const [collapsed, setCollapsed] = useState<boolean>(startCollapsed === true);
-  // C3: „Als Prozess speichern"-State (optimistic, fail-soft).
-  // idle → saving → saved | error. Der Button braucht workstreamId+workspaceId.
+  // C3: „Als Prozess speichern" state (optimistic, fail-soft).
+  // idle → saving → saved | error. The button needs workstreamId+workspaceId.
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
     'idle',
   );
-  // Offene node-id (Detail-Panel). null = kein Panel offen. Toggle bei Re-Tap.
+  // Open node-id (detail panel). null = no panel open. Toggle on re-tap.
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
-  // W2.2 (2026-05-30) — Anti-Proliferation: ist für denselben
-  // (workspaceId, workstreamId) bereits eine run-cockpit-Surface aktiv, zieht
-  // der flow-graph in das Cockpit (als view-Sektion) → die freischwebende
-  // Card supprimiert sich hier (wie sub-workstreams/iterate-pipeline). Der
-  // ActionDeck bleibt der globale Bottom-Pin; needs-input-Node + ActionDeck-
-  // Gate zeigen auf DASSELBE Gate (ein executeGateAction). Hook VOR jedem
-  // bedingten return (React-Regel). Provider-frei → false (Back-Compat).
+  // W2.2 (2026-05-30) — anti-proliferation: if a run-cockpit surface is already
+  // active for the same (workspaceId, workstreamId), the
+  // flow-graph moves into the cockpit (as a view section) → the free-floating
+  // card suppresses itself here (like sub-workstreams/iterate-pipeline). The
+  // ActionDeck stays the global bottom pin; the needs-input node + the ActionDeck
+  // gate point at THE SAME gate (one executeGateAction). Hook BEFORE any
+  // conditional return (React rule). Provider-free → false (back-compat).
   const cockpitCoordKey = buildCockpitCoordKey(workspaceId, workstreamId);
   const suppressedByCockpit = useRunCockpitActive(cockpitCoordKey);
   const canSaveAsProcess =
@@ -3130,7 +3130,7 @@ function FlowGraphCard({
 
   const handleSaveAsProcess = async (): Promise<void> => {
     if (!canSaveAsProcess || saveState === 'saving' || saveState === 'saved') return;
-    // Optimistic: sofort „gespeichert" anzeigen, bei Fehler zuruecksetzen.
+    // Optimistic: show „saved" immediately, reset on error.
     setSaveState('saving');
     try {
       const resp = await fetch('/api/flow/from-workstream', {
@@ -3142,20 +3142,20 @@ function FlowGraphCard({
           ...(title ? { name: title } : {}),
         }),
       });
-      // fail-soft: jeder Nicht-2xx → error-State (kein Throw, kein Crash).
+      // fail-soft: any non-2xx → error state (no throw, no crash).
       setSaveState(resp.ok ? 'saved' : 'error');
     } catch {
       setSaveState('error');
     }
   };
 
-  // W2.2 — Anti-Proliferation: run-cockpit aktiv → flow-graph-Card supprimieren
-  // (das Cockpit zieht den Graph als view-Sektion ein). NACH allen Hooks.
+  // W2.2 — anti-proliferation: run-cockpit active → suppress the flow-graph card
+  // (the cockpit pulls the graph in as a view section). AFTER all hooks.
   if (suppressedByCockpit) {
     return null;
   }
 
-  // C2: eingeklappt → nur ein tippbarer Chip, der die Surface oeffnet.
+  // C2: collapsed → only a tappable chip that opens the surface.
   if (collapsed) {
     return (
       <button
@@ -3221,7 +3221,7 @@ function FlowGraphCard({
 
   const levels = computeFlowLevels(nodes, edges);
 
-  // Nodes nach Ebene gruppieren (Reihen-Layout).
+  // Group nodes by level (row layout).
   const byLevel = new Map<number, FlowNode[]>();
   let maxLevel = 0;
   for (const n of nodes) {
@@ -3236,12 +3236,12 @@ function FlowGraphCard({
     if (byLevel.has(lv)) orderedLevels.push(lv);
   }
 
-  // W2.2 (2026-05-30): in-/out-degree pro Node — reine Render-Ableitung aus den
-  // vorhandenen `edges`, KEINE neue Datenschicht. Daraus leiten wir Fork (eine
-  // Stufe fächert in >1 parallelen Strang) und Join (mehrere Stränge laufen in
-  // EINEN Node zusammen) ab. Eine Stufe mit >1 Node ist eine parallele
-  // Spur-Gruppe; sie wird benannt („⑂ parallel · N") + eingerückt gerendert,
-  // damit parallel/sequentiell auch bei 390px schmal unterscheidbar bleibt.
+  // W2.2 (2026-05-30): in-/out-degree per node — pure render derivation from the
+  // existing `edges`, NO new data layer. From it we derive fork (one
+  // level fans out into >1 parallel strands) and join (several strands run
+  // into ONE node). A level with >1 node is a parallel
+  // lane group; it is named („⑂ parallel · N") + rendered indented,
+  // so parallel/sequential stays distinguishable even at a narrow 390px.
   const inDeg = new Map<string, number>();
   const outDeg = new Map<string, number>();
   for (const n of nodes) {
@@ -3252,10 +3252,10 @@ function FlowGraphCard({
     outDeg.set(e.from, (outDeg.get(e.from) ?? 0) + 1);
     inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
   }
-  // Eine Stufe ist „parallel", wenn sie mehr als einen Knoten trägt.
+  // A level is „parallel" when it carries more than one node.
   const isParallelLevel = (lv: number): boolean => (byLevel.get(lv)?.length ?? 0) > 1;
-  // Ein Join-Marker steht VOR einer Stufe, deren (einziger) Knoten in-degree>1
-  // hat — mehrere parallele Stränge laufen hier zusammen.
+  // A join marker sits BEFORE a level whose (single) node has in-degree>1
+  // — several parallel strands run together here.
   const isJoinLevel = (lv: number): boolean => {
     const row = byLevel.get(lv) ?? [];
     return row.length === 1 && (inDeg.get(row[0]!.id) ?? 0) > 1;
@@ -3274,10 +3274,10 @@ function FlowGraphCard({
     failed: 'var(--a-danger, #FF453A)',
   };
 
-  // W2.2: ein Flow-Knoten als tappbarer Button. Tap toggelt das Detail-Panel.
-  // `running` trägt den „läuft jetzt"-Akzent (--a-now) + Puls; `needs-input`
-  // den Warn-Akzent (aktionierbar). Markup unverändert ggü. dem Vor-Stand —
-  // nur in eine Helper-Funktion gehoben (Stufen×Spuren rufen sie zweimal auf).
+  // W2.2: a flow node as a tappable button. Tap toggles the detail panel.
+  // `running` carries the „läuft jetzt" accent (--a-now) + pulse; `needs-input`
+  // the warn accent (actionable). Markup unchanged from the previous state —
+  // only hoisted into a helper function (levels×lanes call it twice).
   const renderFlowNode = (n: FlowNode): React.JSX.Element => {
     const isOpen = openNodeId === n.id;
     const isNow = n.status === 'running';
@@ -3301,17 +3301,17 @@ function FlowGraphCard({
           isOpen && 'flow-graph-node--open',
         )}
         onClick={() =>
-          // Tap toggelt das Detail-Panel: erneuter Tap schliesst es wieder.
+          // Tap toggles the detail panel: another tap closes it again.
           setOpenNodeId((cur) => (cur === n.id ? null : n.id))
         }
       >
         <span
           data-test="flow-node-dot"
           data-status={n.status}
-          // data-dot-color spiegelt die Token-bind Farbe als testbares Attribut —
-          // happy-dom verschluckt color-Properties mit var(--token, #fallback)-
-          // Wert beim style-Serialisieren (Browser rendert korrekt). So bleibt die
-          // Status→Farbe-Zuordnung deterministisch pruefbar ohne CSS-Round-Trip.
+          // data-dot-color mirrors the token-bind color as a testable attribute —
+          // happy-dom swallows color properties with a var(--token, #fallback)
+          // value when serializing the style (the browser renders correctly). This keeps the
+          // status→color mapping deterministically checkable without a CSS round-trip.
           data-dot-color={flowStatusColor(n.status)}
           aria-hidden
           style={{
@@ -3321,7 +3321,7 @@ function FlowGraphCard({
             flexShrink: 0,
             borderRadius: 999,
             backgroundColor: flowStatusColor(n.status),
-            // running pulsiert ruhig (Accent). Reuse @keyframes pulse.
+            // running pulses calmly (accent). Reuse @keyframes pulse.
             animation: isNow ? 'pulse 1.6s ease-in-out infinite' : undefined,
           }}
         />
@@ -3373,9 +3373,9 @@ function FlowGraphCard({
         maxWidth: 640,
       }}
     >
-      {/* Header: title (1 Zeile, 17pt semibold) + optional 13pt-Untertitel +
-          runStatus-Pill. Ruhig, viel Luft. Apple-Pass (2026-05-30): Titel auf
-          1 Zeile geclampt — kein 3-zeiliger SOP-Wall im Header. */}
+      {/* Header: title (1 line, 17pt semibold) + optional 13pt subtitle +
+          runStatus pill. Calm, lots of air. Apple pass (2026-05-30): title clamped to
+          1 line — no 3-line SOP wall in the header. */}
       <div
         style={{
           display: 'flex',
@@ -3452,9 +3452,9 @@ function FlowGraphCard({
         </span>
       </div>
 
-      {/* Aktions-Zeile (Stream C, 2026-05-27): „Als Prozess speichern" (C3) +
-          „Einklappen" (C2). Beide ruhig, sekundaer — die Visualisierung bleibt
-          die Hauptsache (eine primaere Aktion pro Surface). */}
+      {/* Action row (Stream C, 2026-05-27): „Als Prozess speichern" (C3) +
+          „Einklappen" (C2). Both calm, secondary — the visualization stays
+          the main thing (one primary action per surface). */}
       <div
         data-test="flow-graph-actions"
         style={{
@@ -3464,8 +3464,8 @@ function FlowGraphCard({
           flexWrap: 'wrap',
         }}
       >
-        {/* C3: Als wiederkehrenden Prozess speichern (optimistic, fail-soft).
-            Nur sichtbar, wenn workstreamId+workspaceId in der Payload sind. */}
+        {/* C3: save as a recurring process (optimistic, fail-soft).
+            Only visible when workstreamId+workspaceId are in the payload. */}
         {canSaveAsProcess ? (
           <button
             type="button"
@@ -3515,7 +3515,7 @@ function FlowGraphCard({
           </button>
         ) : null}
 
-        {/* C2: Einklappen → zeigt wieder nur den „Prozess ansehen"-Chip. */}
+        {/* C2: collapse → shows only the „Prozess ansehen" chip again. */}
         <button
           type="button"
           data-test="flow-graph-collapse"
@@ -3540,18 +3540,18 @@ function FlowGraphCard({
         </button>
       </div>
 
-      {/* Graph: Stufen×Spuren (W2.2, 2026-05-30). Sequenz = Stufen untereinander;
-          Parallel = mehrere Knoten EINER Stufe als benannte Spur-Gruppe mit
-          Fork-Header („⑂ parallel · N") + Join-Marker. Das Layout ist
-          Token-/CSS-getrieben (`flow-graph-*` in components.css): Desktop legt
-          die parallelen Knoten nebeneinander, bei ≤390px stapeln sie EINGERÜCKT
-          unter dem Fork-Header (kein flex-wrap-Stapel) → parallel/sequentiell
-          bleibt schmal unterscheidbar. */}
+      {/* Graph: levels×lanes (W2.2, 2026-05-30). Sequence = levels stacked;
+          Parallel = several nodes of ONE level as a named lane group with a
+          fork header („⑂ parallel · N") + join marker. The layout is
+          token-/CSS-driven (`flow-graph-*` in components.css): desktop places
+          the parallel nodes side by side, at ≤390px they stack INDENTED
+          under the fork header (no flex-wrap stack) → parallel/sequential
+          stays distinguishable when narrow. */}
       <div className="flow-graph-stages" data-test="flow-graph-stages">
-        {/* Edge-Liste (nicht-sichtbar): die VALIDEN, dangling-gefilterten Kanten
-            als testbare + maschinen-lesbare Marker. Das Stufen×Spuren-Layout
-            macht Sequenz/Parallel/Join visuell ohne absolutes SVG erkennbar;
-            diese Marker erhalten den edge-Vertrag (data-edge-from/-to). */}
+        {/* Edge list (non-visible): the VALID, dangling-filtered edges
+            as testable + machine-readable markers. The levels×lanes layout
+            makes sequence/parallel/join visually recognizable without absolute SVG;
+            these markers preserve the edge contract (data-edge-from/-to). */}
         <div data-test="flow-edges" hidden aria-hidden style={{ display: 'none' }}>
           {edges.map((e, i) => (
             <span
@@ -3576,7 +3576,7 @@ function FlowGraphCard({
               data-join={join ? 'true' : 'false'}
               className="flow-graph-stage"
             >
-              {/* Join-Marker: mehrere Stränge laufen hier zusammen. */}
+              {/* Join marker: several strands run together here. */}
               {join ? (
                 <div className="flow-graph-join" data-test="flow-join-marker" aria-hidden>
                   <span className="flow-graph-join-glyph">⑃</span>
@@ -3585,7 +3585,7 @@ function FlowGraphCard({
               ) : null}
 
               {parallel ? (
-                // Parallele Spur-Gruppe: Fork-Header + eingerückte Knoten.
+                // Parallel lane group: fork header + indented nodes.
                 <div
                   className="flow-graph-fork"
                   data-test="flow-fork-group"
@@ -3607,7 +3607,7 @@ function FlowGraphCard({
                   </div>
                 </div>
               ) : (
-                // Sequenzielle Stufe: ein Knoten + Stufen-Nummer.
+                // Sequential level: one node + level number.
                 <div className="flow-graph-seq" data-test="flow-seq-stage">
                   <span className="flow-graph-stage-no" aria-hidden>
                     Stufe {stageNo}
@@ -3620,9 +3620,9 @@ function FlowGraphCard({
         })}
       </div>
 
-      {/* Detail-Panel — P-now (2026-05-27). Inline (kein Floating-Popover), damit
-          es am iPhone keine Overlay-Positionierung braucht. Zeigt label, skill,
-          tool, status; bei needsCoupling zusaetzlich ein „koppeln"-Hinweis. */}
+      {/* Detail panel — P-now (2026-05-27). Inline (no floating popover), so
+          it needs no overlay positioning on the iPhone. Shows label, skill,
+          tool, status; on needsCoupling additionally a „koppeln" hint. */}
       {openNode ? (
         <div
           data-test="flow-node-detail"
@@ -3726,15 +3726,15 @@ function FlowGraphCard({
             </div>
           ) : null}
 
-          {/* W2.2 (2026-05-30): Aktions-Zeile. Nur ein Knoten mit ERLAUBTER
-              Aktion bekommt einen Button (kein leerer Button):
-                · needs-input → primärer Button → executeGateAction(gate). Das
-                  ist DERSELBE Submit-Pfad wie der ActionDeck-Pin: er klickt die
-                  echte <surface:…>-Gate-Card im DOM (ein POST, kein Drift).
-                · failed     → „Neu starten" → reply-Text (Retry/Resume) über
-                  den bestehenden SurfaceAction-reply-Pfad.
-                · done + previewUrl → „Vorschau öffnen" (renderPreview-Link 1:1).
-              Knoten ohne erlaubte Aktion bleiben rein informativ. */}
+          {/* W2.2 (2026-05-30): action row. Only a node with an ALLOWED
+              action gets a button (no empty button):
+                · needs-input → primary button → executeGateAction(gate). This
+                  is THE SAME submit path as the ActionDeck pin: it clicks the
+                  real <surface:…> gate card in the DOM (one POST, no drift).
+                · failed     → „Neu starten" → reply text (retry/resume) via
+                  the existing SurfaceAction reply path.
+                · done + previewUrl → „Vorschau öffnen" (renderPreview link 1:1).
+              Nodes without an allowed action stay purely informative. */}
           {renderFlowNodeAction(openNode)}
         </div>
       ) : null}
@@ -3743,18 +3743,18 @@ function FlowGraphCard({
 }
 
 /**
- * W2.2: die erlaubte Aktion eines geöffneten Flow-Knotens — oder null
- * (informativ). Hook-frei (kein useState) — sicher in der Render-Funktion.
- * `useSurfaceAction` wird vom Aufrufer (FlowGraphCard) geliefert.
+ * W2.2: the allowed action of an opened flow node — or null
+ * (informative). Hook-free (no useState) — safe in the render function.
+ * `useSurfaceAction` is provided by the caller (FlowGraphCard).
  */
 function FlowNodeAction({ node }: { node: FlowNode }): React.JSX.Element | null {
   const { reply } = useSurfaceAction();
 
-  // needs-input → der EINE executeGateAction-Pfad (klickt die echte Gate-Card).
+  // needs-input → the ONE executeGateAction path (clicks the real gate card).
   if (node.status === 'needs-input') {
     const kind: BlockingGateKind = node.gateKind ?? 'human-decision';
-    // Minimaler BlockingGateState: executeGateAction liest NUR `kind`, um die
-    // zugehörige Stream-Card zu finden — DASSELBE Ziel wie der ActionDeck-Pin.
+    // Minimal BlockingGateState: executeGateAction reads ONLY `kind`, to find the
+    // associated stream card — THE SAME target as the ActionDeck pin.
     const gate: BlockingGateState = {
       kind,
       description: node.label,
@@ -3769,7 +3769,7 @@ function FlowNodeAction({ node }: { node: FlowNode }): React.JSX.Element | null 
           data-gate-kind={kind}
           className="press flow-graph-node-action-btn flow-graph-node-action-btn--primary"
           onClick={() => {
-            // DERSELBE Pfad wie der ActionDeck-Pin — kein zweites Routing.
+            // THE SAME path as the ActionDeck pin — no second routing.
             executeGateAction(gate);
           }}
         >
@@ -3779,7 +3779,7 @@ function FlowNodeAction({ node }: { node: FlowNode }): React.JSX.Element | null 
     );
   }
 
-  // failed → „Neu starten" (Retry/Resume) über den reply-Pfad.
+  // failed → „Neu starten" (retry/resume) via the reply path.
   if (node.status === 'failed') {
     return (
       <div className="flow-graph-node-action" data-test="flow-node-action-row">
@@ -3789,7 +3789,7 @@ function FlowNodeAction({ node }: { node: FlowNode }): React.JSX.Element | null 
           data-action="retry"
           className="press flow-graph-node-action-btn flow-graph-node-action-btn--danger"
           onClick={() => {
-            // N1: verbatim Schritt-Label in den Retry-Hinweis (kein .slice).
+            // N1: verbatim step label into the retry hint (no .slice).
             reply(`Schritt „${node.label}" neu starten`);
           }}
         >
@@ -3799,7 +3799,7 @@ function FlowNodeAction({ node }: { node: FlowNode }): React.JSX.Element | null 
     );
   }
 
-  // done + previewUrl → „Vorschau öffnen" (renderPreview-Link 1:1).
+  // done + previewUrl → „Vorschau öffnen" (renderPreview link 1:1).
   if (node.status === 'done' && typeof node.previewUrl === 'string' && node.previewUrl) {
     return (
       <div className="flow-graph-node-action" data-test="flow-node-action-row">
@@ -3818,11 +3818,11 @@ function FlowNodeAction({ node }: { node: FlowNode }): React.JSX.Element | null 
     );
   }
 
-  // Kein erlaubter Aktions-Pfad → rein informativ (kein leerer Button).
+  // No allowed action path → purely informative (no empty button).
   return null;
 }
 
-/** Render-Helper: die Aktions-Zeile eines geöffneten Knotens (oder null). */
+/** Render helper: the action row of an opened node (or null). */
 function renderFlowNodeAction(node: FlowNode): React.JSX.Element | null {
   return <FlowNodeAction node={node} />;
 }
@@ -3837,24 +3837,24 @@ const FLOW_NODE_STATUS_LABEL: Record<FlowNodeStatus, string> = {
 
 // ---------------------------------------------------------------------------
 // flow-coupling — Flow Studio P-now (2026-05-27).
-// Tool-Kopplungs-Surface: erscheint wenn ein Flow Schritte enthaelt, deren
-// benoetigte Tools/Connectoren noch nicht gekoppelt sind. Pro fehlendem Tool
-// eine Zeile (stepTitle N1 + provider + reason-Hinweis) mit einem „Koppeln"-
-// Button. Der Button oeffnet die BESTEHENDE Credential-Eingabe
-// (CredentialRequestCard → POST /api/connectors/[provider]/credential; Secret
-// NIE in Chat/SSE/Ledger). Sind alle Tools gekoppelt (oder via „Trotzdem
-// starten" uebersprungen) → ein primaerer „Flow starten"-Button →
+// Tool-coupling surface: appears when a flow contains steps whose
+// required tools/connectors are not yet coupled. Per missing tool
+// one row (stepTitle N1 + provider + reason hint) with a „Koppeln"
+// button. The button opens the EXISTING credential entry
+// (CredentialRequestCard → POST /api/connectors/[provider]/credential; secret
+// NEVER in chat/SSE/ledger). When all tools are coupled (or skipped via „Trotzdem
+// starten") → a primary „Flow starten" button →
 // POST /api/flow/[flowId]/run {workspaceId}.
 //
-// SECURITY: die Surface-Payload traegt KEIN secret-Feld. Der Secret-Pfad ist
-// ausschliesslich der von ACL5-B (CredentialRequestCard). Wir bauen hier KEINE
-// neue Secret-Eingabe.
+// SECURITY: the surface payload carries NO secret field. The secret path is
+// exclusively the one from ACL5-B (CredentialRequestCard). We build NO
+// new secret entry here.
 //
-// reason → Hinweis-Mapping:
+// reason → hint mapping:
 //   credential → „API-Key/OAuth fehlt"
 //   profile    → „Tool verbinden"
-//   unknown    → generischer „Tool für diesen Schritt wählen/verbinden"-Hinweis
-//                (typisch wenn provider === null).
+//   unknown    → generic „Tool für diesen Schritt wählen/verbinden" hint
+//                (typical when provider === null).
 // ---------------------------------------------------------------------------
 
 type FlowCouplingReason = 'credential' | 'profile' | 'unknown';
@@ -3867,7 +3867,7 @@ const FLOW_COUPLING_REASONS: ReadonlyArray<FlowCouplingReason> = [
 interface FlowMissingTool {
   stepId: string;
   stepTitle: string;
-  /** Provider-Slug — null/undefined wenn das Tool fuer den Schritt unklar ist. */
+  /** Provider slug — null/undefined when the tool for the step is unclear. */
   provider: string | null;
   neededCapabilities?: string[];
   reason: FlowCouplingReason;
@@ -3884,7 +3884,7 @@ function flowCouplingReasonHint(
       return 'Tool verbinden';
     case 'unknown':
     default:
-      // provider===null → wir wissen das Tool noch nicht.
+      // provider===null → we don't know the tool yet.
       return hasProvider
         ? 'Tool verbinden'
         : 'Tool für diesen Schritt wählen/verbinden';
@@ -3895,8 +3895,8 @@ function renderFlowCoupling(data: unknown): ReactNode {
   if (!isObject(data)) return null;
   const flowId = str(data.flowId);
   const workspaceId = str(data.workspaceId);
-  // Pflichtfelder: flowId + workspaceId. Ohne sie kann weder gekoppelt noch
-  // gestartet werden — defensiv null (kein Crash im Stream).
+  // Required fields: flowId + workspaceId. Without them nothing can be coupled or
+  // started — defensively null (no crash in the stream).
   if (!flowId || !workspaceId) return null;
 
   const rawMissing = Array.isArray(data.missingTools) ? data.missingTools : [];
@@ -3904,7 +3904,7 @@ function renderFlowCoupling(data: unknown): ReactNode {
     (raw): FlowMissingTool[] => {
       if (!isObject(raw)) return [];
       const stepId = str(raw.stepId);
-      // N1: stepTitle wird NICHT gekuerzt — voll uebernehmen.
+      // N1: stepTitle is NOT shortened — take it in full.
       const stepTitle = str(raw.stepTitle) ?? str(raw.title);
       if (!stepId || !stepTitle) return [];
       const providerRaw = str(raw.provider);
@@ -3951,13 +3951,13 @@ function FlowCouplingCard({
   missingTools: FlowMissingTool[];
 }): ReactNode {
   const { pushAssistant } = useSurfaceAction();
-  // Welche stepId hat gerade die Credential-Eingabe offen? null = keine.
+  // Which stepId currently has the credential entry open? null = none.
   const [openCouplingStepId, setOpenCouplingStepId] = useState<string | null>(
     null,
   );
-  // stepIds, die der User lokal als „erledigt"/„uebersprungen" markiert hat.
-  // (Die echte Kopplungs-Bestaetigung lebt in CredentialRequestCard; hier nur
-  //  der UI-Zustand fuer den „Flow starten"-Gate.)
+  // stepIds the user marked locally as „done"/„skipped".
+  // (The real coupling confirmation lives in CredentialRequestCard; here only
+  //  the UI state for the „Flow starten" gate.)
   const [resolvedStepIds, setResolvedStepIds] = useState<ReadonlySet<string>>(
     () => new Set<string>(),
   );
@@ -4013,7 +4013,7 @@ function FlowCouplingCard({
     }
   };
 
-  // ── Done-State ──────────────────────────────────────────────────────────────
+  // ── Done state ──────────────────────────────────────────────────────────────
   if (started) {
     return (
       <div
@@ -4113,7 +4113,7 @@ function FlowCouplingCard({
                       minWidth: 0,
                     }}
                   >
-                    {/* N1: stepTitle voll, ungekuerzt. */}
+                    {/* N1: stepTitle in full, unshortened. */}
                     <span
                       data-test="flow-missing-tool-title"
                       style={{
@@ -4219,8 +4219,8 @@ function FlowCouplingCard({
                   ) : null}
                 </div>
 
-                {/* Provider===null → kein „Koppeln"-Button (wir kennen das Tool
-                    nicht); stattdessen ein generischer Hinweis. */}
+                {/* Provider===null → no „Koppeln" button (we don't know the tool);
+                    instead a generic hint. */}
                 {!hasProvider ? (
                   <div
                     data-test="flow-missing-tool-generic"
@@ -4235,14 +4235,14 @@ function FlowCouplingCard({
                   </div>
                 ) : null}
 
-                {/* Bestehende Credential-Eingabe (ACL5-B). Secret geht NUR via
-                    POST /api/connectors/[provider]/credential — nie in den Chat.
-                    Wir bauen KEINE neue Secret-Eingabe.
-                    Stream X1 (2026-05-28): Wenn fuer den Provider eine
-                    Onboarding-SOP existiert, rendert FlowCouplingCouplingPane
-                    die SOP-Schritte (Signup → Key → Provider-Budget-Hinweis →
-                    Credential-Eingabe) PLUS eine Kosten-Hinweis-Zeile. Ohne
-                    SOP: rueckwaertskompatibel CredentialRequestCard direkt. */}
+                {/* Existing credential entry (ACL5-B). The secret goes ONLY via
+                    POST /api/connectors/[provider]/credential — never into the chat.
+                    We build NO new secret entry.
+                    Stream X1 (2026-05-28): if an onboarding SOP exists for the
+                    provider, FlowCouplingCouplingPane renders
+                    the SOP steps (signup → key → provider-budget hint →
+                    credential entry) PLUS a cost-hint line. Without
+                    a SOP: backwards-compatible CredentialRequestCard directly. */}
                 {open && hasProvider && t.provider ? (
                   <div data-test="flow-couple-credential">
                     <FlowCouplingCouplingPane
@@ -4292,8 +4292,8 @@ function FlowCouplingCard({
         </div>
       ) : null}
 
-      {/* Aktionen: primaerer „Flow starten" (gated) + sekundaeres „Trotzdem
-          starten", solange noch nicht alles gekoppelt ist. */}
+      {/* Actions: primary „Flow starten" (gated) + secondary „Trotzdem
+          starten", as long as not everything is coupled yet. */}
       <div
         style={{
           display: 'flex',
@@ -4360,9 +4360,9 @@ function FlowCouplingCard({
  * Stream X1 (2026-05-28) — Onboarding-SOP-aware coupling pane.
  *
  * Renders for a single missing tool either:
- *   - the generic onboarding SOP (Signup → Key → Provider-Budget-Hinweis →
- *     Credential-Eingabe) PLUS a top cost-hint line, OR
- *   - rueckwaertskompatibel: just the CredentialRequestCard (when no SOP
+ *   - the generic onboarding SOP (signup → key → provider-budget hint →
+ *     credential entry) PLUS a top cost-hint line, OR
+ *   - backwards-compatible: just the CredentialRequestCard (when no SOP
  *     entry exists for the provider).
  *
  * SECURITY: this component NEVER receives or stores a secret value. The
@@ -4388,7 +4388,7 @@ function FlowCouplingCouplingPane({
 
   // Best-effort cost hint: take the first needed capability (if any) and
   // ask pricing for an estimate. Unknown combos return an explicit
-  // unknown-marker (Owner-Direktive #2 — nie still 0).
+  // unknown-marker (owner directive #2 — never silently 0).
   const capForCost =
     neededCapabilities && neededCapabilities.length > 0
       ? neededCapabilities[0]
@@ -4397,7 +4397,7 @@ function FlowCouplingCouplingPane({
     ? estimateCost(provider, capForCost)
     : null;
 
-  // Rueckwaertskompatibel: ohne SOP → originale CredentialRequestCard.
+  // Backwards-compatible: without a SOP → the original CredentialRequestCard.
   if (!sop) {
     return (
       <>
@@ -4465,9 +4465,9 @@ function FlowCouplingCouplingPane({
 }
 
 function FlowCouplingCostHint({ cost }: { cost: CostEstimate }): ReactNode {
-  // Owner-Direktive #2: Hinweis, kein Cap.
-  // - Unknown → explizit "unbekannt" (nie 0).
-  // - Bekannt → Spanne + Basis + erkennbarer Hinweis-Text.
+  // Owner directive #2: hint, no cap.
+  // - Unknown → explicit "unbekannt" (never 0).
+  // - Known → range + basis + recognizable hint text.
   const label = cost.unknown
     ? 'Kosten-Schätzung: unbekannt für diese Kombination'
     : `Geschätzte Kosten: ${formatEurRange(cost.eurMin, cost.eurMax)} · ${cost.basis}`;
@@ -4505,7 +4505,7 @@ function formatEurRange(min: number | null, max: number | null): string {
 }
 
 function formatEur(eur: number): string {
-  // Beträge unter 1 € mit 2 Nachkommastellen, sonst 2 (Standard).
+  // Amounts under 1 € with 2 decimal places, otherwise 2 (standard).
   return `${eur.toFixed(2).replace('.', ',')} €`;
 }
 
@@ -4594,10 +4594,10 @@ function FlowOnboardingStepRow({
           {step.href}
         </a>
       ) : null}
-      {/* Credential-Eingabe genau dort, wo die SOP sie verlangt — nicht oben
-          aufgestapelt. Bei engine-backed-Providern zeigt die SOP einen 'info'-
-          Step statt eines 'credential'-Steps; entsprechend rendert hier
-          nichts. */}
+      {/* Credential entry exactly where the SOP requires it — not stacked
+          at the top. For engine-backed providers the SOP shows an 'info'
+          step instead of a 'credential' step; accordingly nothing
+          renders here. */}
       {step.kind === 'credential' && !engineBacked ? (
         <div
           data-test="flow-onboarding-credential-slot"
@@ -4637,14 +4637,14 @@ const flowCouplingKickerStyle: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 // Stream X1 (2026-05-28) — live-warn surface.
 //
-// Erscheint genau EIN Mal pro Workspace beim ersten LIVE-Lauf
-// (LAZYOS_CONNECTOR_LIVE=on UND topic='live-warn-acked' noch nicht
-// hinterlegt). Owner-Direktive #3: alle 3 Provider parallel live-flippbar — die
-// Warn-Surface schuetzt davor, dass das versehentlich passiert.
+// Appears exactly ONCE per workspace on the first LIVE run
+// (LAZYOS_CONNECTOR_LIVE=on AND topic='live-warn-acked' not yet
+// stored). Owner directive #3: all 3 providers flippable to live in parallel — the
+// warn surface protects against that happening accidentally.
 //
-// SECURITY: Payload traegt KEIN secret — nur { workspaceId }. POST
-// /api/workspace/[workspaceId]/live-warn-ack ist auth-gated und idempotent
-// (zweimal klicken erzeugt nicht zwei Beliefs — supersede in beliefs-repo).
+// SECURITY: the payload carries NO secret — only { workspaceId }. POST
+// /api/workspace/[workspaceId]/live-warn-ack is auth-gated and idempotent
+// (clicking twice does not create two beliefs — supersede in beliefs-repo).
 // ---------------------------------------------------------------------------
 
 function renderLiveWarn(data: unknown): ReactNode {
@@ -4839,7 +4839,7 @@ const liveWarnCardStyle: React.CSSProperties = {
 
 // ---------------------------------------------------------------------------
 // Cluster A — workflow (Sub-Plan 3, 2026-05-01)
-// Pipeline-Family-Merge. Phase-State entscheidet Sub-Layout.
+// Pipeline-family merge. The phase state decides the sub-layout.
 // ---------------------------------------------------------------------------
 
 const WORKFLOW_PHASES: ReadonlyArray<WorkflowPhase> = [
@@ -4911,7 +4911,7 @@ function renderWorkflow(data: unknown): ReactNode {
 
 // ---------------------------------------------------------------------------
 // Cluster C — prompt (Sub-Plan 3, 2026-05-01)
-// Prompt-Family-Merge. `variant` diskriminiert.
+// Prompt-family merge. `variant` discriminates.
 // ---------------------------------------------------------------------------
 
 function renderPrompt(data: unknown): ReactNode {
@@ -4930,15 +4930,15 @@ function renderPrompt(data: unknown): ReactNode {
       return renderQuickChoice(data);
     case 'decision':
       return renderDecision(data);
-    // R4 (2026-05-29) — Decision-Brief (Surface-Manifestation-Strategie §7.3):
-    // bestätigbare Entscheidung mit Quelle + Confidence + Konsequenz + Optionen.
-    // event-only-Verhalten (kein Doppel-Routing): Klick spielt strukturiert
-    // zurück, ohne zusätzlich eine Reply-Bubble zu erzeugen.
+    // R4 (2026-05-29) — decision brief (surface-manifestation strategy §7.3):
+    // a confirmable decision with source + confidence + consequence + options.
+    // event-only behavior (no double routing): a click plays back structured
+    // data without additionally creating a reply bubble.
     case 'decision-brief':
       return renderDecisionBrief(data);
     default:
-      // Sniffing: wenn `endpoint` gesetzt ist, Form. Wenn `name`+`workspaceId`,
-      // dann credential. Wenn `headline`+`options`, decision. Sonst null.
+      // Sniffing: if `endpoint` is set, form. If `name`+`workspaceId`,
+      // then credential. If `headline`+`options`, decision. Otherwise null.
       if (isObject(data.endpoint) && Array.isArray(data.fields)) {
         return renderForm(data);
       }
@@ -4960,7 +4960,7 @@ function renderPrompt(data: unknown): ReactNode {
 
 // ---------------------------------------------------------------------------
 // Cluster D — agent-step (Sub-Plan 3, 2026-05-01)
-// Tool/Step-Merge. `mode` diskriminiert.
+// Tool/step merge. `mode` discriminates.
 // ---------------------------------------------------------------------------
 
 function renderAgentStep(data: unknown): ReactNode {
@@ -4982,7 +4982,7 @@ function renderAgentStep(data: unknown): ReactNode {
     case 'tier-choice':
       return renderTierChoice(data);
     default:
-      // Sniffing: typische Felder, defensive Reihenfolge.
+      // Sniffing: typical fields, defensive order.
       if (str(data.swarmId) && str(data.bugDescription)) {
         return renderBugFixSwarm(data);
       }
@@ -5006,15 +5006,15 @@ function renderAgentStep(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// counter-evidence — E4 / P13 Devil's-Advocate (2026-05-27).
+// counter-evidence — E4 / P13 Devil's Advocate (2026-05-27).
 //
-// Anti-Confirmation-Bias: erscheint als EIGENE Card NACH einer Synthesis
-// (gated auf consensus 'strong' ODER WHY-Einspeisung). NICHT in den
-// Synthesis-Stream gemischt — der User liest Synthesis und Gegen-Evidenz
-// getrennt. Rotes Flag (var(--a-danger)) wenn die These nicht
-// falsifizierbar ist (tautologisch/unprüfbar) — dann muss re-formuliert
-// werden. Token-bind (kein Hardcode-Hex; var(--token, #fallback)-Muster
-// wie alle Cards).
+// Anti-confirmation-bias: appears as its OWN card AFTER a synthesis
+// (gated on consensus 'strong' OR WHY feed-in). NOT mixed into the
+// synthesis stream — the user reads synthesis and counter-evidence
+// separately. Red flag (var(--a-danger)) when the thesis is not
+// falsifiable (tautological/unverifiable) — then it must be
+// re-formulated. Token bind (no hardcoded hex; var(--token, #fallback) pattern
+// like all cards).
 // ---------------------------------------------------------------------------
 
 type CounterVerdict = 'falsifiable' | 'unfalsifiable' | 'weak-evidence';
@@ -5026,10 +5026,10 @@ const COUNTER_VERDICTS: ReadonlyArray<CounterVerdict> = [
 ];
 
 /**
- * Zerlegt den DA-Markdown-Output in einzelne Counter-Punkte. Erkennt die
- * `### Counter N: <Titel>`-Header aus dem Devil's-Advocate-System-Prompt.
- * Tolerant: ohne erkennbare Header bleibt counters leer und die Card
- * rendert nur den Volltext. Reine Hilfsfunktion (kein State).
+ * Splits the DA markdown output into individual counter points. Recognizes the
+ * `### Counter N: <title>` headers from the Devil's-Advocate system prompt.
+ * Tolerant: without recognizable headers, counters stays empty and the card
+ * renders only the full text. Pure helper function (no state).
  */
 function parseCounterPoints(text: string): Array<{ title: string; body: string }> {
   if (typeof text !== 'string' || text.length === 0) return [];
@@ -5046,8 +5046,8 @@ function parseCounterPoints(text: string): Array<{ title: string; body: string }
   }
   for (let i = 0; i < matches.length; i++) {
     const cur = matches[i];
-    // Body = alles bis zum nächsten Counter-Header bzw. bis zur nächsten
-    // Section (##), N1: nicht kürzen.
+    // Body = everything up to the next counter header or up to the next
+    // section (##), N1: do not shorten.
     const sliceEnd = i + 1 < matches.length ? matches[i + 1].start : text.length;
     let body = text.slice(cur.end, sliceEnd).trim();
     const nextSection = body.search(/^##\s/m);
@@ -5059,19 +5059,19 @@ function parseCounterPoints(text: string): Array<{ title: string; body: string }
 
 function renderCounterEvidence(data: unknown): ReactNode {
   if (!isObject(data)) return null;
-  // N1: Volltext nicht kürzen.
+  // N1: do not shorten the full text.
   const text = str(data.text) ?? '';
   const verdictRaw = str(data.verdict);
   const verdict: CounterVerdict =
     verdictRaw && (COUNTER_VERDICTS as readonly string[]).includes(verdictRaw)
       ? (verdictRaw as CounterVerdict)
       : 'weak-evidence';
-  // unfalsifiable: explizit aus der Payload ODER aus dem Verdict abgeleitet.
+  // unfalsifiable: explicitly from the payload OR derived from the verdict.
   const unfalsifiable = data.unfalsifiable === true || verdict === 'unfalsifiable';
   const counterEvidenceCount =
     num(data.counterEvidenceCount) ?? num(data.counterCount) ?? 0;
 
-  // Ohne Text UND ohne Counter → nichts zu zeigen (kein Throw).
+  // Without text AND without counter → nothing to show (no throw).
   if (text.trim().length === 0 && counterEvidenceCount === 0 && !unfalsifiable) {
     return null;
   }
@@ -5099,8 +5099,8 @@ function CounterEvidenceCard({
 }): ReactNode {
   const points = parseCounterPoints(text);
 
-  // Akzent: rot bei unfalsifiable (Red-Flag), warn bei weak-evidence,
-  // neutral-info sonst. Token-bind.
+  // Accent: red on unfalsifiable (red flag), warn on weak-evidence,
+  // neutral-info otherwise. Token bind.
   const accent = unfalsifiable
     ? 'var(--a-danger, #FF453A)'
     : verdict === 'weak-evidence'
@@ -5132,7 +5132,7 @@ function CounterEvidenceCard({
         maxWidth: 640,
       }}
     >
-      {/* Header: Titel + Verdict-Pill. */}
+      {/* Header: title + verdict pill. */}
       <div
         style={{
           display: 'flex',
@@ -5193,7 +5193,7 @@ function CounterEvidenceCard({
         </span>
       </div>
 
-      {/* Red-Flag-Banner: nur wenn These nicht falsifizierbar. */}
+      {/* Red-flag banner: only when the thesis is not falsifiable. */}
       {unfalsifiable ? (
         <div
           data-test="counter-evidence-red-flag"
@@ -5253,7 +5253,7 @@ function CounterEvidenceCard({
         </p>
       )}
 
-      {/* Counter-Punkte einzeln, falls erkennbar; sonst Volltext (N1). */}
+      {/* Counter points individually, if recognizable; otherwise full text (N1). */}
       {points.length > 0 ? (
         <ol
           data-test="counter-evidence-points"
@@ -5311,18 +5311,18 @@ function CounterEvidenceCard({
 }
 
 // ---------------------------------------------------------------------------
-// run-cockpit — Owner-Fix (2026-05-28).
-// Aggregierte Master-Surface: Phase-Stepper + Sub-Workstream-Liste collapsed-
-// default + naechste-Phase-Hint + Token/Cost-Counter. Loest die 3 simultanen
-// Emit-Stellen (sub-workstreams + iterate-pipeline + iterate-version) im
-// Strom ab; die Legacy-Cards bleiben emittiert, werden aber im Renderer
-// suppressed (siehe RunCockpitRegistryProvider + useRunCockpitActive).
+// run-cockpit — owner fix (2026-05-28).
+// Aggregated master surface: phase stepper + sub-workstream list collapsed-
+// default + next-phase hint + token/cost counter. Replaces the 3 simultaneous
+// emit sites (sub-workstreams + iterate-pipeline + iterate-version) in the
+// stream; the legacy cards stay emitted, but are suppressed in the renderer
+// (see RunCockpitRegistryProvider + useRunCockpitActive).
 //
-// Mobile-first: 375px-tauglich, keine horizontalen Overflows. Touch-Targets
+// Mobile-first: 375px-capable, no horizontal overflows. Touch targets
 // >= 44px. Token-only (var(--ink), var(--sheet-*), var(--line-*), var(--a-*)).
 // ---------------------------------------------------------------------------
 
-/** Phasen-Reihenfolge des Cockpits. */
+/** Phase order of the cockpit. */
 const RUN_COCKPIT_PHASES = [
   'decompose',
   'tier-spawn',
@@ -5348,7 +5348,7 @@ function isRunCockpitPhase(s: string | undefined): s is RunCockpitPhase {
   );
 }
 
-/** Default-Hint pro Phase — kann durch Payload.nextStepHint ueberschrieben werden. */
+/** Default hint per phase — can be overridden by Payload.nextStepHint. */
 function defaultNextHint(phase: RunCockpitPhase): string {
   switch (phase) {
     case 'decompose':
@@ -5400,7 +5400,7 @@ function extractSubWorkstreams(data: unknown): SubWorkstreamRowData[] {
     });
 }
 
-/** Status-Dot Farbe per Status. */
+/** Status-dot color per status. */
 function statusDotColor(status: string | undefined): string {
   if (!status) return 'var(--ink-3, #80848c)';
   if (status === 'done' || status === 'success') {
@@ -5433,15 +5433,15 @@ interface RunCockpitProps {
 
 function RunCockpitCard(props: RunCockpitProps): ReactNode {
   const coordKey = buildCockpitCoordKey(props.workspaceId, props.workstreamId);
-  // Mount: registriert Coord im Registry → die 3 Legacy-Cards (sub-workstreams,
-  // iterate-pipeline, iterate-version) supprimieren sich solange diese Card lebt.
+  // Mount: registers the coord in the registry → the 3 legacy cards (sub-workstreams,
+  // iterate-pipeline, iterate-version) suppress themselves as long as this card lives.
   useRunCockpitRegistration(coordKey);
 
   const [subsCollapsed, setSubsCollapsed] = useState<boolean>(true);
 
-  const activeIdx = props.phaseIndex - 1; // 1-basiert → 0-basiert
+  const activeIdx = props.phaseIndex - 1; // 1-based → 0-based
 
-  // Cost-Counter: cents → € mit 2 Nachkommastellen wenn vorhanden.
+  // Cost counter: cents → € with 2 decimal places if present.
   const costLabel =
     typeof props.costCents === 'number' && Number.isFinite(props.costCents)
       ? `${(props.costCents / 100).toFixed(2)}€`
@@ -5465,13 +5465,13 @@ function RunCockpitCard(props: RunCockpitProps): ReactNode {
         borderRadius: 14,
         background: 'var(--sheet-1, #0c0d0f)',
         border: '0.5px solid var(--line-2, #1f1f1f)',
-        // mobile-first: keine horizontalen Overflows
+        // mobile-first: no horizontal overflows
         maxWidth: '100%',
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
     >
-      {/* Header: Titel + Aktive-Phase-Anzeige + Token/Cost-Counter rechts */}
+      {/* Header: title + active-phase display + token/cost counter on the right */}
       <div
         style={{
           display: 'flex',
@@ -5537,7 +5537,7 @@ function RunCockpitCard(props: RunCockpitProps): ReactNode {
         ) : null}
       </div>
 
-      {/* Phase-Stepper: kompakte horizontale Pill-Sequenz, mobile-first wrap. */}
+      {/* Phase stepper: compact horizontal pill sequence, mobile-first wrap. */}
       <ol
         data-test="run-cockpit-stepper"
         style={{
@@ -5606,7 +5606,7 @@ function RunCockpitCard(props: RunCockpitProps): ReactNode {
         })}
       </ol>
 
-      {/* Sub-Workstreams-Sektion: collapsed-default. */}
+      {/* Sub-workstreams section: collapsed-default. */}
       {props.subs.length > 0 ? (
         <div
           data-test="run-cockpit-subs-section"
@@ -5730,13 +5730,13 @@ function RunCockpitCard(props: RunCockpitProps): ReactNode {
         </div>
       ) : null}
 
-      {/* „Was kommt als naechstes"-Hint.
-          Befund 3 (Owner 2026-05-29): „auch wieder ein Hintergrund der unnötig
-          ist". Der Hint war ein --sheet-2-gefüllter, gerahmter Block INNERHALB
-          der --sheet-1-Card → Background-on-Background-Box. Rams-Fix: Füllung +
-          Rahmen-Rechteck raus, stattdessen nur eine Hairline-Trennung oben +
-          der Brand-Pfeil als einziges Highlight. Flach geschichtet statt
-          Box-in-Box. */}
+      {/* „What comes next" hint.
+          Finding 3 (owner 2026-05-29): „auch wieder ein Hintergrund der unnötig
+          ist". The hint was a --sheet-2-filled, framed block INSIDE
+          the --sheet-1 card → background-on-background box. Rams fix: fill +
+          frame rectangle removed, instead only a hairline separation on top +
+          the brand arrow as the only highlight. Flatly layered instead of
+          box-in-box. */}
       <p
         data-test="run-cockpit-next-hint"
         style={{
@@ -5769,8 +5769,8 @@ function renderRunCockpit(data: unknown): ReactNode {
   if (!isObject(data)) return null;
   const workspaceId = str(data.workspaceId);
   const workstreamId = str(data.workstreamId);
-  // Beide Pflichtfelder — sonst koennen wir weder Suppression koordinieren
-  // noch sinnvoll rendern (Coord-Key haengt an ihnen).
+  // Both required fields — otherwise we can neither coordinate suppression
+  // nor render meaningfully (the coord key depends on them).
   if (!workspaceId || !workstreamId) return null;
 
   const phaseRaw = str(data.phase);
@@ -5784,7 +5784,7 @@ function renderRunCockpit(data: unknown): ReactNode {
       ? Math.min(Math.floor(total), RUN_COCKPIT_PHASES.length)
       : RUN_COCKPIT_PHASES.length;
 
-  // Wenn phaseIndex fehlt: aus phase ableiten (1-basiert).
+  // If phaseIndex is missing: derive it from phase (1-based).
   const phaseIndexRaw = num(data.phaseIndex);
   const derivedIdx = RUN_COCKPIT_PHASES.indexOf(phase) + 1;
   const phaseIndex =
@@ -5815,29 +5815,29 @@ function renderRunCockpit(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// A4 (2026-05-29, Opus 4.8) — Merge-Offer-Surface.
+// A4 (2026-05-29, Opus 4.8) — merge-offer surface.
 //
-// Schliesst den Accumulation-Loop: die zusammengesetzte Arbeit aller
-// erfolgreichen Steps liegt im Run-Branch `lazing/run/prun-…`. Diese Card ist
-// der EINZIGE Owner-sichtbare Pfad, der ihn per Klick in den Live-Checkout
-// bringt (R3 Human-Gate — NIE automatisch).
+// Closes the accumulation loop: the assembled work of all
+// successful steps lies in the run branch `lazing/run/prun-…`. This card is
+// the ONLY owner-visible path that brings it into the live checkout
+// with a click (R3 human gate — NEVER automatic).
 //
 //   [Diff ansehen]   → POST /api/workstreams/[id]/merge-run {preview:true}
-//                       (read-only — Datei-Liste + Stat, KEIN Merge).
+//                       (read-only — file list + stat, NO merge).
 //   [In Live mergen] → POST /api/workstreams/[id]/merge-run {}
-//                       (die EINZIGE Schreib-Aktion → nach Erfolg resolved).
-//   [Verwerfen]      → rein lokal (kein Schreib-Call).
+//                       (the ONLY write action → resolved after success).
+//   [Verwerfen]      → purely local (no write call).
 //
-// SECURITY: kein Secret in der Payload — nur Run-/Datei-Metadaten.
+// SECURITY: no secret in the payload — only run/file metadata.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Self-Learning Workflow-Recording (2026-06-03, Slice 1) — Recurrence-Nudge.
-// Erscheint, wenn der Repetition-Detektor erkennt, dass dieser Ablauf
-// strukturell schon ≥3× so lief. Owner-gated: EIN Button speichert ihn als
-// wiederverwendbares Flow-Template (POST /api/flow/from-workstream = C3-Pfad,
-// derselbe wie der „Als Prozess speichern"-Button auf der Flow-Graph-Card).
-// Kein Auto-Save. SECURITY: kein Secret in der Payload.
+// Self-learning workflow recording (2026-06-03, Slice 1) — recurrence nudge.
+// Appears when the repetition detector recognizes that this flow has
+// structurally run ≥3× already. Owner-gated: ONE button saves it as a
+// reusable flow template (POST /api/flow/from-workstream = C3 path,
+// the same as the „Als Prozess speichern" button on the flow-graph card).
+// No auto-save. SECURITY: no secret in the payload.
 // ---------------------------------------------------------------------------
 
 function FlowRecurrenceCard(props: {
@@ -5973,12 +5973,12 @@ function FlowRecurrenceCard(props: {
 }
 
 // ---------------------------------------------------------------------------
-// image-gen (2026-06-03) — selbst-fahrendes, ANIMIERTES Bild-Lade-Surface.
-// Owner-Befund: das alte /image blockierte ~30–90 s (Proxy-Timeout → „Fehler,
-// kein Bild") + zeigte nur statischen Toast. Jetzt: SOFORT ein Shimmer-Surface,
-// die Karte startet den Job (async), pollt /api/imagegen/status, swappt das Bild
-// rein (wie Codex). Bei Erfolg → lazyos:image-gen-done-Event → ChatShell
-// persistiert die <surface:document>-Bild-Bubble. Bei Fehler → Retry inline.
+// image-gen (2026-06-03) — self-driving, ANIMATED image-loading surface.
+// Owner finding: the old /image blocked ~30–90 s (proxy timeout → „Fehler,
+// kein Bild") + showed only a static toast. Now: IMMEDIATELY a shimmer surface,
+// the card starts the job (async), polls /api/imagegen/status, swaps the image
+// in (like Codex). On success → lazyos:image-gen-done event → ChatShell
+// persists the <surface:document> image bubble. On error → retry inline.
 // ---------------------------------------------------------------------------
 
 interface ImageGenCardProps {
@@ -6003,7 +6003,7 @@ function ImageGenCard(props: ImageGenCardProps): React.JSX.Element {
     const t0 = Date.now();
     const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
     try {
-      // jobId aus sessionStorage wiederverwenden (Re-Mount/Reload kein Doppel-Job).
+      // Reuse jobId from sessionStorage (re-mount/reload → no double job).
       let jobId = (() => {
         try {
           return window.sessionStorage.getItem(ssKey);
@@ -6032,7 +6032,7 @@ function ImageGenCard(props: ImageGenCardProps): React.JSX.Element {
         }
       }
       setPhase('generating');
-      // Poll bis done/error (max ~4 min).
+      // Poll until done/error (max ~4 min).
       for (let i = 0; i < 120; i += 1) {
         await new Promise((res) => window.setTimeout(res, 2000));
         const s = await fetch(`/api/imagegen/status?jobId=${encodeURIComponent(jobId)}`, {
@@ -6058,7 +6058,7 @@ function ImageGenCard(props: ImageGenCardProps): React.JSX.Element {
           } catch {
             /* ignore */
           }
-          // Persistieren: ChatShell ersetzt diese Karte durch die Bild-Bubble.
+          // Persist: ChatShell replaces this card with the image bubble.
           if (st.surfaceMarkup) {
             window.dispatchEvent(
               new CustomEvent('lazyos:image-gen-done', {
@@ -6100,7 +6100,7 @@ function ImageGenCard(props: ImageGenCardProps): React.JSX.Element {
     void run();
   }, [run]);
 
-  // done → Bild-Bubble (bis ChatShell den swap macht; nahtlos identisch).
+  // done → image bubble (until ChatShell does the swap; seamlessly identical).
   if (phase === 'done' && imageUrl) {
     return (
       <div className="lazyos-imggen lazyos-imggen--done">
@@ -6131,7 +6131,7 @@ function ImageGenCard(props: ImageGenCardProps): React.JSX.Element {
     );
   }
 
-  // starting / generating → animierter Shimmer (wie Codex).
+  // starting / generating → animated shimmer (like Codex).
   return (
     <div className="lazyos-imggen lazyos-imggen--loading" role="group" aria-busy="true">
       <div className="lazyos-imggen__shimmer" aria-hidden />
@@ -6221,8 +6221,8 @@ function MergeOfferCard({
   >('idle');
   const [error, setError] = useState<string | null>(null);
   const [mergedSha, setMergedSha] = useState<string | null>(null);
-  // Diff-Preview: zusätzliche Dateien, die der Server beim preview liefert
-  // (überschreibt die optimistische Payload-Liste, falls vorhanden).
+  // Diff preview: additional files the server returns on preview
+  // (overrides the optimistic payload list, if present).
   const [previewFiles, setPreviewFiles] = useState<string[] | null>(null);
 
   const endpoint = `/api/workstreams/${encodeURIComponent(workstreamId)}/merge-run`;
@@ -6302,7 +6302,7 @@ function MergeOfferCard({
     }
   };
 
-  // --- resolved state: Merge erfolgreich -----------------------------------
+  // --- resolved state: merge successful -----------------------------------
   if (state === 'merged') {
     return (
       <div
@@ -6437,7 +6437,7 @@ function MergeOfferCard({
       ) : null}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {/* Schreib-Aktion — die EINZIGE. Brand-Akzent nur hier (Jobs/Rams). */}
+        {/* Write action — the ONLY one. Brand accent only here (Jobs/Rams). */}
         <button
           type="button"
           data-test="merge-offer-merge-btn"
@@ -6460,7 +6460,7 @@ function MergeOfferCard({
         >
           {state === 'merging' ? 'Merge läuft …' : 'In Live mergen'}
         </button>
-        {/* read-only Diff-Preview. */}
+        {/* read-only diff preview. */}
         <button
           type="button"
           data-test="merge-offer-diff-btn"
@@ -6480,7 +6480,7 @@ function MergeOfferCard({
         >
           {state === 'previewing' ? 'Lädt Diff …' : 'Diff ansehen'}
         </button>
-        {/* rein lokal — kein Schreib-Call. */}
+        {/* purely local — no write call. */}
         <button
           type="button"
           data-test="merge-offer-discard-btn"
@@ -6506,13 +6506,13 @@ function MergeOfferCard({
 }
 
 // ---------------------------------------------------------------------------
-// R4 (2026-05-29) — Decision-Brief (prompt variant=decision-brief).
+// R4 (2026-05-29) — decision brief (prompt variant=decision-brief).
 //
-// Surface-Manifestation-Strategie §7.3: eine Entscheidung aus Kommunikation/
-// Meeting/Chat als bestätigbares Objekt — was wurde gesagt, von wem, Quelle,
-// Confidence, Konsequenz, Optionen. event-only-Verhalten (Rule 4 „Evidence
-// not equal Decision"): Klick spielt strukturiert zurück, ohne zusätzliches
-// Reply-Routing-Duplikat.
+// Surface-manifestation strategy §7.3: a decision from communication/
+// meeting/chat as a confirmable object — what was said, by whom, source,
+// confidence, consequence, options. event-only behavior (Rule 4 „Evidence
+// not equal Decision"): a click plays back structured data without an additional
+// reply-routing duplicate.
 //
 // Payload:
 //   { variant:'decision-brief', headline, statement?, source?, sourceBy?,
@@ -6566,12 +6566,12 @@ function renderDecisionBrief(data: unknown): ReactNode {
     idx += 1;
   }
   if (options.length === 0) {
-    // Default: Bestätigen/Ablehnen.
+    // Default: confirm/reject.
     options.push({ id: 'confirm', label: 'Bestätigen', recommended: true });
     options.push({ id: 'reject', label: 'Ablehnen' });
   }
   const rawBehavior = (data as { behavior?: unknown }).behavior;
-  const eventOnly = rawBehavior !== 'reply-and-event'; // Default: event-only.
+  const eventOnly = rawBehavior !== 'reply-and-event'; // default: event-only.
   return (
     <DecisionBriefCard
       headline={headline}
@@ -6611,10 +6611,10 @@ function DecisionBriefCard({
   const onPick = (opt: DecisionBriefOpt): void => {
     if (chosen) return;
     setChosen(opt.id);
-    // event-only: kein zusätzliches Reply-Routing-Duplikat. Im Default-Modus
-    // (event-only) emittieren wir KEINE Reply-Bubble — die strukturierte
-    // Entscheidung wird allein über den data-chosen-State sichtbar. Nur im
-    // explizit angeforderten reply-and-event-Modus geht eine Reply raus.
+    // event-only: no additional reply-routing duplicate. In the default mode
+    // (event-only) we emit NO reply bubble — the structured
+    // decision becomes visible solely via the data-chosen state. Only in the
+    // explicitly requested reply-and-event mode does a reply go out.
     if (!eventOnly) {
       reply(`Entscheidung: ${opt.label} — ${headline}`);
     }
@@ -6739,12 +6739,12 @@ function DecisionBriefCard({
 }
 
 // ---------------------------------------------------------------------------
-// A3/R7 (2026-05-29) — Project-Truth-Surface (langlebiger Lese-Anker).
+// A3/R7 (2026-05-29) — project-truth surface (long-lived read anchor).
 //
-// Surface-Manifestation-Strategie §7.2: zeigt die aktuell gesicherte
-// Projektwahrheit ÜBER Runs hinweg — Vision, Decisions, Beliefs,
-// Open-Unknowns, Widersprüche. EINE Card pro Workspace (idempotent via
-// subKey='project-truth'). NICHT interaktiv (Lese-Anker), aber collapsibel.
+// Surface-manifestation strategy §7.2: shows the currently secured
+// project truth ACROSS runs — vision, decisions, beliefs,
+// open-unknowns, contradictions. ONE card per workspace (idempotent via
+// subKey='project-truth'). NOT interactive (read anchor), but collapsible.
 //
 // Payload:
 //   { workspaceId?, workstreamId?, vision?,
@@ -6782,7 +6782,7 @@ function renderProjectTruth(data: unknown): ReactNode {
   const beliefs = toTruthItems(data.beliefs);
   const openUnknowns = toTruthItems(data.openUnknowns ?? data.open_unknowns);
   const contradictions = toTruthItems(data.contradictions);
-  // Leerer Anker → nichts rendern (kein leerer Rahmen).
+  // Empty anchor → render nothing (no empty frame).
   if (
     !vision &&
     decisions.length === 0 &&
@@ -6933,21 +6933,21 @@ function ProjectTruthCard({
         </div>
       ) : null}
 
-      {/* Decisions sind immer sichtbar (der wichtigste Anker). */}
+      {/* Decisions are always visible (the most important anchor). */}
       <ProjectTruthSection
         title="Decisions"
         items={decisions}
         testId="project-truth-decisions"
       />
 
-      {/* Beliefs ebenfalls direkt sichtbar. */}
+      {/* Beliefs also directly visible. */}
       <ProjectTruthSection
         title="Beliefs"
         items={beliefs}
         testId="project-truth-beliefs"
       />
 
-      {/* Open-Unknowns direkt sichtbar (offene Punkte sind handlungsleitend). */}
+      {/* Open-Unknowns directly visible (open points are action-guiding). */}
       <ProjectTruthSection
         title="Open Unknowns"
         items={openUnknowns}
@@ -6955,7 +6955,7 @@ function ProjectTruthCard({
         accent="var(--a-warn, #FFD60A)"
       />
 
-      {/* Widersprüche nur im ausgeklappten Detail (rotes Akzent). */}
+      {/* Contradictions only in the expanded detail (red accent). */}
       {expanded ? (
         <ProjectTruthSection
           title="Widersprüche"
@@ -7074,25 +7074,25 @@ export function renderSurface(kind: SurfaceKind, data: unknown): ReactNode {
       return renderUserCorrection(data);
     case 'plan-open-questions':
       return renderPlanOpenQuestionsCard(data);
-    // Sub-Plan 3 · Cluster-Merges (2026-05-01) — kanonische Ziele
+    // Sub-Plan 3 · cluster merges (2026-05-01) — canonical targets
     case 'workflow':
       return renderWorkflow(data);
     case 'prompt':
       return renderPrompt(data);
     case 'agent-step':
       return renderAgentStep(data);
-    // BACKPORT-03 (2026-05-23) — Plan-First V2 Surfaces.
+    // BACKPORT-03 (2026-05-23) — Plan-First V2 surfaces.
     case 'subplan':
       return renderSubplan(data);
-    // BACKPORT-02 (2026-05-23) — Subagent-Fleet-View.
+    // BACKPORT-02 (2026-05-23) — subagent-fleet view.
     case 'subagent-fleet':
       return renderSubagentFleet(data);
-    // ACL5-B (2026-05-24) — Credential-Request-Surface.
-    // SECURITY: Surface-Payload KEIN secret; Secret nur via POST /api/connectors/[provider]/credential.
+    // ACL5-B (2026-05-24) — credential-request surface.
+    // SECURITY: surface payload NO secret; secret only via POST /api/connectors/[provider]/credential.
     case 'credential-request':
       return renderCredentialRequest(data);
-    // ACL5-E (2026-05-24) — Connector-Call-Preview-Surface.
-    // Approve-Action → POST /api/connectors/invoke. Kein secret im Payload.
+    // ACL5-E (2026-05-24) — connector-call-preview surface.
+    // Approve action → POST /api/connectors/invoke. No secret in the payload.
     case 'connector-call-preview':
       return renderConnectorCallPreview(data);
     // P1-#5 (2026-05-25) — Connector-Onboarding-Progress-Surface.
@@ -7100,57 +7100,57 @@ export function renderSurface(kind: SurfaceKind, data: unknown): ReactNode {
     // TODO(Wave-3): render a real progress card; for now fall through to null.
     case 'onboarding-progress':
       return null;
-    // A1 (2026-05-25) — Permission-Setup-Surface.
+    // A1 (2026-05-25) — permission-setup surface.
     // SECURITY: no secret fields. PATCH route is auth-gated.
     case 'permission-setup':
       return renderPermissionSetup(data);
-    // Flow Studio P3 (2026-05-27) — visuelle Flow-Graph-Surface (custom-SVG).
-    // Reines Rendering; Live-Wiring (flow_steps/plan-step-Status) folgt spaeter.
+    // Flow Studio P3 (2026-05-27) — visual flow-graph surface (custom SVG).
+    // Pure rendering; live wiring (flow_steps/plan-step status) follows later.
     case 'flow-graph':
       return renderFlowGraph(data);
-    // Self-Learning Workflow-Recording (2026-06-03, Slice 1) — Recurrence-Nudge.
+    // Self-learning workflow recording (2026-06-03, Slice 1) — recurrence nudge.
     case 'flow-recurrence':
       return renderFlowRecurrence(data);
-    // Bild-Generierung (2026-06-03) — selbst-fahrendes animiertes Lade-Surface.
+    // Image generation (2026-06-03) — self-driving animated loading surface.
     case 'image-gen':
       return renderImageGen(data);
-    // Flow Studio P-now (2026-05-27) — Tool-Kopplungs-Surface.
-    // SECURITY: Surface-Payload KEIN secret; Secret nur via CredentialRequestCard
+    // Flow Studio P-now (2026-05-27) — tool-coupling surface.
+    // SECURITY: surface payload NO secret; secret only via CredentialRequestCard
     // → POST /api/connectors/[provider]/credential. „Flow starten" → POST
     // /api/flow/[flowId]/run {workspaceId}.
     case 'flow-coupling':
       return renderFlowCoupling(data);
-    // Stream X1 (2026-05-28) — Einmaliger LIVE-Mode-Warn-Surface.
-    // Owner-Quittung wird in workspace_beliefs (topic='live-warn-acked')
-    // gespeichert. Payload-Schema: { workspaceId }.
+    // Stream X1 (2026-05-28) — one-time LIVE-mode warn surface.
+    // The owner acknowledgement is stored in workspace_beliefs (topic='live-warn-acked').
+    // Payload schema: { workspaceId }.
     case 'live-warn':
       return renderLiveWarn(data);
-    // E4 — Devil's-Advocate / Counter-Evidence (P13, 2026-05-27). Eigene
-    // Card NACH der Synthesis (gated), NICHT in den Synthesis-Stream
-    // gemischt. Rotes Flag wenn These nicht falsifizierbar.
+    // E4 — Devil's Advocate / counter-evidence (P13, 2026-05-27). Its own
+    // card AFTER the synthesis (gated), NOT mixed into the synthesis
+    // stream. Red flag when the thesis is not falsifiable.
     case 'counter-evidence':
       return renderCounterEvidence(data);
-    // Owner-Fix Run-Cockpit (2026-05-28) — aggregierte Master-Surface, die
-    // die simultane Emission von sub-workstreams + iterate-pipeline +
-    // iterate-version zu einer EINEN verfolgbaren Card buendelt. Mount
-    // registriert den Coord-Key im RunCockpitRegistry → die 3 Legacy-Cards
-    // supprimieren sich solange die Cockpit-Card im Strom lebt.
+    // Owner fix run-cockpit (2026-05-28) — aggregated master surface that
+    // bundles the simultaneous emission of sub-workstreams + iterate-pipeline +
+    // iterate-version into ONE trackable card. Mount
+    // registers the coord key in the RunCockpitRegistry → the 3 legacy cards
+    // suppress themselves as long as the cockpit card lives in the stream.
     case 'run-cockpit':
       return renderRunCockpit(data);
-    // Slice C (2026-05-29) — Discovery-Phase VOR Plan-Decompose.
-    // SECURITY: kein secret in der Payload; WebFetch nur auf vom Owner explizit
-    // genannte öffentliche URLs (N2 unberührt).
+    // Slice C (2026-05-29) — discovery phase BEFORE plan decompose.
+    // SECURITY: no secret in the payload; WebFetch only on public URLs explicitly
+    // named by the owner (N2 untouched).
     case 'discovery':
       return renderDiscovery(data);
-    // A4 (2026-05-29) — Merge-Offer-Surface (klickbarer Operator-Merge-Gate).
-    // „In Live mergen" → POST /api/workstreams/[id]/merge-run {} ist die
-    // EINZIGE Schreib-Aktion (R3 Human-Gate). „Diff ansehen" ist read-only.
-    // SECURITY: kein Secret in der Payload.
+    // A4 (2026-05-29) — merge-offer surface (clickable operator merge gate).
+    // „In Live mergen" → POST /api/workstreams/[id]/merge-run {} is the
+    // ONLY write action (R3 human gate). „Diff ansehen" is read-only.
+    // SECURITY: no secret in the payload.
     case 'merge-offer':
       return renderMergeOffer(data);
-    // A3/R7 (2026-05-29) — Project-Truth-Surface (langlebiger Lese-Anker).
-    // Bündelt Vision/Decisions/Beliefs/Open-Unknowns/Widersprüche; NICHT-
-    // interaktiv, collapsibel. SECURITY: kein Secret in der Payload.
+    // A3/R7 (2026-05-29) — project-truth surface (long-lived read anchor).
+    // Bundles vision/decisions/beliefs/open-unknowns/contradictions; non-
+    // interactive, collapsible. SECURITY: no secret in the payload.
     case 'project-truth':
       return renderProjectTruth(data);
     default: {
@@ -7162,29 +7162,29 @@ export function renderSurface(kind: SurfaceKind, data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Manifestation-Layer-Helper (Owner-Wunsch 2026-05-30)
+// Manifestation-layer helper (owner request 2026-05-30)
 // ---------------------------------------------------------------------------
 //
-// Owner-Wunsch (verbatim-nah): „Surface/Manifestation-Layer-Helper oder so, der
+// Owner request (near-verbatim): „Surface/Manifestation-Layer-Helper oder so, der
 // ggf. korrigiert oder wenn etwas nicht visualisiert wird, dass man direkt neues
 // Surface generieren drücken kann mit einem Icon Magic-Stift was weiß ich?!"
 //
-// `renderSurfaceOrHelper` ist die EINE Stelle, die der Render-Pfad
-// (surface-text-render.tsx) am Nicht-Render-Punkt aufruft. Sie versucht das
-// normale Rendering und ersetzt den alten nackten Tag-Text-Fallback durch die
-// Magic-Wand-Affordanz (`SurfaceHelperAffordance`), sobald NICHTS Sichtbares
-// herauskam — die drei realen Nicht-Render-Fälle:
+// `renderSurfaceOrHelper` is the ONE place that the render path
+// (surface-text-render.tsx) calls at the non-render point. It tries the
+// normal rendering and replaces the old naked tag-text fallback with the
+// Magic-Wand affordance (`SurfaceHelperAffordance`) as soon as NOTHING visible
+// came out — the three real non-render cases:
 //
-//   • render-null   — `renderSurface(kind, data)` gab `null` zurück (Payload
-//                     unvollständig/leer, oder ein noch-nicht-implementierter
-//                     Kind wie 'onboarding-progress').
-//   • parse-error   — `data === null` signalisiert, dass das Surface-JSON
-//                     nicht geparst werden konnte (Caller setzt data=null).
-//   • unknown-kind  — der Kind ist nicht in der SURFACE_KINDS-Whitelist.
+//   • render-null   — `renderSurface(kind, data)` returned `null` (payload
+//                     incomplete/empty, or a not-yet-implemented
+//                     kind like 'onboarding-progress').
+//   • parse-error   — `data === null` signals that the surface JSON
+//                     could not be parsed (the caller sets data=null).
+//   • unknown-kind  — the kind is not in the SURFACE_KINDS whitelist.
 //
-// Additiv & minimal-invasiv: bestehende Renderpfade sind unberührt — diese
-// Funktion wird NUR im else-Zweig (Nicht-Render) der beiden renderChatText-
-// Varianten aufgerufen.
+// Additive & minimally invasive: existing render paths are untouched — this
+// function is called ONLY in the else branch (non-render) of the two renderChatText
+// variants.
 
 import { SurfaceHelperAffordance } from './SurfaceHelperAffordance';
 
@@ -7193,32 +7193,32 @@ function isKnownSurfaceKind(kind: string): kind is SurfaceKind {
 }
 
 /**
- * Rendert ein Surface — und bei Nicht-Render die Magic-Wand-Affordanz statt
- * des nackten Tag-Texts. `data === null` wird als parse-error interpretiert
- * (der Caller setzt data=null, wenn JSON.parse scheiterte).
+ * Renders a surface — and on non-render the Magic-Wand affordance instead
+ * of the naked tag text. `data === null` is interpreted as a parse error
+ * (the caller sets data=null when JSON.parse failed).
  *
- * @param kind  der (ggf. unbekannte) Surface-Kind als roher String
- * @param data  geparste Payload, oder `null` bei Parse-Fehler
- * @param raw   der rohe `<surface:…>…</surface:…>`-Tag (Kontext für Re-Gen)
+ * @param kind  the (possibly unknown) surface kind as a raw string
+ * @param data  parsed payload, or `null` on a parse error
+ * @param raw   the raw `<surface:…>…</surface:…>` tag (context for re-gen)
  */
 export function renderSurfaceOrHelper(
   kind: string,
   data: unknown,
   raw: string,
 ): ReactNode {
-  // (c) unknown-kind — nicht whitelisted.
+  // (c) unknown-kind — not whitelisted.
   if (!isKnownSurfaceKind(kind)) {
     return (
       <SurfaceHelperAffordance reason="unknown-kind" kind={kind} raw={raw} />
     );
   }
-  // (b) parse-error — Caller signalisiert via data === null.
+  // (b) parse-error — the caller signals via data === null.
   if (data === null) {
     return (
       <SurfaceHelperAffordance reason="parse-error" kind={kind} raw={raw} />
     );
   }
-  // Normaler Pfad.
+  // Normal path.
   let rendered: ReactNode = null;
   try {
     rendered = renderSurface(kind, data);
@@ -7226,6 +7226,6 @@ export function renderSurfaceOrHelper(
     rendered = null;
   }
   if (rendered != null) return rendered;
-  // (a) render-null — Renderer gab nichts Sichtbares zurück.
+  // (a) render-null — the renderer returned nothing visible.
   return <SurfaceHelperAffordance reason="render-null" kind={kind} raw={raw} />;
 }

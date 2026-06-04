@@ -1,10 +1,10 @@
 /**
  * POST /api/terminal/[workspaceId]/send
  *
- * Body: { data: string } für literale Zeichen
- *   ODER { key: 'Enter' | 'Tab' | 'Up' | 'Down' | 'Left' | 'Right' | 'Backspace' | 'Escape' | 'C-c' | 'C-d' | 'C-z' | ... }
+ * Body: { data: string } for literal characters
+ *   OR { key: 'Enter' | 'Tab' | 'Up' | 'Down' | 'Left' | 'Right' | 'Backspace' | 'Escape' | 'C-c' | 'C-d' | 'C-z' | ... }
  *
- * Rate-Limit: per-IP 600/min via globaler Middleware.
+ * Rate limit: per-IP 600/min via the global middleware.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       return NextResponse.json({ error: 'too_long' }, { status: 400 });
     }
     try {
-      // sendKeysToPane mit -l flag = literal (sicher gegen tmux-Sonderzeichen)
+      // sendKeysToPane with -l flag = literal (safe against tmux special characters)
       await sendKeysToPane(session, PANE_INDEX, body.data, false);
       return NextResponse.json({ ok: true });
     } catch (err) {
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   if (typeof body.key === 'string') {
     const key = body.key;
-    // Strikt validieren — entweder named key oder C-X / M-X / S-X-Modifier
+    // Validate strictly — either a named key or a C-X / M-X / S-X modifier
     const isNamed = SAFE_NAMED_KEYS.has(key);
     const isControl = /^[CMS]-[a-zA-Z]$/.test(key);
     if (!isNamed && !isControl) {

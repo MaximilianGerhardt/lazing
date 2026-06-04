@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * useChatSuggestions — Inline-AutoSuggest für ChatComposer (mobile-first).
+ * useChatSuggestions — inline auto-suggest for ChatComposer (mobile-first).
  *
- * Tippt der User typische Präfixe ("Ti", "Rou", "Ses", "Obs", Workspace-IDs),
- * liefert der Hook eine kleine Liste ChatSuggestions, die der Composer
- * als Dropdown ÜBER dem Input-Feld rendert — kein Cmd+K nötig.
+ * When the user types typical prefixes ("Ti", "Rou", "Ses", "Obs", workspace IDs),
+ * the hook returns a small list of ChatSuggestions that the composer
+ * renders as a dropdown ABOVE the input field — no Cmd+K needed.
  *
- * Design-Intent:
- *   - Trigger ab len >= 2
- *   - Max 6 Items (Mobile-Viewport)
- *   - Drei Kategorien: nav (Routen), act (Aktionen), ws (Workspace-Switch)
- *   - Keine Chat-Prompt-Suggestion — das ist der Default beim Absenden.
+ * Design intent:
+ *   - Triggers from len >= 2
+ *   - Max 6 items (mobile viewport)
+ *   - Three categories: nav (routes), act (actions), ws (workspace switch)
+ *   - No chat-prompt suggestion — that is the default on send.
  */
 
 import { useMemo } from 'react';
@@ -52,10 +52,10 @@ interface Options {
   /** Min-length before suggestions appear. Default 2. */
   minLength?: number;
   /**
-   * Sub-Plan B (2026-04-29) — wenn die Eingabe mit `/` beginnt, soll das
-   * Composer-Feld auf den ausgewaehlten Slash-Command-Namen gesetzt werden
-   * (statt der Suggestion zu folgen). Caller liefert den Setter mit; ohne
-   * ihn fallen Slash-Suggestions auf einen no-op `onSelect` zurueck.
+   * Sub-Plan B (2026-04-29) — when the input starts with `/`, the
+   * composer field should be set to the chosen slash-command name
+   * (instead of following the suggestion). The caller provides the setter; without
+   * it, slash suggestions fall back to a no-op `onSelect`.
    */
   setInput?: (value: string) => void;
 }
@@ -74,16 +74,16 @@ export function useChatSuggestions(
     const q = query.trim();
     if (!enabled) return [];
 
-    // ---- Slash-Command-Branch ----
-    // Eingabe beginnt mit `/` -> wir zeigen NUR Slash-Commands, kein nav/ws/
-    // act-Mix. Filter laesst sich rein lexikalisch loesen: alles was mit dem
-    // bisher getippten Praefix anfaengt. Min-length-Schwelle gilt hier
-    // ausnahmsweise nicht — schon `/` allein soll die Liste oeffnen.
-    // Slash-Branch: User tippt mit `/` -> wir zeigen NUR Slash-Commands
-    // OHNE führenden Slash im Label (User-Wunsch 2026-05-03: "befehle wie
+    // ---- Slash-command branch ----
+    // Input starts with `/` -> we show ONLY slash commands, no nav/ws/
+    // act mix. The filter can be solved purely lexically: everything that starts
+    // with the prefix typed so far. The min-length threshold does
+    // exceptionally not apply here — even `/` alone should open the list.
+    // Slash branch: the user types with `/` -> we show ONLY slash commands
+    // WITHOUT a leading slash in the label (user request 2026-05-03: "befehle wie
     // /clear oder /compact nicht mit / im command center"). onSelect
-    // setzt den Composer auf das bare-word — `parseSlashCommand` akzeptiert
-    // sowohl `clear` als auch `/clear` als Match.
+    // sets the composer to the bare word — `parseSlashCommand` accepts
+    // both `clear` and `/clear` as a match.
     if (q.startsWith('/')) {
       const lowerNoSlash = q.slice(1).toLowerCase();
       const matches: ChatSuggestion[] = [];
@@ -110,9 +110,9 @@ export function useChatSuggestions(
 
     const out: ChatSuggestion[] = [];
 
-    // Bare-word Slash-Suggestions (User-Wunsch 2026-05-03): wenn User
-    // anfängt zu tippen ohne Slash, sollen Session-Commands trotzdem
-    // findbar sein. Fuzzy-Match auf bare-name + description.
+    // Bare-word slash suggestions (user request 2026-05-03): when the user
+    // starts typing without a slash, session commands should still
+    // be findable. Fuzzy match on bare-name + description.
     for (const cmd of SLASH_REGISTRY.values()) {
       const bare = cmd.name.replace(/^\//, '');
       const sc = fuzzy(q, bare + ' ' + cmd.description);
@@ -130,7 +130,7 @@ export function useChatSuggestions(
       }
     }
 
-    // ---- Routen ----
+    // ---- Routes ----
     const navs: Array<{ label: string; detail: string; href: string; kind: ChatSuggestionKind }> = [
       { label: 'Tickets zeigen', detail: 'alle offenen Aufgaben', href: '/tickets', kind: 'nav' },
       { label: 'Ticket erstellen', detail: 'neue Aufgabe anlegen', href: '/tickets/new', kind: 'act' },
@@ -156,7 +156,7 @@ export function useChatSuggestions(
       }
     }
 
-    // ---- Workspaces (fuzzy auf id + label) ----
+    // ---- Workspaces (fuzzy on id + label) ----
     for (const w of workspaces) {
       const sc = fuzzy(q, w.id + ' ' + w.label);
       if (sc >= 3) {

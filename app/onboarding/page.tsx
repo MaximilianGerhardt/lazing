@@ -1,11 +1,11 @@
 /**
- * /onboarding — Onboarding-Wizard MVP (Phase ORG SP-8).
+ * /onboarding — onboarding wizard MVP (Phase ORG SP-8).
  *
- * Server-Component. Liest current-user (oder redirected zu /login),
- * läd Onboarding-State, redirected wenn schon abgeschlossen.
+ * Server component. Reads current-user (or redirects to /login),
+ * loads the onboarding state, redirects if already completed.
  *
- * Phase-1-MVP: 3 Steps inline auf einer Page. Phase-N kann das auf
- * `/onboarding/[step]/page.tsx` aufteilen wenn Steps komplexer werden.
+ * Phase 1 MVP: 3 steps inline on a single page. Phase N can split this into
+ * `/onboarding/[step]/page.tsx` when the steps become more complex.
  */
 
 import { redirect } from "next/navigation";
@@ -30,7 +30,7 @@ export default async function OnboardingPage() {
     redirect("/login?reason=user-not-found");
   }
 
-  // Schon abgeschlossen → direkt zu /
+  // Already completed → straight to /
   if (user.onboardingCompletedAt) {
     redirect("/");
   }

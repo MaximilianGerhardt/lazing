@@ -1,12 +1,12 @@
 /**
  * GET /api/workspaces/[id]/subchats/activity
  *
- * Schlanker Activity-Snapshot für die proaktive Sub-Chat-Karte im Hauptchat
- * (Gathering-Intelligence in den Hauptchat holen, 2026-06-02). Liefert je
- * Sub-Chat letzte Nachricht (Vorschau), Zeitstempel der letzten externen
- * Nachricht und externe Gesamtzahl. shareTokenHash wird NIE ausgeliefert.
+ * Lean activity snapshot for the proactive sub-chat card in the main chat
+ * (pulling gathering-intelligence into the main chat, 2026-06-02). Returns per
+ * sub-chat the last message (preview), the timestamp of the last external
+ * message and the external total count. shareTokenHash is NEVER served.
  *
- * Auth: Workspace-Member (identisch zur Sub-Chat-Liste).
+ * Auth: workspace member (identical to the sub-chat list).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

@@ -1,22 +1,23 @@
 'use client';
 
 /**
- * InternalSubchat — interne Team-Sicht eines Workspace-Sub-Chats
+ * InternalSubchat — internal team view of a workspace sub-chat
  * (Gathering-Intelligence-Goal, 2026-06-02).
  *
- * Dünner Wrapper über der GETEILTEN Messenger-UI (SubchatThread + Composer) —
- * identische Optik wie die externe Sicht. Unterschiede: cookie-auth, Team-
- * Nachrichten rechts / Kunde links, Anhang-Upload über /api/cloud, und — im
- * Claude-Code-App-Stil — KI-Antwort-Vorschläge als Chips über dem Composer, wenn
- * die letzte Nachricht vom Kunden kam (Tap füllt den Composer). Keine Emojis.
+ * Thin wrapper over the SHARED messenger UI (SubchatThread + Composer) —
+ * identical look to the external view. Differences: cookie auth, team
+ * messages on the right / customer on the left, attachment upload via /api/cloud,
+ * and — in the Claude-Code-app style — AI reply suggestions as chips above the
+ * composer when the last message came from the customer (tap fills the composer).
+ * No emojis.
  *
- * Realtime (P2 UI-RT, Verdict): authed `useEventStream` (bares
- * `/api/events/stream`, client-seitig auf `workspaceId` + `payload.subchatId`
- * gefiltert) treibt ein debounced `load()`-Refetch bei `subchat_message`.
- * Warm-Instance → Sub-Sekunden-Update. Cold/Multi-Instance (broadcast ist
- * per-Lambda) → 30s-Poll + Focus-Refetch als Korrektheits-Boden. Der Event-
- * Payload enthält nur eine 120-Zeichen-`preview` — die wird NIE als Nachricht
- * gerendert (N1): `load()` holt die autoritativen vollen Rows.
+ * Realtime (P2 UI-RT, Verdict): authed `useEventStream` (bare
+ * `/api/events/stream`, filtered client-side on `workspaceId` + `payload.subchatId`)
+ * drives a debounced `load()` refetch on `subchat_message`.
+ * Warm instance → sub-second update. Cold/multi-instance (broadcast is
+ * per-Lambda) → 30s poll + focus refetch as a correctness floor. The event
+ * payload contains only a 120-character `preview` — which is NEVER rendered as a
+ * message (N1): `load()` fetches the authoritative full rows.
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -33,10 +34,10 @@ import { useEventStream } from '@/lib/chat/useEventStream';
 import { useSubchatQuestions } from '@/lib/subchats/ui/useSubchatQuestions';
 import { SubchatQuestionsPill } from '@/lib/subchats/ui/SubchatQuestionsPill';
 
-// Safety-Boden statt schnellem Primär-Poll: das Live-Event ist der schnelle
-// Pfad (Sub-Sekunde auf der warmen Instanz), der 30s-Poll + Focus-Refetch ist
-// der Multi-Instance-Korrektheits-Boden (broadcast ist per-Lambda, der SSE-
-// Socket und der schreibende POST können auf verschiedenen Instanzen landen).
+// Safety floor instead of a fast primary poll: the live event is the fast
+// path (sub-second on the warm instance), the 30s poll + focus refetch is
+// the multi-instance correctness floor (broadcast is per-Lambda, the SSE
+// socket and the writing POST can land on different instances).
 const POLL_MS = 30000;
 
 export function InternalSubchat({
@@ -56,24 +57,24 @@ export function InternalSubchat({
   const [lb, setLb] = useState<{ images: LightboxImage[]; index: number } | null>(null);
   const lastSuggestForRef = useRef<string | null>(null);
 
-  // Question-Spinning (2026-06-03): angespinnte Fragen dieses Sub-Chats,
-  // sequentiell-prominent über dem Composer. DB-autoritativ; Poll + Realtime.
+  // Question-Spinning (2026-06-03): spun-up questions of this sub-chat,
+  // sequentially prominent above the composer. DB-authoritative; poll + realtime.
   const questions = useSubchatQuestions(subchatId);
 
-  // Lese-Wasserstand des GEGENPARTS (max lastReadTs aller userId !== viewer) aus
-  // der GET-Antwort. Treibt die Lese-Haken auf EIGENEN Nachrichten in der UI:
-  // eine eigene Nachricht gilt als gelesen, sobald createdAt <= recipientReadTs.
+  // Read watermark of the COUNTERPART (max lastReadTs of all userId !== viewer)
+  // from the GET response. Drives the read ticks on OWN messages in the UI:
+  // an own message counts as read once createdAt <= recipientReadTs.
   const [recipientReadTs, setRecipientReadTs] = useState<number>(0);
-  // Ephemerer Tipp-Indikator des Gegenparts ("Kunde schreibt …"), selbst-löschend
-  // nach 4s (kein Stop-Event — passt zum transienten subchat_typing-Design).
+  // Ephemeral typing indicator of the counterpart ("Kunde schreibt …"), self-clearing
+  // after 4s (no stop event — matches the transient subchat_typing design).
   const [typingLabel, setTypingLabel] = useState<string | null>(null);
   const typingClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Mount-Nonce zur Selbst-Echo-Unterdrückung des Tipp-Signals (sonst sähe der
-  // Operator sein eigenes Tippen als „Team schreibt …").
+  // Mount nonce for self-echo suppression of the typing signal (otherwise the
+  // operator would see their own typing as „Team schreibt …").
   const clientIdRef = useRef<string>(Math.random().toString(36).slice(2));
 
-  // Mark-read-Dedupe: nur POSTen, wenn der jüngste externe Zeitstempel
-  // gegenüber dem letzten Read-POST vorgerückt ist (kein Spam pro Poll).
+  // Mark-read dedupe: only POST when the most recent external timestamp
+  // has advanced past the last read POST (no spam per poll).
   const lastReadTsRef = useRef<number>(0);
 
   const load = useCallback(async () => {
@@ -93,7 +94,7 @@ export function InternalSubchat({
       };
       setTitle(data.subchat.title);
       setMessages(data.messages);
-      // Subchat-Level-Wasserstand (ms epoch, 0 = niemand sonst hat gelesen).
+      // Subchat-level watermark (ms epoch, 0 = nobody else has read).
       if (typeof data.recipientReadTs === 'number') setRecipientReadTs(data.recipientReadTs);
       setStatus('ok');
     } catch {
@@ -101,16 +102,16 @@ export function InternalSubchat({
     }
   }, [subchatId]);
 
-  // Fire-and-forget Mark-read. Debounced über lastReadTsRef: nur posten, wenn
-  // wir wirklich etwas Neues gesehen haben (lastMessage rückte vor). Nicht-fatal.
+  // Fire-and-forget mark-read. Debounced via lastReadTsRef: only post when
+  // we have actually seen something new (lastMessage advanced). Non-fatal.
   const markReadRef = useRef(messages);
   markReadRef.current = messages;
   const markRead = useCallback(() => {
     const msgs = markReadRef.current;
     const last = msgs[msgs.length - 1];
     const ts = last ? last.createdAt : 0;
-    // Nur posten, wenn (a) es überhaupt Nachrichten gibt und (b) der jüngste
-    // Zeitstempel seit dem letzten Read-POST vorgerückt ist.
+    // Only post when (a) there are any messages at all and (b) the most recent
+    // timestamp has advanced since the last read POST.
     if (ts <= lastReadTsRef.current) return;
     lastReadTsRef.current = ts;
     void fetch(`/api/subchats/${encodeURIComponent(subchatId)}/read`, {
@@ -119,11 +120,11 @@ export function InternalSubchat({
       body: JSON.stringify({}),
       credentials: 'same-origin',
     }).catch(() => {
-      /* non-fatal: nächster Focus/Load versucht es erneut */
+      /* non-fatal: next focus/load tries again */
     });
   }, [subchatId]);
 
-  // Debounced load() — koalesziert Event-Bursts (~250ms), keine neue Dependency.
+  // Debounced load() — coalesces event bursts (~250ms), no new dependency.
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refetchSoon = useCallback(() => {
     if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
@@ -133,9 +134,9 @@ export function InternalSubchat({
     }, 250);
   }, [load]);
 
-  // Ausgehendes Tipp-Signal: debounced (der Composer drosselt onTyping bereits
-  // auf >=1/2s, SubchatComposer.tsx) → ephemerer POST an /typing (kein DB-Insert
-  // serverseitig, nur broadcast an SSE-Subscriber). Best-effort, non-fatal.
+  // Outgoing typing signal: debounced (the composer already throttles onTyping
+  // to >=1/2s, SubchatComposer.tsx) → ephemeral POST to /typing (no DB insert
+  // server-side, only broadcast to SSE subscribers). Best-effort, non-fatal.
   const emitTyping = useCallback(() => {
     void fetch(`/api/subchats/${encodeURIComponent(subchatId)}/typing`, {
       method: 'POST',
@@ -148,8 +149,8 @@ export function InternalSubchat({
     });
   }, [subchatId]);
 
-  // Live-Refetch via SSE. Der Hook verwirft fremde Workspaces + replayte
-  // Initial-Events selbst; wir guarden zusätzlich auf payload.subchatId.
+  // Live refetch via SSE. The hook discards foreign workspaces + replayed
+  // initial events itself; we additionally guard on payload.subchatId.
   useEventStream({
     workspaceId,
     enabled: true,
@@ -159,22 +160,22 @@ export function InternalSubchat({
         | undefined;
       if (p?.subchatId !== subchatId) return;
       if (ev.type === 'subchat_message') {
-        // Neue Nachricht → autoritatives Re-Load (frischt auch recipientReadTs/
-        // Haken auf) UND Mark-read (wir schauen gerade drauf). Tipp-Blase weg.
+        // New message → authoritative re-load (also refreshes recipientReadTs/
+        // ticks) AND mark-read (we are looking at it right now). Typing bubble gone.
         refetchSoon();
         markRead();
         setTypingLabel(null);
         return;
       }
       if (ev.type === 'subchat_question' || ev.type === 'subchat_question_answer') {
-        // Question-Spinning: neue/​beantwortete Frage → Fragen-Pille refetchen.
+        // Question-Spinning: new/answered question → refetch the questions pill.
         void questions.refetch();
         return;
       }
       if (ev.type === 'subchat_typing') {
-        // Eigenes Tipp-Echo unterdrücken (gleiche Mount-Nonce).
+        // Suppress own typing echo (same mount nonce).
         if (p?.fromClientId === clientIdRef.current) return;
-        // Nur fremdes Tippen anzeigen; selbst-löschend nach 4s (kein Stop-Event).
+        // Only show foreign typing; self-clearing after 4s (no stop event).
         setTypingLabel(`${p?.who?.trim() || 'Kunde'} schreibt …`);
         if (typingClearRef.current) clearTimeout(typingClearRef.current);
         typingClearRef.current = setTimeout(() => setTypingLabel(null), 4000);
@@ -182,8 +183,8 @@ export function InternalSubchat({
     },
   });
 
-  // Initial-Load + 30s-Safety-Poll + Focus/Visibility-Refetch (Korrektheits-
-  // Boden, falls das Live-Event auf einer anderen Lambda-Instanz landete).
+  // Initial load + 30s safety poll + focus/visibility refetch (correctness
+  // floor in case the live event landed on a different Lambda instance).
   useEffect(() => {
     void load();
     const t = window.setInterval(() => void load(), POLL_MS);
@@ -204,22 +205,22 @@ export function InternalSubchat({
     };
   }, [load]);
 
-  // Mark-read, sobald sich der Feed geändert hat und die letzte Nachricht vom
-  // Kunden kam (wir haben sie gerade gesehen). Dedupe via lastReadTsRef.
+  // Mark-read as soon as the feed has changed and the last message came from
+  // the customer (we just saw it). Dedupe via lastReadTsRef.
   useEffect(() => {
     if (status !== 'ok') return;
     const last = messages[messages.length - 1];
     if (last && last.authorKind === 'external') markRead();
   }, [messages, status, markRead]);
 
-  // Mark-read auch beim Fokussieren des Fensters (Operator schaut wieder rein).
+  // Mark-read also when focusing the window (operator looks in again).
   useEffect(() => {
     const onFocus = (): void => markRead();
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [markRead]);
 
-  // KI-Vorschläge, wenn die letzte Nachricht vom Kunden kam (einmal pro Message).
+  // AI suggestions when the last message came from the customer (once per message).
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (!last || last.authorKind !== 'external') {
@@ -244,17 +245,17 @@ export function InternalSubchat({
     [],
   );
 
-  // Schnelle Bild-Vorschau-URL (THUMB-Endpoint, 256px). Nur intern + member-gegated;
-  // die Lightbox lädt weiterhin die vollen Bytes via mediaUrl.
+  // Fast image preview URL (THUMB endpoint, 256px). Internal + member-gated only;
+  // the lightbox still loads the full bytes via mediaUrl.
   const thumbUrl = useCallback(
     (a: UiAttachment) =>
       `/api/subchats/${encodeURIComponent(subchatId)}/thumb/${encodeURIComponent(a.artifactId)}`,
     [subchatId],
   );
 
-  // Progress-Uploader (UI-MSG-Kontrakt): wrappt /api/cloud in XMLHttpRequest,
-  // um upload.onprogress (0..100) zu bekommen. Liefert das hochgeladene
-  // Artefakt als UiAttachment zurück, oder wirft.
+  // Progress uploader (UI-MSG contract): wraps /api/cloud in XMLHttpRequest
+  // to get upload.onprogress (0..100). Returns the uploaded
+  // artifact as a UiAttachment, or throws.
   const uploader: Uploader = useCallback(
     (file, onProgress) =>
       new Promise<UiAttachment>((resolve, reject) => {
@@ -298,16 +299,16 @@ export function InternalSubchat({
     [workspaceId],
   );
 
-  // Progress-Mode-Send: der Composer hat bereits hochgeladen und reicht die
-  // fertigen Artefakte; wir posten nur noch Text + attachments und re-laden.
+  // Progress-mode send: the composer has already uploaded and hands over the
+  // finished artifacts; we only post text + attachments and re-load.
   const onSendUploaded = useCallback(
     async (text: string, attachments: UiAttachment[]) => {
       setBusy(true);
       setSuggestions([]);
       try {
-        // Optimistischer Echo (2026-06-03): auch MIT Anhängen sofort anzeigen,
-        // damit die gesendete Nachricht nie „leer"/verzögert wirkt. load()
-        // ersetzt danach durch die autoritative Server-Liste.
+        // Optimistic echo (2026-06-03): show immediately even WITH attachments,
+        // so the sent message never feels „leer"/delayed. load()
+        // afterwards replaces it with the authoritative server list.
         if (text || attachments.length > 0) {
           setMessages((m) => [
             ...m,
@@ -321,7 +322,7 @@ export function InternalSubchat({
         });
         await load();
       } catch {
-        /* Poll/Live-Event holt es nach */
+        /* poll/live event catches it up */
       } finally {
         setBusy(false);
       }
@@ -357,9 +358,9 @@ export function InternalSubchat({
         <div style={s.headerSub}>Team-Sicht</div>
       </header>
 
-      {/* D2 (2026-06-03): klarer Channel-Hinweis — Subchats sind Kunde↔Team
-          (KEIN KI-Antworter); die KI schlägt Antworten vor + speist den
-          Hauptchat. Behebt den Erwartungs-Mismatch „Chat antwortet nicht". */}
+      {/* D2 (2026-06-03): clear channel hint — subchats are customer↔team
+          (NOT an AI responder); the AI suggests replies + feeds the
+          main chat. Fixes the expectation mismatch „Chat antwortet nicht". */}
       <div
         style={{
           padding: '8px clamp(12px, 4vw, 20px)',

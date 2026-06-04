@@ -26,21 +26,21 @@ export const workspaceBeliefs = sqliteTable(
   "workspace_beliefs",
   {
     id: text("id").primaryKey(),
-    /** ManifestCoord-Scope (N9), kein harter FK. */
+    /** ManifestCoord scope (N9), no hard FK. */
     workspaceId: text("workspace_id").notNull(),
-    /** Themen-Schlüssel (Start: LIKE/exact-match-Recall). */
+    /** Topic key (start: LIKE/exact-match recall). */
     topic: text("topic").notNull(),
-    /** Die Überzeugung, VERBATIM (N1). */
+    /** The conviction, VERBATIM (N1). */
     belief: text("belief").notNull(),
-    /** Das WARUM, VERBATIM (N1). */
+    /** The WHY, VERBATIM (N1). */
     rationale: text("rationale").notNull(),
-    /** 'user' | 'ai' — wer die Überzeugung gebildet hat. */
+    /** 'user' | 'ai' — who formed the conviction. */
     source: text("source").notNull(),
-    /** Nullable: löst eine ältere Belief-Row ab (Historie bleibt erhalten). */
+    /** Nullable: supersedes an older belief row (history is kept). */
     supersedesId: text("supersedes_id"),
-    /** Nullable: 0..1 Konfidenz (optional). */
+    /** Nullable: 0..1 confidence (optional). */
     confidence: real("confidence"),
-    /** N10 Tamper-Evidenz (sha256 über kanonisches JSON). */
+    /** N10 tamper-evidence (sha256 over canonical JSON). */
     contentHash: text("content_hash").notNull(),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
@@ -61,15 +61,15 @@ export const decisionOutcomes = sqliteTable(
   "decision_outcomes",
   {
     id: text("id").primaryKey(),
-    /** ManifestCoord-Scope (N9). */
+    /** ManifestCoord scope (N9). */
     workspaceId: text("workspace_id").notNull(),
-    /** Soft-FK auf workstream_decisions.id (nullable). */
+    /** Soft-FK on workstream_decisions.id (nullable). */
     decisionId: text("decision_id"),
-    /** Soft-FK auf workstreams.id (nullable). */
+    /** Soft-FK on workstreams.id (nullable). */
     workstreamId: text("workstream_id"),
     /** 'success' | 'failure' | 'partial' | 'unknown'. */
     outcome: text("outcome").notNull(),
-    /** VERBATIM Detail/Begründung (N1), nullable. */
+    /** VERBATIM detail/reason (N1), nullable. */
     note: text("note"),
     createdAt: integer("created_at").notNull(),
   },

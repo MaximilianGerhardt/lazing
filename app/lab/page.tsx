@@ -1,11 +1,11 @@
 /**
- * /lab Landing-Page (MVP, 2026-05-01).
+ * /lab landing page (MVP, 2026-05-01).
  *
- * Drei Pattern-Archetypen-Cards mit echten Workspace-Bezügen +
- * Real-Use-Counts der letzten 30 Tage. Workspace-Filter (Dropdown)
- * oben rechts ändert die Counts.
+ * Three pattern-archetype cards with real workspace references +
+ * real-use counts of the last 30 days. The workspace filter (dropdown)
+ * top right changes the counts.
  *
- * Auth ist im Layout abgehandelt — dieser Page läuft nur für
+ * Auth is handled in the layout — this page only runs for
  * admin/founder.
  */
 

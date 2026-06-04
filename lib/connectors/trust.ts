@@ -1,25 +1,25 @@
 /**
- * Connector Trust-Store (ACL-5-C — 2026-05-24).
+ * Connector trust store (ACL-5-C — 2026-05-24).
  *
- * Verwaltet den Trust-Level ('ask'|'auto') pro Connector+Scope und schreibt
- * jeden Phase-Übergang eines Connector-Calls in das Audit-Log.
+ * Manages the trust level ('ask'|'auto') per connector+scope and writes
+ * every phase transition of a connector call to the audit log.
  *
  * Design:
- *   D1  Trust-Default 'ask' — fail-closed Richtung Bestätigung (N6).
- *       getTrust() gibt 'ask' zurück wenn kein Eintrag existiert.
- *   D2  setTrust() schreibt einen Approval-Eintrag + eine Audit-Row (N8).
- *   D3  recordCallAudit() schreibt payload_hash statt rohem Payload (kein PII/Secret).
- *   D4  content_hash (N10) via canonicalJSON auf beiden Tabellen.
- *   D5  Secrets tauchen hier nirgends auf.
+ *   D1  Trust default 'ask' — fail-closed towards confirmation (N6).
+ *       getTrust() returns 'ask' when no entry exists.
+ *   D2  setTrust() writes an approval entry + an audit row (N8).
+ *   D3  recordCallAudit() writes payload_hash instead of the raw payload (no PII/secret).
+ *   D4  content_hash (N10) via canonicalJSON on both tables.
+ *   D5  Secrets never appear here.
  *
- * N8:  Jede Trust-Änderung + jeder Phase-Übergang schreibt eine Audit-Row.
- * N10: content_hash = sha256(canonicalJSON(row ohne hash-Feld)).
- * N9:  scope_kind + scope_id sind Pflicht-Anker für alle Queries.
+ * N8:  every trust change + every phase transition writes an audit row.
+ * N10: content_hash = sha256(canonicalJSON(row without the hash field)).
+ * N9:  scope_kind + scope_id are mandatory anchors for all queries.
  *
- * Fail-closed Pattern:
- *   - DB-Fehler bei getTrust → Fallback 'ask' (niemals 'auto' bei Unklarheit).
- *   - recordCallAudit ist best-effort (niemals die Call-Pipeline blockieren,
- *     aber sichtbar loggen wenn ein Audit-Write schlägt — N8-Observability).
+ * Fail-closed pattern:
+ *   - DB error in getTrust → fallback 'ask' (never 'auto' on ambiguity).
+ *   - recordCallAudit is best-effort (never block the call pipeline,
+ *     but log visibly when an audit write fails — N8 observability).
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -52,17 +52,17 @@ export interface TrustArgs {
 export interface SetTrustArgs extends TrustArgs {
   trust: ConnectorTrust;
   /**
-   * Akteur der den Trust-Level ändert.
+   * The actor changing the trust level.
    *
-   * Finding 4a (Doc): Der Caller MUSS hier eine BEREITS AUTHENTIFIZIERTE userId
-   * (oder 'system' für automatisierte Writes) übergeben. setTrust führt KEINEN
-   * eigenen Auth-/Session-Lookup durch — es vertraut dem übergebenen Wert und
-   * schreibt ihn unverändert in set_by + die N8-Audit-Row. Eine nicht-validierte
-   * oder vom Client kontrollierte ID hier würde die Audit-Attribution fälschbar
-   * machen. Authentifizierung passiert in der Route/dem Handler vor diesem Aufruf.
+   * Finding 4a (doc): the caller MUST pass an ALREADY AUTHENTICATED userId here
+   * (or 'system' for automated writes). setTrust performs NO
+   * own auth/session lookup — it trusts the passed value and
+   * writes it unchanged into set_by + the N8 audit row. A non-validated
+   * or client-controlled ID here would make the audit attribution forgeable.
+   * Authentication happens in the route/handler before this call.
    */
   actor: string;
-  /** Optionale Begründung für N8-Rückverfolgbarkeit. */
+  /** Optional justification for N8 traceability. */
   reason?: string;
 }
 
@@ -73,39 +73,39 @@ export interface RecordCallAuditArgs {
   capability: string;
   userId: string;
   phase: ConnectorCallPhase;
-  /** true = echter Netzwerk-Call; false = Dry-Run oder nicht-invoke Phase. */
+  /** true = real network call; false = dry run or non-invoke phase. */
   live?: boolean;
   /**
-   * Der Call-Payload CANONICAL-JSON-HASH (sha256 von canonical-JSON des Payloads).
-   * NIE der rohe Payload — kein Secret, kein PII im Audit-Log (D3).
-   * Wenn undefined: kein Payload bekannt (OK für 'deny' vor Payload-Konstruktion).
+   * The call payload's CANONICAL-JSON HASH (sha256 of the payload's canonical-JSON).
+   * NEVER the raw payload — no secret, no PII in the audit log (D3).
+   * If undefined: no payload known (OK for 'deny' before payload construction).
    */
   payloadHash?: string;
-  /** Kurze Ergebnis-Zusammenfassung. z.B. 'status=200 duration=340ms'. NIE Response-Body. */
+  /** Short result summary. e.g. 'status=200 duration=340ms'. NEVER a response body. */
   resultSummary?: string;
   success: boolean;
-  /** Deny-Grund oder Fehler-Text. NULL bei Erfolg. */
+  /** Deny reason or error text. NULL on success. */
   reason?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Interne Hilfsfunktionen
+// Internal helper functions
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** ID-Generator mit Präfix für visuelle Unterscheidbarkeit. */
+/** ID generator with a prefix for visual distinguishability. */
 function generateId(prefix: string): string {
   return `${prefix}${randomUUID()}`;
 }
 
 /**
- * Finding 6a: gültiges payloadHash-Format = sha256-hex (64 chars [0-9a-f]).
- * recordCallAudit lehnt alles andere ab (kein Roh-Payload im Audit).
+ * Finding 6a: valid payloadHash format = sha256-hex (64 chars [0-9a-f]).
+ * recordCallAudit rejects anything else (no raw payload in the audit).
  */
 const PAYLOAD_HASH_RE = /^[0-9a-f]{64}$/;
 
 /**
- * N10 content_hash für einen connector_call_approvals-Row.
- * Deckt alle Felder außer content_hash selbst ab.
+ * N10 content_hash for a connector_call_approvals row.
+ * Covers all fields except content_hash itself.
  */
 function hashApprovalRow(row: {
   id: string;
@@ -133,8 +133,8 @@ function hashApprovalRow(row: {
 }
 
 /**
- * N10 content_hash für einen connector_call_audit-Row.
- * Deckt alle Felder außer content_hash selbst ab.
+ * N10 content_hash for a connector_call_audit row.
+ * Covers all fields except content_hash itself.
  */
 function hashAuditRow(row: {
   id: string;
@@ -170,8 +170,8 @@ function hashAuditRow(row: {
 }
 
 /**
- * Validiert scope_kind gegen die erlaubten Werte (N6 deterministisch).
- * Wirft wenn der Wert ungültig ist (fail-closed).
+ * Validates scope_kind against the allowed values (N6 deterministic).
+ * Throws if the value is invalid (fail-closed).
  */
 function assertValidScopeKind(scopeKind: string): asserts scopeKind is ConnectorScopeKind {
   if (!(CONNECTOR_SCOPE_KINDS as readonly string[]).includes(scopeKind)) {
@@ -182,8 +182,8 @@ function assertValidScopeKind(scopeKind: string): asserts scopeKind is Connector
 }
 
 /**
- * Validiert phase gegen die erlaubten Werte (N6 deterministisch).
- * Wirft wenn der Wert ungültig ist (fail-closed).
+ * Validates phase against the allowed values (N6 deterministic).
+ * Throws if the value is invalid (fail-closed).
  */
 function assertValidPhase(phase: string): asserts phase is ConnectorCallPhase {
   if (!(CONNECTOR_CALL_PHASES as readonly string[]).includes(phase)) {
@@ -194,8 +194,8 @@ function assertValidPhase(phase: string): asserts phase is ConnectorCallPhase {
 }
 
 /**
- * Validiert trust gegen die erlaubten Werte (N6 deterministisch).
- * Wirft wenn der Wert ungültig ist (fail-closed).
+ * Validates trust against the allowed values (N6 deterministic).
+ * Throws if the value is invalid (fail-closed).
  */
 function assertValidTrust(trust: string): asserts trust is ConnectorTrust {
   if (!(CONNECTOR_TRUST_VALUES as readonly string[]).includes(trust)) {
@@ -206,15 +206,15 @@ function assertValidTrust(trust: string): asserts trust is ConnectorTrust {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// getTrust — fail-closed Richtung 'ask'
+// getTrust — fail-closed towards 'ask'
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Liest den Trust-Level für einen Connector in einem Scope.
+ * Reads the trust level for a connector in a scope.
  *
- * Trust-Default (D1): 'ask' — fail-closed Richtung Bestätigung.
- * Wenn kein Eintrag existiert oder ein DB-Fehler auftritt: immer 'ask'.
- * Niemals 'auto' als impliziter Default.
+ * Trust default (D1): 'ask' — fail-closed towards confirmation.
+ * If no entry exists or a DB error occurs: always 'ask'.
+ * Never 'auto' as an implicit default.
  *
  * @returns 'ask' | 'auto'
  */
@@ -223,8 +223,8 @@ export function getTrust(
   scopeId: string,
   provider: string,
 ): ConnectorTrust {
-  // Vorab-Validierung (N6): ungültige scopeKind → sofort 'ask' (fail-closed).
-  // Wirft hier NICHT (wäre breaking für Aufrufer) — stattdessen warn + fallback.
+  // Pre-validation (N6): invalid scopeKind → immediately 'ask' (fail-closed).
+  // Does NOT throw here (would be breaking for callers) — instead warn + fallback.
   if (!(CONNECTOR_SCOPE_KINDS as readonly string[]).includes(scopeKind)) {
     // eslint-disable-next-line no-console
     console.warn(
@@ -256,14 +256,14 @@ export function getTrust(
       .get();
 
     if (!row) {
-      // Kein Eintrag = 'ask' (default fail-closed, D1).
+      // No entry = 'ask' (default fail-closed, D1).
       return "ask";
     }
 
-    // Validiere den gespeicherten Wert (N6: deterministisch, Tamper-Guard).
+    // Validate the stored value (N6: deterministic, tamper guard).
     const stored = row.trust;
     if (!(CONNECTOR_TRUST_VALUES as readonly string[]).includes(stored)) {
-      // Gespeicherter Wert ist ungültig/tampered → fail-closed.
+      // Stored value is invalid/tampered → fail-closed.
       // eslint-disable-next-line no-console
       console.warn(
         `[trust:getTrust] Ungültiger gespeicherter trust-Wert '${stored}' für provider='${provider}' — Fallback zu 'ask'.`,
@@ -273,7 +273,7 @@ export function getTrust(
 
     return stored as ConnectorTrust;
   } catch (err) {
-    // DB-Fehler → fail-closed (D1: niemals 'auto' bei Unklarheit).
+    // DB error → fail-closed (D1: never 'auto' on ambiguity).
     // eslint-disable-next-line no-console
     console.warn(
       `[trust:getTrust] DB-Fehler — Fallback zu 'ask' (fail-closed):`,
@@ -284,28 +284,28 @@ export function getTrust(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// setTrust — persistiert + schreibt N8-Audit-Row
+// setTrust — persists + writes an N8 audit row
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Setzt den Trust-Level für einen Connector in einem Scope.
+ * Sets the trust level for a connector in a scope.
  *
- * Schreibt in EINER atomaren DB-Transaktion (P2-#10, N8 fail-closed):
- *   1. Approval-Upsert in connector_call_approvals.
- *   2. Audit-Row in connector_call_audit mit phase='approve'.
+ * Writes in ONE atomic DB transaction (P2-#10, N8 fail-closed):
+ *   1. Approval upsert into connector_call_approvals.
+ *   2. Audit row into connector_call_audit with phase='approve'.
  *
- * Fail-closed: wenn der Audit-Write wirft → gesamte Transaktion rollt zurück.
- * Eine Trust-Änderung KANN NICHT ohne Audit-Row persistieren (N8 hard-contract,
- * im Gegensatz zu recordCallAudit das best-effort ist).
+ * Fail-closed: if the audit write throws → the entire transaction rolls back.
+ * A trust change CANNOT persist without an audit row (N8 hard contract,
+ * unlike recordCallAudit which is best-effort).
  *
- * Wirft bei ungültigem scopeKind, trust, leerem provider/scopeId/actor (N6).
- * Wirft wenn die DB-Transaktion schlägt (Caller muss fangen oder propagieren).
+ * Throws on an invalid scopeKind, trust, empty provider/scopeId/actor (N6).
+ * Throws if the DB transaction fails (the caller must catch or propagate).
  *
- * N10: content_hash auf beiden Rows.
- * N8:  Audit-Row mit phase='approve' — in derselben TX wie der Approval (fail-closed).
+ * N10: content_hash on both rows.
+ * N8:  audit row with phase='approve' — in the same TX as the approval (fail-closed).
  */
 export function setTrust(args: SetTrustArgs): void {
-  // N6: Deterministisch validieren bevor DB-Zugriff.
+  // N6: validate deterministically before DB access.
   assertValidScopeKind(args.scopeKind);
   assertValidTrust(args.trust);
 
@@ -326,8 +326,8 @@ export function setTrust(args: SetTrustArgs): void {
   const trimmedActor = args.actor.trim();
   const trimmedReason = args.reason?.trim() ?? null;
 
-  // Prüfe ob bereits ein Eintrag existiert (für createdAt-Stabilität).
-  // Außerhalb der Transaktion, da es nur ein Read ist (keine TX nötig).
+  // Check whether an entry already exists (for createdAt stability).
+  // Outside the transaction, since it is only a read (no TX needed).
   const existing = db
     .select()
     .from(connectorCallApprovals)
@@ -343,7 +343,7 @@ export function setTrust(args: SetTrustArgs): void {
   const id = existing?.id ?? generateId("CCA-");
   const createdAt = existing?.createdAt ?? now;
 
-  // N10 content_hash für den Approval-Eintrag.
+  // N10 content_hash for the approval entry.
   const contentHash = hashApprovalRow({
     id,
     scopeKind: args.scopeKind,
@@ -356,9 +356,9 @@ export function setTrust(args: SetTrustArgs): void {
     updatedAt: now,
   });
 
-  // N8-Audit-Row vorbereiten (innerhalb der TX geschrieben).
+  // Prepare the N8 audit row (written inside the TX).
   const auditId = generateId("CCAUD-");
-  const auditTs = now; // selbe Millisekunde wie Approval für TX-Atomizität
+  const auditTs = now; // same millisecond as the approval for TX atomicity
   const auditContentHash = hashAuditRow({
     id: auditId,
     ts: auditTs,
@@ -375,12 +375,12 @@ export function setTrust(args: SetTrustArgs): void {
     reason: trimmedReason,
   });
 
-  // P2-#10 (N8 fail-closed): Approval-Upsert + Audit-Row in EINER Transaktion.
-  // Wirft der Audit-Write → rollback der ganzen TX → kein Approval ohne Audit.
-  // better-sqlite3 `.transaction(fn)` gibt eine Wrapper-Funktion zurück;
-  // `txFn()` führt fn synchron + atomar aus und wirft bei jedem Fehler in fn.
+  // P2-#10 (N8 fail-closed): approval upsert + audit row in ONE transaction.
+  // If the audit write throws → rollback of the whole TX → no approval without audit.
+  // better-sqlite3 `.transaction(fn)` returns a wrapper function;
+  // `txFn()` runs fn synchronously + atomically and throws on any error in fn.
   const txFn = db.$raw.transaction(() => {
-    // 1. Approval-Upsert.
+    // 1. Approval upsert.
     db.insert(connectorCallApprovals)
       .values({
         id,
@@ -410,7 +410,7 @@ export function setTrust(args: SetTrustArgs): void {
       })
       .run();
 
-    // 2. Audit-Row (N8, phase='approve'). Wirft hier → TX rollback.
+    // 2. Audit row (N8, phase='approve'). If it throws here → TX rollback.
     db.insert(connectorCallAudit)
       .values({
         id: auditId,
@@ -431,7 +431,7 @@ export function setTrust(args: SetTrustArgs): void {
       .run();
   });
 
-  txFn(); // wirft bei Fehler → Caller propagiert (fail-closed)
+  txFn(); // throws on error → the caller propagates (fail-closed)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -439,27 +439,27 @@ export function setTrust(args: SetTrustArgs): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Schreibt einen Phase-Übergang eines Connector-Calls in connector_call_audit.
+ * Writes a phase transition of a connector call into connector_call_audit.
  *
- * Best-effort: schlägt niemals fehl (try/catch, warn auf Fehler) —
- * ein fehlgeschlagener Audit-Write darf nicht die Call-Pipeline blockieren.
- * N8-Observability: Fehler werden als console.warn sichtbar gemacht.
+ * Best-effort: never fails (try/catch, warn on error) —
+ * a failed audit write must not block the call pipeline.
+ * N8 observability: errors are surfaced as console.warn.
  *
- * Sicherheits-Constraint (D3 + Finding 6a):
- *   payloadHash muss sha256(canonicalJSON(payload)) sein, NICHT der rohe Payload.
- *   recordCallAudit validiert das jetzt selbst: payloadHash muss dem Format
- *   /^[0-9a-f]{64}$/ entsprechen. Tut er das nicht (z.B. weil ein Caller
- *   versehentlich den rohen Payload übergibt), wird der Wert NIE roh geschrieben —
- *   er wird auf null gesetzt und der reason bekommt den Marker 'invalid-payload-hash'.
- *   So landet selbst bei einem Caller-Fehler kein Klartext (Secret/PII) im Audit.
+ * Security constraint (D3 + Finding 6a):
+ *   payloadHash must be sha256(canonicalJSON(payload)), NOT the raw payload.
+ *   recordCallAudit now validates this itself: payloadHash must match the format
+ *   /^[0-9a-f]{64}$/. If it does not (e.g. because a caller
+ *   accidentally passes the raw payload), the value is NEVER written raw —
+ *   it is set to null and the reason gets the marker 'invalid-payload-hash'.
+ *   This way, even on a caller error, no plaintext (secret/PII) ends up in the audit.
  *
- * N10: content_hash auf der geschriebenen Row.
+ * N10: content_hash on the written row.
  *
- * @param args  Audit-Kontext. payloadHash = sha256(canonical-JSON(payload)) oder undefined.
+ * @param args  Audit context. payloadHash = sha256(canonical-JSON(payload)) or undefined.
  */
 export function recordCallAudit(args: RecordCallAuditArgs): void {
   try {
-    // N6: Validierung vor DB-Zugriff.
+    // N6: validation before DB access.
     assertValidScopeKind(args.scopeKind);
     assertValidPhase(args.phase);
 
@@ -477,11 +477,11 @@ export function recordCallAudit(args: RecordCallAuditArgs): void {
     const trimmedResultSummary = args.resultSummary?.trim() ?? null;
     let trimmedReason = args.reason?.trim() ?? null;
 
-    // Finding 6a: payloadHash MUSS ein sha256-hex sein (64 chars [0-9a-f]).
-    // Ein Caller könnte versehentlich den ROHEN Payload als payloadHash übergeben
-    // → Klartext (Secret/PII) im Audit-Log. Fail-closed: bei Format-Mismatch wird
-    // der übergebene Wert NIE roh geschrieben, sondern auf null gesetzt und der
-    // reason-Suffix 'invalid-payload-hash' angehängt (sichtbarer Evidence-Hinweis).
+    // Finding 6a: payloadHash MUST be a sha256-hex (64 chars [0-9a-f]).
+    // A caller could accidentally pass the RAW payload as payloadHash
+    // → plaintext (secret/PII) in the audit log. Fail-closed: on a format mismatch
+    // the passed value is NEVER written raw, but set to null and the
+    // reason suffix 'invalid-payload-hash' is appended (visible evidence hint).
     const rawPayloadHash = args.payloadHash?.trim();
     let trimmedPayloadHash: string | null;
     if (rawPayloadHash === undefined || rawPayloadHash.length === 0) {
@@ -489,7 +489,7 @@ export function recordCallAudit(args: RecordCallAuditArgs): void {
     } else if (PAYLOAD_HASH_RE.test(rawPayloadHash)) {
       trimmedPayloadHash = rawPayloadHash;
     } else {
-      // Mismatch: niemals den Roh-Wert schreiben. null + reason-Marker.
+      // Mismatch: never write the raw value. null + reason marker.
       trimmedPayloadHash = null;
       trimmedReason = trimmedReason
         ? `${trimmedReason} [invalid-payload-hash]`
@@ -535,33 +535,32 @@ export function recordCallAudit(args: RecordCallAuditArgs): void {
       })
       .run();
   } catch (err) {
-    // Best-effort: nie die Call-Pipeline blockieren.
-    // Sichtbar loggen für N8-Observability.
+    // Best-effort: never block the call pipeline.
+    // Log visibly for N8 observability.
     // eslint-disable-next-line no-console
     console.warn("[trust:recordCallAudit] Audit-Write fehlgeschlagen:", err);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// computePayloadHash — Hilfsfunktion für Caller (D3)
+// computePayloadHash — helper for callers (D3)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Berechnet den sha256-Hash über canonical-JSON eines Call-Payloads.
+ * Computes the sha256 hash over the canonical-JSON of a call payload.
  *
- * Caller MÜSSEN diese Funktion (oder eine äquivalente) benutzen BEVOR sie
- * payloadHash an recordCallAudit übergeben. Sie dürfen NICHT den rohen Payload
- * weitergeben.
+ * Callers MUST use this function (or an equivalent one) BEFORE passing
+ * payloadHash to recordCallAudit. They must NOT forward the raw payload.
  *
- * Throw-safe: bei Serialisierungs-Fehlern wird 'sha256:error:<type>' zurückgegeben
- * damit der Audit-Write nicht blockiert wird (D3-safe: kein Payload im Audit, egal was).
+ * Throw-safe: on serialization errors 'sha256:error:<type>' is returned
+ * so the audit write is not blocked (D3-safe: no payload in the audit, whatever happens).
  */
 export function computePayloadHash(payload: unknown): string {
   try {
     const canonical = canonicalJSON(payload, { nonJsonStrategy: "coerce" });
     return createHash("sha256").update(canonical, "utf8").digest("hex");
   } catch {
-    // Fallback: sha256 über JSON.stringify (niemals der Payload selbst im Audit).
+    // Fallback: sha256 over JSON.stringify (never the payload itself in the audit).
     try {
       return createHash("sha256").update(JSON.stringify(payload) ?? "", "utf8").digest("hex");
     } catch {

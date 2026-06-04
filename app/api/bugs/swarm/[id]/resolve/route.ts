@@ -1,16 +1,16 @@
 /**
  * POST /api/bugs/swarm/[id]/resolve
  * ----------------------------------
- * Sprint H · 2026-04-30 — User-Wahl bei Disagreement.
+ * Sprint H · 2026-04-30 — user choice on disagreement.
  *
  * Body: { chosenHypothesisId: 'senior-dev' | 'code-reviewer' | 'critic' }
  *
- * Bei Disagreement zeigt die BugFixSwarmCard 3 QuickChoice-Buttons. Die
- * `id` jedes Buttons ist die Rolle, die diese Hypothese vorgeschlagen hat.
- * Auf Klick ruft das Frontend diesen Endpoint, der dann
- * resumeBugSwarmWithChoice() im Hintergrund startet.
+ * On disagreement the BugFixSwarmCard shows 3 QuickChoice buttons. The
+ * `id` of each button is the role that proposed that hypothesis.
+ * On click the frontend calls this endpoint, which then
+ * starts resumeBugSwarmWithChoice() in the background.
  *
- * Antwort: `{ ok: true }` — async, Frontend pollt /api/bugs/swarm/[id].
+ * Response: `{ ok: true }` — async, the frontend polls /api/bugs/swarm/[id].
  */
 
 import fs from 'node:fs';
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   const workspacePath = await resolveWorkspacePath(row.workspace_id);
   const choice: BugSwarmRole = parsed.data.chosenHypothesisId;
 
-  // Background-Run — sofort zurück.
+  // Background run — return immediately.
   void resumeBugSwarmWithChoice(row.id, choice, workspacePath).catch((err) => {
     // eslint-disable-next-line no-console
     console.error('[bug-swarm] resume crashed:', err);

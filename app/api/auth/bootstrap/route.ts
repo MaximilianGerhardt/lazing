@@ -1,28 +1,28 @@
 /**
  * POST /api/auth/bootstrap
  *
- * Phase AU.1.3 — Operator-Bootstrap-Endpoint für die allererste Installation.
+ * Phase AU.1.3 — operator bootstrap endpoint for the very first installation.
  *
  * Body: { email: string, displayName: string, accessCode: string }
  *
- * Bedingungen:
- *   1. Same-Origin (CSRF-Schutz, analog /api/auth/login).
- *   2. DB hat noch KEINEN aktiven `founder` — sonst 410 Gone. Diese Route
- *      ist explizit single-use für die fresh-installation.
- *   3. accessCode wird timing-safe gegen LAZYOS_ACCESS_CODE geprüft.
+ * Conditions:
+ *   1. Same-origin (CSRF protection, analogous to /api/auth/login).
+ *   2. The DB has NO active `founder` yet — otherwise 410 Gone. This route
+ *      is explicitly single-use for the fresh installation.
+ *   3. accessCode is checked timing-safe against LAZYOS_ACCESS_CODE.
  *
- * Bei Erfolg:
- *   - User mit ULID anlegen (Email lower-cased).
- *   - Default-Org sicherstellen (legt sie an, falls fehlt).
- *   - Founder-Membership in Default-Org.
- *   - Session-Cookie issuen.
+ * On success:
+ *   - Create a user with a ULID (email lower-cased).
+ *   - Ensure the default org (creates it if missing).
+ *   - Founder membership in the default org.
+ *   - Issue a session cookie.
  *   - Response: `{ ok: true, redirectTo: "/onboarding" }`.
  *
- * Sicherheit:
- *   - Failure-Delay 500-1000ms identisch zu /api/auth/login.
- *   - Race-Schutz: nach erstem Founder erscheint sofort 410 für weitere
- *     parallele Calls (DB-COUNT-Check direkt vor Insert + erneut nach Insert,
- *     bei Race wird der spätere Insert rückgängig gemacht).
+ * Security:
+ *   - Failure delay 500-1000ms identical to /api/auth/login.
+ *   - Race protection: after the first founder, 410 appears immediately for
+ *     further parallel calls (DB COUNT check right before insert + again after
+ *     insert; on a race the later insert is rolled back).
  */
 
 import { NextResponse } from "next/server";
@@ -102,7 +102,7 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  // Bedingung 2: schon ein Founder vorhanden → 410 Gone.
+  // Condition 2: a founder already exists → 410 Gone.
   if (countActiveFounders() > 0) {
     return NextResponse.json(
       {
@@ -165,7 +165,7 @@ export async function POST(req: Request): Promise<Response> {
   const now = new Date();
   const nowMs = now.getTime();
 
-  // Default-Org sicherstellen.
+  // Ensure the default org.
   const orgRow = db
     .select({ id: organizations.id })
     .from(organizations)
@@ -189,9 +189,9 @@ export async function POST(req: Request): Promise<Response> {
       .run();
   }
 
-  // User anlegen — mit Race-Schutz: wenn Email schon vergeben, nehmen wir
-  // den existierenden User (sollte aber nicht passieren weil wir oben schon
-  // counted haben).
+  // Create the user — with race protection: if the email is already taken, we
+  // take the existing user (this should not happen since we already counted
+  // above).
   let userId: string;
   const existingUser = db
     .select({ id: users.id })
@@ -221,9 +221,9 @@ export async function POST(req: Request): Promise<Response> {
       .run();
   }
 
-  // Race-Re-Check: in der Zwischenzeit könnte ein anderer Request einen
-  // Founder eingetragen haben. Wenn ja → diesen User WIEDER löschen
-  // (Memberships gibt es noch nicht), 410.
+  // Race re-check: in the meantime another request could have registered a
+  // founder. If so → delete this user AGAIN
+  // (no memberships exist yet), 410.
   if (countActiveFounders() > 0) {
     if (existingUser.length === 0) {
       db.$raw.prepare("DELETE FROM users WHERE id = ?").run(userId);
@@ -237,7 +237,7 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  // Founder-Membership in Default-Org.
+  // Founder membership in the default org.
   db.insert(orgMemberships)
     .values({
       id: `om_${ulid()}`,
@@ -255,7 +255,7 @@ export async function POST(req: Request): Promise<Response> {
     )
     .run(userId, nowMs, DEFAULT_ORG_ID);
 
-  // Session-Cookie issuen.
+  // Issue the session cookie.
   const cookieValue = await issueSessionCookieValue(config, { userId });
 
   await logAuthAttempt({

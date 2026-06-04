@@ -1,17 +1,17 @@
 /**
- * /lab Real-Event-Loader (MVP, 2026-05-01).
+ * /lab real-event loader (MVP, 2026-05-01).
  *
- * Lädt die jüngsten Events eines bestimmten Surface-Kinds aus der
- * Production-DB. Workspaces mit sensitivity='high' werden hart
- * ausgefiltert — der Filter passiert im SQL, nicht erst in JS, damit
- * sensitive Payloads nicht mal kurz im Memory landen.
+ * Loads the most recent events of a given surface kind from the
+ * production DB. Workspaces with sensitivity='high' are hard-filtered
+ * out — the filter happens in the SQL, not first in JS, so that
+ * sensitive payloads never land in memory even briefly.
  *
- * Output ist bereits PII-redacted (siehe ./redact.ts) und
- * Workspace-Labels sind whitelisted-pseudonymisiert.
+ * Output is already PII-redacted (see ./redact.ts) and
+ * workspace labels are whitelisted/pseudonymized.
  *
- * Defense-in-Depth:
- *   1. SQL-Filter w.sensitivity != 'high'  (Layer 1)
- *   2. JS-Re-Check in mapRow                (Layer 2)
+ * Defense-in-depth:
+ *   1. SQL filter w.sensitivity != 'high'  (Layer 1)
+ *   2. JS re-check in mapRow                (Layer 2)
  *   3. redactPayload()                       (Layer 3)
  *   4. redactWorkspaceLabel()                (Layer 4)
  */
@@ -51,11 +51,11 @@ const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 50;
 
 /**
- * Lädt redacted RealEvents für einen Surface-Kind.
+ * Loads redacted RealEvents for a surface kind.
  *
- * @param kind - Surface-Kind aus payload.kind, z.B. "auto-dispatch-stage"
- * @param opts.workspaceId - Optional auf einen Workspace eingrenzen
- * @param opts.limit - Default 5, hard-Cap 50
+ * @param kind - Surface kind from payload.kind, e.g. "auto-dispatch-stage"
+ * @param opts.workspaceId - Optionally narrow to a single workspace
+ * @param opts.limit - Default 5, hard cap 50
  */
 export function loadRealEvents(
   kind: string,
@@ -71,14 +71,14 @@ export function loadRealEvents(
 
   const db = getDb();
 
-  // SQL-Filter:
+  // SQL filter:
   //   - payload.kind == ?
-  //   - sensitivity-high HARD ausgefiltert (Defense Layer 1)
-  //   - entity_type Whitelist (workstream/ticket/decision/synthesis)
-  //     verhindert dass z.B. user-typed chat_message_user-events
-  //     mit fingiertem kind reinrutschen
-  //   - LEFT JOIN workspaces, weil Events historisch auch ohne
-  //     existierende workspace-row sein können
+  //   - sensitivity-high HARD filtered out (defense layer 1)
+  //   - entity_type whitelist (workstream/ticket/decision/synthesis)
+  //     prevents e.g. user-typed chat_message_user events
+  //     with a faked kind from slipping in
+  //   - LEFT JOIN workspaces, because events can historically also
+  //     exist without an existing workspace row
   const stmt = db.$raw.prepare<unknown[], RawRow>(
     `
     SELECT
@@ -109,9 +109,9 @@ export function loadRealEvents(
 }
 
 function mapRow(row: RawRow, idx: number): RealEvent | null {
-  // Defense Layer 2: Re-Check sensitivity in JS. Falls SQL-Filter durch
-  // einen Schema-Drift mal ausfällt (z.B. Spalten-Rename, Migration-Bug),
-  // schneiden wir hier nochmal hart ab.
+  // Defense layer 2: re-check sensitivity in JS. If the SQL filter ever
+  // fails due to a schema drift (e.g. column rename, migration bug),
+  // we cut hard here once more.
   if (row.workspace_sensitivity === "high") return null;
 
   let parsed: Record<string, unknown>;
@@ -125,12 +125,12 @@ function mapRow(row: RawRow, idx: number): RealEvent | null {
     return null;
   }
 
-  // Layer 3: PII-Redaction durch Payload.
+  // Layer 3: PII redaction through the payload.
   const redacted = redactPayload(parsed) as Record<string, unknown>;
 
   const kindFromPayload = typeof redacted.kind === "string" ? redacted.kind : "";
 
-  // Layer 4: Workspace-Label-Whitelist.
+  // Layer 4: workspace-label whitelist.
   const labelInput = row.workspace_label ?? row.workspace_id;
   const label = redactWorkspaceLabel(labelInput, idx + 1);
 

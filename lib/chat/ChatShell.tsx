@@ -64,11 +64,11 @@ import {
 } from './attachment-message';
 import { StagedAttachmentsBar } from './StagedAttachmentsBar';
 import { ChatComposer } from './ChatComposer';
-// Gathering-Intelligence (2026-06-02): Sub-Chats in den Hauptchat holen —
-// proaktive Karte bei neuer Kunden-Aktivität + dezenter Zugang an der Composer-
-// Zeile. Nur für reale Workspaces (Org-Root/virtuell hat keine Sub-Chats).
+// Gathering-Intelligence (2026-06-02): pull sub-chats into the main chat —
+// proactive card on new customer activity + a subtle entry point on the composer
+// line. Only for real workspaces (org-root/virtual has no sub-chats).
 import { SubchatPulse } from './SubchatPulse';
-// UX-1 (2026-05-26): Q/A-Pill über dem Composer (Bottom-Action-UX, Codex-Stil).
+// UX-1 (2026-05-26): Q/A pill above the composer (bottom-action UX, Codex style).
 import {
   ChatOpenQuestionsPill,
   routePillAnswer,
@@ -78,9 +78,9 @@ import {
   splitOpenQuestionsSection,
   type PlanQuestion,
 } from '../workstreams/parse-plan-questions';
-// Slice 2 (2026-05-30, Apple-UX): ActionDeck — die EINE gepinnte Bottom-Region.
-// Umschließt die Pille; pinnt blockierende Gates (Owner-Befund #1) per DB-
-// Projektion (single submit path, Gate-Aktion an ChatShell delegiert).
+// Slice 2 (2026-05-30, Apple-UX): ActionDeck — the ONE pinned bottom region.
+// Wraps the pill; pins blocking gates (owner finding #1) via the DB
+// projection (single submit path, gate action delegated to ChatShell).
 import { ActionDeck, executeGateAction } from './ActionDeck';
 import {
   useWorkspaceState,
@@ -88,11 +88,11 @@ import {
   pinnedDecisionSignature,
 } from './useWorkspaceState';
 import type { BlockingGateState } from '../projection/types';
-// Workstream 4b (2026-05-27): Open-Questions-Lifecycle ausgelagert in einen
-// puren, testbaren Helper. Population aus BEIDEN Quellen (Surface-Tag +
-// Markdown-Section), über die GESAMTE History + den laufenden Turn — damit eine
-// im ask-but-proceed-Modus emittierte Frage UNTEN gepinnt bleibt, statt mit dem
-// Stream wegzuscrollen.
+// Workstream 4b (2026-05-27): open-questions lifecycle extracted into a
+// pure, testable helper. Population from BOTH sources (surface tag +
+// markdown section), over the ENTIRE history + the running turn — so a
+// question emitted in ask-but-proceed mode stays pinned at the BOTTOM, instead of
+// scrolling away with the stream.
 import {
   collectOpenQuestionsFromHistory,
   detectResolvedAndStaleQuestions,
@@ -101,32 +101,32 @@ import {
   type OpenQuestion,
   type OpenQuestionsSourceItem,
 } from './open-questions-lifecycle';
-// Engine-Pill (selector) lebt jetzt fusioniert in ChatTopBar — siehe Pill-Dedup
-// 2026-05-23. Die alte EnginePill-Komponente bleibt im Repo als orphan, weil
-// sie potenziell auf anderen Surfaces (Lab, Onboarding) referenziert werden
-// könnte; sie wird in der Chat-Surface aber nicht mehr gemountet.
+// The engine pill (selector) now lives fused into ChatTopBar — see pill-dedup
+// 2026-05-23. The old EnginePill component stays in the repo as an orphan, because
+// it could potentially be referenced on other surfaces (lab, onboarding);
+// but it is no longer mounted in the chat surface.
 // import { EnginePill, type EngineMode } from './EnginePill';
-// 2026-05-03: ChatHeaderToolbar + SessionControls entfernt — Chat ist
-// Command-Center, Slash-Commands im Composer reichen. Imports archiviert
-// für eventuelle Re-Aktivierung als reine Module ohne UI-Render.
+// 2026-05-03: ChatHeaderToolbar + SessionControls removed — the chat is the
+// command center, slash commands in the composer suffice. Imports archived
+// for a possible re-activation as pure modules without UI render.
 // import { ChatHeaderToolbar } from './ChatHeaderToolbar';
 // import { SessionControls } from './SessionControls';
 import { ChatTopBar } from './ChatTopBar';
-// All-Access-Toggle (2026-05-26): „Vollzugriff"-Pill NEBEN der Engine-Pill
-// (ChatTopBar). Schaltet den Workspace-Permission-Mode freerein↔ask; der
-// Live-Chat-Spawn (server/workspace-session.ts) liest diesen Mode.
+// All-Access-Toggle (2026-05-26): „Vollzugriff" pill NEXT TO the engine pill
+// (ChatTopBar). Switches the workspace permission mode freerein↔ask; the
+// live-chat spawn (server/workspace-session.ts) reads this mode.
 import { AllAccessToggle } from './AllAccessToggle';
 import { PushAutoPrompt } from '@/lib/pwa/PushAutoPrompt';
 import { InlineWorkerStatus } from './InlineWorkerStatus';
 // 2026-04-29: ActiveWorkstreamBanner / WorkflowProgressPanel /
-// OpenQuestionsSurface waren parallel-Overlays — User-Veto: muss in
-// existing Surface-Library (lib/ui/cht, lib/chat/SurfaceRenderer) rein.
-// Imports + Mounts unten entfernt.
+// OpenQuestionsSurface were parallel overlays — user veto: must go into
+// the existing surface library (lib/ui/cht, lib/chat/SurfaceRenderer).
+// Imports + mounts removed below.
 import { useChatSuggestions, type ChatSuggestion } from './useChatSuggestions';
 import { SurfaceActionProvider } from './SurfaceActionContext';
-// Owner-Fix Run-Cockpit (2026-05-28) — Provider, der die suppress-Logik
-// fuer die 3 Legacy-Surfaces (sub-workstreams, iterate-pipeline, iterate-
-// version) koordiniert, sobald eine `<surface:run-cockpit>`-Card aktiv ist.
+// Owner-Fix Run-Cockpit (2026-05-28) — provider that coordinates the suppress
+// logic for the 3 legacy surfaces (sub-workstreams, iterate-pipeline, iterate-
+// version) as soon as a `<surface:run-cockpit>` card is active.
 import {
   RunCockpitRegistryProvider,
   PinnedDecisionRegistryProvider,
@@ -151,32 +151,32 @@ import type { AssistantTurn, ToolStep } from './types';
 import { useTypingIndicator, type TypingPhase } from './useTypingIndicator';
 
 /**
- * Chat — Apple-pure Redesign (2026-04-24).
+ * Chat — Apple-pure redesign (2026-04-24).
  *
- * Struktur:
- *   [Chat-Stream oder Empty-State]          ← dominiert oben
- *   [ChatComposer: Input + Mic + Send]      ← großes Input-Feld
- *   [Stream-Stop-Fußzeile (optional)]
- *   [Banners (subtil, unter dem Composer)]
+ * Structure:
+ *   [chat stream or empty state]            ← dominates the top
+ *   [ChatComposer: input + mic + send]      ← large input field
+ *   [stream-stop footer (optional)]
+ *   [banners (subtle, below the composer)]
  *
- * Entfernt gegenüber der alten Shell:
- *   - ContextBand-Zeile
- *   - Segment-PillRow
- *   - Chat-Assistant-Icon im Empty-State
- *   - ChatWorkspaceInlineSwitcher (redundant zum Header-Switcher)
- *   - MicButton als separater Button neben dem Input
- *   - Bullet/Kicker über dem H2
+ * Removed compared to the old shell:
+ *   - ContextBand line
+ *   - segment PillRow
+ *   - chat assistant icon in the empty state
+ *   - ChatWorkspaceInlineSwitcher (redundant with the header switcher)
+ *   - MicButton as a separate button next to the input
+ *   - bullet/kicker above the H2
  *
- * Bleibt:
- *   - Per-Workspace-History (historyKeyFor / read / write + Switch-Effect)
- *   - Mock-Fallback bei `not_configured`
- *   - Agent-Stream via useAgentStream
- *   - STT (Web Speech API) — jetzt inline im Composer
+ * Stays:
+ *   - per-workspace history (historyKeyFor / read / write + switch effect)
+ *   - mock fallback on `not_configured`
+ *   - agent stream via useAgentStream
+ *   - STT (Web Speech API) — now inline in the composer
  *
- * Storage-Keys pro Workspace isoliert: `lazyos.chat.history.<wsId>`.
- * Legacy-Key `lazyos.chat.history` wird beim ersten Hydrate in den
- * aktuellen Workspace migriert.
- * `mock-mode` bleibt global (UI-Präferenz).
+ * Storage keys isolated per workspace: `lazyos.chat.history.<wsId>`.
+ * The legacy key `lazyos.chat.history` is migrated into the
+ * current workspace on the first hydrate.
+ * `mock-mode` stays global (UI preference).
  */
 const STORAGE_HISTORY_BASE = 'lazyos.chat.history';
 const STORAGE_HISTORY_LEGACY = 'lazyos.chat.history';
@@ -185,18 +185,18 @@ const STORAGE_LIVE_BASE = 'lazyos.chat.live';
 const HISTORY_CAP = 60;
 
 /**
- * Hängt ein HistoryItem an ODER merged es in ein vorhandenes Item mit derselben
- * id (P0-Fix 2026-06-02, Codex-Goal — Doppel-React-Key-Race).
+ * Appends a HistoryItem OR merges it into an existing item with the same
+ * id (P0 fix 2026-06-02, Codex goal — double React-key race).
  *
- * Die Stream-Result-Branches (ok / aborted / error / rate-limit) appenden die
- * Assistant-Message unter der Server-ULID `resultEventIdRef.current`. Parallel
- * fügt der Live-`/api/events/stream` ein `chat_message_completed`-HistoryItem
- * unter DERSELBEN ULID ein. Der Live-Pfad dedupt bereits per id; ohne den
- * symmetrischen Guard hier erzeugt der zuletzt laufende Pfad ein zweites Item
- * mit identischem `key={it.id}` → React-Warning + potentiell verschluckte/
- * duplizierte Messages. `upsertHistoryItem` macht beide Reihenfolgen idempotent:
- * existiert die id schon, wird gemerged (Content/Tools des Result-Branch
- * gewinnen), sonst regulär appended (HISTORY_CAP-bounded).
+ * The stream-result branches (ok / aborted / error / rate-limit) append the
+ * assistant message under the server ULID `resultEventIdRef.current`. In parallel
+ * the live `/api/events/stream` inserts a `chat_message_completed` HistoryItem
+ * under the SAME ULID. The live path already dedupes by id; without the
+ * symmetric guard here the path that runs last creates a second item
+ * with an identical `key={it.id}` → React warning + potentially swallowed/
+ * duplicated messages. `upsertHistoryItem` makes both orders idempotent:
+ * if the id already exists, it is merged (content/tools of the result branch
+ * win), otherwise appended normally (HISTORY_CAP-bounded).
  */
 function upsertHistoryItem(h: HistoryItem[], item: HistoryItem): HistoryItem[] {
   const idx = h.findIndex((m) => m.id === item.id);
@@ -209,10 +209,10 @@ function upsertHistoryItem(h: HistoryItem[], item: HistoryItem): HistoryItem[] {
 }
 
 /**
- * Phase AC Fallback (2026-04-26): Client-side Konsens-Detection wenn der
- * Server kein consensus_level im Synthesis-Payload mitgegeben hat (alte
- * Workstreams). Identische Heuristik wie tier-orchestrator.detectConsensusLevel,
- * damit alte Bubbles dieselbe Card-Logik bekommen wie neue.
+ * Phase AC fallback (2026-04-26): client-side consensus detection when the
+ * server did not provide a consensus_level in the synthesis payload (old
+ * workstreams). Identical heuristic to tier-orchestrator.detectConsensusLevel,
+ * so old bubbles get the same card logic as new ones.
  */
 function detectConsensusLevelClient(
   text: string,
@@ -237,10 +237,10 @@ function detectConsensusLevelClient(
   return 'strong';
 }
 /**
- * UX-1 (2026-05-26): Q&A-Reply-Text aus beantworteten Fragen bauen.
- * Identisches Format wie der inline-Stepper (ChatInlineOpenQuestions) — der
- * Agent sieht die Antworten als kompakte „Frage: … / Antwort: …"-Liste.
- * Unbeantwortete Fragen werden weggelassen (sauberer als „—"-Platzhalter).
+ * UX-1 (2026-05-26): build the Q&A reply text from answered questions.
+ * Identical format to the inline stepper (ChatInlineOpenQuestions) — the
+ * agent sees the answers as a compact „Frage: … / Antwort: …" list.
+ * Unanswered questions are omitted (cleaner than a „—" placeholder).
  */
 function buildQAReply(
   questions: ReadonlyArray<{ id: string; text: string }>,
@@ -257,26 +257,26 @@ function buildQAReply(
 }
 
 // ---------------------------------------------------------------------------
-// Bug-5-Fix · Frage-3×-im-DOM-Dedup · 2026-05-30
+// Bug-5-Fix · question-3×-in-DOM-dedup · 2026-05-30
 // ---------------------------------------------------------------------------
-// Live-Browser-Befund (verbatim): Dieselbe offene Frage erscheint DREIMAL —
-//   (1) als Markdown-Section in der Assistant-Bubble (`## Offene Fragen`),
-//   (2) als inline interaktive Surface (`<surface:open-questions>` /
+// Live browser finding (verbatim): the same open question appears THREE TIMES —
+//   (1) as a markdown section in the assistant bubble (`## Offene Fragen`),
+//   (2) as an inline interactive surface (`<surface:open-questions>` /
 //       `<surface:prompt variant=…>`),
-//   (3) gepinnt in der Pille über dem Composer.
-// Die Pille ist die KANONISCHE interaktive Quelle (Apple-UX: eine primäre
-// Aktion, unten angepinnt). Sobald eine Frage dort gepinnt ist, ist ihr inline-
-// Zwilling in der Bubble redundant.
+//   (3) pinned in the pill above the composer.
+// The pill is the CANONICAL interactive source (Apple-UX: one primary
+// action, pinned at the bottom). Once a question is pinned there, its inline
+// twin in the bubble is redundant.
 //
-// FIX (innerhalb der erlaubten Dateien, ohne replace-logic/surface-text-render
-// anzufassen): Wir entfernen die zu den gepinnten Fragen gehörenden Surface-/
-// Markdown-Spans aus dem Assistant-CONTENT-String, bevor er gerendert wird.
-// Der Renderer re-scannt den modifizierten String (Cache wird bewusst NICHT
-// mitgegeben, sonst leakten die `startIdx/endIdx` den rohen Tag-Text). Nur
-// frage-tragende Surfaces, deren Fragen-IDs ALLE gepinnt sind, fallen weg —
-// fremde Surfaces (charts, tier-choice, etc.) bleiben unberührt.
+// FIX (within the allowed files, without touching replace-logic/surface-text-render):
+// we remove the surface/markdown spans belonging to the pinned questions
+// from the assistant CONTENT string before it is rendered.
+// The renderer re-scans the modified string (the cache is deliberately NOT
+// passed, otherwise the `startIdx/endIdx` would leak the raw tag text). Only
+// question-carrying surfaces whose question IDs are ALL pinned fall away —
+// other surfaces (charts, tier-choice, etc.) stay untouched.
 //
-// Reine String-Operation, side-effect-frei, idempotent.
+// Pure string operation, side-effect-free, idempotent.
 const OQ_SURFACE_STRIP_RE =
   /<surface:open-questions>[\s\S]*?<\/surface:open-questions>/gi;
 const PROMPT_SURFACE_STRIP_RE =
@@ -296,10 +296,10 @@ function questionIdsCoveredByPin(
 }
 
 /**
- * Entfernt aus `content` jene frage-tragenden Surface-/Markdown-Spans, deren
- * Fragen vollständig in `pinnedIds` (= aktuell in der Pille) liegen. Liefert den
- * (ggf. modifizierten) String + ein `changed`-Flag. Wenn nichts gestript wurde,
- * ist `content` referentiell identisch.
+ * Removes from `content` those question-carrying surface/markdown spans whose
+ * questions lie entirely in `pinnedIds` (= currently in the pill). Returns the
+ * (possibly modified) string + a `changed` flag. If nothing was stripped,
+ * `content` is referentially identical.
  */
 export function stripPinnedQuestionSurfaces(
   content: string,
@@ -316,7 +316,7 @@ export function stripPinnedQuestionSurfaces(
   let changed = false;
   let out = content;
 
-  // (a) `<surface:open-questions>` — strippen, wenn alle Fragen gepinnt sind.
+  // (a) `<surface:open-questions>` — strip if all questions are pinned.
   out = out.replace(OQ_SURFACE_STRIP_RE, (full) => {
     const qs = extractOpenQuestionsFromContent(full);
     if (questionIdsCoveredByPin(qs, pinnedIds)) {
@@ -326,8 +326,8 @@ export function stripPinnedQuestionSurfaces(
     return full;
   });
 
-  // (b) `<surface:prompt variant=open-questions|plan-questions>` — dito. Nur
-  //     frage-tragende Prompt-Varianten; quickchoice/credential/form bleiben.
+  // (b) `<surface:prompt variant=open-questions|plan-questions>` — ditto. Only
+  //     question-carrying prompt variants; quickchoice/credential/form stay.
   out = out.replace(PROMPT_SURFACE_STRIP_RE, (full, body: string) => {
     let parsed: unknown = null;
     try {
@@ -342,8 +342,8 @@ export function stripPinnedQuestionSurfaces(
     if (variant !== 'open-questions' && variant !== 'plan-questions') {
       return full;
     }
-    // Fragen direkt aus dem Prompt-Payload lesen (extractOpenQuestionsFromContent
-    // matcht nur `<surface:open-questions>`, nicht den prompt-Wrapper).
+    // Read questions directly from the prompt payload (extractOpenQuestionsFromContent
+    // only matches `<surface:open-questions>`, not the prompt wrapper).
     const rawQs =
       parsed && typeof parsed === 'object' && Array.isArray((parsed as { questions?: unknown }).questions)
         ? ((parsed as { questions: unknown[] }).questions)
@@ -360,9 +360,9 @@ export function stripPinnedQuestionSurfaces(
     return full;
   });
 
-  // (c) Markdown-`## Offene Fragen`-Section — nur strippen, wenn die geparsten
-  //     Fragen alle gepinnt sind. splitOpenQuestionsSection liefert before/after
-  //     drumherum; wir kleben before+after wieder zusammen.
+  // (c) markdown `## Offene Fragen` section — only strip if the parsed
+  //     questions are all pinned. splitOpenQuestionsSection returns the before/after
+  //     around it; we glue before+after back together.
   if (OQ_MARKDOWN_HEADER_STRIP_RE.test(out)) {
     const split = splitOpenQuestionsSection(out);
     if (split && questionIdsCoveredByPin(split.questions, pinnedIds)) {
@@ -378,21 +378,21 @@ export function stripPinnedQuestionSurfaces(
 }
 
 // ---------------------------------------------------------------------------
-// Bug-2-Fix · Free-Text-Antwort-Kopplung · 2026-05-30
+// Bug-2-Fix · free-text-answer coupling · 2026-05-30
 // ---------------------------------------------------------------------------
-// Live-Browser-Befund: Tippt der User FREI „Eigenes Video" statt eine offene
-// Choice anzuklicken, fällt der Text durch classifyFlowIntent (min 3 Wörter +
-// Imperativ → sonst 'unknown') in den normalen Chat-Stream → der Agent wirft
-// einen DRITTEN Picker statt es als Antwort zu verstehen.
+// Live browser finding: if the user FREELY types „Eigenes Video" instead of
+// clicking an open choice, the text falls through classifyFlowIntent (min 3 words +
+// imperative → otherwise 'unknown') into the normal chat stream → the agent throws
+// a THIRD picker instead of understanding it as an answer.
 //
-// Predicate: Free-Text wird an die offene Frage gekoppelt, wenn …
-//   - keine Anhänge gestaged sind,
-//   - die Pille NICHT ausgeklappt ist (der pillExpanded-Pfad hat Vorrang),
-//   - mindestens eine Frage offen/gepinnt ist,
-//   - der Input KEIN Slash-Command ist,
-//   - der Input NICHT als confident Flow klassifiziert (ein bewusst neuer
-//     Build wie „erstelle eine Webseite" startet weiter einen Flow).
-// Pur + side-effect-frei → direkt testbar (kein ChatShell-Mount nötig).
+// Predicate: free text is coupled to the open question when …
+//   - no attachments are staged,
+//   - the pill is NOT expanded (the pillExpanded path takes precedence),
+//   - at least one question is open/pinned,
+//   - the input is NOT a slash command,
+//   - the input is NOT classified as a confident flow (a deliberately new
+//     build like „erstelle eine Webseite" still starts a flow).
+// Pure + side-effect-free → directly testable (no ChatShell mount needed).
 export function shouldRouteFreeTextAsAnswer(args: {
   value: string;
   hasStaged: boolean;
@@ -412,8 +412,8 @@ export function shouldRouteFreeTextAsAnswer(args: {
 }
 
 /**
- * 2026-05-28 (W1/W2 — Open-Questions-Wiring). Schmaler array-Equality-Helper
- * für den Re-Render-Bail-Out im Pill-Enrichment-Merge. Pure, inline-tauglich.
+ * 2026-05-28 (W1/W2 — open-questions wiring). Slim array-equality helper
+ * for the re-render bail-out in the pill enrichment merge. Pure, inline-capable.
  */
 function arrEq(
   a: ReadonlyArray<string> | undefined,
@@ -428,7 +428,7 @@ function arrEq(
 
 /** How many past messages we ship to the model on each turn. */
 const CONTEXT_WINDOW = 12;
-/** Live-state >60min wird verworfen (vermutlich nicht mehr relevant). */
+/** Live state >60min is discarded (presumably no longer relevant). */
 const LIVE_TTL_MS = 60 * 60 * 1000;
 
 function historyKeyFor(workspaceId: string): string {
@@ -440,7 +440,7 @@ function liveKeyFor(workspaceId: string): string {
 }
 
 interface LiveSnapshot {
-  /** ISO timestamp wann der Stream gestartet wurde (fuer TTL). */
+  /** ISO timestamp of when the stream started (for TTL). */
   startedAt: string;
   text: string;
   tools: ToolStep[];
@@ -485,11 +485,11 @@ function readHistoryFor(workspaceId: string): HistoryItem[] | null {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return null;
     const items = parsed.filter(isHistoryItem).slice(-HISTORY_CAP);
-    // Sub-Plan A · 2026-04-29: Hydrate-Migration. Alte persistierte Items
-    // haben kein workstreamId/surfaceKind-Feld. Wenn der Content einen
-    // Surface-Tag mit workstreamId enthaelt, ziehen wir die Coord nach.
-    // Hint 1 (Sub-Plan A): nutzt den exportierten Helper aus storage.ts
-    // — ein und derselbe Code-Pfad fuer Single-Read und Server-Merge.
+    // Sub-Plan A · 2026-04-29: hydrate migration. Old persisted items
+    // have no workstreamId/surfaceKind field. If the content contains a
+    // surface tag with a workstreamId, we backfill the coord.
+    // Hint 1 (Sub-Plan A): uses the exported helper from storage.ts
+    // — one and the same code path for single-read and server-merge.
     return hydrateCoordsList(items);
   } catch {
     return null;
@@ -508,18 +508,18 @@ function writeHistoryFor(workspaceId: string, items: HistoryItem[]): void {
 }
 
 /**
- * Merge Server-systemItems mit bereits live-eingetroffenen SystemItems.
- * Dedup per id (server liefert `sys-<event-id>`, live-Stream baut die
- * gleiche id ueber `sys-${ev.id}`). Cap bei 30 damit unbounded growth
- * nicht passiert.
+ * Merge server systemItems with SystemItems that already arrived live.
+ * Dedup by id (the server delivers `sys-<event-id>`, the live stream builds the
+ * same id via `sys-${ev.id}`). Cap at 30 so unbounded growth
+ * does not happen.
  */
 /**
  * Phase Reload-Recovery V2 · 2026-04-27.
- * Erzeugt einen primitiven Fingerprint ueber alle Streaming-relevanten
- * Felder im History-Array. Wird im Polling-Update genutzt um Re-Renders
- * zu vermeiden wenn sich nichts streaming-spezifisches geaendert hat
- * (Polling-Tick ohne neuen Token landet sonst trotzdem als setHistory →
- * Re-Render der ganzen Liste).
+ * Creates a primitive fingerprint over all streaming-relevant
+ * fields in the history array. Used in the polling update to avoid
+ * re-renders when nothing streaming-specific changed
+ * (a polling tick without a new token otherwise still lands as setHistory →
+ * re-render of the whole list).
  */
 function streamSignature(items: { id: string; streamState?: 'streaming' | 'aborted'; partialContent?: string; toolState?: { name: string; status: 'pending' | 'done' } | null; inCodeBlock?: boolean }[]): string {
   return items
@@ -554,74 +554,74 @@ export interface HistoryItem {
   /** Phase MS: marks an item that came from a chat_message_* event. */
   partial?: boolean;
   /**
-   * Phase MS · 2026-04-26 (B1-fix). Server-Item: die pendingPromptId aus
-   * dem `chat_message_sent`-Event-Payload. Wird von
-   * `mergeServerWithLocal` benutzt um lokale User-Echo-Items mit ihrer
-   * Server-ULID-Variante zu paaren — sonst sieht Max nach Replay zwei
-   * User-Bubbles (lokale ID + ULID) statt einer.
+   * Phase MS · 2026-04-26 (B1-fix). Server item: the pendingPromptId from
+   * the `chat_message_sent` event payload. Used by
+   * `mergeServerWithLocal` to pair local user-echo items with their
+   * server-ULID variant — otherwise Max sees two
+   * user bubbles (local ID + ULID) instead of one after replay.
    */
   pendingPromptId?: string;
   /**
-   * Wer hat die Message verschickt. Default-Fallback im Renderer:
+   * Who sent the message. Default fallback in the renderer:
    *   role=user      -> 'user:max'
    *   role=assistant -> 'agent:claude'
    *
-   * Wenn role=user UND actor NICHT mit 'user:' beginnt (z.B.
-   * 'agent:terminal-claude', 'agent:api', 'system'), rendert ChatShell
-   * eine spezielle Bubble mit Pill-Header — sonst wirkt eine Test-
-   * /API-/Skript-Message wie eine eigene User-Eingabe.
+   * If role=user AND actor does NOT start with 'user:' (e.g.
+   * 'agent:terminal-claude', 'agent:api', 'system'), ChatShell renders
+   * a special bubble with a pill header — otherwise a test/
+   * API/script message looks like the user's own input.
    */
   actor?: string;
 
   // -------------------------------------------------------------------
   // Phase Reload-Recovery V2 · 2026-04-27
-  // Felder die nur fuer "halb-fertige" Assistant-Items gesetzt sind, deren
-  // Quelle ein streaming_snapshots-Row im Backend ist (nicht ein
-  // chat_message_completed-Event). Solange `streamState` gesetzt ist,
-  // pollt der Client diesen Endpoint alle 2s. Bei `aborted` wird statt
-  // einer normalen Bubble die <StreamingBubble/> gerendert.
+  // Fields that are only set for "half-finished" assistant items whose
+  // source is a streaming_snapshots row in the backend (not a
+  // chat_message_completed event). As long as `streamState` is set,
+  // the client polls this endpoint every 2s. On `aborted` the
+  // <StreamingBubble/> is rendered instead of a normal bubble.
   //
-  // TODO(backend): Backend-Agent muss diese Felder vom History-Endpoint
-  // ausliefern, sobald die Streaming-Snapshot-Tabelle steht (siehe
-  // /tmp/recovery-syn.txt Punkte 1, 4).
+  // TODO(backend): the backend agent must deliver these fields from the
+  // history endpoint once the streaming-snapshot table exists (see
+  // /tmp/recovery-syn.txt points 1, 4).
   // -------------------------------------------------------------------
 
-  /** Wenn gesetzt: Item kommt aus einem snapshot, nicht aus completed-Event. */
+  /** When set: item comes from a snapshot, not from a completed event. */
   streamState?: 'streaming' | 'aborted';
-  /** Bisheriger Streaming-Text (aus snapshot.partial_content). */
+  /** Streaming text so far (from snapshot.partial_content). */
   partialContent?: string;
-  /** True wenn Snapshot mid-```-Codeblock ist (snapshot.in_code_block). */
+  /** True when the snapshot is mid-```-code-block (snapshot.in_code_block). */
   inCodeBlock?: boolean;
-  /** Pending Tool beim Snapshot (snapshot.tool_state). */
+  /** Pending tool at the snapshot (snapshot.tool_state). */
   toolState?: {
     name: string;
     status: 'pending' | 'done';
     id?: string;
   } | null;
-  /** ISO-Timestamp des letzten Snapshot-Updates (fuer 10s-Heuristik client-side). */
+  /** ISO timestamp of the last snapshot update (for the 10s heuristic client-side). */
   snapshotUpdatedAt?: string;
 
   // -------------------------------------------------------------------
-  // Sub-Plan A · 2026-04-29 — One-Card-Pro-Workstream-Replace
+  // Sub-Plan A · 2026-04-29 — one-card-per-workstream-replace
   // -------------------------------------------------------------------
-  // Wenn ein Surface-Block (z.B. <surface:consensus-action>) eine
-  // workstreamId in seinem Payload traegt, wird dieser Wert + das
-  // Surface-Kind hier mitgespeichert. Beim Append einer NEUEN Bubble
-  // mit demselben (workstreamId, surfaceKind)-Paar werden alle vorigen
-  // Items mit derselben Coord auf `archived=true` markiert. So bleibt
-  // im Chat genau eine "lebende" Card pro Workstream + Kind sichtbar,
-  // ohne dass alte Verlaufs-Bubbles geloescht werden (Sub-Plan B
-  // bringt einen Verlaufs-Toggle der archivierte Items wieder zeigt).
-  /** SurfaceKind des dominanten Surface-Blocks im content (falls einer existiert). */
+  // When a surface block (e.g. <surface:consensus-action>) carries a
+  // workstreamId in its payload, this value + the
+  // surface kind are stored here. When appending a NEW bubble
+  // with the same (workstreamId, surfaceKind) pair, all previous
+  // items with the same coord are marked `archived=true`. This keeps
+  // exactly one "living" card per workstream + kind visible in the chat,
+  // without deleting old history bubbles (Sub-Plan B
+  // brings a history toggle that shows archived items again).
+  /** SurfaceKind of the dominant surface block in the content (if one exists). */
   surfaceKind?: import('./surface-parser').SurfaceKind;
-  /** workstreamId aus dem Surface-Payload (falls vorhanden). */
+  /** workstreamId from the surface payload (if present). */
   workstreamId?: string;
-  /** Soft-archive-Marker: durch eine neuere Card mit gleichem (workstreamId, surfaceKind) verdraengt. */
+  /** Soft-archive marker: superseded by a newer card with the same (workstreamId, surfaceKind). */
   archived?: boolean;
   /**
-   * Sub-Plan A Finding 5 (2026-04-29). Marker, dass die Hydrate-Migration
-   * (Coords aus dem Content nachziehen) bereits gelaufen ist. Verhindert,
-   * dass jeder Read denselben Regex erneut faehrt.
+   * Sub-Plan A Finding 5 (2026-04-29). Marker that the hydrate migration
+   * (backfilling coords from the content) has already run. Prevents
+   * every read from running the same regex again.
    */
   _coordsHydrated?: boolean;
 }
@@ -655,12 +655,12 @@ function eventKindLabel(ev: LazyEventLike): string {
 }
 
 /**
- * Mappt einen Actor-String (aus chat_message_sent.payload.actor) auf einen
- * UI-tauglichen Sender-Label fuer die User-Bubble. Gibt undefined zurueck
- * wenn die Bubble normal (ohne Pill) gerendert werden soll — d.h. fuer
- * Cookie-Auth-User-Prompts und auch fuer alte Events ohne actor-Field.
+ * Maps an actor string (from chat_message_sent.payload.actor) to a
+ * UI-suitable sender label for the user bubble. Returns undefined
+ * when the bubble should be rendered normally (without a pill) — i.e. for
+ * cookie-auth user prompts and also for old events without an actor field.
  *
- * Nicht-`user:*`-Actors fuehren zu spezial-Bubble:
+ * Non-`user:*` actors lead to a special bubble:
  *   agent:terminal-claude -> 'Terminal-Claude'
  *   agent:api             -> 'API-Test'
  *   agent:senior-dev      -> 'Senior-Dev'
@@ -694,18 +694,18 @@ export function ChatShell({
 }: ChatShellProps) {
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  // Aktuelle History ohne Stale-Closure (für die Auto-Projekt-Naht: der
-  // Brainstorm-Kontext muss in das neue Projekt-Workspace mitgenommen werden).
+  // Current history without a stale closure (for the auto-project seam: the
+  // brainstorm context must be carried into the new project workspace).
   const historyForHandoffRef = useRef<HistoryItem[]>([]);
   useEffect(() => {
     historyForHandoffRef.current = history;
   }, [history]);
   const [systemMessages, setSystemMessages] = useState<SystemItem[]>([]);
-  // Sub-Plan E (2026-04-30) — Single-Pass-Coord-Cache. Pro item.id genau
-  // EIN Surface-Scan. Wird unten an `renderChatText(text, surfaces)` als
-  // Cache-Argument übergeben damit der Renderer nicht selbst nochmal
-  // scannt. Map<id, ParsedHistoryItem> — neue history → komplett neu
-  // gemappt, aber pro Item ist die Arbeit deterministisch single-pass.
+  // Sub-Plan E (2026-04-30) — single-pass coord cache. Exactly ONE
+  // surface scan per item.id. Passed below to `renderChatText(text, surfaces)` as
+  // a cache argument so the renderer does not scan again
+  // itself. Map<id, ParsedHistoryItem> — a new history → completely
+  // re-mapped, but per item the work is deterministically single-pass.
   const parsedItems = useMemo<Map<string, ParsedHistoryItem>>(() => {
     const map = new Map<string, ParsedHistoryItem>();
     for (const item of history) {
@@ -713,40 +713,40 @@ export function ChatShell({
     }
     return map;
   }, [history]);
-  // Sub-Plan B · 2026-04-29 — History-Toggle ("Nur Fokus" vs. "Verlauf an").
-  // Default false (Fokus). Beim Mount aus localStorage hydraten,
-  // beim Workspace-Switch auf false zurücksetzen, bei submit auto-reset.
+  // Sub-Plan B · 2026-04-29 — history toggle ("focus only" vs. "history on").
+  // Default false (focus). Hydrate from localStorage on mount,
+  // reset to false on workspace switch, auto-reset on submit.
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  // Inert seit 2026-06-03 (Mock-Subsystem entfernt): bleibt `false`, weil
-  // `useTypingIndicator` das Flag noch im Live-Signal-Pfad liest.
+  // Inert since 2026-06-03 (mock subsystem removed): stays `false`, because
+  // `useTypingIndicator` still reads the flag in the live-signal path.
   const isMockPending = false;
-  // Phase RL.3 (2026-04-28): Server-Side Stream läuft noch — gesetzt wenn
-  // beim Mount/Refresh erkannt wurde dass der letzte chat_message_sent
-  // ohne korrespondierenden _completed dasteht (Stream nicht abgeschlossen).
-  // Polling alle 5s bis ein assistant-Item nachkommt.
+  // Phase RL.3 (2026-04-28): server-side stream still running — set when
+  // mount/refresh detected that the last chat_message_sent
+  // stands without a corresponding _completed (stream not finished).
+  // Polls every 5s until an assistant item comes in.
   const [serverStreamPending, setServerStreamPending] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  // Phase MS (P1-3): SSE-Subscription erst NACHDEM die einmalige
-  // localStorage→DB-Migration durch ist (oder feststand dass es nichts
-  // zu migrieren gibt). Sonst kommt der replay-Burst aus /api/events/
-  // stream rein WAEHREND die Cache-IDs noch im State stehen — die
-  // ULID-Echos matchen nicht und User-Message wird doppelt gerendert.
+  // Phase MS (P1-3): SSE subscription only AFTER the one-time
+  // localStorage→DB migration is done (or it was established that there is nothing
+  // to migrate). Otherwise the replay burst from /api/events/
+  // stream comes in WHILE the cache IDs are still in the state — the
+  // ULID echoes don't match and the user message is rendered twice.
   const [migrationDone, setMigrationDone] = useState(false);
-  // B3-fix 2026-04-26: Wenn die Migration fehlschlaegt (Server-500, Offline),
-  // blockt useEventStream weiter (migrationDone bleibt false). Dieser Flag
-  // signalisiert dem User dass etwas nicht stimmt + erlaubt manuellen Retry
-  // oder Auto-Retry nach 30s.
+  // B3-fix 2026-04-26: if the migration fails (server 500, offline),
+  // useEventStream keeps blocking (migrationDone stays false). This flag
+  // signals to the user that something is wrong + allows a manual retry
+  // or auto-retry after 30s.
   const [migrationFailed, setMigrationFailed] = useState(false);
-  // Auto-Retry-Counter: jede Inkrement triggert den Migration-Effect
-  // erneut (auch ohne Workspace-Switch).
+  // Auto-retry counter: each increment triggers the migration effect
+  // again (even without a workspace switch).
   const [migrationRetryTick, setMigrationRetryTick] = useState(0);
 
   const currentWorkspace = useCurrentWorkspace();
 
-  // Gathering-Intelligence (2026-06-02): „Im Hauptchat aufgreifen" aus der
-  // proaktiven Sub-Chat-Karte seedet den Composer mit einem fertigen Prompt
-  // (KI-Vorschlag-Stil) und fokussiert das Eingabefeld — der Operator sendet
-  // mit einem Tap und der Hauptchat arbeitet das Anliegen mit RAG-Wissen aus.
+  // Gathering-Intelligence (2026-06-02): „Im Hauptchat aufgreifen" from the
+  // proactive sub-chat card seeds the composer with a ready-made prompt
+  // (AI-suggestion style) and focuses the input field — the operator sends
+  // with one tap and the main chat works out the matter with RAG knowledge.
   const handleSubchatPickUp = useCallback(
     (prompt: string, target?: { workspaceId: string; organizationId?: string }) => {
       // Re-scope the main chat into the customer's REAL workspace so the next
@@ -778,12 +778,12 @@ export function ChatShell({
   );
   const subchatsEnabled = !isVirtualWorkspaceId(currentWorkspace.id);
 
-  // P1 · One-Focal-Point (2026-06-02): Ob die proaktive SubchatPulse-Karte
-  // gerade WIRKLICH eine Karte rendert (sie liefert sonst `null`). SubchatPulse
-  // gehört nicht zu dieser Slice — statt sie zu koppeln, beobachten wir DOM-
-  // seitig ihr `<section aria-label="Neues aus deinen Kundenchats">` im Stream-
-  // Container. Liegt sie vor, wird der zentrierte Empty-State-Hero zur ruhigen
-  // top-verankerten Intro herabgestuft (eine primäre Fläche pro Screen).
+  // P1 · One-Focal-Point (2026-06-02): whether the proactive SubchatPulse card
+  // is REALLY rendering a card right now (it otherwise returns `null`). SubchatPulse
+  // does not belong to this slice — instead of coupling it, we observe DOM-
+  // side its `<section aria-label="Neues aus deinen Kundenchats">` in the stream
+  // container. If present, the centered empty-state hero is downgraded to a quiet
+  // top-anchored intro (one primary surface per screen).
   const [pulseCardPresent, setPulseCardPresent] = useState(false);
 
   const {
@@ -800,69 +800,69 @@ export function ChatShell({
   const idCounter = useRef(0);
   const baseId = useId();
 
-  // Bug 1 Fix (2026-05-30): stabiler Ref auf den jüngsten agentError, damit der
-  // async submit-Handler im Error-Branch die ECHTE Ursache (statt eines
-  // stale-Closure-Werts) in die fail-soft Assistant-Karte schreiben kann.
+  // Bug 1 Fix (2026-05-30): stable ref on the most recent agentError, so the
+  // async submit handler can write the REAL cause (instead of a
+  // stale-closure value) into the fail-soft assistant card in the error branch.
   const agentErrorRef = useRef<string | null>(agentError);
   useEffect(() => {
     agentErrorRef.current = agentError;
   }, [agentError]);
 
-  // ---- Phase MS · 2026-04-26: pendingPromptId-Set ---------------------
-  // IDs die WIR gerade selbst gefeuert haben. Wenn das chat_message_sent-
-  // Event ueber den Live-Event-Stream zurueckkommt mit einer dieser IDs
-  // im payload, ignorieren wir es — sonst sehen wir unsere eigene User-
-  // Message doppelt.
+  // ---- Phase MS · 2026-04-26: pendingPromptId set ---------------------
+  // IDs that WE just fired ourselves. When the chat_message_sent
+  // event comes back over the live event stream with one of these IDs
+  // in the payload, we ignore it — otherwise we see our own user
+  // message twice.
   const ownPendingIdsRef = useRef<Set<string>>(new Set());
 
-  // Phase RL.2 (2026-04-28): Map<prompt → attempts> fuer Rate-Limit-Auto-Retry.
-  // Nach erfolgreichem Stream-Outcome 'ok' wird der Eintrag gecleart.
+  // Phase RL.2 (2026-04-28): Map<prompt → attempts> for rate-limit auto-retry.
+  // The entry is cleared after a successful stream outcome 'ok'.
   const lastRetryAttemptsRef = useRef<Map<string, number>>(new Map());
 
-  // ---- Bug-2-Fix: Message-Queue + Interrupt · 2026-05-25 ---------------
-  // FIFO-Queue für Nachrichten die während des Streamings eingetippt werden.
-  // Wird geleert sobald agentStatus auf 'idle' wechselt.
-  // Kein React-State (würde den Flush-Effect triggern) — nur Ref.
+  // ---- Bug-2-Fix: message queue + interrupt · 2026-05-25 ---------------
+  // FIFO queue for messages typed while streaming.
+  // Cleared as soon as agentStatus switches to 'idle'.
+  // No React state (would trigger the flush effect) — only a ref.
   const messageQueueRef = useRef<string[]>([]);
-  // Anzahl der Queued-Nachrichten als React-State für die UI (Queue-Chip).
+  // Number of queued messages as React state for the UI (queue chip).
   const [queueLength, setQueueLength] = useState(0);
 
-  // ---- UX-1: Q/A-Pill-State (über dem Composer) · 2026-05-26 -----------
-  // Quelle: ein Assistant-Turn mit `## Offene Fragen`-Section → wir ziehen
-  // die Fragen hier hoch und mounten sie als Pill ÜBER dem Composer (statt
-  // sie nur inline im Stream als Stepper zu rendern). Der Chat-Input wird zur
-  // Antwort, wenn die Pill ausgeklappt ist (Routing im submit-Handler).
-  // 2026-05-28 (W1/W2): Type aufgeweicht auf `OpenQuestion` (PlanQuestion +
-  // optionale Enrichment-Felder context/pros/cons/recommendation/evidence).
-  // Backward-compat: PlanQuestion ohne Extras IST eine valide OpenQuestion.
-  // Wird benutzt damit `enriched`-Updates die Extra-Felder in den State legen
-  // können, ohne dass die Pill-Karte ihre Identität wechselt.
+  // ---- UX-1: Q/A pill state (above the composer) · 2026-05-26 -----------
+  // Source: an assistant turn with a `## Offene Fragen` section → we pull
+  // the questions up here and mount them as a pill ABOVE the composer (instead of
+  // rendering them only inline in the stream as a stepper). The chat input becomes
+  // the answer when the pill is expanded (routing in the submit handler).
+  // 2026-05-28 (W1/W2): type loosened to `OpenQuestion` (PlanQuestion +
+  // optional enrichment fields context/pros/cons/recommendation/evidence).
+  // Backward-compat: a PlanQuestion without extras IS a valid OpenQuestion.
+  // Used so `enriched` updates can put the extra fields into the state
+  // without the pill card switching its identity.
   const [openQuestions, setOpenQuestions] = useState<OpenQuestion[]>([]);
   const [qAnswers, setQAnswers] = useState<Record<string, string>>({});
   const [qIndex, setQIndex] = useState(0);
   const [pillExpanded, setPillExpanded] = useState(false);
-  // Signatur des zuletzt in die Pill geladenen Fragen-Sets — verhindert
-  // Re-Load (und damit Answer-Reset) bei jedem Re-Render desselben Turns.
+  // Signature of the question set last loaded into the pill — prevents
+  // a re-load (and thus answer reset) on every re-render of the same turn.
   const lastQSignatureRef = useRef<string | null>(null);
-  // Stabiler Ref auf qAnswers für den submit-Handler (kein Closure-Stale).
+  // Stable ref on qAnswers for the submit handler (no closure stale).
   const qAnswersRef = useRef(qAnswers);
   useEffect(() => {
     qAnswersRef.current = qAnswers;
   }, [qAnswers]);
 
-  // Bug-5-Fix (2026-05-30): IDs der aktuell in der Pille gepinnten Fragen.
-  // Wird an AssistantItem gereicht, damit der inline-Surface-/Markdown-Zwilling
-  // derselben Frage in der Bubble unterdrückt wird (Frage erscheint sonst 3×:
-  // Bubble-Markdown + inline-Surface + Pille). Stabil per Set, neu nur wenn sich
-  // die Fragen-IDs ändern.
+  // Bug-5-Fix (2026-05-30): IDs of the questions currently pinned in the pill.
+  // Passed to AssistantItem so the inline surface/markdown twin
+  // of the same question in the bubble is suppressed (the question otherwise appears 3×:
+  // bubble markdown + inline surface + pill). Stable per Set, new only when
+  // the question IDs change.
   const pinnedQuestionIds = useMemo(
     () => new Set(openQuestions.map((q) => q.id)),
     [openQuestions],
   );
 
-  // Pill-State sauber zurücksetzen (nach finalem Submit oder Hard-Reset).
-  // lastQSignatureRef behält die zuletzt geladene Signatur, damit derselbe
-  // Turn nach dem Schließen nicht sofort wieder aufpoppt.
+  // Reset the pill state cleanly (after a final submit or hard reset).
+  // lastQSignatureRef keeps the last loaded signature so the same
+  // turn does not immediately pop up again after closing.
   const resetPillState = useCallback(() => {
     setOpenQuestions([]);
     setQAnswers({});
@@ -870,16 +870,16 @@ export function ChatShell({
     setPillExpanded(false);
   }, []);
 
-  // Phase RL.3 (2026-04-28): Polling-Fallback falls SSE den completed-Event
-  // verpasst (z.B. PWA-Tab-Wechsel hat SSE-Subscription unterbrochen).
-  // Refetch /api/chat/history alle 10s solange serverStreamPending=true.
-  // Stop nach 10min Maximum (sonst Endlos-Polling bei stuck stream).
-  // Ist ausserhalb der useEffect inline definiert weil cleanup-pattern.
+  // Phase RL.3 (2026-04-28): polling fallback in case SSE misses the
+  // completed event (e.g. a PWA tab switch interrupted the SSE subscription).
+  // Refetch /api/chat/history every 10s while serverStreamPending=true.
+  // Stop after a maximum of 10min (otherwise endless polling on a stuck stream).
+  // Defined inline outside the useEffect because of the cleanup pattern.
 
   // ---- STT ------------------------------------------------------------
-  // inputRef hält den aktuellen Input-Wert, damit der onFinal-Callback
-  // Replace-vs-Append korrekt entscheidet, ohne die Stabilität des
-  // Hooks zu brechen.
+  // inputRef holds the current input value so the onFinal callback
+  // decides replace-vs-append correctly, without breaking the stability of
+  // the hook.
   const inputRefForStt = useRef(input);
   useEffect(() => {
     inputRefForStt.current = input;
@@ -897,8 +897,8 @@ export function ChatShell({
     }
   }, []);
 
-  // STT Dual-Path: Web-Speech-API (Safari-Tab, Chrome) wenn verfügbar,
-  // sonst MediaRecorder + Server-Whisper (iOS-PWA, Firefox, Fallback).
+  // STT dual path: Web Speech API (Safari tab, Chrome) when available,
+  // otherwise MediaRecorder + server Whisper (iOS PWA, Firefox, fallback).
   const ws = useSpeechRecognition({ lang: 'de-DE', onFinal: handleSttFinal });
   const mr = useMediaRecorderStt({ lang: 'de', onFinal: handleSttFinal });
 
@@ -909,10 +909,10 @@ export function ChatShell({
   const sttError = useWebSpeech ? ws.error : mr.error;
 
   const toggleStt = useCallback(() => {
-    // Wichtig: NICHT early-return wenn unsupported — der User hat geklickt,
-    // er verdient eine sichtbare Reaktion (Error-State im Hook triggert Banner).
-    // Web-Speech-Path: wenn tauglich, nehme ihn. Sonst immer MediaRecorder-Path
-    // versuchen — MR geht praktisch überall wo getUserMedia geht (auch iOS-PWA).
+    // Important: do NOT early-return when unsupported — the user clicked,
+    // they deserve a visible reaction (the error state in the hook triggers a banner).
+    // Web Speech path: if usable, take it. Otherwise always try the MediaRecorder path
+    // — MR works practically everywhere getUserMedia works (including iOS PWA).
     if (useWebSpeech && ws.isSupported) {
       if (ws.isListening) ws.stop();
       else ws.start();
@@ -930,26 +930,26 @@ export function ChatShell({
     [baseId],
   );
 
-  // ---- Track-D · Stream-B2 · Flow-Studio Stil-Wahl-Verdrahtung -------------
-  // `/flow <intent>` → die compose-and-run-Route antwortet bei Medien-Schritten
-  // (Hero-Video etc.) mit status 'needs-style-choice' + 1 quickchoice-Prompt je
-  // Schritt. Hier: (1) die quickchoice-Surface(s) als Assistant-Messages
-  // emittieren (laufen durch den surface-aware Renderer → renderQuickChoice),
-  // (2) auf den Owner-Klick (window-Event 'lazyos:quickchoice' { id }) hören,
-  // (3) die id ihrer offenen Frage zuordnen (gebündelt: alle Fragen werden
-  //     gleichzeitig gezeigt, jede Wahl gesammelt), (4) sobald ALLE Fragen
-  //     beantwortet → `/api/flow/compose-and-run` MIT styleChoices RE-POSTen
-  //     (keyed auf String(step.idx)) → Folge-Status (running / needs-coupling /
-  //     erneut needs-style-choice) wieder durch handleFlowComposeResult.
+  // ---- Track-D · Stream-B2 · Flow-Studio style-choice wiring -------------
+  // `/flow <intent>` → the compose-and-run route replies for media steps
+  // (hero video etc.) with status 'needs-style-choice' + 1 quickchoice prompt per
+  // step. Here: (1) emit the quickchoice surface(s) as assistant messages
+  // (run through the surface-aware renderer → renderQuickChoice),
+  // (2) listen for the owner click (window event 'lazyos:quickchoice' { id }),
+  // (3) assign the id to its open question (bundled: all questions are
+  //     shown at once, each choice collected), (4) once ALL questions
+  //     are answered → RE-POST `/api/flow/compose-and-run` WITH styleChoices
+  //     (keyed on String(step.idx)) → translate the follow-up status (running / needs-coupling /
+  //     needs-style-choice again) again through handleFlowComposeResult.
   //
-  // Korrelation id→Frage: der quickchoice-Renderer feuert NUR { id } (keinen
-  // step-Kontext). Wir nehmen den ERSTEN noch-offenen Prompt, dessen optionIds
-  // die geklickte id enthält — deterministisch in Anzeige-Reihenfolge. Bei
-  // identischen Option-Mengen (z.B. zwei Video-Steps) ordnet der Owner sie der
-  // Reihe nach zu (fail-soft, kein hartes Eindeutigkeits-Constraint).
+  // Correlation id→question: the quickchoice renderer fires ONLY { id } (no
+  // step context). We take the FIRST still-open prompt whose optionIds
+  // contain the clicked id — deterministic in display order. With
+  // identical option sets (e.g. two video steps) the owner assigns them in
+  // order (fail-soft, no hard uniqueness constraint).
   const flowStyleSessionsRef = useRef<FlowStyleSession[]>([]);
 
-  // Re-POST mit den gesammelten Stil-Wahlen, Folge-Status erneut übersetzen.
+  // Re-POST with the collected style choices, translate the follow-up status again.
   const repostFlowWithStyleChoices = useCallback(
     async (session: FlowStyleSession) => {
       const doFetch =
@@ -1025,8 +1025,8 @@ export function ChatShell({
         workspaceId: session.workspaceId,
         onRunning: () => postAssistant('Flow gestartet — der Graph erscheint gleich.'),
         onCoupling: (markup) => postAssistant(markup),
-        // Falls nach der Wahl WEITERE Medien-Schritte offen sind (z.B. der
-        // Re-Compose hat sie erst jetzt erkannt): neue Session starten.
+        // If FURTHER media steps are open after the choice (e.g. the
+        // re-compose only now recognized them): start a new session.
         onStyleChoice: (req) => startFlowStyleSessionRef.current?.(req),
         onError: (detail) => pushToast('Flow fehlgeschlagen', detail, 'err'),
       });
@@ -1034,8 +1034,8 @@ export function ChatShell({
     [nextId, setHistory],
   );
 
-  // Stabiler Ref auf den Session-Starter (vermeidet Definitions-Reihenfolge-
-  // Zirkel zwischen repost ↔ startFlowStyleSession).
+  // Stable ref on the session starter (avoids a definition-order
+  // cycle between repost ↔ startFlowStyleSession).
   const startFlowStyleSessionRef = useRef<
     ((req: FlowStyleChoiceRequest) => void) | null
   >(null);
@@ -1043,7 +1043,7 @@ export function ChatShell({
   const handleFlowStyleChoice = useCallback(
     (req: FlowStyleChoiceRequest) => {
       if (req.prompts.length === 0) return;
-      // 1. Eine Session registrieren (offene Prompts + leere Wahlen).
+      // 1. Register a session (open prompts + empty choices).
       const session: FlowStyleSession = {
         intent: req.intent,
         workspaceId: req.workspaceId,
@@ -1055,9 +1055,9 @@ export function ChatShell({
       };
       flowStyleSessionsRef.current.push(session);
 
-      // 2. Pro Prompt eine quickchoice-Surface als Assistant-Message emittieren
-      //    (surface-aware Renderer → renderQuickChoice; Klick feuert reply +
-      //    lazyos:quickchoice). Die Surface trägt das exakte Payload-Format aus
+      // 2. Per prompt emit a quickchoice surface as an assistant message
+      //    (surface-aware renderer → renderQuickChoice; click fires reply +
+      //    lazyos:quickchoice). The surface carries the exact payload format from
       //    media-styles.ts (variant 'quickchoice' + options).
       setHistory((h) => {
         const additions: HistoryItem[] = req.prompts.map((p) => ({
@@ -1075,20 +1075,20 @@ export function ChatShell({
     startFlowStyleSessionRef.current = handleFlowStyleChoice;
   }, [handleFlowStyleChoice]);
 
-  // 3. Globaler Listener: ordnet eine geklickte Option-id ihrer offenen Frage
-  //    zu, sammelt die Wahl, RE-POSTet sobald eine Session vollständig ist.
+  // 3. Global listener: assigns a clicked option id to its open question,
+  //    collects the choice, RE-POSTs as soon as a session is complete.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onQuickChoice = (ev: Event) => {
       const id = (ev as CustomEvent<{ id?: string }>).detail?.id;
       if (typeof id !== 'string' || id.length === 0) return;
       const sessions = flowStyleSessionsRef.current;
-      // Pure Korrelation (id → offene Frage; mutiert die getroffene Session).
+      // Pure correlation (id → open question; mutates the matched session).
       const { completedSession, sessionIndex } = correlateQuickChoice(
         sessions,
         id,
       );
-      // Session vollständig → re-post + aus der aktiven Liste entfernen.
+      // Session complete → re-post + remove from the active list.
       if (completedSession && sessionIndex >= 0) {
         sessions.splice(sessionIndex, 1);
         void repostFlowWithStyleChoices(completedSession);
@@ -1102,12 +1102,12 @@ export function ChatShell({
       );
   }, [repostFlowWithStyleChoices]);
 
-  // ---- Bild-Generierung: fertiges Bild persistieren (2026-06-03) ----------
-  // Die ImageGenCard (Surface) dispatcht bei Erfolg `lazyos:image-gen-done`
-  // {token, surfaceMarkup}. Wir ersetzen die <surface:image-gen>-Lade-Karte
-  // (gematcht über den eindeutigen token im Content) durch die finale
-  // <surface:document>-Bild-Bubble → bei Reload zeigt der Verlauf das echte
-  // Bild (kein Re-Gen). Persistiert über writeHistoryFor.
+  // ---- Image generation: persist the finished image (2026-06-03) ----------
+  // The ImageGenCard (surface) dispatches `lazyos:image-gen-done` on success
+  // {token, surfaceMarkup}. We replace the <surface:image-gen> loading card
+  // (matched via the unique token in the content) with the final
+  // <surface:document> image bubble → on reload the history shows the real
+  // image (no re-gen). Persisted via writeHistoryFor.
   useEffect(() => {
     const onImageDone = (e: Event): void => {
       const detail = (e as CustomEvent).detail as
@@ -1138,13 +1138,13 @@ export function ChatShell({
       window.removeEventListener('lazyos:image-gen-done', onImageDone as EventListener);
   }, [currentWorkspace.id]);
 
-  // ---- Inline-File-Upload aus dem Composer ---------------------------
-  // STAGING-MODELL (Owner-Hard-Requirement 2026-05-26):
-  // Eine ausgewählte Datei wird hochgeladen, ABER NICHT sofort gesendet.
-  // Sie landet in `stagedAttachments` und wird als fixierte Vorschau ÜBER
-  // dem Composer angezeigt (WhatsApp/Telegram-Stil). Der User kann dazu
-  // Text tippen; beim Absenden (submit) gehen Datei(en) + Text GEMEINSAM
-  // als EINE Message raus (Bubble + Agent-Prompt enthalten beides).
+  // ---- Inline file upload from the composer ---------------------------
+  // STAGING MODEL (owner hard requirement 2026-05-26):
+  // A selected file is uploaded, BUT NOT sent immediately.
+  // It lands in `stagedAttachments` and is shown as a fixed preview ABOVE
+  // the composer (WhatsApp/Telegram style). The user can additionally
+  // type text; on send (submit), file(s) + text go out TOGETHER
+  // as ONE message (the bubble + agent prompt contain both).
   const cloudUpload = useChatCloudUpload();
   const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>(
     [],
@@ -1165,14 +1165,14 @@ export function ChatShell({
         workspaceId: currentWorkspace.id,
         workspaceLabel: currentWorkspace.label,
       });
-      // Erfolgreiche Uploads → ins Staging (NICHT senden).
+      // Successful uploads → into staging (do NOT send).
       if (result.ok.length > 0) {
         setStagedAttachments((prev) => [
           ...prev,
           ...result.ok.map((a) => ({ ...a, workspaceLabel: currentWorkspace.label })),
         ]);
       }
-      // Fehlgeschlagene Uploads → Toast im Verlauf (kein Staging).
+      // Failed uploads → toast in the history (no staging).
       if (result.fail.length > 0) {
         const ts = new Date().toISOString();
         const failItems: HistoryItem[] = result.fail.map((f) => ({
@@ -1192,12 +1192,12 @@ export function ChatShell({
   );
 
   // ---- hydrate from localStorage --------------------------------------
-  // Beim ersten Mount:
-  //  1) Legacy-Key (ohne Workspace-Suffix) in den aktuellen Workspace
-  //     migrieren — nur wenn noch kein per-Workspace-Key existiert.
-  //  2) History für currentWorkspace.id laden (instant aus localStorage).
-  //  3) Mock-Mode global laden.
-  //  4) Phase MS: parallel Server-History fetchen — Server gewinnt.
+  // On the first mount:
+  //  1) migrate the legacy key (without workspace suffix) into the current
+  //     workspace — only if no per-workspace key exists yet.
+  //  2) load the history for currentWorkspace.id (instant from localStorage).
+  //  3) load the mock mode globally.
+  //  4) Phase MS: fetch server history in parallel — the server wins.
   useEffect(() => {
     const wsId = currentWorkspace.id;
     let storedHistory: HistoryItem[] | null = null;
@@ -1212,9 +1212,9 @@ export function ChatShell({
       }
 
       storedHistory = readHistoryFor(wsId);
-      // Mock-Mode ist deprecated — alten Wert proaktiv löschen damit
-      // existierende PWAs aus dem Mock-Mode raus kommen, auch wenn der
-      // Agent kurzzeitig 503 hatte (z.B. während Deploy).
+      // Mock mode is deprecated — proactively delete the old value so
+      // existing PWAs get out of mock mode, even if the
+      // agent briefly returned 503 (e.g. during a deploy).
       window.localStorage.removeItem(STORAGE_MOCK);
     } catch {
       // ignore corrupt storage
@@ -1224,33 +1224,33 @@ export function ChatShell({
         setHistory(storedHistory);
         idCounter.current = storedHistory.length;
       }
-      // 2026-05-03: showHistory ist IMMER collapsed beim Mount/Workspace-Switch
-      // (User-Wunsch "Verlauf standardmäßig eingeklappt"). Persistierter
-      // Wert wird ignoriert — User kann ihn pro Session via Pill aufklappen,
-      // aber nach Reload/Switch ist er wieder zu.
+      // 2026-05-03: showHistory is ALWAYS collapsed on mount/workspace-switch
+      // (user wish "history collapsed by default"). The persisted
+      // value is ignored — the user can expand it per session via the pill,
+      // but after a reload/switch it is closed again.
       setShowHistory(false);
       setHydrated(true);
     });
 
-    // Phase MS · Server-First-Refresh. Cached-History haengt schon im
-    // State (instant), aber wir wollen die Wahrheit aus der DB. Bei
-    // Erfolg: Server gewinnt, lokale in-flight-Items bleiben drin.
-    // Bei Fehler/Offline: cached bleibt, kein User-facing Error.
+    // Phase MS · server-first refresh. Cached history already hangs in the
+    // state (instant), but we want the truth from the DB. On
+    // success: the server wins, local in-flight items stay in.
+    // On error/offline: cached stays, no user-facing error.
     const ctl = new AbortController();
     void loadHistoryServerFirst(wsId, { limit: 60, signal: ctl.signal })
       .then((res) => {
         const localItems = readHistoryFor(wsId) ?? [];
 
-        // Bug-Fix 2026-05-29 (Owner-Live-Test): Workspace-ID-Reuse durch
-        // Label-Slug-Kollision konnte alte localStorage-History für einen
-        // NEUEN Workspace mit gleichem slug restauriern. Wenn der Server
-        // für diesen wsId ein LEERES Resultat liefert (frischer Workspace
-        // ohne Chat-Verlauf in der DB), aber localStorage Inhalt hat →
-        // localStorage stammt von einer früheren Workspace-Instanz mit
-        // gleichem slug → zwingend purgen + State resetten, damit der
-        // Owner einen wirklich leeren Chat sieht. (F2-Kollisions-Schutz
-        // in der POST-Route verhindert das ab 12a73d8 für NEUE Workspaces,
-        // aber dieser Mount-Guard räumt auch existierende Stale-Caches auf.)
+        // Bug-Fix 2026-05-29 (owner live test): workspace-ID reuse via a
+        // label-slug collision could restore old localStorage history for a
+        // NEW workspace with the same slug. When the server
+        // returns an EMPTY result for this wsId (fresh workspace
+        // without chat history in the DB), but localStorage has content →
+        // the localStorage stems from an earlier workspace instance with
+        // the same slug → must purge + reset state so the
+        // owner sees a really empty chat. (The F2 collision protection
+        // in the POST route prevents this from 12a73d8 for NEW workspaces,
+        // but this mount guard also cleans up existing stale caches.)
         if (res.items.length === 0 && localItems.length > 0) {
           try {
             window.localStorage.removeItem(historyKeyFor(wsId));
@@ -1269,9 +1269,9 @@ export function ChatShell({
         idCounter.current = merged.length;
         writeHistoryFor(wsId, merged);
 
-        // Phase RL.3 (2026-04-28): Stream-Pending-Detect. Wenn das LETZTE
-        // History-Item eine user-Message ist UND <10 min alt → Server-Stream
-        // läuft vermutlich noch. Pending-Indicator anzeigen, Polling starten.
+        // Phase RL.3 (2026-04-28): stream-pending detect. If the LAST
+        // history item is a user message AND <10 min old → the server stream
+        // is presumably still running. Show the pending indicator, start polling.
         const last = merged[merged.length - 1];
         if (
           last?.role === 'user' &&
@@ -1282,27 +1282,27 @@ export function ChatShell({
           setServerStreamPending(false);
         }
 
-        // 2026-04-26: Workstream-Aktivitaet vom Server (auto_dispatch,
-        // stage-comments, pipeline_complete, synthesis) als SystemItems
-        // einspielen. So sieht der User nach Reload die Live-Toasts der
-        // letzten N Events historisch im Verlauf, nicht nur live im SSE.
+        // 2026-04-26: feed workstream activity from the server (auto_dispatch,
+        // stage-comments, pipeline_complete, synthesis) in as SystemItems.
+        // This way, after a reload, the user sees the live toasts of the
+        // last N events historically in the history, not only live in the SSE.
         if (res.systemItems.length > 0) {
           setSystemMessages((prev) => mergeSystemItems(prev, res.systemItems));
         }
       })
       .catch(() => {
-        /* offline / 401 / etc — cached bleibt drin */
+        /* offline / 401 / etc — cached stays in */
       });
     return () => ctl.abort();
-    // Nur beim ersten Mount; Workspace-Switch läuft im Effect unten.
+    // Only on the first mount; workspace switch runs in the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---- workspace switch — isolate history ------------------------------
-  // Siehe vorige Doku. Kern: alte History persistieren, neue laden,
-  // Stream abortieren, Input leeren. `previousWorkspaceIdRef` verhindert,
-  // dass der Persist-Effect beim Switch die frisch geladene Ziel-History
-  // mit der alten überschreibt.
+  // See the previous docs. Core: persist the old history, load the new one,
+  // abort the stream, clear the input. `previousWorkspaceIdRef` prevents
+  // the persist effect on switch from overwriting the freshly loaded target
+  // history with the old one.
   const previousWorkspaceIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -1322,10 +1322,10 @@ export function ChatShell({
     abortAgent();
     setInput('');
     setSystemMessages([]);
-    // Sub-Plan B · 2026-04-29: Beim Workspace-Switch IMMER zurück auf
-    // Fokus-Mode. Persistierter Wert bleibt im localStorage liegen
-    // (nächster Reload desselben Workspaces respektiert ihn wieder),
-    // aber der gerade aktive Switch beginnt im Default.
+    // Sub-Plan B · 2026-04-29: on a workspace switch ALWAYS back to
+    // focus mode. The persisted value stays in localStorage
+    // (the next reload of the same workspace respects it again),
+    // but the currently active switch starts in the default.
     setShowHistory(false);
     writeShowHistoryFor(nextId, false);
 
@@ -1338,14 +1338,14 @@ export function ChatShell({
     setHistory(nextHistory ?? []);
     idCounter.current = nextHistory?.length ?? 0;
 
-    // Bug-3-Fix: Snapshot-Resume auf Workspace-Switch · 2026-05-25.
-    // Wenn für den Ziel-Workspace ein laufender LiveSnapshot in localStorage
-    // liegt (= Stream war aktiv als User weggeswitcht hat), den Partial-State
-    // als in-progress-Indikator sofort anzeigen. Damit ist kein optischer
-    // Abriss sichtbar — der User sieht "arbeitet" + bisherigen Text sofort.
-    // Kein echtes Reconnect des Streams — der stream-Fetch läuft weiterhin im
-    // Hintergrund (er ist an den agent-turn fetch bound, nicht an workspaceId).
-    // serverStreamPending triggert den 10s-Polling-Fallback als Sicherheitsnetz.
+    // Bug-3-Fix: snapshot resume on workspace switch · 2026-05-25.
+    // If a running LiveSnapshot lies in localStorage for the target workspace
+    // (= the stream was active when the user switched away), show the partial
+    // state immediately as an in-progress indicator. So no visual
+    // tear is visible — the user sees "working" + the text so far at once.
+    // No real reconnect of the stream — the stream fetch keeps running in the
+    // background (it is bound to the agent-turn fetch, not to workspaceId).
+    // serverStreamPending triggers the 10s polling fallback as a safety net.
     const resumeLive = readLiveFor(nextId);
     if (resumeLive) {
       const age = Date.now() - new Date(resumeLive.startedAt).getTime();
@@ -1356,15 +1356,15 @@ export function ChatShell({
       }
     }
 
-    // Phase MS · Server-Refresh nach Workspace-Switch — analog zum Mount-
-    // Effect. Cached rendert instant, Server gewinnt sobald die Antwort
-    // da ist. AbortController verhindert race-conditions wenn der User
-    // schnell nochmal switched.
+    // Phase MS · server refresh after a workspace switch — analogous to the mount
+    // effect. Cached renders instantly, the server wins once the answer
+    // is there. AbortController prevents race conditions when the user
+    // switches again quickly.
     const ctl = new AbortController();
     void loadHistoryServerFirst(nextId, { limit: 60, signal: ctl.signal })
       .then((res) => {
-        // Schutz: aus dem schnellen Switch-Pfad zurueck; nur anwenden
-        // wenn der User immer noch auf nextId steht.
+        // Guard: back from the fast switch path; only apply
+        // if the user is still on nextId.
         if (previousWorkspaceIdRef.current !== nextId) return;
         const localItems = readHistoryFor(nextId) ?? [];
         const merged = mergeServerWithLocal(res.items, localItems, res.cutoffMs);
@@ -1372,18 +1372,18 @@ export function ChatShell({
         idCounter.current = merged.length;
         writeHistoryFor(nextId, merged);
 
-        // 2026-04-26: Workstream-System-Items aus Server fuer den neuen
-        // Workspace einspielen. SystemMessages wurden oben geleert.
+        // 2026-04-26: feed workstream system items from the server in for the new
+        // workspace. SystemMessages were cleared above.
         if (res.systemItems.length > 0) {
           setSystemMessages(res.systemItems);
         }
       })
       .catch(() => {
-        /* offline — cached bleibt */
+        /* offline — cached stays */
       });
 
-    // previousWorkspaceIdRef wird absichtlich erst vom Persist-Effect
-    // synchronisiert — siehe Doku dort.
+    // previousWorkspaceIdRef is deliberately synchronized only by the persist
+    // effect — see the docs there.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWorkspace.id, hydrated, abortAgent]);
 
@@ -1398,8 +1398,8 @@ export function ChatShell({
   }, [history, hydrated, currentWorkspace.id]);
 
 
-  // Sub-Plan B · 2026-04-29: showHistory pro Workspace persistieren.
-  // Triggert bei jedem Toggle oder Auto-Reset (submit).
+  // Sub-Plan B · 2026-04-29: persist showHistory per workspace.
+  // Triggers on every toggle or auto-reset (submit).
   useEffect(() => {
     if (!hydrated) return;
     writeShowHistoryFor(currentWorkspace.id, showHistory);
@@ -1408,19 +1408,19 @@ export function ChatShell({
   const isStreaming =
     agentStatus === 'connecting' || agentStatus === 'streaming';
 
-  // ── Slice 2 (2026-05-30, Apple-UX): ActionDeck-Datenquelle ────────────────
-  // DB-Projektion (blockingGates/openQuestions/activeFlowRun) via member-auth-
-  // gated Route. Poll 5s + Invalidierung sobald der Stream endet (isStreaming
-  // ODER serverStreamPending fällt auf false → frischer State direkt nach der
-  // Antwort, statt bis zum Poll-Tick zu warten). Ein monoton steigender
-  // Zähler ist das Invalidierungs-Signal: er ändert sich genau dann, wenn der
-  // Run-Aktiv-Zustand wechselt.
+  // ── Slice 2 (2026-05-30, Apple-UX): ActionDeck data source ────────────────
+  // DB projection (blockingGates/openQuestions/activeFlowRun) via a member-auth-
+  // gated route. Poll 5s + invalidation as soon as the stream ends (isStreaming
+  // OR serverStreamPending falls to false → fresh state right after the
+  // answer, instead of waiting until the poll tick). A monotonically increasing
+  // counter is the invalidation signal: it changes exactly when the
+  // run-active state switches.
   const runActiveForDeck = isStreaming || serverStreamPending;
-  // refreshSignal MUSS monoton steigen (Hook-Doc-Vertrag: „monoton steigender
-  // Invalidierungs-Zähler"). Vorher binär 0/1 → ein zweiter Run-aktiv-Wechsel
-  // in dieselbe Richtung triggerte kein Re-Fetch (Doku/Code-Drift). Wir zählen
-  // jede Flanke (runActive ↔ idle) hoch — jeder Stream-Ende-Übergang löst so
-  // verlässlich genau ein frisches Projektions-Fetch aus.
+  // refreshSignal MUST increase monotonically (hook doc contract: „monotonically increasing
+  // invalidation counter"). Previously binary 0/1 → a second run-active switch
+  // in the same direction triggered no re-fetch (docs/code drift). We count
+  // every edge (runActive ↔ idle) up — every stream-end transition thus
+  // reliably triggers exactly one fresh projection fetch.
   const deckRefreshSignalRef = useRef(0);
   const prevRunActiveForDeckRef = useRef<boolean | null>(null);
   if (prevRunActiveForDeckRef.current !== runActiveForDeck) {
@@ -1432,63 +1432,63 @@ export function ChatShell({
     refreshSignal: deckRefreshSignal,
   });
   const pinnedItem = selectPinnedItem(workspaceState);
-  // F18 (2026-05-30): die Headline der gepinnten Decision → der
-  // PinnedDecisionRegistryProvider stellt die gleichnamige Feed-Karte ruhig
-  // (keine zwei lauten Kopien). Null wenn kein Decision-Gate gepinnt.
+  // F18 (2026-05-30): the headline of the pinned decision → the
+  // PinnedDecisionRegistryProvider stills the same-named feed card
+  // (no two loud copies). Null when no decision gate is pinned.
   const pinnedDecisionSig = pinnedDecisionSignature(pinnedItem);
 
-  // BLOCKER 1 (2026-05-30): sichtbares Feedback, wenn die Deck-Aktion ihre
-  // Stream-Card (noch) nicht im DOM findet — statt stillem No-op. Trägt den
-  // gate.kind kurz als data-Attribut an der Deck-Region (CSS-Pulse).
+  // BLOCKER 1 (2026-05-30): visible feedback when the deck action does not
+  // (yet) find its stream card in the DOM — instead of a silent no-op. Carries the
+  // gate.kind briefly as a data attribute on the deck region (CSS pulse).
   const [deckActionMiss, setDeckActionMiss] = useState<string | null>(null);
 
-  // Gate-Aktion → SINGLE SUBMIT PATH (Critic-Punkt 3). Der Deck delegiert
-  // hierher — wie die Pille ihren Submit an ChatShell delegiert —, damit es
-  // GENAU EINEN POST-Pfad gibt: den echten Button der Stream-Gate-Card. Der
-  // Deck baut NIE einen zweiten fetch; er findet die Card und klickt deren
-  // primäre Aktion programmatisch (bzw. fokussiert sie, wenn ein Secret nötig
-  // ist). N8: die Card bleibt im Verlauf als Beleg.
+  // Gate action → SINGLE SUBMIT PATH (Critic point 3). The deck delegates
+  // here — as the pill delegates its submit to ChatShell — so there is
+  // EXACTLY ONE POST path: the real button of the stream-gate card. The
+  // deck NEVER builds a second fetch; it finds the card and clicks its
+  // primary action programmatically (or focuses it when a secret is needed).
+  // N8: the card stays in the history as a record.
   //
-  // BLOCKER 1 (Critic, 2026-05-30): die alte Map `surface-${gate.kind}` traf
-  // nur live-warn. Für human-decision (Card=surface-decision-brief),
-  // credential-request (hatte kein data-test) + connector-call-preview (kein
-  // data-test am Body) war es ein stiller No-op — Owner klickt „Entscheiden"/
-  // „Zugang eingeben" und NICHTS passiert. Hier korrekt gemappt + sichtbares
-  // Feedback statt stillem No-op, wenn das Scroll-Target fehlt.
+  // BLOCKER 1 (Critic, 2026-05-30): the old map `surface-${gate.kind}` only hit
+  // live-warn. For human-decision (card=surface-decision-brief),
+  // credential-request (had no data-test) + connector-call-preview (no
+  // data-test on the body) it was a silent no-op — the owner clicks „Entscheiden"/
+  // „Zugang eingeben" and NOTHING happens. Here mapped correctly + visible
+  // feedback instead of a silent no-op when the scroll target is missing.
   const handleGateAction = useCallback((gate: BlockingGateState): void => {
     try {
-      // executeGateAction (ActionDeck.tsx) ist der EINE geteilte Aktions-Pfad:
-      //   non-secret approve → klickt den echten Button der Stream-Card
-      //                        (genau EIN POST; kein zweiter fetch im Deck).
-      //   credential (secret) → fokussiert nur den isolierten Card-Input
-      //                        (Vault-Regel; Secret landet NIE im Deck).
-      //   counter-evidence    → scrollt die Beleg-Card in den Blick.
-      //   Card fehlt im DOM    → 'missing' → sichtbares Pulse-Feedback statt
-      //                          stillem No-op (BLOCKER 1).
+      // executeGateAction (ActionDeck.tsx) is the ONE shared action path:
+      //   non-secret approve → clicks the real button of the stream card
+      //                        (exactly ONE POST; no second fetch in the deck).
+      //   credential (secret) → only focuses the isolated card input
+      //                        (Vault rule; the secret NEVER lands in the deck).
+      //   counter-evidence    → scrolls the evidence card into view.
+      //   card missing in DOM  → 'missing' → visible pulse feedback instead of
+      //                          a silent no-op (BLOCKER 1).
       const outcome = executeGateAction(gate);
       if (outcome === 'missing') {
         setDeckActionMiss(gate.kind);
         window.setTimeout(() => setDeckActionMiss(null), 1600);
       }
     } catch {
-      /* fail-soft: DOM nicht verfügbar (SSR) → no-op. */
+      /* fail-soft: DOM not available (SSR) → no-op. */
     }
   }, []);
 
-  // Resume-Aktion → unterbrochenen/pausierten Workstream fortsetzen (Owner-
-  // Szenario „Connector-Onboarding heygen unterbrochen", Bug 1 Kontextverlust).
-  // Statt eines generischen Klär-Menüs schickt „Fortsetzen" eine EXPLIZITE,
-  // kontext-tragende Instruktion über den EINEN Submit-Pfad (submitRef → der
-  // normale Agent-Turn mit vollem History-/Workspace-Kontext). Der Server/
-  // Connector-Stack (lib/connectors/auto-connect.ts) erkennt daran den Resume
-  // und stößt ggf. den Auth-/Onboarding-Surface-Pfad an.
+  // Resume action → continue an interrupted/paused workstream (owner
+  // scenario „Connector-Onboarding heygen unterbrochen", Bug 1 context loss).
+  // Instead of a generic clarification menu, „Fortsetzen" sends an EXPLICIT,
+  // context-carrying instruction over the ONE submit path (submitRef → the
+  // normal agent turn with full history/workspace context). The server/
+  // connector stack (lib/connectors/auto-connect.ts) recognizes the resume from it
+  // and, if needed, triggers the auth/onboarding surface path.
   //
-  // SERVER-NAHT (an Coordinator gemeldet): der EIGENTLICHE Onboarding-Resume +
-  // das Auth-Surface liegen tiefer im Connector/Server-Stack. Dieser Handler
-  // hält nur den Kontext und liefert den richtigen Trigger-Text; der
-  // serverseitige disambiguation-/clarify-Pfad muss `activeWorkstreams`/
-  // `blockingGates` aus state-projector berücksichtigen, bevor er generisch
-  // klärt.
+  // SERVER SEAM (reported to the coordinator): the ACTUAL onboarding resume +
+  // the auth surface lie deeper in the connector/server stack. This handler
+  // only holds the context and delivers the right trigger text; the
+  // server-side disambiguation/clarify path must consider `activeWorkstreams`/
+  // `blockingGates` from state-projector before it clarifies
+  // generically.
   const handleResume = useCallback(
     (workstreamId: string): void => {
       const item =
@@ -1498,32 +1498,32 @@ export function ChatShell({
             )
           : undefined;
       const name = item?.name ?? 'den unterbrochenen Vorgang';
-      // Explizite, eindeutige Instruktion — KEIN kurzes „?"/„weiter" mehr, das
-      // server-seitig generisch geklärt würde. Trägt den Workstream-Namen +
-      // die ID als Kontext-Anker.
+      // Explicit, unambiguous instruction — NO short „?"/„weiter" anymore that
+      // would be clarified generically server-side. Carries the workstream name +
+      // the ID as context anchors.
       const resumeText = `Setze den unterbrochenen Workstream „${name}" (Workstream-ID: ${workstreamId}) fort. Wenn dafür ein Onboarding-/Auth-Schritt offen ist, starte den Verbindungs-/Auth-Prozess.`;
       submitRef.current?.(resumeText);
     },
     [workspaceState],
   );
 
-  // 2026-04-28 Hotfix: serverStreamPending darf den Input NICHT disablen.
-  // Es ist ein passiver Indicator "Server arbeitet im Hintergrund weiter",
-  // KEIN Submit-Block. Sonst kann User nicht tippen wenn z.B. claude
-  // ohne completed-Event abstürzte (serverStreamPending bleibt 10min true).
+  // 2026-04-28 Hotfix: serverStreamPending must NOT disable the input.
+  // It is a passive indicator "the server keeps working in the background",
+  // NOT a submit block. Otherwise the user cannot type when e.g. claude
+  // crashed without a completed event (serverStreamPending stays true for 10min).
   const isPending = isMockPending || isStreaming;
 
-  // ---- Bug-2-Fix: Queue-Flush-Effect · 2026-05-25 ----------------------
-  // Wenn agentStatus auf 'idle' wechselt UND die Queue nicht leer ist →
-  // nächste Message aus der Queue automatisch senden ("fließt in die Lücke").
-  // submitRef hält einen stabilen Callback-Ref um circular-deps zu vermeiden.
+  // ---- Bug-2-Fix: queue-flush effect · 2026-05-25 ----------------------
+  // When agentStatus switches to 'idle' AND the queue is not empty →
+  // automatically send the next message from the queue ("flows into the gap").
+  // submitRef holds a stable callback ref to avoid circular deps.
   const submitRef = useRef<((raw: string) => void) | null>(null);
 
-  // Phase 1 Track AB · Befund B (2026-05-29): Stabiler Ref auf den
-  // strukturierten-Antwort-POST (postStructuredAnswers), weil dieser unten
-  // im File definiert wird (nach `submit`) und im Submit-Closure trotzdem
-  // erreichbar sein muss. Wird per useEffect aktualisiert, sobald
-  // postStructuredAnswers sich materialisiert.
+  // Phase 1 Track AB · finding B (2026-05-29): stable ref on the
+  // structured-answer POST (postStructuredAnswers), because it is defined below
+  // in the file (after `submit`) and must still be reachable
+  // in the submit closure. Updated via useEffect as soon as
+  // postStructuredAnswers materializes.
   const postStructuredAnswersRef = useRef<
     | ((
         qs: ReadonlyArray<OpenQuestion>,
@@ -1533,16 +1533,16 @@ export function ChatShell({
     | null
   >(null);
 
-  // C2-Fix: Inflight-Lock. SurfaceAction-Caller (RateLimitRetry-Auto-Retry,
-  // Cards via `reply`) rufen submit() ohne isStreaming-Wissen → konkurrierende
-  // sendAgent-Calls. Dieser Ref serialisiert den Agent-Pfad: solange ein Turn
-  // läuft, wird ein zweiter direkter submit() (nicht-enqueue-Pfad) verworfen.
+  // C2-Fix: inflight lock. SurfaceAction callers (RateLimitRetry auto-retry,
+  // cards via `reply`) call submit() without isStreaming knowledge → competing
+  // sendAgent calls. This ref serializes the agent path: as long as a turn
+  // is running, a second direct submit() (non-enqueue path) is discarded.
   const submitInflightRef = useRef(false);
 
-  // M1-Fix: history/agentTurn aus Refs lesen statt aus submit-Closure. Bei
-  // SSE-Burst (häufige Re-Renders) wird submit sonst ständig neu erzeugt und
-  // der submitRef-Update-Effect rennt gegen das Flush-Microtask. Refs sind
-  // immer aktuell und nehmen history/agentTurn aus den submit-deps.
+  // M1-Fix: read history/agentTurn from refs instead of from the submit closure. On
+  // an SSE burst (frequent re-renders), submit is otherwise constantly recreated and
+  // the submitRef update effect races against the flush microtask. Refs are
+  // always current and take history/agentTurn out of the submit deps.
   const historyRef = useRef(history);
   const agentTurnRef = useRef(agentTurn);
   useEffect(() => {
@@ -1557,76 +1557,76 @@ export function ChatShell({
     const next = messageQueueRef.current.shift();
     if (!next) return;
     setQueueLength(messageQueueRef.current.length);
-    // Kleines Microtask-Delay damit der State nach dem Stream-Ende vollständig
-    // settled ist bevor wir den nächsten Turn einleiten.
+    // A small microtask delay so the state is fully settled after the stream
+    // ends before we initiate the next turn.
     queueMicrotask(() => {
       submitRef.current?.(next);
     });
   }, [agentStatus]);
 
-  // ---- UX-1: Open-Questions-Detection · 2026-05-26 ---------------------
-  // ---- Workstream 4b: ask-but-proceed-Pinning · 2026-05-27 ------------
-  // Wenn IRGENDEIN Assistant-Turn offene Fragen emittiert, ziehen wir sie in
-  // die gepinnte Pill ÜBER dem Composer und klappen sie auf. Die Signatur
-  // (Fragen-IDs joined) verhindert, dass derselbe Turn bei jedem Re-Render
-  // erneut geladen wird (was die schon gegebenen Antworten resetten würde).
+  // ---- UX-1: open-questions detection · 2026-05-26 ---------------------
+  // ---- Workstream 4b: ask-but-proceed pinning · 2026-05-27 ------------
+  // When ANY assistant turn emits open questions, we pull them into
+  // the pinned pill ABOVE the composer and expand it. The signature
+  // (question IDs joined) prevents the same turn from being loaded again
+  // on every re-render (which would reset the answers already given).
   //
-  // FIX (Owner-Symptom „Frage scrollt weg"):
-  //  1. Quelle = BEIDE: `<surface:open-questions>`-Tag UND `## Offene Fragen`-
-  //     Markdown (vorher NUR Markdown → Surface-Fragen pinnten nie).
-  //  2. Scan über die GANZE History (jüngstes Frage-Set gewinnt) PLUS den
-  //     laufenden `agentTurn.text` — damit eine mitten im ask-but-proceed-Run
-  //     emittierte Frage SOFORT unten erscheint, statt erst nach Stream-Ende.
-  //  3. Läuft AUCH während `isStreaming` (kein early-return mehr) — parallel
-  //     gearbeitet ⇒ Frage bleibt trotzdem gepinnt + beantwortbar.
-  // Geclearet wird NICHT hier (kein Step-/Wellen-Clear) — nur im Answer-Pfad
-  // (resetPillState) bzw. bei Workstream-Terminal (eigener Effect unten).
+  // FIX (owner symptom „Frage scrollt weg"):
+  //  1. Source = BOTH: the `<surface:open-questions>` tag AND `## Offene Fragen`
+  //     markdown (previously ONLY markdown → surface questions never pinned).
+  //  2. Scan over the WHOLE history (the newest question set wins) PLUS the
+  //     running `agentTurn.text` — so a question emitted mid ask-but-proceed-run
+  //     appears at the bottom IMMEDIATELY, instead of only after the stream ends.
+  //  3. Runs ALSO during `isStreaming` (no more early-return) — work happens
+  //     in parallel ⇒ the question stays pinned + answerable nonetheless.
+  // Clearing does NOT happen here (no step/wave clear) — only in the answer path
+  // (resetPillState) resp. on workstream terminal (its own effect below).
   useEffect(() => {
-    // History-Items (jüngstes Assistant-Item mit Fragen gewinnt).
-    // `collectOpenQuestionsFromHistory` ruft intern bereits
-    // `mergeQuestionEnrichmentsById` auf — Doppel-Emissions desselben
-    // Assistant-Items mit gleicher ID landen schon hier als EINE Karte.
+    // History items (the newest assistant item with questions wins).
+    // `collectOpenQuestionsFromHistory` internally already calls
+    // `mergeQuestionEnrichmentsById` — double emissions of the same
+    // assistant item with the same ID already land here as ONE card.
     let collected: OpenQuestion[] = collectOpenQuestionsFromHistory(history);
-    // … und der noch laufende Turn (während Streaming noch nicht in history).
-    // Der Live-Turn ist „jünger" als jedes history-Item → hat Vorrang.
+    // … and the still-running turn (not in history yet during streaming).
+    // The live turn is „younger" than every history item → takes precedence.
     if (typeof agentTurn.text === 'string' && agentTurn.text.length > 0) {
       const liveQs = extractOpenQuestionsFromContent(agentTurn.text);
       if (liveQs.length > 0) {
-        // W1 (2026-05-28): EXPLIZIT durch den Merger — `extract` selbst tut das
-        // nicht (zwei `<surface:open-questions>`-Tags im SELBEN Live-Turn mit
-        // gleicher ID würden sonst zwei Einträge erzeugen, statt die zweite
-        // Emission als Anreicherung auf die erste zu legen — Owner-Befund
+        // W1 (2026-05-28): EXPLICITLY through the merger — `extract` itself does
+        // not do that (two `<surface:open-questions>` tags in the SAME live turn with
+        // the same ID would otherwise create two entries, instead of laying the second
+        // emission as enrichment onto the first — owner finding
         // „Empfehlung … etwas doppelt und ggf. redundant").
         collected = mergeQuestionEnrichmentsById(liveQs);
       }
     }
     if (collected.length === 0) return;
 
-    // MAJOR 3a (2026-05-26): Duplikat-Fragetexte → kollidierende Hash-IDs.
-    // Markdown-Fragen tragen `id = hashString(text)`; zwei textgleiche offene
-    // Fragen bekommen so dieselbe ID. Folge wären: `allAnswered` fälschlich
-    // true nach EINER Antwort, doppelte Antwort im reply, und der Options-Klick
-    // springt immer auf die erste Bubble zurück (Navigations-Stuck). Surface-
-    // Fragen haben i.d.R. stabile eigene IDs; dedupeQuestionIds ist idempotent.
+    // MAJOR 3a (2026-05-26): duplicate question texts → colliding hash IDs.
+    // Markdown questions carry `id = hashString(text)`; two text-identical open
+    // questions thus get the same ID. The consequences would be: `allAnswered` wrongly
+    // true after ONE answer, a duplicated answer in the reply, and the option click
+    // always jumping back to the first bubble (navigation stuck). Surface
+    // questions usually have stable own IDs; dedupeQuestionIds is idempotent.
     const uniqueQuestions = dedupeQuestionIds(collected) as OpenQuestion[];
 
-    // MINOR 4a (2026-05-26): Signatur NUR aus den (dedupten) Fragen-IDs —
-    // stabil über Re-Hydrate (PWA-Tab-Wechsel ändert Item-IDs, nicht Frage-IDs).
+    // MINOR 4a (2026-05-26): signature ONLY from the (deduped) question IDs —
+    // stable across re-hydrate (a PWA tab switch changes item IDs, not question IDs).
     const signature = uniqueQuestions.map((q) => q.id).join('|');
     if (signature === lastQSignatureRef.current) {
-      // W2 (2026-05-28): Gleiche Signatur — KEIN voller Re-Load (würde die
-      // gegebenen Antworten resetten und Pill-Expand-State stören). ABER: wenn
-      // eine spätere Emission das gleiche Set MIT Enrichment-Feldern nachreicht
-      // (context/pros/cons/recommendation/evidence/askedAt), wollen wir die
-      // bestehenden Karten IN PLACE anreichern — das ist genau die Owner-Spec
+      // W2 (2026-05-28): same signature — NO full re-load (would reset the
+      // given answers and disturb the pill-expand state). BUT: when
+      // a later emission supplies the same set WITH enrichment fields
+      // (context/pros/cons/recommendation/evidence/askedAt), we want to enrich
+      // the existing cards IN PLACE — that is exactly the owner spec
       // „statt zweiter Surface die EINE bestehende Karte ergänzen".
-      // Mergt den Vorhang-State mit den neuen Feldern; wenn sich nichts geändert
-      // hat, ist `merged` referentiell identisch (kein Re-Render).
+      // Merges the current state with the new fields; if nothing changed,
+      // `merged` is referentially identical (no re-render).
       setOpenQuestions((prev) => {
         if (prev.length === 0) return prev;
         const merged = mergeQuestionEnrichmentsById([...prev, ...uniqueQuestions]);
-        // Cheap-Compare: ID-Reihenfolge UND Enrichment-Felder. Wenn nichts neu
-        // ist, geben wir `prev` zurück (React bail-out, keine Re-Renders).
+        // Cheap compare: ID order AND enrichment fields. If nothing is new,
+        // we return `prev` (React bail-out, no re-renders).
         let same = merged.length === prev.length;
         if (same) {
           for (let i = 0; i < prev.length; i += 1) {
@@ -1658,28 +1658,28 @@ export function ChatShell({
     setPillExpanded(true);
   }, [history, agentTurn.text]);
 
-  // ---- W3 (2026-05-28): periodischer Stale-/Resolve-Scan -----------------
-  // OWNER-SYMPTOM (verbatim, 2026-05-28): „Im PA Chat ist immer noch Offene
+  // ---- W3 (2026-05-28): periodic stale/resolve scan -----------------
+  // OWNER SYMPTOM (verbatim, 2026-05-28): „Im PA Chat ist immer noch Offene
   // Fragen, obwohl die schon unfassbar alt sind und schon lange beantwortet."
   //
-  // Wir scannen die aktuell gepinnten Fragen gegen die History mit dem reinen
-  // `detectResolvedAndStaleQuestions`-Helper (lexical-Match einer USER-Reply +
-  // 24h-Alters-Verfall + ≥20 Turns danach). Wenn er IDs zurückgibt, ziehen wir
-  // sie aus dem Pill-State und passen die Signatur an die Restliste an.
+  // We scan the currently pinned questions against the history with the pure
+  // `detectResolvedAndStaleQuestions` helper (lexical match of a USER reply +
+  // 24h age decay + ≥20 turns afterwards). When it returns IDs, we pull
+  // them out of the pill state and adjust the signature to the remaining list.
   //
-  // Trigger: jeder History-Update (deps: history.length). Wenn der User auf
-  // eine alte Frage antwortet, ist die Antwort im nächsten Tick als history-
-  // Item da → Scan greift und räumt die Frage weg. Kein Polling-Timer (Cost-
-  // /Battery-frei).
+  // Trigger: every history update (deps: history.length). When the user answers
+  // an old question, the answer is there as a history item on the next tick
+  // → the scan kicks in and clears the question away. No polling timer (cost-
+  // /battery-free).
   //
-  // Persistenz-Note: dieser Scan ist REIN UI — wir ändern keine events-Rows.
-  // Beim Reload re-derived der Population-Effect die Pill aus der unveränderten
-  // assistant-message; danach räumt DIESER Scan sie wieder weg. Das ist der
-  // honest path bis ein Worker die `markStaleOpenQuestionsResolved`-Maintenance
-  // serverseitig fährt (eigener Slice).
+  // Persistence note: this scan is PURE UI — we change no events rows.
+  // On reload the population effect re-derives the pill from the unchanged
+  // assistant message; afterwards THIS scan clears it away again. That is the
+  // honest path until a worker runs the `markStaleOpenQuestionsResolved` maintenance
+  // server-side (its own slice).
   useEffect(() => {
     if (openQuestions.length === 0) return;
-    // History → minimal-Shape (OpenQuestionsSourceItem) für den puren Helper.
+    // History → minimal shape (OpenQuestionsSourceItem) for the pure helper.
     const source: OpenQuestionsSourceItem[] = history.map((h) => ({
       role: h.role,
       content: h.content,
@@ -1690,39 +1690,39 @@ export function ChatShell({
     setOpenQuestions((prev) => {
       const remaining = prev.filter((q) => !removeSet.has(q.id));
       if (remaining.length === prev.length) return prev;
-      // Signatur muss an die verkürzte Liste angepasst werden, damit die
-      // bestehende Signatur-Guard im Population-Effect nicht das Re-Load der
-      // ECHTEN aktuellen Frage blockiert.
+      // The signature must be adjusted to the shortened list so the
+      // existing signature guard in the population effect does not block the re-load of
+      // the REAL current question.
       lastQSignatureRef.current =
         remaining.length === 0 ? null : remaining.map((q) => q.id).join('|');
       return remaining;
     });
   }, [history, openQuestions]);
 
-  // ---- Workstream 4b: Terminal-Clear (NICHT Step-Done-Clear) · 2026-05-27 --
-  // Die gepinnte Frage wird NUR weggeräumt, wenn der GANZE Run terminal ist —
-  // also: nicht mehr streaming (`!isStreaming`), kein Server-Stream mehr pending
-  // (`!serverStreamPending`) UND die Frage taucht NIRGENDS mehr in der
-  // Konversation auf (weder als Surface-Tag noch als Markdown-Section). Das ist
-  // der Fall „Run gelaufen + abgeschlossen, ohne dass die Frage noch relevant
-  // ist" (done/failed/cancelled, Frage obsolet).
+  // ---- Workstream 4b: terminal clear (NOT step-done clear) · 2026-05-27 --
+  // The pinned question is cleared away ONLY when the WHOLE run is terminal —
+  // i.e.: no longer streaming (`!isStreaming`), no server stream pending anymore
+  // (`!serverStreamPending`) AND the question appears NOWHERE in the
+  // conversation anymore (neither as a surface tag nor as a markdown section). That is
+  // the case „run completed + finished, without the question still being
+  // relevant" (done/failed/cancelled, question obsolete).
   //
-  // ABGRENZUNG zum Bug: Ein einzelnes Step-/Wellen-Ende clearet NICHT — denn im
-  // ask-but-proceed-Modus bleibt der Run aktiv (`isStreaming`/`serverStreamPending`
-  // true) ODER die Frage bleibt im jüngsten Content (collected.length>0). Beides
-  // hält den Guard hier geschlossen → die Frage bleibt gepinnt + beantwortbar.
+  // DISTINCTION from the bug: a single step/wave end does NOT clear — because in
+  // ask-but-proceed mode the run stays active (`isStreaming`/`serverStreamPending`
+  // true) OR the question stays in the newest content (collected.length>0). Both
+  // keep the guard here closed → the question stays pinned + answerable.
   //
-  // Sobald der User bereits eine Antwort begonnen hat (qAnswers nicht leer),
-  // räumen wir NICHT auf — der Antwort-Flow (resetPillState) übernimmt das.
+  // Once the user has already started an answer (qAnswers not empty), we do
+  // NOT clear — the answer flow (resetPillState) handles that.
   useEffect(() => {
     if (openQuestions.length === 0) return;
-    if (isStreaming || serverStreamPending) return; // Run noch aktiv → halten.
-    if (Object.keys(qAnswers).length > 0) return; // User antwortet gerade.
-    // Steht die Frage noch irgendwo? Dann ist sie NICHT obsolet → halten.
+    if (isStreaming || serverStreamPending) return; // Run still active → hold.
+    if (Object.keys(qAnswers).length > 0) return; // user is answering right now.
+    // Is the question still somewhere? Then it is NOT obsolete → hold.
     const stillPresent = collectOpenQuestionsFromHistory(history);
     if (stillPresent.length > 0) return;
-    // Run terminal + Frage nirgends mehr → weg. Signatur-Ref freigeben, damit
-    // ein neuer Run mit (zufällig) gleicher Signatur wieder pinnen kann.
+    // Run terminal + question nowhere → gone. Release the signature ref so
+    // a new run with (coincidentally) the same signature can pin again.
     lastQSignatureRef.current = null;
     resetPillState();
   }, [
@@ -1734,28 +1734,28 @@ export function ChatShell({
     resetPillState,
   ]);
 
-  // ---- Phase 1 Track AB · Befund B (2026-05-29): Strukturierte-Antwort-Hydration
+  // ---- Phase 1 Track AB · finding B (2026-05-29): structured-answer hydration
   //
-  // Owner-Akzeptanz: „Re-Render nach Reload zeigt beantwortete Frage korrekt."
+  // Owner acceptance: „Re-Render nach Reload zeigt beantwortete Frage korrekt."
   //
-  // Wenn die Pill für einen Workspace eine Open-Question lädt, checken wir
-  // parallel `/api/chat/answer?wsId=&qid=` ob diese Frage schon strukturiert
-  // beantwortet wurde (Migration 0117 `question_answers`). Wenn ja → räumen
-  // wir sie aus dem Pill-State, weil sie de-facto „beantwortet" ist.
+  // When the pill loads an open question for a workspace, we check
+  // in parallel `/api/chat/answer?wsId=&qid=` whether this question was already
+  // answered in a structured way (migration 0117 `question_answers`). If so → we clear
+  // it out of the pill state because it is de facto „answered".
   //
-  // Fail-soft: jeder Fehler (Network/401/500) ist ein no-op (die Frage
-  // bleibt offen, der User kann sie ein zweites Mal beantworten — idempotent
-  // im strukturierten Speicher via UNIQUE-content_hash).
+  // Fail-soft: every error (network/401/500) is a no-op (the question
+  // stays open, the user can answer it a second time — idempotent
+  // in the structured store via UNIQUE content_hash).
   //
-  // KEIN Polling, KEIN dauerhafter Listener: einmaliger Pass pro
-  // Fragenset-Signatur (lastQSignatureRef), abortable beim Re-Render.
+  // NO polling, NO permanent listener: a one-time pass per
+  // question-set signature (lastQSignatureRef), abortable on re-render.
   const lastHydrationSigRef = useRef<string | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (openQuestions.length === 0) return;
     const sig = openQuestions.map((q) => q.id).join('|');
-    // Nur EINMAL pro Set-Signatur prüfen (sonst feuert es bei jedem History-
-    // Tick erneut). Reset passiert automatisch wenn das Set sich ändert.
+    // Check only ONCE per set signature (otherwise it fires again on every history
+    // tick). The reset happens automatically when the set changes.
     if (lastHydrationSigRef.current === sig) return;
     lastHydrationSigRef.current = sig;
 
@@ -1763,8 +1763,8 @@ export function ChatShell({
     const controller = new AbortController();
     const answered: string[] = [];
     (async () => {
-      // Pro Frage einen GET — parallel via Promise.all. Bei einer großen Pill
-      // (4-5 Fragen typisch) ist das ein vernachlässigbarer Round-Trip-Cost.
+      // One GET per question — in parallel via Promise.all. For a large pill
+      // (4-5 questions typical) this is a negligible round-trip cost.
       try {
         const results = await Promise.all(
           openQuestions.map(async (q) => {
@@ -1805,10 +1805,10 @@ export function ChatShell({
     };
   }, [openQuestions, currentWorkspace.id]);
 
-  // Phase RL.3: Polling-Fallback. Solange serverStreamPending=true,
-  // alle 10s die History nachladen — falls die SSE-Subscription
-  // unterbrochen war (PWA-Tab-Background, etc.) und ein
-  // chat_message_completed-Event darum verpasst wurde.
+  // Phase RL.3: polling fallback. While serverStreamPending=true,
+  // reload the history every 10s — in case the SSE subscription
+  // was interrupted (PWA tab background, etc.) and a
+  // chat_message_completed event was therefore missed.
   useEffect(() => {
     if (!serverStreamPending) return;
     if (!hydrated) return;
@@ -1817,7 +1817,7 @@ export function ChatShell({
     const startedAt = Date.now();
     const tick = async (): Promise<void> => {
       if (cancelled) return;
-      // Hard-Stop nach 10min Polling.
+      // Hard stop after 10min of polling.
       if (Date.now() - startedAt > 10 * 60_000) {
         if (!cancelled) setServerStreamPending(false);
         return;
@@ -1828,8 +1828,8 @@ export function ChatShell({
         const localItems = readHistoryFor(wsId) ?? [];
         const merged = mergeServerWithLocal(res.items, localItems, res.cutoffMs);
         const last = merged[merged.length - 1];
-        // Wenn jetzt eine assistant-Message als letztes Item da ist,
-        // ist der Stream durch.
+        // If an assistant message is now the last item,
+        // the stream is through.
         if (last?.role === 'assistant') {
           setHistory(merged);
           writeHistoryFor(wsId, merged);
@@ -1837,7 +1837,7 @@ export function ChatShell({
           return;
         }
       } catch {
-        /* offline / 401 — naechster Tick versucht es nochmal */
+        /* offline / 401 — the next tick tries again */
       }
       window.setTimeout(() => void tick(), 10_000);
     };
@@ -1848,24 +1848,24 @@ export function ChatShell({
     };
   }, [serverStreamPending, hydrated, currentWorkspace.id]);
 
-  // ---- auto-scroll · konservativ 2026-04-27 ----------------------------
-  // User-Beschwerde: "Cards springen sodass ich nicht klicken kann".
-  // 30px-Threshold + 5s Cooldown nach Klick/Hover + nie wenn ein Element
-  // im Stream Focus hat. Statt Sprung: Pfeil-Button.
+  // ---- auto-scroll · conservative 2026-04-27 ----------------------------
+  // User complaint: "Cards springen sodass ich nicht klicken kann".
+  // 30px threshold + 5s cooldown after click/hover + never when an element
+  // in the stream has focus. Instead of a jump: an arrow button.
   const nearBottomRef = useRef(true);
   const lastInteractionRef = useRef(0);
   const [showScrollDown, setShowScrollDown] = useState(false);
 
-  // Sub-Plan 01 (2026-04-29 v3): Multi-Strategy Auto-Scroll-Bottom.
-  // Vorherige Versuche (scrollTop = scrollHeight im useLayoutEffect)
-  // haben nicht zuverlässig gegriffen — vermutlich weil DOM beim ersten
-  // Paint noch keine echte Höhe hatte.
+  // Sub-Plan 01 (2026-04-29 v3): multi-strategy auto-scroll-to-bottom.
+  // Previous attempts (scrollTop = scrollHeight in useLayoutEffect)
+  // did not reliably take effect — presumably because the DOM had no real
+  // height on the first paint.
   //
-  // Jetzt: scrollIntoView auf einem End-Marker + 4 Triggers:
-  //   1. on-mount + Workspace-Switch (useLayoutEffect)
-  //   2. nach jedem History-Update (useEffect mit history-deps)
-  //   3. setTimeout(0) nach mount für „post-paint"-Scroll
-  //   4. setTimeout(150) nach mount für „after-images-loaded"-Scroll
+  // Now: scrollIntoView on an end marker + 4 triggers:
+  //   1. on-mount + workspace-switch (useLayoutEffect)
+  //   2. after every history update (useEffect with history deps)
+  //   3. setTimeout(0) after mount for the „post-paint" scroll
+  //   4. setTimeout(150) after mount for the „after-images-loaded" scroll
   const scrollToBottomNow = useCallback((opts?: { smooth?: boolean }) => {
     const end = streamEndRef.current;
     if (end) {
@@ -1883,7 +1883,7 @@ export function ChatShell({
     scrollToBottomNow();
     nearBottomRef.current = true;
     setShowScrollDown(false);
-    // Doppelter Sicherheitsgurt: nach Layout + nach Image-Load
+    // Double safety belt: after layout + after image load
     const t1 = window.setTimeout(() => scrollToBottomNow(), 0);
     const t2 = window.setTimeout(() => scrollToBottomNow(), 150);
     const t3 = window.setTimeout(() => scrollToBottomNow(), 600);
@@ -1921,12 +1921,12 @@ export function ChatShell({
     return cleanup;
   }, []);
 
-  // 2026-05-03 (Bug 2): nur scrollen wenn WIRKLICH neue Items am Ende
-  // angefuegt wurden — NICHT wenn eine bestehende Surface-Card eine
-  // neue Status-Payload bekommt (gleiche id, neuer JSON-Content).
-  // Vorher feuerte der Effect bei jedem Surface-Card-Update und hat den
-  // Scroll-Container mitten im Lesen weggerissen. Wir tracken jetzt eine
-  // Signatur (length + lastId) und scrollen nur, wenn die sich aendert.
+  // 2026-05-03 (Bug 2): only scroll when REALLY new items were appended at the
+  // end — NOT when an existing surface card gets a
+  // new status payload (same id, new JSON content).
+  // Previously the effect fired on every surface-card update and tore the
+  // scroll container away mid-read. We now track a
+  // signature (length + lastId) and only scroll when it changes.
   const lastScrollSigRef = useRef<{ len: number; lastId: string | null }>({
     len: 0,
     lastId: null,
@@ -1935,17 +1935,17 @@ export function ChatShell({
   useEffect(() => {
     const el = streamRef.current;
     if (!el) return;
-    // Sub-Plan 01 (2026-04-29 verstärkt): doppelter rAF damit der DOM
-    // garantiert die neuen Messages gerendert hat bevor wir scrollHeight
-    // lesen. Sonst race: history-Update triggert effect bevor neue Items
-    // gemounted sind, scrollTop wird auf alten scrollHeight gesetzt.
+    // Sub-Plan 01 (2026-04-29 reinforced): double rAF so the DOM
+    // has guaranteed rendered the new messages before we read scrollHeight.
+    // Otherwise race: a history update triggers the effect before new items
+    // are mounted, scrollTop is set to the old scrollHeight.
     //
-    // Bug 2 Fix (2026-05-03): Compute Signatur ueber ALLE im Stream
-    // sichtbaren Items (history non-archived + systemMessages). Wenn die
-    // Signatur identisch zur letzten ist → NICHT scrollen, weil das
-    // bedeutet: nur eine bestehende Card wurde re-rendered (Status-Update,
-    // neue Payload). Nur bei echtem Append (length wuchs ODER letzte ID
-    // aenderte sich) folgen wir mit.
+    // Bug 2 Fix (2026-05-03): compute a signature over ALL items
+    // visible in the stream (history non-archived + systemMessages). If the
+    // signature is identical to the last one → do NOT scroll, because that
+    // means: only an existing card was re-rendered (status update,
+    // new payload). Only on a real append (length grew OR the last ID
+    // changed) do we follow along.
     const visible = history.filter((it) => !it.archived);
     const totalLen = visible.length + systemMessages.length;
     const tail =
@@ -1957,24 +1957,24 @@ export function ChatShell({
     const lastSig = lastScrollSigRef.current;
     const isNewAppend = totalLen > lastSig.len || tail !== lastSig.lastId;
     lastScrollSigRef.current = { len: totalLen, lastId: tail };
-    // Streaming-Token-Stream: agentTurn.text waechst kontinuierlich, ohne
-    // dass eine neue HistoryItem-Bubble entsteht. Damit der Live-Feed
-    // smooth folgt, scrollen wir auch wenn isStreaming UND pinned.
+    // Streaming token stream: agentTurn.text grows continuously, without
+    // a new HistoryItem bubble being created. So the live feed
+    // follows smoothly, we also scroll when isStreaming AND pinned.
     const isLiveStreamGrowth = isPending || agentTurn.text.length > 0;
     if (!isNewAppend && !isLiveStreamGrowth) return;
 
     const apply = (): void => {
       const focused = typeof document !== 'undefined' ? document.activeElement : null;
       const focusInStream = focused && el.contains(focused);
-      // Lockerere Bedingung: wenn near-bottom UND nicht Stream-fokussiert,
-      // scroll. Idle-Check entfernt — user klickt eh selten in den Stream
-      // direkt.
+      // Looser condition: if near-bottom AND not stream-focused,
+      // scroll. Idle check removed — the user rarely clicks directly into the
+      // stream anyway.
       if (nearBottomRef.current && !focusInStream) {
         el.scrollTop = el.scrollHeight;
         setShowScrollDown(false);
       } else if (!nearBottomRef.current && isNewAppend) {
-        // Nur „neue Item — bitte scrollen"-Pfeil zeigen wenn echtes
-        // Append, nicht bei jedem Token-Tick.
+        // Only show the „new item — please scroll" arrow on a real
+        // append, not on every token tick.
         setShowScrollDown(true);
       }
     };
@@ -1999,11 +1999,11 @@ export function ChatShell({
     };
   }, [abortAgent]);
 
-  // ---- Live-State persistieren waehrend Stream laeuft -----------------
-  // Wenn Max die PWA schliesst mid-stream, war frueher der ganze Tool-
-  // Call-Verlauf + partial-Antwort weg. Wir snapshotten das alle ~600ms
-  // in localStorage und rehydraten beim Mount als finale-Message in
-  // der History (Stream selbst ist nach close natuerlich tot).
+  // ---- Persist the live state while the stream runs -----------------
+  // When Max closes the PWA mid-stream, the whole tool-
+  // call history + partial answer used to be gone. We snapshot it every ~600ms
+  // to localStorage and rehydrate it on mount as a final message in
+  // the history (the stream itself is naturally dead after close).
   const liveStartRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isStreaming) return;
@@ -2023,7 +2023,7 @@ export function ChatShell({
     };
   }, [isStreaming, agentTurn, hydrated, currentWorkspace.id]);
 
-  // Wenn Stream sauber endet → live state wegwerfen (history hat es)
+  // When the stream ends cleanly → throw away the live state (the history has it)
   useEffect(() => {
     if (!hydrated) return;
     if (agentStatus === 'idle' && !isStreaming) {
@@ -2032,14 +2032,14 @@ export function ChatShell({
     }
   }, [agentStatus, isStreaming, hydrated, currentWorkspace.id]);
 
-  // Welle 1 · 2026-05-03 · active-workstream-broadcast
+  // Wave 1 · 2026-05-03 · active-workstream-broadcast
   // ----------------------------------------------------------------------
-  // BackgroundActivityIndicator soll den eigenen aktiven Stream nicht
-  // mitzaehlen — sonst sieht der User in der TopNav den Pulse-Pill und
-  // hier in der Bubble den Phase-Text → 2× "läuft". Wir broadcasten via
-  // Custom-Event, der TopNav-Indicator hoert mit + filtert via Query-Param.
-  // Bei isStreaming-Start: workstreamId (oder null fuer Root-Chat).
-  // Bei isStreaming-Ende: null → re-include alles.
+  // BackgroundActivityIndicator should not count its own active stream —
+  // otherwise the user sees the pulse pill in the TopNav and
+  // here in the bubble the phase text → 2× "läuft". We broadcast via
+  // a custom event, the TopNav indicator listens in + filters via a query param.
+  // On isStreaming start: workstreamId (or null for the root chat).
+  // On isStreaming end: null → re-include everything.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const detail = {
@@ -2050,18 +2050,18 @@ export function ChatShell({
     );
   }, [isStreaming, agentTurn.workstreamId]);
 
-  // ---- Live-State recovery on mount -----------------------------------
-  // Beim ersten Hydrate (zusammen mit history-load): wenn ein live-state
-  // im localStorage liegt der nicht mehr aktiv ist (PWA war zu), als
-  // finale Assistant-Message in die History pushen.
+  // ---- Live-state recovery on mount -----------------------------------
+  // On the first hydrate (together with the history load): if a live state
+  // lies in localStorage that is no longer active (PWA was closed),
+  // push it as a final assistant message into the history.
   useEffect(() => {
     if (!hydrated) return;
     const live = readLiveFor(currentWorkspace.id);
     if (!live) return;
-    // Wenn der user-Prompt der den Stream getriggert hatte schon das
-    // letzte history-item ist und kein assistant-reply existiert, hängen
-    // wir den live-state als assistant-reply an. Sonst (z.B. live-state
-    // aelter als der letzte assistant-reply) ignorieren.
+    // If the user prompt that triggered the stream is already the
+    // last history item and no assistant reply exists, we append
+    // the live state as an assistant reply. Otherwise (e.g. live state
+    // older than the last assistant reply) ignore.
     setHistory((prev) => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
@@ -2076,15 +2076,15 @@ export function ChatShell({
       return [...prev, restored];
     });
     clearLiveFor(currentWorkspace.id);
-    // Nur einmal pro Workspace-Hydrate ausloesen.
+    // Trigger only once per workspace hydrate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, currentWorkspace.id]);
 
-  // ---- Visibility-Reset: PWA wieder sichtbar → connection-errors clearen ---
-  // Wenn Max die App schliesst waehrend der Stream laeuft, brichte der fetch
-  // mit "Load failed"/NetworkError/AbortError. Beim Re-Open sieht er den
-  // Error-Banner. Wir clearen den Status automatisch wenn er offensichtlich
-  // ein connection-Error war (Browser-disconnect, kein Bug).
+  // ---- Visibility reset: PWA visible again → clear connection errors ---
+  // When Max closes the app while the stream runs, the fetch breaks
+  // with "Load failed"/NetworkError/AbortError. On re-open he sees the
+  // error banner. We clear the status automatically when it was obviously
+  // a connection error (browser disconnect, not a bug).
   useEffect(() => {
     const onVisible = (): void => {
       if (document.hidden) return;
@@ -2098,16 +2098,16 @@ export function ChatShell({
       if (isConnectionLost) resetAgent();
     };
     document.addEventListener('visibilitychange', onVisible);
-    // Auch beim Mount einmal pruefen — falls Page direkt im error-state
-    // remountet (cached vom SW).
+    // Also check once on mount — in case the page remounts directly in the
+    // error state (cached by the SW).
     onVisible();
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [agentStatus, agentError, resetAgent]);
 
-  // ---- Phase MS · Visibility-Heartbeat -------------------------------
-  // Pingt /api/chat/visibility alle 15s und bei jedem visibilitychange.
-  // Server entscheidet darueber dann ob ein Push beim chat_message_completed
-  // raus geht (Push nur wenn KEIN Client visible ist).
+  // ---- Phase MS · visibility heartbeat -------------------------------
+  // Pings /api/chat/visibility every 15s and on every visibilitychange.
+  // The server then decides whether a push goes out on chat_message_completed
+  // (push only when NO client is visible).
   useEffect(() => {
     if (!hydrated) return;
     const wsId = currentWorkspace.id;
@@ -2121,8 +2121,8 @@ export function ChatShell({
       }).catch(() => undefined);
     };
 
-    // Sofort einen Ping mit dem aktuellen Status. Der erste 15s-Tick
-    // kommt sonst spaet — User waere bis dahin "unbekannt" fuer Push.
+    // Immediately ping with the current status. The first 15s tick
+    // otherwise comes late — the user would be "unknown" for push until then.
     ping(document.visibilityState === 'visible');
 
     const interval = window.setInterval(() => {
@@ -2137,23 +2137,23 @@ export function ChatShell({
     return () => {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      // Beim Unmount: dem Server ausdruecklich sagen "ich bin weg".
-      // Sonst zaehlt unser letzter visible-Ping noch bis zur TTL nach.
+      // On unmount: explicitly tell the server "I am gone".
+      // Otherwise our last visible ping still counts up to the TTL.
       ping(false);
     };
   }, [hydrated, currentWorkspace.id]);
 
-  // ---- Phase MS · MS.6 Migration --------------------------------------
-  // One-shot pro Workspace: localStorage-History als chat_message-Events
-  // in die DB importieren, Marker setzen, fertig. Idempotent (server
-  // skipped bekannte legacyIds).
+  // ---- Phase MS · MS.6 migration --------------------------------------
+  // One-shot per workspace: import the localStorage history as chat_message
+  // events into the DB, set a marker, done. Idempotent (the server
+  // skips known legacyIds).
   //
-  // P1-3: Setzt `migrationDone` auf true wenn Migration durch ist
-  // (oder nichts zu migrieren). useEventStream wartet darauf — sonst
-  // kommt der Replay-Burst rein waehrend Cache-IDs ≠ ULID-IDs sind.
+  // P1-3: sets `migrationDone` to true when the migration is through
+  // (or there is nothing to migrate). useEventStream waits for it — otherwise
+  // the replay burst comes in while cache IDs ≠ ULID IDs.
   useEffect(() => {
     if (!hydrated) return;
-    // Workspace-Switch: zuruecksetzen, neu pruefen.
+    // Workspace switch: reset, re-check.
     setMigrationDone(false);
     setMigrationFailed(false);
     const wsId = currentWorkspace.id;
@@ -2162,7 +2162,7 @@ export function ChatShell({
     try {
       markerSet = window.localStorage.getItem(markerKey) === '1';
     } catch {
-      markerSet = true; // bei Storage-Failure NICHT migrieren
+      markerSet = true; // on storage failure do NOT migrate
     }
     if (markerSet) {
       setMigrationDone(true);
@@ -2170,13 +2170,13 @@ export function ChatShell({
     }
 
     const items = readHistoryFor(wsId) ?? [];
-    // Auch bei items.length === 0 schicken wir den POST: der Server
-    // setzt das chat_history_migrated-Event und antwortet 200, wir
-    // setzen den Marker. Sonst pingen wir bei jedem leeren Workspace-
-    // Wechsel den Server (Pre-Check ist O(1) per indexed lookup).
-    // Aber wir koennen auch ohne Roundtrip auskommen — Server-Event
-    // wird beim ersten echten Import angelegt. Optimization: wenn
-    // 0 Items, lokalen Marker setzen aber Server ueberspringen.
+    // Even with items.length === 0 we send the POST: the server
+    // sets the chat_history_migrated event and replies 200, we
+    // set the marker. Otherwise we ping the server on every empty workspace
+    // switch (the pre-check is O(1) via indexed lookup).
+    // But we can also get by without a round trip — the server event
+    // is created on the first real import. Optimization: if
+    // 0 items, set the local marker but skip the server.
     if (items.length === 0) {
       try {
         window.localStorage.setItem(markerKey, '1');
@@ -2200,9 +2200,9 @@ export function ChatShell({
     )
       .then(async (res) => {
         if (!res.ok) throw new Error(`status_${res.status}`);
-        // B2-fix: Server signalisiert per `alreadyMigrated: true` dass
-        // ein chat_history_migrated-Event existiert. Verhalten identisch
-        // zum frischen Import — Marker setzen, fertig.
+        // B2-fix: the server signals via `alreadyMigrated: true` that
+        // a chat_history_migrated event exists. Behavior identical
+        // to a fresh import — set the marker, done.
         let alreadyMigrated = false;
         try {
           const body = (await res.json().catch(() => null)) as
@@ -2220,20 +2220,20 @@ export function ChatShell({
         }
         setMigrationDone(true);
         setMigrationFailed(false);
-        // alreadyMigrated wird hier nur fuer Telemetrie/Debug genutzt;
-        // der Effect verhaelt sich identisch zum frischen Import.
+        // alreadyMigrated is only used here for telemetry/debug;
+        // the effect behaves identically to a fresh import.
         void alreadyMigrated;
       })
       .catch(() => {
         if (cancelled) return;
-        // B3-fix 2026-04-26: Bei Server-Fail/Offline setzen wir
-        // migrationDone NICHT auf true. Sonst feuert useEventStream
-        // den Replay-Burst rein WAEHREND lokale items noch unter
-        // ihrer client-id (nicht ULID) im State stehen — User-Message
-        // wird doppelt gerendert. Stattdessen: migrationFailed=true,
-        // UI zeigt dezenten Hinweis, Auto-Retry nach 30s.
+        // B3-fix 2026-04-26: on server-fail/offline we do NOT set
+        // migrationDone to true. Otherwise useEventStream fires
+        // the replay burst in WHILE local items still stand under
+        // their client-id (not ULID) in the state — the user message
+        // is rendered twice. Instead: migrationFailed=true,
+        // the UI shows a subtle hint, auto-retry after 30s.
         setMigrationFailed(true);
-        // Auto-Retry: tick-counter triggert den Effect erneut.
+        // Auto-retry: the tick counter triggers the effect again.
         retryTimer = window.setTimeout(() => {
           if (cancelled) return;
           setMigrationRetryTick((n) => n + 1);
@@ -2246,29 +2246,29 @@ export function ChatShell({
     };
   }, [hydrated, currentWorkspace.id, migrationRetryTick]);
 
-  // Kein viewport-Hack mehr - mit interactiveWidget=resizes-content im
-  // viewport-meta (app/layout.tsx) shrinkt iOS Safari das Layout-Viewport
-  // beim Keyboard-Open automatisch. Unser flex-Layout (main als
-  // position:fixed mit dvh) reagiert direkt drauf.
+  // No more viewport hack — with interactiveWidget=resizes-content in the
+  // viewport meta (app/layout.tsx), iOS Safari shrinks the layout viewport
+  // automatically on keyboard open. Our flex layout (main as
+  // position:fixed with dvh) reacts directly to it.
 
-  // ---- live event-stream ----------------------------------------------
-  // Events aus /api/events/stream landen als system-messages im Chat.
-  // Nicht persistiert (transient, kommen bei Mount neu rein via replay).
+  // ---- live event stream ----------------------------------------------
+  // Events from /api/events/stream land as system messages in the chat.
+  // Not persisted (transient, come back in on mount via replay).
   const handleEvent = useCallback((ev: LazyEventLike) => {
-    // Phase MS · Realtime-Sync: chat_message_*-Events werden zu
-    // HistoryItems gemerged statt zu System-Toasts.
+    // Phase MS · realtime sync: chat_message_* events are merged into
+    // HistoryItems instead of system toasts.
     if (isChatMessageEvent(ev.type)) {
-      // Phase RL.3 (2026-04-28): Bei chat_message_completed → Pending-
-      // Indicator aus. Bei einem chat_message_sent zurueckkommend kann
-      // ebenfalls ein laufender Stream auflaufen → Pending-Indicator EIN.
+      // Phase RL.3 (2026-04-28): on chat_message_completed → pending
+      // indicator off. On a chat_message_sent coming back, a running
+      // stream may also build up → pending indicator ON.
       if (ev.type === 'chat_message_completed') {
         setServerStreamPending(false);
       } else if (ev.type === 'chat_message_sent') {
         const role = (ev.payload?.role as string) ?? '';
         if (role === 'user') setServerStreamPending(true);
       }
-      // Echo-Filter: Wenn das eigene chat_message_sent zurueckkommt,
-      // nicht doppelt rendern (lokale History hat es schon).
+      // Echo filter: when our own chat_message_sent comes back,
+      // do not render it twice (the local history already has it).
       const payload = ev.payload ?? {};
       const pendingPromptId =
         typeof payload.pendingPromptId === 'string'
@@ -2279,17 +2279,17 @@ export function ChatShell({
         pendingPromptId &&
         ownPendingIdsRef.current.has(pendingPromptId)
       ) {
-        // Eigenes Echo — schlucken. Den Pending-Marker NICHT loeschen,
-        // weil der Server beim Replay nochmal kommen kann.
+        // Our own echo — swallow. Do NOT delete the pending marker,
+        // because the server may come again on replay.
         return;
       }
 
       // event.id (ULID) -> stable HistoryItem.id
-      // Loop-Guard: keine eigenen Echo-Events; Dedup gegen vorhandene
-      // History (per id) — wenn schon drin, skip.
-      // ev wurde im useEventStream als LazyEventLike normalisiert; wir
-      // brauchen den vollen LazyEvent. Der Wire-Wert hat alle Felder
-      // bereits, wir bauen ihn zur Sicherheit defensiv zusammen.
+      // Loop guard: no own echo events; dedup against the existing
+      // history (by id) — if already in, skip.
+      // ev was normalized as LazyEventLike in useEventStream; we
+      // need the full LazyEvent. The wire value already has all fields,
+      // we assemble it defensively for safety.
       const fakeLazyEvent = {
         id: ev.id ?? '',
         createdAt: typeof ev.ts === 'number' ? ev.ts : Date.now(),
@@ -2305,16 +2305,16 @@ export function ChatShell({
       };
       const itemRaw = chatMessageEventToHistoryItem(fakeLazyEvent);
       if (!itemRaw) return;
-      // Sub-Plan A · 2026-04-29 — Coords aus Content nachziehen damit
-      // server-emitted Cards (z.B. iterate-pipeline aus tier-orchestrator)
-      // ihre vorigen Wellen verdraengen koennen.
+      // Sub-Plan A · 2026-04-29 — backfill coords from the content so
+      // server-emitted cards (e.g. iterate-pipeline from tier-orchestrator)
+      // can supersede their previous waves.
       const item = hydrateWorkstreamCoords(itemRaw);
 
       setHistory((prev) => {
-        // Dedup per HistoryItem.id (= event.id)
+        // Dedup by HistoryItem.id (= event.id)
         if (prev.some((m) => m.id === item.id)) return prev;
-        // Insert chronologically — events kommen meistens am Ende, aber
-        // bei replay/ooo koennen sie auch in der Mitte landen.
+        // Insert chronologically — events mostly come at the end, but
+        // on replay/ooo they can also land in the middle.
         const itTs = Date.parse(item.ts);
         const insertIdx = (() => {
           for (let i = prev.length - 1; i >= 0; i -= 1) {
@@ -2325,26 +2325,26 @@ export function ChatShell({
           }
           return 0;
         })();
-        // Replace-Logik nur sinnvoll wenn das neue Item ans Ende kommt
-        // (insertIdx === prev.length). Bei mid-insert (replay-ooo) waere
-        // die Surface-Card chronologisch aelter als vorhandene Cards —
-        // dann darf sie keine spaeteren archivieren.
+        // Replace logic only makes sense when the new item comes at the end
+        // (insertIdx === prev.length). On a mid-insert (replay-ooo) the
+        // surface card would be chronologically older than existing cards —
+        // then it must not archive any later ones.
         let workingPrev = prev;
         let workingItem = item;
         if (insertIdx === prev.length) {
           const replaced = archiveStalePeers(prev, item);
-          // Sub-Plan 3 (2026-05-01): Max-3-Active-Cards-Cap.
-          // Begrenzt die Anzahl gleichzeitig sichtbarer Surface-Cards
-          // pro Workspace. Aelteste werden VOR dem Append archiviert.
+          // Sub-Plan 3 (2026-05-01): max-3-active-cards cap.
+          // Limits the number of simultaneously visible surface cards
+          // per workspace. The oldest are archived BEFORE the append.
           workingPrev = enforceActiveCap(replaced.prev, replaced.incoming, 3);
           workingItem = replaced.incoming;
         } else if (item.workstreamId && item.surfaceKind) {
-          // Sub-Plan A Finding 4 (2026-04-29): Mid-insert-replay-Schutz.
-          // Wenn der eingehende Eintrag chronologisch hinter ein bereits
-          // existierendes, lebendes Item desselben (workstreamId,
-          // surfaceKind)-Coords gehoert, wuerde er ohne Massnahme als
-          // "lebende" Card erscheinen und dem User zwei aktuelle Cards
-          // anzeigen. Wir markieren das incoming dann sofort als archiviert.
+          // Sub-Plan A Finding 4 (2026-04-29): mid-insert-replay protection.
+          // If the incoming entry chronologically belongs behind an already
+          // existing, living item of the same (workstreamId,
+          // surfaceKind) coord, it would without action appear as a
+          // "living" card and show the user two current cards.
+          // We then immediately mark the incoming one as archived.
           const liveSamePeerNewer = prev.find((p) => {
             if (p.archived) return false;
             if (p.id === item.id) return false;
@@ -2371,18 +2371,18 @@ export function ChatShell({
     const mapped = eventToSurface(ev);
     if (!mapped) return;
 
-    // PHASE I (User-Wunsch 2026-04-26): Synthesis-Cards als richtige
-    // Assistant-Message in den Chat-Verlauf, NICHT nur als dezenter
-    // System-Toast. Das ist die Fertigstellungs-Karte fuer einen
-    // Workstream — sollte prominent + persistent sein.
+    // PHASE I (user wish 2026-04-26): synthesis cards as a proper
+    // assistant message in the chat history, NOT only as a subtle
+    // system toast. This is the completion card for a
+    // workstream — should be prominent + persistent.
     const isSynthesis =
       ev.type === 'commented' &&
       typeof ev.payload?.kind === 'string' &&
       ev.payload.kind === 'synthesis';
     if (isSynthesis) {
-      // Phase IT (2026-04-27): Wenn der Synthesis-Output aus dem Iterate-
-      // Modus kommt, prepend ein Diff-Score-Header damit User die
-      // Verbesserung V1->V2 sofort sieht. Plus Token-Budget-Anzeige.
+      // Phase IT (2026-04-27): if the synthesis output comes from iterate
+      // mode, prepend a diff-score header so the user sees the
+      // improvement V1->V2 immediately. Plus a token-budget display.
       const isIterate =
         typeof ev.payload?.mode === 'string' && ev.payload.mode === 'iterate';
       let iterateHeader = '';
@@ -2412,18 +2412,18 @@ export function ChatShell({
         iterateHeader = '> ' + parts.join(' · ') + '\n\n';
       }
 
-      // Phase AC.3 (2026-04-26): Konsens-Level aus Synthesis-Payload
-      // ableiten und eine consensus-action-Surface ANS ENDE der Bubble
-      // haengen. Damit User bei strong-consensus 30s-Countdown sieht
-      // statt Master-Approve klicken zu muessen.
+      // Phase AC.3 (2026-04-26): derive the consensus level from the synthesis
+      // payload and attach a consensus-action surface AT THE END of the bubble.
+      // So the user sees a 30s countdown on strong consensus
+      // instead of having to click master-approve.
       let consensusLevelRaw =
         typeof ev.payload?.consensus_level === 'string'
           ? ev.payload.consensus_level
           : undefined;
 
-      // AC-Fallback (2026-04-26): Wenn Server-Payload kein consensus_level
-      // hat (alte Workstreams pre-AC), client-side aus mapped.text ableiten.
-      // Lokales Mapping mit derselben Heuristik wie tier-orchestrator.ts.
+      // AC fallback (2026-04-26): if the server payload has no consensus_level
+      // (old workstreams pre-AC), derive it client-side from mapped.text.
+      // Local mapping with the same heuristic as tier-orchestrator.ts.
       if (!consensusLevelRaw) {
         consensusLevelRaw = detectConsensusLevelClient(mapped.text);
       }
@@ -2445,8 +2445,8 @@ export function ChatShell({
           consensusLevel: consensusLevelRaw,
           masterTicketId,
         })}`;
-        // Surface-Tag ans Ende anhaengen — surface-parser.parseChunks
-        // findet ihn und SurfaceRenderer rendert die ConsensusActionCard.
+        // Attach the surface tag at the end — surface-parser.parseChunks
+        // finds it and SurfaceRenderer renders the ConsensusActionCard.
         augmentedContent = augmentedContent + `\n\n${consensusTag}`;
       }
 
@@ -2455,26 +2455,26 @@ export function ChatShell({
         role: 'assistant',
         content: augmentedContent,
         ts: new Date().toISOString(),
-        // Sub-Plan A · 2026-04-29 — Coords explizit setzen damit der
-        // Replace-Pass den Match findet, auch wenn der Surface-Tag im
-        // Content syntaktisch unvollstaendig ist (synthesis-Branch
-        // schliesst <surface:consensus-action> nicht — surface-text-render
-        // toleriert das via Skeleton-Fallback).
+        // Sub-Plan A · 2026-04-29 — set coords explicitly so the
+        // replace pass finds the match, even when the surface tag in the
+        // content is syntactically incomplete (the synthesis branch
+        // does not close <surface:consensus-action> — surface-text-render
+        // tolerates that via a skeleton fallback).
         ...(validConsensus && wsIdFromPayload
           ? { workstreamId: wsIdFromPayload, surfaceKind: 'consensus-action' as const }
           : {}),
       };
       setHistory((h) => {
-        // De-dupe falls Event doppelt ankommt (Replay + Live).
-        // Match auf mapped.text (Original ohne Surface-Suffix), sonst
-        // wuerden 2 Synthesis-Bubbles entstehen wenn nur eine den
-        // consensus_level-Marker hat.
+        // De-dupe in case the event arrives twice (replay + live).
+        // Match on mapped.text (original without surface suffix), otherwise
+        // 2 synthesis bubbles would arise if only one has the
+        // consensus_level marker.
         const lastFew = h.slice(-3);
         if (lastFew.some((m) => m.content.startsWith(mapped.text))) return h;
-        // Sub-Plan A — alle vorigen Cards mit derselben (workstreamId,
-        // surfaceKind)-Coord auf archived=true setzen.
+        // Sub-Plan A — set all previous cards with the same (workstreamId,
+        // surfaceKind) coord to archived=true.
         const replaced = archiveStalePeers(h, item);
-        // Sub-Plan 3 (2026-05-01): Max-3-Active-Cards-Cap einhalten.
+        // Sub-Plan 3 (2026-05-01): honor the max-3-active-cards cap.
         const capped = enforceActiveCap(replaced.prev, replaced.incoming, 3);
         const next = [
           ...capped.slice(-(HISTORY_CAP - 1)),
@@ -2483,7 +2483,7 @@ export function ChatShell({
         writeHistoryFor(currentWorkspace.id, next);
         return next;
       });
-      // Push-Benachrichtigung (best-effort, nur wenn Push-Subscription vorhanden)
+      // Push notification (best-effort, only when a push subscription exists)
       void fetch('/api/push/notify-review', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -2497,24 +2497,24 @@ export function ChatShell({
       return;
     }
 
-    // Phase WSC.1 (2026-04-26): auto-dispatch-overview als prominente
-    // Assistant-Message rendern (nicht als dezenter SystemToast). User
-    // sieht die Live-Pipeline direkt im Chat-Verlauf, nicht versteckt
-    // in einem Toast-Stapel.
+    // Phase WSC.1 (2026-04-26): render auto-dispatch-overview as a prominent
+    // assistant message (not as a subtle system toast). The user
+    // sees the live pipeline directly in the chat history, not hidden
+    // in a toast stack.
     const isAutoDispatchOverview =
       ev.type === 'commented' &&
       typeof ev.payload?.kind === 'string' &&
       ev.payload.kind === 'auto-dispatch-overview';
     if (isAutoDispatchOverview) {
-      // Sub-Plan E (2026-04-30) — Doppel-Scan eliminiert. Vorher liefen
-      // hier `extractWorkstreamCoords(mapped.text)` UND später nochmal
-      // der Renderer-Regex über denselben Content. Jetzt:
-      //   1. archiveStalePeers (in replace-logic.ts) macht intern den
-      //      Fallback-Scan via extractWorkstreamCoords WENN das Item keine
-      //      Coords mitbringt — also exakt einmal pro neuer Bubble.
-      //   2. Der useMemo<parsedItems>-Pass deckt den Render-Pfad ab; der
-      //      Cache enthält Coords aus parseHistoryItem (single-pass).
-      // Coords werden also nicht mehr hier vorgezogen.
+      // Sub-Plan E (2026-04-30) — double scan eliminated. Previously
+      // `extractWorkstreamCoords(mapped.text)` ran here AND later again
+      // the renderer regex over the same content. Now:
+      //   1. archiveStalePeers (in replace-logic.ts) internally does the
+      //      fallback scan via extractWorkstreamCoords WHEN the item carries no
+      //      coords — i.e. exactly once per new bubble.
+      //   2. The useMemo<parsedItems> pass covers the render path; the
+      //      cache contains coords from parseHistoryItem (single-pass).
+      // Coords are therefore no longer pre-computed here.
       const item: HistoryItem = {
         id: ev.id ? `auto-dispatch-overview-${ev.id}` : nextId('assistant'),
         role: 'assistant',
@@ -2524,7 +2524,7 @@ export function ChatShell({
       setHistory((h) => {
         if (h.some((m) => m.id === item.id)) return h;
         const replaced = archiveStalePeers(h, item);
-        // Sub-Plan 3 (2026-05-01): Max-3-Active-Cards-Cap einhalten.
+        // Sub-Plan 3 (2026-05-01): honor the max-3-active-cards cap.
         const capped = enforceActiveCap(replaced.prev, replaced.incoming, 3);
         const next = [
           ...capped.slice(-(HISTORY_CAP - 1)),
@@ -2549,8 +2549,8 @@ export function ChatShell({
             ? 'warn'
             : 'info',
       href: mapped.href,
-      // Bug B Fix 2026-04-26: ISO-Timestamp damit ChatShell history+systemMessages
-      // chronologisch interleaven kann. HH:MM-Format passiert beim Render.
+      // Bug B Fix 2026-04-26: ISO timestamp so ChatShell can interleave
+      // history+systemMessages chronologically. The HH:MM format happens at render.
       ts: new Date(typeof ev.ts === 'number' ? ev.ts : Date.now()).toISOString(),
     };
 
@@ -2566,21 +2566,21 @@ export function ChatShell({
   useEventStream({
     workspaceId: currentWorkspace.id,
     onEvent: handleEvent,
-    // P1-3: Erst nachdem die einmalige History-Migration durch ist.
-    // Sonst Replay-Burst-Doppel weil cached cache-IDs ≠ ULID-IDs.
+    // P1-3: only after the one-time history migration is through.
+    // Otherwise a replay-burst double because cached cache-IDs ≠ ULID-IDs.
     enabled: hydrated && migrationDone,
   });
 
   // ---- Phase Reload-Recovery V2 · 2026-04-27 -------------------------
-  // Polling fuer streaming_snapshots: solange ein HistoryItem mit
-  // streamState='streaming' im State steht, alle 2s `/api/chat/history`
-  // refreshen damit User sieht wie die Antwort weiterlaeuft. Stoppt
-  // automatisch sobald keiner mehr streamt (completed-Event hat das
-  // Snapshot-Item ersetzt, oder Heuristik kippt's auf 'aborted').
+  // Polling for streaming_snapshots: as long as a HistoryItem with
+  // streamState='streaming' stands in the state, refresh `/api/chat/history`
+  // every 2s so the user sees how the answer continues. Stops
+  // automatically as soon as no one is streaming anymore (the completed event
+  // has replaced the snapshot item, or the heuristic tips it to 'aborted').
   //
-  // Echo-Filter: ownPendingIdsRef enthaelt die IDs die wir gerade
-  // selbst live streamen — Polling-Items zu diesen IDs werden
-  // verworfen (Live-SSE in useAgentStream hat Vorrang).
+  // Echo filter: ownPendingIdsRef contains the IDs we are currently
+  // streaming live ourselves — polling items for these IDs are
+  // discarded (the live SSE in useAgentStream takes precedence).
   useStreamingPoll({
     workspaceId: currentWorkspace.id,
     history,
@@ -2588,13 +2588,13 @@ export function ChatShell({
     ownPendingIdsRef,
     onUpdate: (merged, systemItems) => {
       setHistory((prev) => {
-        // Conservative apply: nur uebernehmen wenn sich etwas am
-        // Streaming-Pfad geaendert hat. Sonst trampeln wir lokale
-        // Surface-Cards / Mock-Items / etc. nicht unnoetig.
+        // Conservative apply: only adopt when something on the
+        // streaming path has changed. Otherwise we do not needlessly
+        // trample local surface cards / mock items / etc.
         const prevStreamSig = streamSignature(prev);
         const nextStreamSig = streamSignature(merged);
         if (prevStreamSig === nextStreamSig && prev.length === merged.length) {
-          // Kein Streaming-Delta → Polling hat nichts neues, skip.
+          // No streaming delta → polling has nothing new, skip.
           return prev;
         }
         writeHistoryFor(currentWorkspace.id, merged);
@@ -2611,17 +2611,17 @@ export function ChatShell({
   }, []);
 
   // 2026-05-03: pushSystemToastTopLevel + clearSystemMessagesTopLevel
-  // entfernt — wurden nur von SessionControls gebraucht. Slash-Commands
-  // im Composer haben ihren eigenen ctx-Helper (slashCtx). Cleanup für
-  // den unused-Linter — kein dangling code.
+  // removed — were only needed by SessionControls. Slash commands
+  // in the composer have their own ctx helper (slashCtx). Cleanup for
+  // the unused linter — no dangling code.
 
-  // ---- inline auto-suggest (Punkt 1 handoff) -------------------------
+  // ---- inline auto-suggest (point 1 handoff) -------------------------
   const suggestions = useChatSuggestions(input, {
     enabled: !sttListening,
     minLength: 2,
-    // Sub-Plan B (2026-04-29) — Slash-Command-Suggestions schreiben den
-    // Command-Namen ins Input-Feld, statt eine Aktion zu triggern. User
-    // schickt dann mit Enter ab.
+    // Sub-Plan B (2026-04-29) — slash-command suggestions write the
+    // command name into the input field instead of triggering an action. The user
+    // then sends with Enter.
     setInput,
   });
   const [activeSuggestIndex, setActiveSuggestIndex] = useState(0);
@@ -2643,9 +2643,9 @@ export function ChatShell({
   const handleSuggestSelect = useCallback(
     (s: ChatSuggestion) => {
       s.onSelect();
-      // Slash-Command-Suggestions schreiben den Command-Namen via
-      // opts.setInput in das Composer-Feld zurueck — nicht clearen.
-      // Sonst (nav/act/ws): Composer leeren, weil onSelect navigiert/wechselt.
+      // Slash-command suggestions write the command name back into the
+      // composer field via opts.setInput — do not clear.
+      // Otherwise (nav/act/ws): clear the composer, because onSelect navigates/switches.
       if (s.kind !== 'slash') {
         setInput('');
       }
@@ -2671,12 +2671,12 @@ export function ChatShell({
     [effectiveSuggestions.length],
   );
 
-  // ---- Auto-Projekt-Naht (2026-06-02) ----------------------------------
-  // Build-Intent im virtuellen Workspace (org-root/__root__/__org_root__:*) →
-  // echtes Projekt-Workspace anlegen, org-bewusst reinwechseln, Build-Prompt
-  // mitnehmen (stash) + auf der neuen Seite auto-submitten. So wird aus „bau
-  // mir das" im Default-Chat nahtlos eine App, statt im virtuellen Root zu
-  // hängen (dort kann der Agent keine Dateien schreiben). Best-effort.
+  // ---- Auto-project seam (2026-06-02) ----------------------------------
+  // Build intent in the virtual workspace (org-root/__root__/__org_root__:*) →
+  // create a real project workspace, switch in org-aware, carry the build prompt
+  // along (stash) + auto-submit on the new page. This turns „bau
+  // mir das" in the default chat seamlessly into an app, instead of hanging in
+  // the virtual root (where the agent cannot write files). Best-effort.
   const pushAutoProjectNote = useCallback(
     (title: string, body: string, variant: 'warn' | 'err'): void => {
       setSystemMessages((prev) => {
@@ -2728,9 +2728,9 @@ export function ChatShell({
           pushAutoProjectNote('Konnte kein Projekt anlegen', 'Unerwartete Server-Antwort.', 'err');
           return;
         }
-        // Brainstorm-Kontext aus dem bisherigen Gespräch mitnehmen — sonst
-        // weiß die frische Session im neuen Projekt bei „bau das / leg los"
-        // nicht, WAS gebaut werden soll. Surface-Tags raus, letzte ~8 Messages.
+        // Carry the brainstorm context from the conversation so far — otherwise
+        // the fresh session in the new project doesn't know WHAT to build on
+        // „bau das / leg los". Strip surface tags, last ~8 messages.
         const recent = historyForHandoffRef.current
           .filter(
             (m) =>
@@ -2752,8 +2752,8 @@ export function ChatShell({
         const composed = recent
           ? `Kontext aus unserem bisherigen Gespräch:\n${recent.slice(-1800)}\n\n---\nAuftrag: ${prompt}\n\nBau das jetzt konkret hier im Projekt — leg die Datei(en) an und zeig mir das Ergebnis.`
           : prompt;
-        // Build-Prompt für die neue Seite stashen + org-bewusst wechseln, dann
-        // hart in den neuen Workspace navigieren (kanonischer ?ws-Landepfad).
+        // Stash the build prompt for the new page + switch org-aware, then
+        // hard-navigate into the new workspace (canonical ?ws landing path).
         stashPendingBuild(ws.id, composed);
         setWorkspaceId(ws.id, ws.organizationId ?? undefined);
         pushAutoProjectNote(
@@ -2778,30 +2778,30 @@ export function ChatShell({
     (raw: string) => {
       const value = raw.trim();
 
-      // STAGING (Owner-Hard-Requirement 2026-05-26): gestagete Anhänge am
-      // Submit-Start einlesen. Solange welche da sind, ist ein LEERER Text
-      // erlaubt (reiner Anhang-Send, WhatsApp-Verhalten). Datei(en) + Text
-      // gehen GEMEINSAM raus — siehe userMsg.content (Bubble) und
-      // agentText (Agent-Prompt) weiter unten.
+      // STAGING (owner hard requirement 2026-05-26): read the staged attachments
+      // at submit start. As long as some are present, an EMPTY text is
+      // allowed (pure attachment send, WhatsApp behavior). File(s) + text
+      // go out TOGETHER — see userMsg.content (bubble) and
+      // agentText (agent prompt) further below.
       const pendingAttachments = stagedAttachmentsRef.current;
       const hasStaged = pendingAttachments.length > 0;
       if (!canSendWithAttachments(pendingAttachments, value)) return;
 
-      // Bug-2-Fix: Während Streaming → in Queue einreihen statt verwerfen.
-      // Der Queue-Flush-Effect sendet die Message automatisch sobald
-      // agentStatus auf 'idle' wechselt.
+      // Bug-2-Fix: while streaming → enqueue instead of discarding.
+      // The queue-flush effect sends the message automatically as soon as
+      // agentStatus switches to 'idle'.
       //
-      // C2-Fix: submitInflightRef schließt das Fenster zwischen submit-Start
-      // und der agentStatus-Transition auf 'connecting' (in dem isStreaming
-      // noch false ist). Ein konkurrierender direkter submit() (z.B.
-      // SurfaceAction.reply / RateLimitRetry-Auto-Retry) wird so ebenfalls
-      // enqueued statt einen zweiten sendAgent() zu starten. Wichtig: dieser
-      // Guard steht VOR jeder History-Mutation, damit kein Doppel-User-Bubble
-      // entsteht (re-enqueue mutiert die History nicht).
-      // Anhänge umgehen die Text-Queue: die Queue speichert nur Strings,
-      // ein enqueuter Text würde die gestagete Datei verwaisen lassen. Bei
-      // echtem Inflight schützt submitInflightRef weiter unten gegen
-      // Doppel-Send. Reiner Text wird wie gehabt enqueued.
+      // C2-Fix: submitInflightRef closes the window between submit start
+      // and the agentStatus transition to 'connecting' (during which isStreaming
+      // is still false). A competing direct submit() (e.g.
+      // SurfaceAction.reply / RateLimitRetry auto-retry) is thus also
+      // enqueued instead of starting a second sendAgent(). Important: this
+      // guard stands BEFORE any history mutation so no double user bubble
+      // arises (re-enqueue does not mutate the history).
+      // Attachments bypass the text queue: the queue only stores strings,
+      // an enqueued text would orphan the staged file. On
+      // real inflight, submitInflightRef further below protects against
+      // a double send. Pure text is enqueued as before.
       if (!hasStaged && (isStreaming || submitInflightRef.current)) {
         messageQueueRef.current.push(value);
         setQueueLength(messageQueueRef.current.length);
@@ -2810,19 +2810,19 @@ export function ChatShell({
         return;
       }
 
-      // ---- Auto-Projekt-Naht (2026-06-02) ------------------------------
-      // Im virtuellen Workspace (org-root etc.) kann der Agent nicht bauen
-      // (kein Projekt-Pfad). Bei einem klaren Bau-Auftrag legen wir daher ein
-      // echtes Projekt an, wechseln rein und bauen DORT — statt hier zu hängen.
-      // Konservative Erkennung (looksLikeBuildIntent) + nicht während einer
-      // offenen Pill-Frage. Reiner Text only (keine Staged-Attachments).
-      // ---- Bild-Generierung aus natürlicher Sprache · 2026-06-03 ----------
-      // Owner-Befund: „erstelle ein Bild von X" (ohne /image) ging an den
-      // Agenten, der es per HTML/Bash fakete — ohne echte Generierung + ohne
-      // Vorschau. Fix: VOR Build-/Flow-Routing erkennen (detectImageIntent) und
-      // das echte <surface:image-gen>-Lade-Surface emittieren (ImageGen2 +
-      // animierte Vorschau im Chat). Kein Agent-Roundtrip. Konservativ
-      // (Generier-Verb + Bild-Nomen; Abruf-Phrasen ausgeschlossen).
+      // ---- Auto-project seam (2026-06-02) ------------------------------
+      // In the virtual workspace (org-root etc.) the agent cannot build
+      // (no project path). On a clear build order we therefore create a
+      // real project, switch in and build THERE — instead of hanging here.
+      // Conservative detection (looksLikeBuildIntent) + not during an
+      // open pill question. Pure text only (no staged attachments).
+      // ---- Image generation from natural language · 2026-06-03 ----------
+      // Owner finding: „erstelle ein Bild von X" (without /image) went to the
+      // agent, which faked it via HTML/Bash — without real generation + without
+      // a preview. Fix: detect BEFORE build/flow routing (detectImageIntent) and
+      // emit the real <surface:image-gen> loading surface (ImageGen2 +
+      // animated preview in the chat). No agent roundtrip. Conservative
+      // (generation verb + image noun; retrieval phrases excluded).
       if (!hasStaged && !(pillExpanded && openQuestions.length > 0)) {
         const imgIntent = detectImageIntent(value);
         if (imgIntent.isImage) {
@@ -2832,7 +2832,7 @@ export function ChatShell({
           const userMsg: HistoryItem = {
             id: nextId('user'),
             role: 'user',
-            content: value, // N1: verbatim Wunsch als User-Bubble
+            content: value, // N1: verbatim wish as the user bubble
             ts: new Date().toISOString(),
           };
           const surfaceMsg: HistoryItem = {
@@ -2865,24 +2865,24 @@ export function ChatShell({
         return;
       }
 
-      // ---- UX-1: Q/A-Pill-Antwort-Routing · 2026-05-26 -----------------
-      // REIHENFOLGE: (1) streaming → Queue (oben, unverändert);
-      // (2) sonst wenn die Pill ausgeklappt ist UND offene Fragen hat →
-      //     die Eingabe als FREITEXT-Antwort auf die aktuelle Frage setzen,
-      //     dann zur nächsten unbeantworteten Frage springen. Sind danach
-      //     ALLE Fragen beantwortet → EIN finaler reply(<Q&A>) (über den
-      //     normalen Send-Pfad weiter unten), Pill-State sauber zurücksetzen.
-      // (3) sonst normaler Send (Code unten).
+      // ---- UX-1: Q/A pill answer routing · 2026-05-26 -----------------
+      // ORDER: (1) streaming → queue (above, unchanged);
+      // (2) otherwise, if the pill is expanded AND has open questions →
+      //     set the input as a FREE-TEXT answer to the current question,
+      //     then jump to the next unanswered question. If afterwards
+      //     ALL questions are answered → ONE final reply(<Q&A>) (over the
+      //     normal send path further below), reset the pill state cleanly.
+      // (3) otherwise a normal send (code below).
       //
-      // Wichtig: nur wenn NICHT streaming (Guard oben greift zuerst). Damit
-      // bleibt der claude-cli-Happy-Path + die Queue/Interrupt-Logik intakt.
+      // Important: only when NOT streaming (the guard above takes effect first). This
+      // keeps the claude-cli happy path + the queue/interrupt logic intact.
       if (!hasStaged && pillExpanded && openQuestions.length > 0) {
         const qs = openQuestions;
         const idx = Math.min(Math.max(qIndex, 0), qs.length - 1);
         const currentQ = qs[idx]!;
 
-        // routePillAnswer = identische Logik wie der Options-Klick (ein Pfad):
-        // Antwort setzen → Vollständigkeit prüfen → nächste offene Frage.
+        // routePillAnswer = identical logic to the option click (one path):
+        // set the answer → check completeness → next open question.
         const route = routePillAnswer(qs, qAnswersRef.current, idx, currentQ.id, value);
         setQAnswers(route.nextAnswers);
         setInput('');
@@ -2890,52 +2890,52 @@ export function ChatShell({
 
         if (route.allAnswered) {
           const qaText = buildQAReply(qs, route.nextAnswers);
-          // Phase 1 Track AB · Befund B: strukturiertes Envelope PARALLEL
-          // zum bestehenden Chat-Turn — fail-soft fire-and-forget POST an
-          // /api/chat/answer. sourceTurnId = vorab erzeugter User-Turn-Anker
-          // (Idempotenz-Schlüssel via UNIQUE(source_turn_id, question_id)).
-          // Via Ref weil postStructuredAnswers WEITER unten im File definiert
-          // wird (nach submit) — analog submitRef-Pattern oben.
+          // Phase 1 Track AB · finding B: structured envelope IN PARALLEL
+          // to the existing chat turn — a fail-soft fire-and-forget POST to
+          // /api/chat/answer. sourceTurnId = pre-created user-turn anchor
+          // (idempotency key via UNIQUE(source_turn_id, question_id)).
+          // Via a ref because postStructuredAnswers is defined FURTHER below in the
+          // file (after submit) — analogous to the submitRef pattern above.
           const turnAnchor = nextId('user');
           postStructuredAnswersRef.current?.(qs, route.nextAnswers, turnAnchor);
-          // Pill-State VOR dem finalen Send zurücksetzen, damit der reply()
-          // (= submit auf qaText) NICHT erneut ins Pill-Routing fällt.
+          // Reset the pill state BEFORE the final send so the reply()
+          // (= submit on qaText) does NOT fall into pill routing again.
           resetPillState();
-          // Über den normalen Send-Pfad: submitRef ist stabil + prüft selbst
-          // erneut isStreaming (kein Doppel-Send). Microtask damit das
-          // State-Reset settled, bevor der finale Turn startet.
+          // Over the normal send path: submitRef is stable + checks
+          // isStreaming again itself (no double send). Microtask so the
+          // state reset settles before the final turn starts.
           queueMicrotask(() => {
             submitRef.current?.(qaText);
           });
           return;
         }
 
-        // Sonst: zur nächsten noch unbeantworteten Frage — kein neuer Turn.
+        // Otherwise: to the next still-unanswered question — no new turn.
         setQIndex(route.nextIndex);
         return;
       }
 
-      // ---- Bug-2-Fix · Free-Text-Antwort-Kopplung · 2026-05-30 ----------
-      // Live-Browser-Befund (verbatim): Tippt der User FREI „Eigenes Video"
-      // statt eine offene tier-choice/quickchoice-Card anzuklicken, fällt der
-      // Text durch `classifyFlowIntent` (min 3 Wörter + Imperativ-Verb → sonst
-      // 'unknown') in den normalen Chat-Stream. Der Agent versteht ihn NICHT
-      // als Antwort auf die offene Frage, sondern wirft einen DRITTEN
-      // Tiefe-/Choice-Picker → Kontextverlust.
+      // ---- Bug-2-Fix · free-text-answer coupling · 2026-05-30 ----------
+      // Live browser finding (verbatim): if the user FREELY types „Eigenes Video"
+      // instead of clicking an open tier-choice/quickchoice card, the
+      // text falls through `classifyFlowIntent` (min 3 words + imperative verb → otherwise
+      // 'unknown') into the normal chat stream. The agent does NOT understand it
+      // as an answer to the open question, but throws a THIRD
+      // depth/choice picker → context loss.
       //
-      // FIX: Wenn offene Fragen aktiv sind (openQuestions.length > 0) — egal ob
-      // die Pill ein- oder ausgeklappt ist — wird Free-Text als Antwort auf die
-      // aktuell sichtbare Frage geroutet, NICHT als neuer Plan. Das ist exakt
-      // dieselbe routePillAnswer-Logik wie Options-Klick / Pill-Enter
-      // (ein Code-Pfad) inkl. strukturiertem Envelope (Befund 4 / N8/N9).
+      // FIX: when open questions are active (openQuestions.length > 0) — whether
+      // the pill is collapsed or expanded — free text is routed as an answer to the
+      // currently visible question, NOT as a new plan. This is exactly
+      // the same routePillAnswer logic as option click / pill Enter
+      // (one code path) incl. the structured envelope (finding 4 / N8/N9).
       //
-      // Abgrenzung (kein Hijack echter neuer Aufträge):
-      //   - Slash-Command (`/…`) → NICHT abfangen (expliziter Befehl).
-      //   - Confident Flow-Intent (classifyFlowIntent === 'flow', z.B.
-      //     „erstelle eine Webseite") → NICHT abfangen; der User startet
-      //     bewusst etwas Neues. Nur „unknown"-Input (= die typische kurze
-      //     Antwort) wird an die Frage gekoppelt.
-      //   - Der pillExpanded-Pfad oben hat bereits Vorrang (greift zuerst).
+      // Distinction (no hijack of real new orders):
+      //   - slash command (`/…`) → do NOT intercept (explicit command).
+      //   - confident flow intent (classifyFlowIntent === 'flow', e.g.
+      //     „erstelle eine Webseite") → do NOT intercept; the user deliberately
+      //     starts something new. Only „unknown" input (= the typical short
+      //     answer) is coupled to the question.
+      //   - the pillExpanded path above already takes precedence (kicks in first).
       const freeTextAnswerEligible = shouldRouteFreeTextAsAnswer({
         value,
         hasStaged,
@@ -2960,8 +2960,8 @@ export function ChatShell({
 
         if (route.allAnswered) {
           const qaText = buildQAReply(qs, route.nextAnswers);
-          // Strukturiertes Envelope PARALLEL (Befund 4) — Ausführung hängt am
-          // Objekt, nicht an der lesbaren Chat-Bubble.
+          // Structured envelope IN PARALLEL (finding 4) — execution hangs on the
+          // object, not on the readable chat bubble.
           const turnAnchor = nextId('user');
           postStructuredAnswersRef.current?.(qs, route.nextAnswers, turnAnchor);
           resetPillState();
@@ -2971,33 +2971,33 @@ export function ChatShell({
           return;
         }
 
-        // Noch offene Fragen → zur nächsten springen, kein neuer Turn.
+        // Still open questions → jump to the next, no new turn.
         setQIndex(route.nextIndex);
         return;
       }
 
-      // Alter Mock-Pending-Guard bleibt erhalten (Mock-Pfad ist synchron,
-      // kein Interrupt möglich).
+      // The old mock-pending guard stays (the mock path is synchronous,
+      // no interrupt possible).
       if (isMockPending) return;
 
-      // Owner-Direktive 2026-05-28 (N1 verbatim): „Flow müsste doch aus
+      // Owner directive 2026-05-28 (N1 verbatim): „Flow müsste doch aus
       // dem Context und Intent erkannt werden und ausgeführt. Das wäre ja
       // das Kernkonzept von dem lazing system."
       //
-      // → Vor dem Slash-Parser klassifizieren wir den User-Input
-      // deterministisch (lib/chat/intent-flow-classifier.ts). Bei
-      // kind === 'flow' synthetisieren wir `"/flow " + value` und reichen
-      // das in den bestehenden Slash-Pfad — gleicher Handler wie ein
-      // explizites `/flow`, ein Code-Pfad, keine Duplikation.
+      // → Before the slash parser we classify the user input
+      // deterministically (lib/chat/intent-flow-classifier.ts). On
+      // kind === 'flow' we synthesize `"/flow " + value` and pass
+      // it into the existing slash path — the same handler as an
+      // explicit `/flow`, one code path, no duplication.
       //
-      // Guards (additiv, fail-soft):
-      //   - hasStaged: wenn Anhänge gestaged sind, will der User explizit
-      //     einen File-Send → nicht klassifizieren (Bug-Swarm-Pfad lässt
-      //     das ebenfalls bewusst aus).
-      //   - bereits `/`-Prefix: der Klassifizierer gibt selbst 'unknown'
-      //     zurück, hier zusätzlich defensiv.
-      //   - Backend-Fallback für Voice/Agent-API ist ein eigener Slice
-      //     (s. lib/chat/intent-flow-classifier.ts Kopf-Kommentar).
+      // Guards (additive, fail-soft):
+      //   - hasStaged: when attachments are staged, the user explicitly wants
+      //     a file send → do not classify (the bug-swarm path also
+      //     deliberately leaves it out).
+      //   - already a `/` prefix: the classifier itself returns 'unknown',
+      //     here additionally defensive.
+      //   - the backend fallback for voice/agent-API is its own slice
+      //     (see lib/chat/intent-flow-classifier.ts header comment).
       let effectiveSubmitValue = value;
       let autoFlowDetected = false;
       if (!hasStaged && !value.startsWith('/')) {
@@ -3005,10 +3005,10 @@ export function ChatShell({
         if (flowResult.kind === 'flow') {
           effectiveSubmitValue = buildSyntheticFlowCommand(value);
           autoFlowDetected = true;
-          // Optionaler dezenter Hinweis (≤14px, Token-only) als System-Toast.
-          // Hilft dem Owner zu verstehen, warum eine Flow-Surface erscheint
-          // statt einer LLM-Antwort. Opt-out implizit: bei `?` oder Lese-
-          // Aufträgen feuert classifyFlowIntent gar nicht erst.
+          // Optional subtle hint (≤14px, token-only) as a system toast.
+          // Helps the owner understand why a flow surface appears
+          // instead of an LLM answer. Opt-out implicit: on `?` or read
+          // orders, classifyFlowIntent does not even fire.
           const hintId = `sys-auto-flow-${Date.now()}-${Math.random()
             .toString(36)
             .slice(2, 8)}`;
@@ -3034,30 +3034,30 @@ export function ChatShell({
           });
         }
       }
-      // Stille Lint-Annahme: autoFlowDetected wird unten (slash-Pfad) nicht
-      // weiter benötigt — der Flag dient als Debug-/Test-Hook (vgl. Tests
-      // in __tests__/chat-shell-flow-auto-detect.test.ts). React-Compiler
-      // strippt das in Prod.
+      // Silent lint assumption: autoFlowDetected is not needed further below
+      // (slash path) — the flag serves as a debug/test hook (cf. tests
+      // in __tests__/chat-shell-flow-auto-detect.test.ts). The React compiler
+      // strips it in prod.
       void autoFlowDetected;
 
-      // Sub-Plan B · 2026-04-29: Slash-Command-Interception.
-      // VOR jedem LLM-Roundtrip pruefen wir ob `/clear`, `/compact`, `/help`
-      // (oder ein anderes registriertes Command) am Anfang steht. Falls ja:
-      // Handler ausfuehren, Composer-Input leeren, KEIN Server-Roundtrip.
-      // Pass-through-Commands (aktuell keiner) wuerden weiter unten
-      // wie eine normale Message behandelt.
-      // Owner-Direktive 2026-05-28: effectiveSubmitValue enthält ggf. den
-      // synthetisierten `/flow <intent>`-String aus der Auto-Detection oben.
+      // Sub-Plan B · 2026-04-29: slash-command interception.
+      // BEFORE every LLM roundtrip we check whether `/clear`, `/compact`, `/help`
+      // (or another registered command) stands at the start. If so:
+      // run the handler, clear the composer input, NO server roundtrip.
+      // Pass-through commands (currently none) would be treated further below
+      // like a normal message.
+      // Owner directive 2026-05-28: effectiveSubmitValue may contain the
+      // synthesized `/flow <intent>` string from the auto-detection above.
       const slashCmd = hasStaged ? null : parseSlashCommand(effectiveSubmitValue);
       if (slashCmd) {
         const slashCtx: SlashContext = {
           workspaceId: currentWorkspace.id,
-          // M1-Fix: aktuelle history aus Ref (submit ist jetzt stabil, der
-          // Closure-Capture wäre sonst veraltet).
+          // M1-Fix: current history from a ref (submit is now stable, the
+          // closure capture would otherwise be stale).
           history: historyRef.current,
           setHistory,
           pushSystemToast: (item: SlashSystemItem) => {
-            // SlashSystemItem ist strukturidentisch zur internen SystemItem.
+            // SlashSystemItem is structurally identical to the internal SystemItem.
             const sysItem: SystemItem = {
               id: item.id,
               role: 'system',
@@ -3074,16 +3074,16 @@ export function ChatShell({
           },
           fetch: typeof window !== 'undefined' ? window.fetch.bind(window) : fetch,
           clearSystemMessages: () => setSystemMessages([]),
-          // Track-D · 2026-05-27 (Flow Studio): Tail-Args nach dem Command-
-          // Namen (verbatim, nur außen getrimmt). `/flow` nutzt das als Intent.
-          // Owner-Direktive 2026-05-28: bei Auto-Flow-Detect enthält
-          // effectiveSubmitValue den synthetisierten Slash-Prefix → der Tail
-          // ist der Original-User-Text (N1 verbatim).
+          // Track-D · 2026-05-27 (Flow Studio): tail args after the command
+          // name (verbatim, only outer-trimmed). `/flow` uses this as the intent.
+          // Owner directive 2026-05-28: on auto-flow-detect,
+          // effectiveSubmitValue contains the synthesized slash prefix → the tail
+          // is the original user text (N1 verbatim).
           args: extractSlashArgs(effectiveSubmitValue),
-          // Track-D · 2026-05-27 (Flow Studio): Assistant-Bubble in den Verlauf
-          // posten. Nur Assistant-Items laufen durch den surface-aware Renderer,
-          // d.h. `<surface:flow-coupling>`-Markup wird hier zur Card. System-
-          // Toasts (pushSystemToast) zeigen dagegen Rohtext.
+          // Track-D · 2026-05-27 (Flow Studio): post an assistant bubble into the
+          // history. Only assistant items run through the surface-aware renderer,
+          // i.e. `<surface:flow-coupling>` markup becomes a card here. System
+          // toasts (pushSystemToast) show raw text instead.
           postAssistantMessage: (content: string) => {
             const item: HistoryItem = {
               id: nextId('assistant'),
@@ -3093,42 +3093,42 @@ export function ChatShell({
             };
             setHistory((h) => [...h, item]);
           },
-          // Track-D · Stream-B2: `/flow` delegiert needs-style-choice hierher —
-          // ChatShell emittiert die quickchoice-Surface(s) + verdrahtet die
-          // Owner-Wahl → Re-POST (siehe handleFlowStyleChoice oben).
+          // Track-D · Stream-B2: `/flow` delegates needs-style-choice here —
+          // ChatShell emits the quickchoice surface(s) + wires the
+          // owner choice → re-POST (see handleFlowStyleChoice above).
           onFlowStyleChoice: handleFlowStyleChoice,
         };
-        // Result-Type aktuell konstant 'consumed' — async fire-and-forget
-        // mit defensivem catch. Composer hier sofort leeren + Draft droppen.
+        // Result type currently constant 'consumed' — async fire-and-forget
+        // with a defensive catch. Clear the composer here immediately + drop the draft.
         setInput('');
         clearDraftFor(currentWorkspace.id);
         void slashCmd.handler(slashCtx).catch((err) => {
-          // Sehr robust: wenn der Handler crasht, zeig wenigstens einen
-          // Toast statt schweigend zu schlucken.
+          // Very robust: if the handler crashes, at least show a
+          // toast instead of swallowing silently.
           // eslint-disable-next-line no-console
           console.error('[slash-command]', slashCmd.name, err);
         });
         return;
       }
 
-      // ---- Sprint H · 2026-04-30: Bug-Fix-Swarm Detection -----------------
-      // User-Beschwerde 2026-04-30: „Bug rein, der labert da rum, statt
-      // selber zu fixen". Wir erkennen Error-/Bug-Posts heuristisch und
-      // starten 3 parallele Diagnose-Spawns + Konsens + Fix.
-      // Bypass via `/no-swarm <text>` möglich.
-      // Mit gestagetem Anhang NIE den Bug-Swarm triggern — der User will
-      // explizit eine Datei + Caption an den Agent geben, nicht eine Bug-
-      // Diagnose-Pipeline starten.
+      // ---- Sprint H · 2026-04-30: bug-fix-swarm detection -----------------
+      // User complaint 2026-04-30: „Bug rein, der labert da rum, statt
+      // selber zu fixen". We detect error/bug posts heuristically and
+      // start 3 parallel diagnosis spawns + consensus + fix.
+      // Bypass via `/no-swarm <text>` possible.
+      // With a staged attachment NEVER trigger the bug swarm — the user wants
+      // to explicitly give a file + caption to the agent, not start a bug
+      // diagnosis pipeline.
       const bugDetect = hasStaged
         ? { isBug: false, bypassedByUser: false, cleanedMessage: value }
         : detectBugReport(value);
       let effectiveValue = value;
       if (bugDetect.bypassedByUser) {
-        // User wollte explizit KEIN Swarm — Marker entfernen, normal weiter.
+        // The user explicitly wanted NO swarm — remove the marker, continue normally.
         effectiveValue = bugDetect.cleanedMessage.trim() || value;
       } else if (bugDetect.isBug) {
-        // Bug erkannt → Swarm starten, aktuelle User-Message als History-
-        // Item posten + System-Toast → KEIN normaler LLM-Roundtrip.
+        // Bug detected → start the swarm, post the current user message as a
+        // history item + system toast → NO normal LLM roundtrip.
         const userMsg: HistoryItem = {
           id: nextId('user'),
           role: 'user',
@@ -3192,20 +3192,20 @@ export function ChatShell({
         return;
       }
 
-      // Sub-Plan B · 2026-04-29: Auto-Reset bei jeder neuen User-Message.
-      // User-Wunsch: Verlauf klappt nach Submit automatisch wieder ein,
-      // damit der Fokus auf der frischen Antwort liegt und nicht im
-      // historischen Kontext verloren geht. Ein dezenter System-Toast
-      // weist darauf hin wie man ihn wieder öffnet.
+      // Sub-Plan B · 2026-04-29: auto-reset on every new user message.
+      // User wish: the history collapses again automatically after submit,
+      // so the focus is on the fresh answer and not lost in the
+      // historical context. A subtle system toast
+      // hints at how to open it again.
       //
-      // Kein Toast wenn showHistory bereits false war ODER wenn keine
-      // archivierten Items vorhanden sind (= keine sichtbare Veränderung
-      // für den User, wäre Geister-Toast). B-3 Review-Finding 2026-04-29.
+      // No toast when showHistory was already false OR when no
+      // archived items are present (= no visible change
+      // for the user, would be a ghost toast). B-3 review finding 2026-04-29.
       const hasArchived = historyRef.current.some((it) => it.archived === true);
       if (showHistory && hasArchived) {
         setShowHistory(false);
-        // Eigene ID-Quelle für transient System-Toasts (nicht über nextId,
-        // das ist HistoryItem-only). Random + Timestamp reicht für Dedup.
+        // Own ID source for transient system toasts (not via nextId,
+        // which is HistoryItem-only). Random + timestamp suffices for dedup.
         const toastId = `sys-history-collapsed-${Date.now()}-${Math.random()
           .toString(36)
           .slice(2, 8)}`;
@@ -3231,21 +3231,21 @@ export function ChatShell({
         });
       }
 
-      // Auto-Mode: Marker im Prompt damit Agent erkennt "großer Plan
-      // gewuenscht". UI zeigt nur den eigentlichen Text (Marker als
-      // dezenter Suffix).
-      // Sprint H · 2026-04-30: `effectiveValue` ist der user-input mit
-      // ggf. entferntem `/no-swarm`-Bypass-Prefix. Bei normalem Pfad
-      // identisch zu `value`.
+      // Auto-mode: a marker in the prompt so the agent recognizes "a big plan
+      // is wanted". The UI shows only the actual text (the marker as a
+      // subtle suffix).
+      // Sprint H · 2026-04-30: `effectiveValue` is the user input with
+      // the `/no-swarm` bypass prefix possibly removed. On the normal path
+      // identical to `value`.
       const autoOn = isAutoModeOn();
 
-      // STAGING: Bubble vs. Agent-Text trennen.
-      //  - bubbleContent: was die User-BUBBLE zeigt — Anhang-Card(s) oben,
-      //    Caption darunter (`<surface:document>…\n\ncaption`). Persistiert
-      //    in der History → nach Reload bleibt der Anhang sichtbar.
-      //  - agentBaseText: was der AGENT bekommt — Datei-Pfad-Referenzen
-      //    (`[Angehängt: …]`) + Caption, damit er BEIDES in EINEM Turn sieht.
-      // Ohne Anhänge sind beide identisch zum reinen User-Text.
+      // STAGING: separate bubble vs. agent text.
+      //  - bubbleContent: what the user BUBBLE shows — attachment card(s) on top,
+      //    caption below (`<surface:document>…\n\ncaption`). Persisted
+      //    in the history → the attachment stays visible after a reload.
+      //  - agentBaseText: what the AGENT receives — file-path references
+      //    (`[Angehängt: …]`) + caption, so it sees BOTH in ONE turn.
+      // Without attachments both are identical to the plain user text.
       const bubbleContent = hasStaged
         ? buildBubbleContent(pendingAttachments, effectiveValue)
         : effectiveValue;
@@ -3256,10 +3256,10 @@ export function ChatShell({
         ? `${agentBaseText}\n\n[Auto-Mode aktiv]`
         : agentBaseText;
 
-      // Bug-C-RACE Fix 2026-04-26: pendingPromptId clientseitig erzeugen
-      // BEVOR der POST losgeht. Damit ist `ownPendingIdsRef` schon vor
-      // dem ersten chat_message_sent-Event gefuellt und der Echo-Filter
-      // greift auch bei langsamem Header-Roundtrip.
+      // Bug-C-RACE Fix 2026-04-26: create the pendingPromptId client-side
+      // BEFORE the POST goes off. So `ownPendingIdsRef` is already filled before
+      // the first chat_message_sent event and the echo filter
+      // takes effect even on a slow header roundtrip.
       const clientPendingId =
         typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
           ? crypto.randomUUID()
@@ -3273,7 +3273,7 @@ export function ChatShell({
       const userMsg: HistoryItem = {
         id: nextId('user'),
         role: 'user',
-        // Bubble zeigt Anhang-Card(s) + Caption (WhatsApp/Telegram-Stil).
+        // The bubble shows attachment card(s) + caption (WhatsApp/Telegram style).
         content: bubbleContent,
         ts: new Date().toISOString(),
         pendingPromptId: clientPendingId,
@@ -3284,66 +3284,66 @@ export function ChatShell({
         return next;
       });
       setInput('');
-      // Staging leeren — die Datei(en) sind jetzt Teil der gesendeten Message.
+      // Clear staging — the file(s) are now part of the sent message.
       if (hasStaged) setStagedAttachments([]);
-      // Phase Reload-Recovery V2 · 2026-04-27: Draft loeschen sobald
-      // erfolgreich abgesendet (chat_message_sent ist hier "der lokale
-      // Push" — falls der Server-Roundtrip scheitert, regeneriert der User
-      // den Prompt eh manuell, und dann tippt er neu).
+      // Phase Reload-Recovery V2 · 2026-04-27: delete the draft once
+      // successfully sent (chat_message_sent is "the local
+      // push" here — if the server roundtrip fails, the user
+      // regenerates the prompt manually anyway, and then types again).
       clearDraftFor(currentWorkspace.id);
 
       // ---- real-agent path ----------------------------------------------
-      // C2-Fix: Inflight-Lock setzen BEVOR der async-Pfad startet. Das
-      // try/finally unten garantiert das Zurücksetzen in JEDEM Ausgang
-      // (ok/error/aborted/throw) — kein hängender Lock.
+      // C2-Fix: set the inflight lock BEFORE the async path starts. The
+      // try/finally below guarantees the reset in EVERY outcome
+      // (ok/error/aborted/throw) — no hanging lock.
       submitInflightRef.current = true;
       (async () => {
        try {
-        // Sofort-Feedback 2026-04-30: Typing-Indicator soll direkt beim
-        // Submit erscheinen, nicht erst nach Server-Roundtrip. User-
-        // Beschwerde: lange Wartezeiten ohne Visual.
+        // Instant feedback 2026-04-30: the typing indicator should appear right at
+        // submit, not only after the server roundtrip. User
+        // complaint: long wait times without a visual.
         setServerStreamPending(true);
 
         const baseHistory = [...historyRef.current, userMsg].slice(-CONTEXT_WINDOW);
         const messages = baseHistory.map((m, idx, arr) => ({
           role: m.role,
-          // Letzte User-Message → an den Agent geht IMMER `augmentedValue`
-          // (= agentBaseText + ggf. Auto-Mode-Marker), NICHT der Bubble-
-          // Inhalt. Bei Anhängen enthält agentBaseText die Datei-Pfad-
-          // Referenzen (`[Angehängt: …]`) + Caption — sonst würde der Agent
-          // rohes `<surface:document>`-Markup sehen. Bei reinem Text ohne
-          // Auto-Mode ist augmentedValue == effectiveValue == m.content.
+          // Last user message → `augmentedValue` ALWAYS goes to the agent
+          // (= agentBaseText + possibly the auto-mode marker), NOT the bubble
+          // content. With attachments, agentBaseText contains the file-path
+          // references (`[Angehängt: …]`) + caption — otherwise the agent would
+          // see raw `<surface:document>` markup. With pure text without
+          // auto-mode, augmentedValue == effectiveValue == m.content.
           content:
             idx === arr.length - 1 && m.role === 'user'
               ? augmentedValue
               : m.content,
         }));
 
-        // Phase MS (P1-2): resultEventId aus der Stream-Response.
-        // Wenn vorhanden → assistantMsg.id = ULID (matched mit dem Live-
-        // Event-Stream-Echo). Wenn nicht (Error-Pfad, alte Server-Versionen)
-        // → Fallback auf nextId().
+        // Phase MS (P1-2): resultEventId from the stream response.
+        // If present → assistantMsg.id = ULID (matches the live
+        // event-stream echo). If not (error path, old server versions)
+        // → fallback to nextId().
         //
-        // B5-fix 2026-04-26: Ein Ref damit wir den eventId in ALLEN
-        // outcome-Branches nutzen koennen (auch error/aborted). Vorher
-        // wurde resultEventId nur im 'ok'-Pfad verwendet — Server hatte
-        // das chat_message_completed-Event aber auch bei outcome=error,
-        // also fluetet der Live-Stream ein ULID-Item rein WAEHREND
-        // ChatShell das gleiche Item unter `nextId('assistant')` speichert
-        // → Doppel-Render nach Reload.
+        // B5-fix 2026-04-26: a ref so we can use the eventId in ALL
+        // outcome branches (also error/aborted). Previously
+        // resultEventId was only used in the 'ok' path — but the server emitted
+        // the chat_message_completed event also on outcome=error,
+        // so the live stream floods a ULID item in WHILE
+        // ChatShell stores the same item under `nextId('assistant')`
+        // → double render after reload.
         const resultEventIdRef = { current: null as string | null };
 
-        // ---- 2-Stufen-Modell · 2026-06-03 (Owner-Direktive, N1 verbatim) ----
+        // ---- 2-stage model · 2026-06-03 (owner directive, N1 verbatim) ----
         // „workspace Chat … mit einer Art Codex Speed … schnell … wenn Dinge
         // erkannt werden, dann geht es in der Agent Ausführung mit Claude Code
-        // … gesprächig … das fehlt." → Normal-Chat antwortet SCHNELL (Opus, kein
-        // --effort, kein Thinking — Brainstorm/Smalltalk-Tempo). Erkennt der
-        // deterministische N6-Pre-Screen (`shouldDecompose`, Schwelle 3) ein
-        // echtes mehrstufiges Vorhaben — Verb PLUS Komplexitäts-Signal —
-        // eskaliert NUR DIESER Turn auf tieferes Nachdenken (`--effort high`).
-        // Additiv: deep=false → exakt das heutige schnelle Verhalten (kein
-        // Regress). Slash/Flow/Bug-Swarm/Free-Text-Antwort sind oben bereits
-        // abgezweigt (return) — hier landet nur „normaler" Chat.
+        // … gesprächig … das fehlt." → Normal chat answers FAST (Opus, no
+        // --effort, no thinking — brainstorm/smalltalk pace). When the
+        // deterministic N6 pre-screen (`shouldDecompose`, threshold 3) detects
+        // a real multi-step undertaking — verb PLUS complexity signal —
+        // ONLY THIS turn escalates to deeper thinking (`--effort high`).
+        // Additive: deep=false → exactly today's fast behavior (no
+        // regression). Slash/flow/bug-swarm/free-text answer are already
+        // branched off above (return) — only „normal" chat lands here.
         const deepThinking = shouldDecompose(value).decompose;
         if (deepThinking) {
           const tId = `sys-deep-think-${Date.now()}-${Math.random()
@@ -3375,31 +3375,31 @@ export function ChatShell({
           messages,
           workspaceId: currentWorkspace.id,
           pendingPromptId: clientPendingId,
-          // 2-Stufen-Modell: thinking nur bei erkanntem mehrstufigem Intent.
-          // Reicht durch bis server/workspace-session.ts → `--effort high`.
+          // 2-stage model: thinking only on a detected multi-step intent.
+          // Passes through to server/workspace-session.ts → `--effort high`.
           ...(deepThinking ? { thinking: true } : {}),
           onPendingId: (id) => {
-            // Phase MS: dieser pendingPromptId stammt von UNS — wenn
-            // das chat_message_sent-Event mit dieser ID ueber den Live-
-            // Event-Stream zurueckkommt, ignorieren (Echo-Filter).
+            // Phase MS: this pendingPromptId stems from US — when
+            // the chat_message_sent event with this ID comes back over the live
+            // event stream, ignore (echo filter).
             ownPendingIdsRef.current.add(id);
-            // Cap die Set-Groesse (sonst memory-leak ueber Stunden).
+            // Cap the set size (otherwise a memory leak over hours).
             if (ownPendingIdsRef.current.size > 200) {
               const first = ownPendingIdsRef.current.values().next().value;
               if (first) ownPendingIdsRef.current.delete(first);
             }
-            // Bug C Fix 2026-04-26: pendingPromptId auf das soeben
-            // gepushte lokale userMsg setzen (Match per Content+ts da
-            // userMsg.id eine clientseitige nextId('user') ist). Beim
-            // naechsten Reload greift mergeServerWithLocal:
+            // Bug C Fix 2026-04-26: set pendingPromptId on the just-
+            // pushed local userMsg (match by content+ts since
+            // userMsg.id is a client-side nextId('user')). On the
+            // next reload mergeServerWithLocal kicks in:
             // serverItem.pendingPromptId === localItem.pendingPromptId
-            // -> lokales Item wird durch ULID-Variante ersetzt statt
-            // dazugehaengt. Vorher: User-Bubble erschien nach Reload
-            // doppelt (lokal + ULID).
+            // -> the local item is replaced by the ULID variant instead of
+            // appended. Previously: the user bubble appeared after reload
+            // twice (local + ULID).
             setHistory((h) => {
-              // Suche das jüngste user-Item OHNE pendingPromptId
-              // (Optimistic-Insert ohne Server-Echo). Ein einziger
-              // Match — wir tagen das letzte unzugewiesene.
+              // Find the newest user item WITHOUT a pendingPromptId
+              // (optimistic insert without server echo). A single
+              // match — we tag the last unassigned one.
               for (let i = h.length - 1; i >= 0; i -= 1) {
                 const it = h[i];
                 if (!it) continue;
@@ -3420,8 +3420,8 @@ export function ChatShell({
 
         switch (result.outcome) {
           case 'ok': {
-            // Phase RL.2: bei erfolgreichem Stream Retry-Counter fuer
-            // diesen Prompt zuruecksetzen.
+            // Phase RL.2: on a successful stream, reset the retry counter for
+            // this prompt.
             lastRetryAttemptsRef.current.delete(value);
             const { turn } = result;
             const assistantMsg: HistoryItem = {
@@ -3440,12 +3440,12 @@ export function ChatShell({
             break;
           }
           case 'not_configured': {
-            // Kein Mock, keine erfundene Antwort (N5/Owner-Direktive
-            // 2026-06-03): wenn keine Engine verbunden ist, sagen wir das
-            // ehrlich, statt eine Karte zu faken.
+            // No mock, no invented answer (N5/owner directive
+            // 2026-06-03): when no engine is connected, we say it
+            // honestly instead of faking a card.
             const assistantMsg: HistoryItem = {
-              // not_configured laeuft nie durch den Agent → kein
-              // Server-Event, kein resultEventId. Lokale ID ist hier OK.
+              // not_configured never runs through the agent → no
+              // server event, no resultEventId. A local ID is OK here.
               id: nextId('assistant'),
               role: 'assistant',
               content:
@@ -3460,15 +3460,15 @@ export function ChatShell({
             break;
           }
           case 'aborted': {
-            // M1-Fix: aktuellen agentTurn aus Ref lesen (Closure-Capture
-            // wäre der Turn-Zustand zum submit-Zeitpunkt, nicht der finale).
+            // M1-Fix: read the current agentTurn from a ref (the closure capture
+            // would be the turn state at submit time, not the final one).
             const abortedTurn = agentTurnRef.current;
             if (abortedTurn.text.trim().length > 0 || abortedTurn.tools.length > 0) {
               const assistantMsg: HistoryItem = {
-                // B5-fix: bei aborted hat der Server unter Umstaenden
-                // ein chat_message_completed-Event mit outcome=aborted
-                // emittiert (resultEventIdRef.current). Verwende es
-                // damit Reload + Live-Stream nicht doppelt rendern.
+                // B5-fix: on aborted the server may have
+                // emitted a chat_message_completed event with outcome=aborted
+                // (resultEventIdRef.current). Use it
+                // so reload + live stream don't render twice.
                 id: resultEventIdRef.current ?? nextId('assistant'),
                 role: 'assistant',
                 content: abortedTurn.text.trim() || '(Abgebrochen)',
@@ -3485,12 +3485,12 @@ export function ChatShell({
           }
           case 'error':
           default: {
-            // H1-Fix: Turn endet mit Fehler → agentStatus geht auf 'error',
-            // NICHT auf 'idle'. Der Queue-Flush-Effect feuert nur bei 'idle',
-            // also würden eingereihte Nachrichten ewig hängen (Stop-Button ist
-            // bei error nicht sichtbar → kein manuelles Leeren möglich). Wir
-            // verwerfen die Queue deterministisch und zeigen einen Hinweis,
-            // wenn etwas eingereiht war.
+            // H1-Fix: turn ends with an error → agentStatus goes to 'error',
+            // NOT 'idle'. The queue-flush effect only fires on 'idle',
+            // so enqueued messages would hang forever (the stop button is
+            // not visible on error → no manual clearing possible). We
+            // discard the queue deterministically and show a hint
+            // if something was enqueued.
             if (messageQueueRef.current.length > 0) {
               const dropped = messageQueueRef.current.length;
               messageQueueRef.current = [];
@@ -3520,27 +3520,27 @@ export function ChatShell({
               });
             }
 
-            // Bug-Fix 2026-04-25: vorher ging die Stream-Antwort komplett
-            // verloren wenn outcome=error (z.B. SSE abrupt-close, late
-            // upstream-Fehler nach den meisten Token). Symmetrisch zu
-            // 'aborted': wenn schon Text/Tools angesammelt wurden, persistiere
-            // sie als assistant-Message statt sie zu droppen.
+            // Bug-Fix 2026-04-25: previously the stream answer was completely
+            // lost on outcome=error (e.g. SSE abrupt close, late
+            // upstream error after most tokens). Symmetric to
+            // 'aborted': if text/tools were already accumulated, persist
+            // them as an assistant message instead of dropping them.
             //
-            // Phase RL 2026-04-28: Rate-Limit-Pattern im Content erkennen
-            // und durch erklärenden Toast ersetzen (statt nackter Anthropic-
-            // Error-Text). Pattern matched Anthropic-CLI-typische Strings.
+            // Phase RL 2026-04-28: detect a rate-limit pattern in the content
+            // and replace it with an explanatory toast (instead of bare Anthropic
+            // error text). The pattern matches Anthropic-CLI-typical strings.
             const rawText = agentTurnRef.current.text.trim();
             const isRateLimited =
               /temporarily limiting requests|rate.?limited|usage_limit|too many requests/i.test(
                 rawText,
               );
             if (isRateLimited) {
-              // Phase RL.2 (2026-04-28): Auto-Retry-Card mit 30s-Countdown.
-              // Reichen `value` (= original User-Prompt) + attempt-counter
-              // an die Card. Bei Klick auf "Jetzt erneut" oder bei
-              // Countdown-End ruft die Card SurfaceAction.reply(prompt)
-              // → der Provider in ChatShell triggert submit() auf die
-              // Original-Frage. Max 2 Auto-Retries — dann manuell.
+              // Phase RL.2 (2026-04-28): auto-retry card with a 30s countdown.
+              // Pass `value` (= original user prompt) + attempt counter
+              // to the card. On a click on "Jetzt erneut" or at
+              // countdown end, the card calls SurfaceAction.reply(prompt)
+              // → the provider in ChatShell triggers submit() on the
+              // original question. Max 2 auto-retries — then manual.
               const attempts = (lastRetryAttemptsRef.current.get(value) ?? 0) + 1;
               lastRetryAttemptsRef.current.set(value, attempts);
               const MAX_AUTO_RETRIES = 2;
@@ -3585,9 +3585,9 @@ export function ChatShell({
             }
             if (rawText.length > 0 || agentTurnRef.current.tools.length > 0) {
               const assistantMsg: HistoryItem = {
-                // B5-fix: gleicher Pfad wie 'ok' und 'aborted' — der
-                // Server hat das Event mit outcome=error bereits unter
-                // resultEventIdRef.current persistiert.
+                // B5-fix: same path as 'ok' and 'aborted' — the
+                // server already persisted the event with outcome=error under
+                // resultEventIdRef.current.
                 id: resultEventIdRef.current ?? nextId('assistant'),
                 role: 'assistant',
                 content: rawText || '(Stream unterbrochen)',
@@ -3600,17 +3600,17 @@ export function ChatShell({
               return next;
             });
             } else {
-              // Bug 1 Fix (2026-05-30, Owner „der Chat verliert komplett den
-              // Kontext"): wenn der Turn MIT Fehler endete, aber WEDER Text
-              // NOCH Tools angesammelt hat (z.B. `done{is_error}` ohne ein
-              // einziges Token — genau der „Eigenes Video"-Freitext-Fall),
-              // landete bisher NICHTS in der History → der User sah nur die
-              // rote globale Banner-Zeile und seine eigene Bubble ohne
-              // Antwort, was sich wie „Kontext weg" anfühlt. Wir hängen jetzt
-              // eine fail-soft Assistant-Karte mit der ECHTEN Ursache an
-              // (agentError, nicht mehr generisch). Der Konversations-Faden
-              // (History/Workspace/Flow) bleibt damit erhalten und sichtbar
-              // beantwortbar — der User kann direkt weiterschreiben.
+              // Bug 1 Fix (2026-05-30, owner „der Chat verliert komplett den
+              // Kontext"): when the turn ended WITH an error, but accumulated NEITHER
+              // text NOR tools (e.g. `done{is_error}` without a
+              // single token — exactly the „Eigenes Video" free-text case),
+              // NOTHING used to land in the history → the user saw only the
+              // red global banner line and his own bubble without an
+              // answer, which feels like „context gone". We now append
+              // a fail-soft assistant card with the REAL cause
+              // (agentError, no longer generic). The conversation thread
+              // (history/workspace/flow) is thus preserved and visibly
+              // answerable — the user can write on directly.
               const reason =
                 agentErrorRef.current ??
                 'Der Agent konnte diese Antwort nicht abschließen. Tipp einfach erneut — dein Kontext bleibt erhalten.';
@@ -3635,10 +3635,10 @@ export function ChatShell({
           }
         }
        } finally {
-         // C2-Fix: Inflight-Lock IMMER zurücksetzen — auch bei throw aus
-         // sendAgent (sollte nicht passieren, send() fängt intern, aber
-         // defensiv). Damit kann der Queue-Flush-Effect (oder ein neuer
-         // direkter submit) sauber den nächsten Turn starten.
+         // C2-Fix: ALWAYS reset the inflight lock — also on a throw from
+         // sendAgent (should not happen, send() catches internally, but
+         // defensive). This lets the queue-flush effect (or a new
+         // direct submit) cleanly start the next turn.
          submitInflightRef.current = false;
        }
       })();
@@ -3646,16 +3646,16 @@ export function ChatShell({
       return undefined;
     },
     [
-      // M1-Fix: history + agentTurn NICHT mehr in den deps — werden über
-      // historyRef/agentTurnRef gelesen. Damit wird submit bei SSE-Burst
-      // nicht ständig neu erzeugt (stabiler submitRef, kein Flush-Race).
+      // M1-Fix: history + agentTurn no longer in the deps — read via
+      // historyRef/agentTurnRef. This keeps submit from being constantly
+      // recreated on an SSE burst (stable submitRef, no flush race).
       currentWorkspace.id,
       isMockPending,
       isStreaming,
       nextId,
       sendAgent,
       showHistory,
-      // UX-1: Pill-Routing-Inputs (Antwort-Verzweigung im submit-Handler).
+      // UX-1: pill-routing inputs (answer branching in the submit handler).
       pillExpanded,
       openQuestions,
       qIndex,
@@ -3663,17 +3663,17 @@ export function ChatShell({
     ],
   );
 
-  // submitRef für Queue-Flush-Effect — stable reference ohne circular deps.
+  // submitRef for the queue-flush effect — stable reference without circular deps.
   useEffect(() => {
     submitRef.current = submit;
   }, [submit]);
 
-  // ---- Bug-2-Fix: Stop + Interrupt-Send · 2026-05-25 -------------------
+  // ---- Bug-2-Fix: stop + interrupt-send · 2026-05-25 -------------------
   const handleStop = useCallback(() => {
     abortAgent();
-    // Queue leeren beim expliziten Stop — User hat den Stream abgebrochen,
-    // die wartenden Messages sind damit vermutlich veraltet / unerwünscht.
-    // (User kann sie erneut eintippen wenn er sie doch noch will.)
+    // Clear the queue on an explicit stop — the user aborted the stream,
+    // the waiting messages are thus presumably stale / unwanted.
+    // (The user can re-type them if they still want them.)
     messageQueueRef.current = [];
     setQueueLength(0);
   }, [abortAgent]);
@@ -3682,20 +3682,20 @@ export function ChatShell({
     (raw: string) => {
       const value = raw.trim();
       if (value.length === 0) return;
-      // C1-Fix: Queue ZUERST leeren, DANN abortAgent(). Sonst gibt es ein
-      // Doppel-Send-Race: abortAgent() löst die Status-Transition auf 'idle'
-      // aus → der Queue-Flush-Effect könnte eine noch-gefüllte Queue shiften
-      // + senden, WÄHREND handleSendNow auch sendet. Reihenfolge:
-      //   1) Queue leeren (Flush-Effect findet nichts mehr)
-      //   2) abortAgent() (Status → idle, Flush-Effect ist jetzt no-op)
-      //   3) den neuen Turn als setTimeout(0) einleiten
+      // C1-Fix: clear the queue FIRST, THEN abortAgent(). Otherwise there is a
+      // double-send race: abortAgent() triggers the status transition to 'idle'
+      // → the queue-flush effect could shift a still-filled queue
+      // + send WHILE handleSendNow also sends. Order:
+      //   1) clear the queue (the flush effect finds nothing anymore)
+      //   2) abortAgent() (status → idle, the flush effect is now a no-op)
+      //   3) initiate the new turn as a setTimeout(0)
       messageQueueRef.current = [];
       setQueueLength(0);
       abortAgent();
-      // Direkt senden: kurzes setTimeout(0) damit der AbortController
-      // den Status auf 'idle' setzen kann bevor submit() prüft isStreaming.
-      // queueMicrotask wäre auch korrekt — setTimeout(0) ist robuster
-      // gegen iOS-Event-Loop-Quirks.
+      // Send directly: a short setTimeout(0) so the AbortController
+      // can set the status to 'idle' before submit() checks isStreaming.
+      // queueMicrotask would also be correct — setTimeout(0) is more robust
+      // against iOS event-loop quirks.
       window.setTimeout(() => {
         submitRef.current?.(value);
       }, 0);
@@ -3703,34 +3703,34 @@ export function ChatShell({
     [abortAgent],
   );
 
-  // ---- Phase 1 Track AB · Befund B: Strukturiertes Answer-Envelope --------
-  // 2026-05-29 (verbatim Handoff §7):
+  // ---- Phase 1 Track AB · finding B: structured answer envelope --------
+  // 2026-05-29 (verbatim handoff §7):
   //
   //   „Antworten auf Fragen werden zu einem Textblock 'Frage:.../Antwort:...'
   //    gebaut und als normaler Chat-Turn gesendet. Es ist unklar bzw.
   //    unwahrscheinlich, dass workstreamId, flowRunId, planId, questionSetId
   //    und questionId zuverlässig mitgesendet werden."
   //
-  // Owner-Direktive (verbatim, additiv): „Die lesbare Chat-Nachricht darf
+  // Owner directive (verbatim, additive): „Die lesbare Chat-Nachricht darf
   // zusätzlich existieren. Die Ausführung darf aber nicht an dieser Chat-
   // Nachricht hängen."
   //
-  // → Wir POSTen das strukturierte Envelope an `/api/chat/answer` PARALLEL
-  // zum bestehenden Chat-Turn (buildQAReply via submitRef). Der Endpoint
-  // persistiert in `question_answers` (Migration 0117), idempotent via
+  // → We POST the structured envelope to `/api/chat/answer` IN PARALLEL
+  // to the existing chat turn (buildQAReply via submitRef). The endpoint
+  // persists into `question_answers` (migration 0117), idempotent via
   // UNIQUE(content_hash) + UNIQUE(source_turn_id, question_id).
   //
-  // Fire-and-forget, fail-soft: 401/Network/500 sind no-ops für den User-Flow.
-  // sourceTurnId = ChatShell-internal HistoryItem.id (über nextId('user') erzeugt).
+  // Fire-and-forget, fail-soft: 401/network/500 are no-ops for the user flow.
+  // sourceTurnId = ChatShell-internal HistoryItem.id (created via nextId('user')).
   //
-  // Welche Fragen werden gepostet?
-  //   ALLE OpenQuestions, für die `answers[q.id]` definiert ist (also: in der
-  //   aktuellen Pill-Session beantwortet). Optionale Felder (flowRunId/planId/
-  //   questionSetId/surfaceId) sind heute noch nicht im ChatShell-State
-  //   verfügbar → fail-soft auf null (Endpoint akzeptiert null). Diese Felder
-  //   werden vom OpenQuestions-Renderer/Producer befüllt, sobald sie im
-  //   Payload landen — heute reisen sie noch nicht mit, der strukturierte
-  //   Speicher ist trotzdem korrekt indiziert (workspaceId + questionId).
+  // Which questions are posted?
+  //   ALL OpenQuestions for which `answers[q.id]` is defined (i.e. answered in the
+  //   current pill session). Optional fields (flowRunId/planId/
+  //   questionSetId/surfaceId) are not yet available in the ChatShell state
+  //   today → fail-soft to null (the endpoint accepts null). These fields
+  //   are filled by the OpenQuestions renderer/producer once they land in the
+  //   payload — they do not travel along today, the structured
+  //   store is still correctly indexed (workspaceId + questionId).
   const postStructuredAnswers = useCallback(
     (
       qs: ReadonlyArray<OpenQuestion>,
@@ -3746,8 +3746,8 @@ export function ChatShell({
         const envelope = {
           workspaceId: wsId,
           workstreamId: wsForBind,
-          // Optionals — heute noch nicht im ChatShell-State; werden befüllt,
-          // sobald der Producer sie ins OpenQuestion-Payload aufnimmt.
+          // Optionals — not yet in the ChatShell state today; filled
+          // once the producer includes them in the OpenQuestion payload.
           flowRunId: null,
           planId: null,
           questionSetId: null,
@@ -3762,33 +3762,33 @@ export function ChatShell({
             headers: { 'content-type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify(envelope),
-            // keepalive damit der POST nicht stirbt wenn der User direkt
-            // nach dem Submit navigiert (analog dismiss-route).
+            // keepalive so the POST does not die when the user navigates right
+            // after submit (analogous to the dismiss route).
             keepalive: true,
           }).catch(() => {
-            /* fail-soft — strukturierter Speicher ist nicht user-facing */
+            /* fail-soft — the structured store is not user-facing */
           });
         } catch {
-          /* fail-soft — niemals den UI-Flow blockieren */
+          /* fail-soft — never block the UI flow */
         }
       }
     },
     [currentWorkspace.id, agentTurn.workstreamId],
   );
 
-  // Stabiler Ref-Update (siehe Deklaration oben + Submit-Closure-Aufruf).
+  // Stable ref update (see the declaration above + the submit-closure call).
   useEffect(() => {
     postStructuredAnswersRef.current = postStructuredAnswers;
   }, [postStructuredAnswers]);
 
-  // ---- UX-1: Pill-Action-Handler · 2026-05-26 -------------------------
-  // Diese leben außerhalb des submit-Handlers, damit der Options-Klick exakt
-  // dieselbe Antwort-Logik wie der Freitext-Enter nutzt (set → advance → wenn
-  // alle beantwortet: ein finaler reply). Kein Doppel-Send: der finale reply
-  // läuft über submitRef (der Streaming selbst erneut prüft).
-  // Options-Klick in der Pill = Antwort auf die geklickte Frage (dieselbe
-  // routePillAnswer-Logik wie der Freitext-Enter). Setzt Antwort, springt zur
-  // nächsten offenen Frage, oder feuert den finalen reply wenn alle beantwortet.
+  // ---- UX-1: pill action handlers · 2026-05-26 -------------------------
+  // These live outside the submit handler so the option click uses exactly
+  // the same answer logic as the free-text Enter (set → advance → when
+  // all answered: one final reply). No double send: the final reply
+  // runs via submitRef (which checks streaming again itself).
+  // Option click in the pill = answer to the clicked question (the same
+  // routePillAnswer logic as the free-text Enter). Sets the answer, jumps to the
+  // next open question, or fires the final reply when all are answered.
   const handlePillSelectOption = useCallback(
     (qId: string, option: string) => {
       const qs = openQuestions;
@@ -3797,14 +3797,14 @@ export function ChatShell({
       setQAnswers(route.nextAnswers);
       if (route.allAnswered) {
         const qaText = buildQAReply(qs, route.nextAnswers);
-        // Phase 1 Track AB · Befund B: strukturiertes Envelope PARALLEL zum
-        // Chat-Turn. sourceTurnId = der noch-nicht-existierende User-Turn,
-        // der gleich via submitRef.current?.(qaText) entsteht — wir
-        // generieren den ID vorab (gleiche Quelle: nextId('user')) und
-        // posten sofort. Der echte HistoryItem wird im submit-Pfad mit
-        // einem unabhängigen ID erstellt (kein Conflict — der User-Turn-ID
-        // und der Antwort-Envelope-ID dürfen unterschiedlich sein, der
-        // Envelope braucht nur EINEN stabilen Anker für Idempotenz).
+        // Phase 1 Track AB · finding B: structured envelope IN PARALLEL to the
+        // chat turn. sourceTurnId = the not-yet-existing user turn,
+        // which is created shortly via submitRef.current?.(qaText) — we
+        // generate the ID in advance (same source: nextId('user')) and
+        // post immediately. The real HistoryItem is created in the submit path with
+        // an independent ID (no conflict — the user-turn ID
+        // and the answer-envelope ID may differ, the
+        // envelope only needs ONE stable anchor for idempotency).
         const turnAnchor = nextId('user');
         postStructuredAnswers(qs, route.nextAnswers, turnAnchor);
         resetPillState();
@@ -3818,7 +3818,7 @@ export function ChatShell({
     [openQuestions, qIndex, resetPillState, postStructuredAnswers, nextId],
   );
 
-  // "Antworten absenden"-Button: finaler reply über alle beantworteten Fragen.
+  // "Antworten absenden" button: final reply over all answered questions.
   const handlePillSubmitAll = useCallback(() => {
     const qs = openQuestions;
     if (qs.length === 0) return;
@@ -3826,7 +3826,7 @@ export function ChatShell({
     const answeredCount = qs.filter((q) => answersNow[q.id] !== undefined).length;
     if (answeredCount === 0) return;
     const qaText = buildQAReply(qs, answersNow);
-    // Phase 1 Track AB · Befund B: strukturiertes Envelope PARALLEL.
+    // Phase 1 Track AB · finding B: structured envelope IN PARALLEL.
     const turnAnchor = nextId('user');
     postStructuredAnswers(qs, answersNow, turnAnchor);
     resetPillState();
@@ -3843,47 +3843,47 @@ export function ChatShell({
     setPillExpanded(next);
   }, []);
 
-  // ---- W4 (2026-05-28): Pill-Dismiss-Handler ---------------------------
-  // OWNER-SPEC D: „manueller Dismiss pro Frage". Klick auf das ×-Symbol einer
-  // Pill-Karte → diese eine Frage aus dem Pill-State entfernen + fail-soft
-  // einen `workstream_decisions`-Audit-Row schreiben (N8 — Trace ist Evidence,
-  // nicht Telemetry). Der DB-Write läuft als „best-effort"-POST auf
-  // `/api/chat/open-questions/dismiss`: 401/Network/500 sind no-ops für den
-  // User-Flow — die UI-Removal passiert unabhängig.
+  // ---- W4 (2026-05-28): pill dismiss handler ---------------------------
+  // OWNER SPEC D: „manueller Dismiss pro Frage". A click on the × symbol of a
+  // pill card → remove this one question from the pill state + fail-soft
+  // write a `workstream_decisions` audit row (N8 — trace is evidence,
+  // not telemetry). The DB write runs as a „best-effort" POST to
+  // `/api/chat/open-questions/dismiss`: 401/network/500 are no-ops for the
+  // user flow — the UI removal happens independently.
   //
-  // DECISION-KIND: `override` (siehe API-Route — Enum 0071 hat keinen
-  // dedizierten `question-dismissed`-Wert).
+  // DECISION KIND: `override` (see the API route — enum 0071 has no
+  // dedicated `question-dismissed` value).
   //
-  // CONTEXT-RESOLUTION:
-  //  - workstreamId: bevorzugt aus dem Live-`agentTurn.workstreamId`. Wenn der
-  //    Live-Turn schon idle ist, fällt das Backend auf `no-workstream`
-  //    (fail-soft, 200 mit ok=false) — die UI räumt trotzdem auf.
+  // CONTEXT RESOLUTION:
+  //  - workstreamId: preferably from the live `agentTurn.workstreamId`. If the
+  //    live turn is already idle, the backend falls back to `no-workstream`
+  //    (fail-soft, 200 with ok=false) — the UI cleans up anyway.
   const handlePillDismiss = useCallback(
     (qId: string) => {
-      // Frage-Text festhalten BEVOR wir den State ändern — sonst kommt der
-      // Text nicht mehr in den Audit-Rationale (N1, verbatim).
+      // Capture the question text BEFORE we change the state — otherwise the
+      // text no longer reaches the audit rationale (N1, verbatim).
       const dismissed = openQuestions.find((q) => q.id === qId);
       const dismissedText = dismissed?.text;
 
-      // UI-Update: id raus, Signatur an Rest anpassen (kein Re-Pop desselben
-      // Sets — Population-Effect-Guard).
+      // UI update: id out, adjust the signature to the rest (no re-pop of the same
+      // set — population-effect guard).
       setOpenQuestions((prev) => {
         const remaining = prev.filter((q) => q.id !== qId);
         if (remaining.length === prev.length) return prev;
         lastQSignatureRef.current =
           remaining.length === 0 ? null : remaining.map((q) => q.id).join('|');
-        // Wenn die dismissed-Frage die aktuell sichtbare war, qIndex auf den
-        // sicheren Bereich klemmen — die Pill clamped intern auch, aber so
-        // bleibt der State konsistent fürs nächste Submit.
+        // If the dismissed question was the currently visible one, clamp qIndex
+        // to the safe range — the pill also clamps internally, but this
+        // keeps the state consistent for the next submit.
         if (qIndex >= remaining.length && remaining.length > 0) {
           setQIndex(remaining.length - 1);
         }
         return remaining;
       });
 
-      // Audit-Write fire-and-forget. workstreamId ist optional — wenn der
-      // Live-Turn idle ist (kein agentTurn.workstreamId), liefert der Server
-      // `ok:false, reason:'no-workstream'` (kein Fehler-Toast). NICHT awaiten.
+      // Audit write fire-and-forget. workstreamId is optional — if the
+      // live turn is idle (no agentTurn.workstreamId), the server returns
+      // `ok:false, reason:'no-workstream'` (no error toast). Do NOT await.
       const wsForAudit = agentTurn.workstreamId;
       if (typeof window !== 'undefined') {
         try {
@@ -3895,14 +3895,14 @@ export function ChatShell({
               questionId: qId,
               questionText: dismissedText ?? null,
             }),
-            // keepalive damit der Audit-POST auch nicht stirbt wenn der User
-            // direkt danach navigiert.
+            // keepalive so the audit POST also does not die when the user
+            // navigates right after.
             keepalive: true,
           }).catch(() => {
-            /* fail-soft — Audit-Verlust ist nicht user-facing */
+            /* fail-soft — audit loss is not user-facing */
           });
         } catch {
-          /* fail-soft — niemals den UI-Flow blockieren */
+          /* fail-soft — never block the UI flow */
         }
       }
     },
@@ -3910,18 +3910,18 @@ export function ChatShell({
   );
 
   // ---- Phase Reload-Recovery V2 · 2026-04-27 -------------------------
-  // Aktionen fuer eine `aborted`-StreamingBubble.
+  // Actions for an `aborted` StreamingBubble.
   //
-  // - regenerateFromSnapshot: legt den User-Prompt der vorherigen Bubble
-  //   in das Eingabefeld zurueck (Edit-then-Send, siehe Recovery-Syn
-  //   "Offene Fragen" → Tendenz: Edit). Plus discard, damit User nicht
-  //   nach Erfolg eine zweite "abgebrochen"-Bubble stehen hat.
+  // - regenerateFromSnapshot: puts the user prompt of the previous bubble
+  //   back into the input field (edit-then-send, see recovery-syn
+  //   "open questions" → tendency: edit). Plus discard, so the user does not
+  //   have a second "aborted" bubble standing after success.
   //
-  // - discardSnapshot: DELETE-Call an den Backend-Endpoint und das Item
-  //   aus dem State entfernen.
+  // - discardSnapshot: DELETE call to the backend endpoint and remove the item
+  //   from the state.
   //
-  // TODO(backend): DELETE `/api/chat/snapshot/[pendingPromptId]` muss
-  // existieren. Bis dahin: optimistisch lokal entfernen + writeHistoryFor.
+  // TODO(backend): DELETE `/api/chat/snapshot/[pendingPromptId]` must
+  // exist. Until then: remove optimistically locally + writeHistoryFor.
   const findUserPromptBefore = useCallback(
     (assistantItem: HistoryItem): string | null => {
       const idx = history.findIndex((m) => m.id === assistantItem.id);
@@ -3943,8 +3943,8 @@ export function ChatShell({
       if (prompt) {
         setInput(prompt);
       }
-      // Snapshot lokal entfernen — sobald User submit drueckt, kommt
-      // ein frischer Stream + frisches completed-Event. Backend-DELETE
+      // Remove the snapshot locally — as soon as the user presses submit,
+      // a fresh stream + fresh completed event comes. Backend DELETE
       // best-effort.
       void deleteSnapshotFromBackend(item, currentWorkspace.id);
       setHistory((h) => {
@@ -3968,10 +3968,10 @@ export function ChatShell({
     [currentWorkspace.id],
   );
 
-  // Codex-Parität (Goal 2026-06-02): „Neu generieren" auf einer fertigen
-  // Assistant-Antwort. Findet den vorhergehenden User-Prompt und führt ihn
-  // erneut aus (frischer Turn). Guard gegen Doppel-Submit während ein Stream
-  // läuft — sonst konkurrieren zwei Turns um denselben Workspace.
+  // Codex parity (goal 2026-06-02): „Neu generieren" on a finished
+  // assistant answer. Finds the preceding user prompt and runs it
+  // again (fresh turn). Guard against a double submit while a stream
+  // is running — otherwise two turns compete for the same workspace.
   const regenerateAssistant = useCallback(
     (item: HistoryItem) => {
       if (isStreaming || serverStreamPending) return;
@@ -3983,12 +3983,12 @@ export function ChatShell({
     [isStreaming, serverStreamPending, findUserPromptBefore, submit],
   );
 
-  // ---- Scroll-Position-Restore (Reload-Recovery V2) ------------------
-  // Spec aus Punkt 6 der Synthesis:
-  //   - aktiver Stream existiert → ans Ende springen
-  //   - nur aborted → sessionStorage-Position wiederherstellen
-  // Die Default-WhatsApp-Logik (siehe oben) springt schon ans Ende wenn
-  // nearBottom; hier ergaenzen wir nur den Restore-Fall.
+  // ---- Scroll-position restore (Reload-Recovery V2) ------------------
+  // Spec from point 6 of the synthesis:
+  //   - an active stream exists → jump to the end
+  //   - only aborted → restore the sessionStorage position
+  // The default WhatsApp logic (see above) already jumps to the end when
+  // nearBottom; here we only add the restore case.
   const scrollRestoredRef = useRef(false);
   useEffect(() => {
     if (!hydrated) return;
@@ -4023,7 +4023,7 @@ export function ChatShell({
     }
   }, [hydrated, history, currentWorkspace.id]);
 
-  // Persistiere Scroll-Position kontinuierlich, damit Restore sie hat.
+  // Persist the scroll position continuously so restore has it.
   useEffect(() => {
     const el = streamRef.current;
     if (!el) return;
@@ -4049,13 +4049,13 @@ export function ChatShell({
     };
   }, [currentWorkspace.id]);
 
-  // P1 · One-Focal-Point (2026-06-02). Beobachtet im Stream-Container, ob die
-  // proaktive SubchatPulse-Karte gerade eine Karte rendert (sie liefert sonst
-  // `null`). Erkennung über ihr stabiles `aria-label`-Section — kein Kopplungs-
-  // /Prop-Eingriff in SubchatPulse (nicht Teil dieser Slice). Nur aktiv im
-  // Empty-State (sonst gibt es keinen Hero zu dämpfen). MutationObserver →
-  // reagiert auf das spätere Eintreffen der Karte (15s-Poll/Live-Event), ohne
-  // Re-Render-Schleife. Fail-soft: kein Container → Default (kein Effekt).
+  // P1 · One-Focal-Point (2026-06-02). Observes in the stream container whether the
+  // proactive SubchatPulse card is currently rendering a card (it otherwise returns
+  // `null`). Detection via its stable `aria-label` section — no coupling/
+  // prop intrusion into SubchatPulse (not part of this slice). Only active in the
+  // empty state (otherwise there is no hero to dampen). MutationObserver →
+  // reacts to the later arrival of the card (15s poll/live event), without
+  // a re-render loop. Fail-soft: no container → default (no effect).
   const emptyStateActive =
     history.length === 0 && systemMessages.length === 0 && !isPending;
   useEffect(() => {
@@ -4079,18 +4079,18 @@ export function ChatShell({
     setHistory([]);
     try {
       window.localStorage.removeItem(historyKeyFor(currentWorkspace.id));
-      // Auch live-snapshot wegwerfen — sonst kommt beim Re-Mount der
-      // Mid-Stream-Recovery-Effect und "stellt" eine alte assistant-message
-      // wieder her, was der User als "wieder da nach Verlauf leeren" sieht.
+      // Throw away the live snapshot too — otherwise on re-mount the
+      // mid-stream recovery effect comes and "restores" an old assistant message,
+      // which the user sees as "back after clearing the history".
       clearLiveFor(currentWorkspace.id);
     } catch {
       // ignore
     }
-    // Server-seitiger Clear-Marker (2026-06-02): macht „Verlauf leeren"
-    // cross-device-persistent. Vorher war es rein client-lokal → die
-    // Event-Log-History kam beim Reload / auf anderem Gerät zurück.
-    // Append-only (löscht nichts, setzt einen Cutoff) + best-effort:
-    // ein Fehler darf den lokalen Clear nicht rückgängig machen.
+    // Server-side clear marker (2026-06-02): makes „Verlauf leeren"
+    // cross-device persistent. Previously it was purely client-local → the
+    // event-log history came back on reload / on another device.
+    // Append-only (deletes nothing, sets a cutoff) + best-effort:
+    // an error must not undo the local clear.
     try {
       void fetch(
         `/api/chat/history/${encodeURIComponent(currentWorkspace.id)}/clear`,
@@ -4099,16 +4099,16 @@ export function ChatShell({
     } catch {
       // ignore
     }
-    // Aktiven Stream abbrechen damit er nicht doch noch eine Message pushed.
+    // Abort the active stream so it does not push a message after all.
     abortAgent();
   }, [currentWorkspace.id, abortAgent]);
 
-  // ---- Auto-Projekt-Naht · Empfangsseite (2026-06-02) -----------------
-  // Nach dem harten Wechsel in das frisch angelegte Projekt-Workspace liegt der
-  // Build-Prompt im sessionStorage. Sobald die neue Seite hydriert ist und auf
-  // einem ECHTEN (nicht-virtuellen) Workspace steht, senden wir ihn EINMAL ab →
-  // der Agent baut dort (BAU-MODUS + echter Pfad + frische Session). Guard-Ref
-  // verhindert Doppel-Submit; kurzer Delay, damit Composer/Session stehen.
+  // ---- Auto-project seam · receiving side (2026-06-02) -----------------
+  // After the hard switch into the freshly created project workspace, the
+  // build prompt lies in sessionStorage. Once the new page is hydrated and stands
+  // on a REAL (non-virtual) workspace, we send it ONCE →
+  // the agent builds there (build mode + real path + fresh session). A guard ref
+  // prevents a double submit; a short delay so composer/session are ready.
   const pendingBuildFiredRef = useRef<string | null>(null);
   useEffect(() => {
     if (!hydrated) return;
@@ -4149,9 +4149,9 @@ export function ChatShell({
         };
         setHistory((h) => {
           const next = [...h.slice(-(HISTORY_CAP - 1)), item];
-          // Synchronous flush: setHistory ist async, useEffect-Persistenz
-          // laeuft erst beim nächsten Render. Beim Tab-Switch + sofortigem
-          // Re-Mount kann das Surface verloren gehen. Daher direkt schreiben.
+          // Synchronous flush: setHistory is async, the useEffect persistence
+          // only runs on the next render. On a tab switch + immediate
+          // re-mount the surface can be lost. Therefore write directly.
           writeHistoryFor(currentWorkspace.id, next);
           return next;
         });
@@ -4163,12 +4163,12 @@ export function ChatShell({
       <section style={sectionStyle}>
         <div ref={streamRef} style={streamStyle} aria-busy={isPending}>
           {/*
-            2026-05-03 (User-Befund: "tab bar oben ist sinnfrei und nicht
-            übersichtlich") — Sticky-Toolbar entfernt. Der Chat IST das
-            Command-Center: Slash-Commands im Composer (`clear`, `compact`,
-            `session-new`, `stop`) erreichen alle Aktionen direkt. Verlauf
-            wird über einen dezenten Inline-Link ganz oben im Stream
-            getoggled, nur sichtbar wenn archivierte Items existieren.
+            2026-05-03 (user finding: "tab bar oben ist sinnfrei und nicht
+            übersichtlich") — sticky toolbar removed. The chat IS the
+            command center: slash commands in the composer (`clear`, `compact`,
+            `session-new`, `stop`) reach all actions directly. The history
+            is toggled via a subtle inline link at the very top of the stream,
+            only visible when archived items exist.
           */}
           {(() => {
             const archivedCount = history.reduce(
@@ -4203,44 +4203,44 @@ export function ChatShell({
               </button>
             );
           })()}
-          {/* User-Wunsch 2026-05-01: "Push-Popup muss IMMER beim ersten
-              PWA-Öffnen kommen". Inline-Surface-Card, KEIN Overlay
-              (Sub-Plan-3-Konform). Self-gates: rendert nur wenn
-              Permission='default' + nicht prompted + PWA/Desktop. */}
+          {/* User wish 2026-05-01: "the push popup must ALWAYS come on the first
+              PWA open". An inline surface card, NO overlay
+              (Sub-Plan-3-compliant). Self-gates: renders only when
+              permission='default' + not prompted + PWA/desktop. */}
           <PushAutoPrompt
             vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''}
           />
-          {/* Gathering-Intelligence (2026-06-02): proaktive Sub-Chat-Karte.
-              AGGREGIERT workspace-übergreifend (der Hauptchat sitzt auf dem
-              Org-Root, Kundenchats hängen an realen Kunden-Workspaces) — taucht
-              oben im Feed auf, sobald in IRGENDEINEM Kundenchat etwas Neues von
-              extern ankommt. Rendert sich selbst weg, wenn nichts Neues da ist
-              (kein Chrome im leeren Chat). Immer gemountet. */}
+          {/* Gathering-Intelligence (2026-06-02): proactive sub-chat card.
+              AGGREGATES across workspaces (the main chat sits on the
+              org-root, customer chats hang on real customer workspaces) — appears
+              at the top of the feed as soon as something new arrives externally
+              in ANY customer chat. Renders itself away when nothing new is there
+              (no chrome in the empty chat). Always mounted. */}
           <SubchatPulse onPickUp={handleSubchatPickUp} />
           {history.length === 0 && systemMessages.length === 0 && !isPending ? (
-            // P1: liegt die proaktive Pickup-/INTERN-Karte vor, wird der Hero
-            // zur ruhigen top-verankerten Intro herabgestuft (eine primäre
-            // Fläche pro Screen — die Karte darüber führt).
+            // P1: if the proactive pickup/INTERNAL card is present, the hero
+            // is downgraded to a quiet top-anchored intro (one primary
+            // surface per screen — the card above leads).
             <EmptyState deEmphasized={pulseCardPresent} />
           ) : (
             <Chat>
               {/*
-                Bug B Fix 2026-04-26: Chronologisches Interleaving statt
-                "history-Block + systemMessages-Block". Vorher landeten
-                Workstream-Toasts IMMER unten, egal wann sie zeitlich
-                passierten. Jetzt: Eine sortierte Liste, jedes Item
-                rendert nach seiner role.
+                Bug B Fix 2026-04-26: chronological interleaving instead of
+                "history block + systemMessages block". Previously
+                workstream toasts ALWAYS landed at the bottom, regardless of when
+                they happened in time. Now: one sorted list, every item
+                renders according to its role.
 
-                Sub-Plan B · 2026-04-29: Filter wendet showHistory an.
-                Default (showHistory=false) blendet alle archivierten Items
-                aus. SystemItems sind transient und nie archiviert — sie
-                werden immer angezeigt.
+                Sub-Plan B · 2026-04-29: the filter applies showHistory.
+                Default (showHistory=false) hides all archived items.
+                SystemItems are transient and never archived — they
+                are always shown.
               */}
               {(() => {
                 type RenderItem = (HistoryItem & { _kind: 'history' }) | (SystemItem & { _kind: 'system' });
-                // Sub-Plan A + B · 2026-04-29 — Render-Filter:
+                // Sub-Plan A + B · 2026-04-29 — render filter:
                 //   chatItems = history.filter(item => showHistory || !item.archived)
-                // showHistory kommt aus Sub-Plan B's State (Toggle-Pill).
+                // showHistory comes from Sub-Plan B's state (toggle pill).
                 const visibleHistory = showHistory
                   ? history
                   : history.filter((it) => !it.archived);
@@ -4265,17 +4265,17 @@ export function ChatShell({
                         href={it.href}
                         onDismiss={() => dismissSystem(it.id)}
                       >
-                        {/* SystemItems sind transient und werden nicht
-                            ge-cached — Renderer fällt auf seinen eigenen
-                            Regex-Pfad zurück (parsed=undefined). */}
+                        {/* SystemItems are transient and not
+                            cached — the renderer falls back to its own
+                            regex path (parsed=undefined). */}
                         <TextWithHighlights text={it.content} />
                       </MsgSystem>
                     );
                   }
-                  // Sub-Plan B · 2026-04-29: Archivierte Items werden bei
-                  // showHistory=true mit gedämpftem Look gerendert (opacity
-                  // 0.6 + linker grauer Border). Keine Animation, keine
-                  // Modal-Layer — nur visueller Hint "das ist alter Kontext".
+                  // Sub-Plan B · 2026-04-29: archived items are rendered with a
+                  // dimmed look when showHistory=true (opacity
+                  // 0.6 + left gray border). No animation, no
+                  // modal layer — just a visual hint "this is old context".
                   const archivedWrapStyle: CSSProperties | undefined =
                     it.archived
                       ? {
@@ -4287,9 +4287,9 @@ export function ChatShell({
                       : undefined;
                   if (it.role !== 'user') {
                     // Phase Reload-Recovery V2 · 2026-04-27.
-                    // Wenn das Item aus einem streaming_snapshot kommt
-                    // (streamState gesetzt), rendere die spezielle
-                    // StreamingBubble statt der normalen Assistant-Bubble.
+                    // If the item comes from a streaming_snapshot
+                    // (streamState set), render the special
+                    // StreamingBubble instead of the normal assistant bubble.
                     if (it.streamState !== undefined) {
                       const bubble = (
                         <StreamingBubble
@@ -4300,7 +4300,7 @@ export function ChatShell({
                           toolState={it.toolState ?? null}
                           onRegenerate={() => regenerateFromSnapshot(it)}
                           onDiscard={() => discardSnapshot(it)}
-                          // onCopy: Komponente macht das selbst via navigator.clipboard.
+                          // onCopy: the component does that itself via navigator.clipboard.
                         />
                       );
                       return archivedWrapStyle ? (
@@ -4329,16 +4329,16 @@ export function ChatShell({
                     );
                   }
                   const senderLabel = userActorLabel(it.actor);
-                  // Follow-up-Fix (2026-05-26): Die gesendete User-Bubble muss
-                  // Surfaces RENDERN, nicht als Rohtext zeigen. Bei einem
-                  // Attachment-Send enthält `it.content` ein
-                  // `<surface:document>…</surface:document>` (+ Caption) — ohne
-                  // Surface-Parsing bliebe das literaler Text und der Anhang
-                  // wäre in der Bubble unsichtbar (kein Thumbnail/keine Karte).
-                  // Wir routen daher über denselben surface-aware Renderer wie
-                  // beim Assistant — aber NUR wenn das Item tatsächlich Surfaces
-                  // hat, damit reine Text-Messages bit-genau wie bisher rendern
-                  // (kein ungewolltes Markdown auf User-Eingaben).
+                  // Follow-up fix (2026-05-26): the sent user bubble must
+                  // RENDER surfaces, not show them as raw text. On an
+                  // attachment send, `it.content` contains a
+                  // `<surface:document>…</surface:document>` (+ caption) — without
+                  // surface parsing this would stay literal text and the attachment
+                  // would be invisible in the bubble (no thumbnail/no card).
+                  // We therefore route through the same surface-aware renderer as
+                  // for the assistant — but ONLY when the item actually has surfaces,
+                  // so pure text messages render bit-exact as before
+                  // (no unwanted markdown on user input).
                   const userParsed = parsedItems.get(it.id);
                   const userHasSurfaces =
                     (userParsed?.surfaces.length ?? 0) > 0;
@@ -4376,20 +4376,20 @@ export function ChatShell({
                 />
               ) : null}
               {/*
-                Typing-Pill-Dedupe (2026-05-03): TypingIndicator NUR rendern
-                wenn weder StreamingAssistant noch ein BugFixSwarmCard / SubAgentCard
-                in der gleichen Konversation Phase-Text + Caret zeigt. Sonst
-                sah der User parallel: TopNav-Pulse + StreamingAssistant-Caret
-                + Phase-Dots + dieser eigene Indicator = 3-4× "schreibt gerade".
-                Regel: passive Mock/Server-Pending UND kein aktives isStreaming.
+                Typing-pill dedupe (2026-05-03): render the TypingIndicator ONLY
+                when neither StreamingAssistant nor a BugFixSwarmCard / SubAgentCard
+                shows phase text + caret in the same conversation. Otherwise
+                the user saw in parallel: TopNav pulse + StreamingAssistant caret
+                + phase dots + this own indicator = 3-4× "typing now".
+                Rule: passive mock/server-pending AND no active isStreaming.
               */}
               {!isStreaming && (isMockPending || serverStreamPending) ? <TypingIndicator /> : null}
               {/*
-                Inline-Worker-Status (2026-05-03): zeigt ANDERE laufende
-                Workstreams im selben Workspace direkt im Chat. Mobile-Boost
-                weil TopNav-Pulse-Pill auf Phone schwer findbar war.
-                Filtert den eigenen aktiven Workstream raus, sonst doppelt
-                mit StreamingAssistant.
+                Inline worker status (2026-05-03): shows OTHER running
+                workstreams in the same workspace directly in the chat. A mobile boost
+                because the TopNav pulse pill was hard to find on phone.
+                Filters out the own active workstream, otherwise a duplicate
+                with StreamingAssistant.
               */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <InlineWorkerStatus
@@ -4401,16 +4401,16 @@ export function ChatShell({
               </div>
             </Chat>
           )}
-          {/* Auto-Scroll-End-Marker (Sub-Plan 01 v3 2026-04-29).
-              scrollIntoView auf diesem leeren div = WhatsApp-Standard. */}
+          {/* Auto-scroll end marker (Sub-Plan 01 v3 2026-04-29).
+              scrollIntoView on this empty div = WhatsApp standard. */}
           <div
             ref={streamEndRef}
             aria-hidden="true"
             style={{ height: 1, width: '100%' }}
           />
           {/*
-            WhatsApp-Style Floating-Down-Button. Nur sichtbar wenn der User
-            nach oben gescrollt hat UND eine neue Message reinkam.
+            WhatsApp-style floating-down button. Only visible when the user
+            scrolled up AND a new message came in.
           */}
           {showScrollDown ? (
             <button
@@ -4439,14 +4439,14 @@ export function ChatShell({
             }}
           >
             <ChatTopBar workspaceId={currentWorkspace.id} variant="compact" />
-            {/* Vollzugriff/All-Access-Toggle direkt neben der Engine-Pill
-                (Owner-Direktive 2026-05-26). Gleiche workspaceId. */}
+            {/* Full-access/All-Access toggle directly next to the engine pill
+                (owner directive 2026-05-26). Same workspaceId. */}
             <AllAccessToggle workspaceId={currentWorkspace.id} />
-            {/* Gathering-Intelligence (2026-06-02): Zugang zu den Kundenchats.
-                Mobil (Owner-Befund „nicht mobiloptimiert"): kompaktes Icon-Only-
-                Button statt Label-Pill → passt ohne Umbruch in eine Zeile neben
-                Engine-Pill + Vollzugriff. Reale Workspaces → Sub-Chat-Liste; auf
-                dem Org-Root → Workspace-Auswahl. */}
+            {/* Gathering-Intelligence (2026-06-02): access to the customer chats.
+                Mobile (owner finding „nicht mobiloptimiert"): a compact icon-only
+                button instead of a label pill → fits without wrapping in one line next to
+                the engine pill + full access. Real workspaces → sub-chat list; on
+                the org-root → workspace selection. */}
             <a
               href={
                 subchatsEnabled
@@ -4486,13 +4486,13 @@ export function ChatShell({
             </a>
           </div>
 
-          {/* Slice 2 (2026-05-30, Apple-UX): ActionDeck — EINE gepinnte Region.
-              Gate (DB-Projektion, Owner-Befund #1) ODER die bestehende Q/A-Pille
-              (UX-1, Codex-Stil) — NIE beide gleichzeitig (Gate hat Vorrang).
-              Gleiche DOM-Position/composerWrap wie zuvor → Flexbox-Pinning
-              unberührt. Frage-Pfad = heutige Pille 1:1 (Nav/Optionen/Dismiss/
-              ask-but-proceed alles erhalten). Gate-Aktion → ChatShell (single
-              submit path), kein Doppel-Routing. */}
+          {/* Slice 2 (2026-05-30, Apple-UX): ActionDeck — ONE pinned region.
+              Gate (DB projection, owner finding #1) OR the existing Q/A pill
+              (UX-1, Codex style) — NEVER both at the same time (the gate takes precedence).
+              Same DOM position/composerWrap as before → flexbox pinning
+              untouched. Question path = today's pill 1:1 (nav/options/dismiss/
+              ask-but-proceed all preserved). Gate action → ChatShell (single
+              submit path), no double routing. */}
           <ActionDeck
             pinned={pinnedItem}
             onGateAction={handleGateAction}
@@ -4507,30 +4507,30 @@ export function ChatShell({
               onNavigate: handlePillNavigate,
               onToggleExpand: handlePillToggleExpand,
               onSubmitAll: handlePillSubmitAll,
-              // Workstream 4b (2026-05-27): ask-but-proceed-Signal. Der Run gilt
-              // als „läuft weiter", solange gestreamt wird ODER der Server-Stream
-              // noch pending ist (parallele Arbeit nach der Frage).
+              // Workstream 4b (2026-05-27): ask-but-proceed signal. The run counts
+              // as „läuft weiter" as long as it is streaming OR the server stream
+              // is still pending (parallel work after the question).
               runActive: isStreaming || serverStreamPending,
-              // W4 (2026-05-28): manueller Dismiss pro Frage. Rendert das ×-
-              // Symbol in der Pill; Klick entfernt die Karte + schreibt fail-
-              // soft einen workstream_decisions-Audit-Row (override).
+              // W4 (2026-05-28): manual dismiss per question. Renders the ×
+              // symbol in the pill; a click removes the card + writes fail-
+              // soft a workstream_decisions audit row (override).
               onDismiss: handlePillDismiss,
             }}
           />
 
-          {/* STAGING (Owner-Hard-Requirement 2026-05-26): fixierte Anhang-
-              Vorschau ÜBER dem Composer. Datei(en) bleiben hier sichtbar bis
-              Absenden ODER ×; währenddessen kann der User Caption tippen. */}
+          {/* STAGING (owner hard requirement 2026-05-26): fixed attachment
+              preview ABOVE the composer. File(s) stay visible here until
+              send OR ×; meanwhile the user can type a caption. */}
           <StagedAttachmentsBar
             attachments={stagedAttachments}
             onRemove={handleRemoveStaged}
             uploadingName={cloudUpload.uploading ? cloudUpload.currentFilename : null}
           />
 
-          {/* Composer bleibt während des Uploads BEDIENBAR — der User soll
-              die Caption tippen können, während die Datei hochlädt (Staging-
-              Modell). Nur der Paperclip-Button disabled sich selbst via
-              `uploading`. Der Input ist nie hart gelockt. */}
+          {/* The composer stays OPERABLE during the upload — the user should be
+              able to type the caption while the file uploads (staging
+              model). Only the paperclip button disables itself via
+              `uploading`. The input is never hard-locked. */}
           <ChatComposer
             value={input}
             onChange={setInput}
@@ -4556,13 +4556,13 @@ export function ChatShell({
           />
 
           {/*
-            Engine-Pill-Dedup (2026-05-23 · User-Feedback "Absolute Katastrophe").
-            VORHER: zweite EnginePill UNTER dem composer (Selector mit
-            Parallel/Claude/Codex/Ollama-Dropdown). PARALLEL existierte ÜBER
-            dem composer bereits ChatTopBar (Display: Modell + CTX + Turns).
-            NACHHER: ChatTopBar IST jetzt die einzige Pill und vereint
-            Display + Selector in EINEM pill (siehe ChatTopBar.tsx). Diese
-            Stelle bleibt absichtlich leer als Marker für die Dedup-Decision.
+            Engine-pill dedup (2026-05-23 · user feedback "Absolute Katastrophe").
+            BEFORE: a second EnginePill BELOW the composer (selector with
+            Parallel/Claude/Codex/Ollama dropdown). IN PARALLEL, ChatTopBar already
+            existed ABOVE the composer (display: model + CTX + turns).
+            AFTER: ChatTopBar IS now the only pill and unites
+            display + selector in ONE pill (see ChatTopBar.tsx). This
+            spot is deliberately left empty as a marker for the dedup decision.
           */}
 
           {sttError ? (
@@ -4572,14 +4572,14 @@ export function ChatShell({
           ) : null}
 
           {/*
-            Welle 1 · 2026-05-03 · Sub-Plan dazzling-quilt
+            Wave 1 · 2026-05-03 · Sub-Plan dazzling-quilt
             ----------------------------------------------------------------
-            stream-footer ENTFERNT — der Block hatte den Phase-Text + Dots
-            dupliziert, die schon in der StreamingAssistant-Bubble stehen.
-            User-Frust 2026-05-03: "auf app.laz.ing ist immer noch
-            redundant". Single-Source-of-Truth jetzt: useTypingIndicator
-            in StreamingAssistant. Der Stop-Button lebt jetzt als kleines
-            floating Pill am rechten Rand der Live-Bubble (siehe
+            stream-footer REMOVED — the block had duplicated the phase text + dots
+            that already stand in the StreamingAssistant bubble.
+            User frustration 2026-05-03: "auf app.laz.ing ist immer noch
+            redundant". Single source of truth now: useTypingIndicator
+            in StreamingAssistant. The stop button now lives as a small
+            floating pill on the right edge of the live bubble (see
             `.bub-live__stop` / `srf-stop-pill` in app/components.css).
           */}
 
@@ -4635,8 +4635,8 @@ export function ChatShell({
 }
 
 // ---------------------------------------------------------------------
-// Inline-Icon (lokal, KEINE Cross-File-Änderung): Sync-Retry-Refresh.
-// SVG, currentColor, 1.6 stroke, round caps — erbt resetBtnStyle.color.
+// Inline icon (local, NO cross-file change): sync-retry refresh.
+// SVG, currentColor, 1.6 stroke, round caps — inherits resetBtnStyle.color.
 // ---------------------------------------------------------------------
 function IconRefresh({ size = 16 }: { size?: number }): ReactNode {
   return (
@@ -4658,8 +4658,8 @@ function IconRefresh({ size = 16 }: { size?: number }): ReactNode {
   );
 }
 
-// Clock/Timer-Glyph für den Turn-Footer (ersetzt den vorigen Timer-Emoji).
-// Gleiche 24×24-currentColor-1.6-Stroke-Familie wie die Nav-Icons.
+// Clock/timer glyph for the turn footer (replaces the previous timer emoji).
+// Same 24×24-currentColor-1.6-stroke family as the nav icons.
 function IconClock({ size = 12 }: { size?: number }): ReactNode {
   return (
     <svg
@@ -4681,7 +4681,7 @@ function IconClock({ size = 12 }: { size?: number }): ReactNode {
 }
 
 // ---------------------------------------------------------------------
-// Assistant renderers (unverändert gegenüber vorher)
+// Assistant renderers (unchanged from before)
 // ---------------------------------------------------------------------
 
 function AssistantItem({
@@ -4692,43 +4692,43 @@ function AssistantItem({
 }: {
   message: HistoryItem;
   /**
-   * Codex-Parität (2026-06-02) — „Neu generieren" für diese Antwort
-   * (führt den vorhergehenden User-Prompt erneut aus). Weglassen blendet den
-   * Regenerate-Button aus; Copy bleibt immer verfügbar.
+   * Codex parity (2026-06-02) — „Neu generieren" for this answer
+   * (runs the preceding user prompt again). Omitting hides the
+   * regenerate button; copy is always available.
    */
   onRegenerate?: () => void;
   /**
-   * Sub-Plan E (2026-04-30) — Pre-geparste Surface-Liste. Wenn der
-   * augmented-Content gleich dem Original ist, reichen wir das Cache-
-   * Array an renderChatText durch. Bei Augmentation (synthesis-fallback)
-   * fallen wir auf den Regex-Pfad zurück, weil der Cache zum Original
-   * gehört, nicht zum augmented String.
+   * Sub-Plan E (2026-04-30) — pre-parsed surface list. When the
+   * augmented content equals the original, we pass the cache
+   * array through to renderChatText. On augmentation (synthesis fallback)
+   * we fall back to the regex path, because the cache belongs to the original,
+   * not to the augmented string.
    */
   parsed?: ParsedHistoryItem;
   /**
-   * Bug-5-Fix (2026-05-30) — IDs der aktuell in der Pille gepinnten Fragen.
-   * Der inline-Surface-/Markdown-Zwilling dieser Fragen wird aus der Bubble
-   * gestript (Dedup; die Pille ist die kanonische interaktive Quelle).
+   * Bug-5-Fix (2026-05-30) — IDs of the questions currently pinned in the pill.
+   * The inline surface/markdown twin of these questions is stripped from the
+   * bubble (dedup; the pill is the canonical interactive source).
    */
   pinnedQuestionIds?: ReadonlySet<string>;
 }) {
-  // Phase AC Fallback (2026-04-26): Wenn das HistoryItem eine Synthesis
-  // ist (Pattern "## Konsolidierter Plan" / "## Sub-Tickets") aber KEINEN
-  // <surface:consensus-action>-Tag enthaelt (alte Bubble vor v42), client-
-  // side den Tag anhaengen damit der SurfaceRenderer die Card rendert.
-  // Ohne dieses Augment muesste der User die alte Bubble nicht-actionable
-  // anschauen + zum Master navigieren.
+  // Phase AC fallback (2026-04-26): if the HistoryItem is a synthesis
+  // (pattern "## Konsolidierter Plan" / "## Sub-Tickets") but contains NO
+  // <surface:consensus-action> tag (an old bubble before v42), append the
+  // tag client-side so the SurfaceRenderer renders the card.
+  // Without this augment the user would have to look at the old bubble
+  // non-actionably + navigate to the master.
   const augmentedBase = augmentSynthesisIfNeeded(message);
-  // Bug-5-Fix: gepinnte Frage-Surfaces aus der Bubble strippen. Wenn etwas
-  // gestript wurde, ist der Cache (startIdx/endIdx) nicht mehr gültig → wir
-  // erzwingen den Re-Scan-Pfad (cacheSurfaces=undefined).
+  // Bug-5-Fix: strip pinned question surfaces from the bubble. If something
+  // was stripped, the cache (startIdx/endIdx) is no longer valid → we
+  // force the re-scan path (cacheSurfaces=undefined).
   const stripped =
     pinnedQuestionIds && pinnedQuestionIds.size > 0
       ? stripPinnedQuestionSurfaces(augmentedBase, pinnedQuestionIds)
       : { content: augmentedBase, changed: false };
   const augmentedContent = stripped.content;
-  // Cache nur nutzen wenn Content unverändert blieb (= kein Augment-Suffix
-  // UND kein Strip). Sonst liegen Surface-Indizes daneben.
+  // Only use the cache when the content stayed unchanged (= no augment suffix
+  // AND no strip). Otherwise the surface indices are off.
   const cacheSurfaces =
     parsed !== undefined &&
     augmentedContent === message.content &&
@@ -4736,10 +4736,10 @@ function AssistantItem({
       ? parsed.surfaces
       : undefined;
 
-  // Codex-Parität (2026-06-02): Prosa-Text für die Copy-Aktion — Surface-Tags
-  // (Toasts/Karten/Pläne) entfernen, damit „Kopieren" die lesbare Antwort
-  // liefert, nicht `<surface:toast>{…}</surface:toast>`. Hat eine Antwort KEINE
-  // Prosa (reine Karte), bleibt die Action-Row aus.
+  // Codex parity (2026-06-02): prose text for the copy action — strip surface tags
+  // (toasts/cards/plans) so „Kopieren" delivers the readable answer,
+  // not `<surface:toast>{…}</surface:toast>`. If an answer has NO
+  // prose (pure card), the action row stays off.
   const proseForCopy = augmentedContent
     .replace(/<surface:[^>]*>[\s\S]*?<\/surface:[^>]*>/g, '')
     .replace(/<surface:[^>]*\/>/g, '')
@@ -4769,10 +4769,10 @@ function AssistantItem({
     );
   }
 
-  // Bug-5-Fix: Wenn das Strippen der gepinnten Frage-Surface die Bubble LEER
-  // gelassen hat (sie bestand nur aus der Frage, die jetzt in der Pille lebt),
-  // rendern wir KEINE leere Assistant-Karte. Nur relevant wenn tatsächlich
-  // gestript wurde — sonst bleibt das alte Verhalten bit-genau erhalten.
+  // Bug-5-Fix: if stripping the pinned question surface left the bubble EMPTY
+  // (it consisted only of the question, which now lives in the pill),
+  // we render NO empty assistant card. Only relevant when something was
+  // actually stripped — otherwise the old behavior stays bit-exact.
   const showBubble = !(stripped.changed && augmentedContent.length === 0);
 
   return (
@@ -4787,42 +4787,42 @@ function AssistantItem({
   );
 }
 
-// Phase AC Fallback (2026-04-26): Wenn message ein Synthesis-Output ist
-// und keinen consensus-action-Tag hat, client-side den Tag basierend auf
-// Konsens-Heuristik appenden. Side-effect-frei (gibt augmented String).
+// Phase AC fallback (2026-04-26): if message is a synthesis output
+// and has no consensus-action tag, append the tag client-side based on a
+// consensus heuristic. Side-effect-free (returns the augmented string).
 function augmentSynthesisIfNeeded(message: HistoryItem): string {
   if (message.role !== 'assistant') return message.content;
   const c = message.content;
-  // Bereits augmented?
+  // Already augmented?
   if (c.includes('<surface:consensus-action>')) return c;
-  // Synthesis-Pattern? Heuristik: enthaelt "## Konsolidierter Plan" oder
-  // "## Sub-Tickets" oder "## Cluster-".
+  // Synthesis pattern? Heuristic: contains "## Konsolidierter Plan" or
+  // "## Sub-Tickets" or "## Cluster-".
   const isSynth =
     /##\s+Konsolidierter\s+Plan/i.test(c) ||
     /##\s+Sub-Tickets/i.test(c) ||
     /##\s+Cluster-/i.test(c);
   if (!isSynth) return c;
-  // Workstream-/Master-IDs aus dem Content extrahieren — wir haben sie
-  // hier nicht direkt. Fallback: leerer workstreamId, Card rendert dann
-  // nichts (Renderer requires workstreamId). Diese Augmentation hilft
-  // also primaer fuer Live-Events wo der Tag schon im handleEvent-Pfad
-  // gesetzt wurde — fuer alte Bubbles ohne Workstream-ID-Marker bleibt
-  // die Card aus, der User sieht "nur" den Plan-Text. Nicht ideal, aber
-  // robust: kein blinder Auto-Dispatch mit unbekannter Workstream-ID.
+  // Extract workstream/master IDs from the content — we do not have them
+  // directly here. Fallback: empty workstreamId, the card then renders
+  // nothing (the renderer requires workstreamId). This augmentation thus
+  // primarily helps for live events where the tag was already set in the
+  // handleEvent path — for old bubbles without a workstream-ID marker
+  // the card stays off, the user sees "only" the plan text. Not ideal, but
+  // robust: no blind auto-dispatch with an unknown workstream ID.
   return c;
 }
 
 /**
- * Live-Streaming-Assistant — token-by-token Display fuer native Chat-Feeling.
+ * Live streaming assistant — token-by-token display for a native chat feel.
  *
- * 2026-05-01 (Welle Streaming-UX):
- *  - Inline-Styles raus, ueber `.bub-live` + `.bub-caret` aus components.css.
- *  - Sub-tile fade-in pro Token-Append via `.bub-live__token-fresh` (key wechselt
- *    bei Text-Length-Change, sodass nur das letzte Chunk re-animiert).
- *  - Phase-Footer mit Lese-Bewusstsein:
- *      - vor First-Token:        "Liest deine Frage …"
- *      - waehrend Token-Stream:  "Schreibt …"
- *      - waehrend Tool-Pipeline: "Sucht in Workspace-Daten …" / Tool-spezifisch
+ * 2026-05-01 (streaming-UX wave):
+ *  - inline styles out, via `.bub-live` + `.bub-caret` from components.css.
+ *  - subtle fade-in per token append via `.bub-live__token-fresh` (key changes
+ *    on a text-length change, so only the last chunk re-animates).
+ *  - phase footer with reading awareness:
+ *      - before the first token:  "Liest deine Frage …"
+ *      - during the token stream:  "Schreibt …"
+ *      - during the tool pipeline: "Sucht in Workspace-Daten …" / tool-specific
  *  - prefers-reduced-motion respected (CSS).
  */
 function StreamingAssistant({
@@ -4839,13 +4839,13 @@ function StreamingAssistant({
   const showText = turn.text.trim().length > 0;
   const hasTools = turn.tools.length > 0;
 
-  // Welle 1 · 2026-05-03: Single-Source-of-Truth fuer Phase + Label.
-  // Loest die alte lokale describePhase-Logik ab. Konsumenten der Bubble
-  // bekommen jetzt EINEN deterministischen State statt drei parallel
-  // gerechneten Strings.
+  // Wave 1 · 2026-05-03: single source of truth for phase + label.
+  // Replaces the old local describePhase logic. Consumers of the bubble
+  // now get ONE deterministic state instead of three strings computed
+  // in parallel.
   const indicator = useTypingIndicator({
     workstreamId: turn.workstreamId,
-    isStreaming: true, // diese Bubble wird nur gerendert wenn isStreaming=true
+    isStreaming: true, // this bubble is only rendered when isStreaming=true
     isMockPending,
     serverStreamPending,
     agentTurn: { text: turn.text, tools: turn.tools },
@@ -4854,11 +4854,11 @@ function StreamingAssistant({
   const phase: TypingPhase = indicator.phase ?? 'reading';
   const phaseLabel = indicator.label;
 
-  // Subtle token-fade: sobald sich `text.length` aendert, wechselt der React-key
-  // an einem unsichtbaren Wrapper um den letzten Char-Block. Wir reanimieren
-  // nicht den ganzen Text — sonst flackert die Bubble bei jedem Token-Tick.
-  // Trick: split an dem letzten Whitespace-Boundary; alles davor ist statisch,
-  // der Tail-Slice (max 24 chars) bekommt die fade-in-Klasse.
+  // Subtle token fade: as soon as `text.length` changes, the React key changes
+  // on an invisible wrapper around the last char block. We do not re-animate
+  // the whole text — otherwise the bubble flickers on every token tick.
+  // Trick: split at the last whitespace boundary; everything before is static,
+  // the tail slice (max 24 chars) gets the fade-in class.
   const tail = showText ? extractFreshTail(turn.text) : null;
 
   return (
@@ -4872,12 +4872,12 @@ function StreamingAssistant({
         aria-label="Assistant schreibt"
       >
         {/*
-          2026-05-04: Stop-Button RAUS aus der Bubble (User-Befund:
+          2026-05-04: stop button OUT of the bubble (user finding:
           "verbuggtes surface mit stop button drin, sieht katastrophal
-          aus, kein steve jobs apple design"). iMessage-Pattern: clean
-          Bubble, Stop wandert in den Composer (Send-Button morpht zu
-          Stop-Square während Streaming). `onAbort` ist via Composer
-          verdrahtet, hier ist nur visuell weg.
+          aus, kein steve jobs apple design"). iMessage pattern: a clean
+          bubble, stop moves into the composer (the send button morphs to a
+          stop square during streaming). `onAbort` is wired via the composer,
+          here it is only visually gone.
         */}
         <div className="txt">
           {showText && tail ? (
@@ -4891,11 +4891,11 @@ function StreamingAssistant({
             </>
           ) : null}
           {/*
-            Caret-Dedupe (2026-05-03): leading-Caret entfernt — wenn der Assistant
-            noch keinen Text hat, sind die typing-dots + phase-text unten bereits
-            der Aktivitäts-Indikator. Doppel-Anzeige (Caret + Dots + "Liest …")
-            wirkte als "3-fach schreibt gerade". Trailing-Caret zeigt nur während
-            echtem Token-Stream.
+            Caret dedupe (2026-05-03): leading caret removed — when the assistant
+            has no text yet, the typing dots + phase text below are already
+            the activity indicator. The double display (caret + dots + "Liest …")
+            acted as "3× typing now". The trailing caret only shows during
+            a real token stream.
           */}
           {showText ? <span aria-hidden="true" className="bub-caret" /> : null}
         </div>
@@ -4917,14 +4917,14 @@ function StreamingAssistant({
   );
 }
 
-// describePhase + toolPhaseLabel: 2026-05-03 nach lib/chat/useTypingIndicator.ts
-// migriert. Single-Source-of-Truth fuer Phase-Label. Diese Datei haelt nur
-// noch die JSX-Komponente.
+// describePhase + toolPhaseLabel: migrated 2026-05-03 to lib/chat/useTypingIndicator.ts.
+// Single source of truth for the phase label. This file only holds
+// the JSX component anymore.
 
 /**
- * Token-Tail-Splitter: gibt den statischen `head` und den frischen `fresh`-Slice
- * zurueck, sodass nur das letzte Chunk re-animiert wird. Splitet am letzten
- * Whitespace innerhalb der letzten 24 Zeichen; Fallback: alles ist `head`.
+ * Token-tail splitter: returns the static `head` and the fresh `fresh` slice
+ * so that only the last chunk re-animates. Splits at the last
+ * whitespace within the last 24 characters; fallback: everything is `head`.
  */
 function extractFreshTail(text: string): { head: string; fresh: string } {
   const FRESH_MAX = 24;
@@ -4932,7 +4932,7 @@ function extractFreshTail(text: string): { head: string; fresh: string } {
   const tailRegion = text.slice(-FRESH_MAX);
   const wsIdx = tailRegion.search(/\s\S*$/);
   if (wsIdx === -1) {
-    // Kein Whitespace im Tail-Bereich -> langes Wort, fade nicht
+    // No whitespace in the tail region -> long word, do not fade
     return { head: text, fresh: '' };
   }
   const splitAt = text.length - FRESH_MAX + wsIdx + 1;
@@ -4940,14 +4940,14 @@ function extractFreshTail(text: string): { head: string; fresh: string } {
 }
 
 /**
- * Rendert Assistant-Text mit inline Surface-Cards + **bold**-Highlights.
+ * Renders assistant text with inline surface cards + **bold** highlights.
  *
- * Agent emittet `<surface:chart>{...}</surface:chart>` Tags in seinem
- * Output → wir zerlegen das hier in Text + Surface-Segmente.
+ * The agent emits `<surface:chart>{...}</surface:chart>` tags in its
+ * output → we split that here into text + surface segments.
  *
- * Sub-Plan E (2026-04-30): Optional `surfaces`-Prop ist eine bereits
- * pre-geparste Liste aus `parseHistoryItem` (Cache-Pfad). Wenn nicht
- * gesetzt, fällt `renderChatText` auf seinen internen Regex-Scan zurück.
+ * Sub-Plan E (2026-04-30): the optional `surfaces` prop is an already
+ * pre-parsed list from `parseHistoryItem` (cache path). When not
+ * set, `renderChatText` falls back to its internal regex scan.
  */
 function TextWithHighlights({
   text,
@@ -4980,8 +4980,8 @@ function TurnFooter({
 }
 
 function TypingIndicator() {
-  // Welle 4 (2026-05-01): typing-dots auf .typing-dots CSS-Klasse mit
-  // @keyframes typing-pulse umgestellt (siehe components.css B'').
+  // Wave 4 (2026-05-01): typing dots switched to the .typing-dots CSS class with
+  // @keyframes typing-pulse (see components.css B'').
   // Token-bind, prefers-reduced-motion respected.
   return (
     <div
@@ -5000,18 +5000,18 @@ function TypingIndicator() {
 }
 
 /**
- * Empty-State — radikal minimal.
- * Ein Satz. Kein Kicker, kein Tipp, kein Chip.
+ * Empty state — radically minimal.
+ * One sentence. No kicker, no tip, no chip.
  */
 /**
- * P1 · One-Focal-Point (2026-06-02, UI/UX-a11y-Pass).
+ * P1 · One-Focal-Point (2026-06-02, UI/UX a11y pass).
  *
- * Eine primäre Aufgabe pro Screen. Liegt eine proaktive Pickup-/INTERN-Karte
- * (SubchatPulse) über dem Empty-State, darf der zentrierte Hero nicht mit ihr
- * um den Fokus konkurrieren. `deEmphasized=true` verankert die Intro oben mit
- * großzügigem Abstand (kleiner, linksbündig, gedämpft) — die Karte darunter
- * liest als die EINE primäre Fläche. Ohne Karte bleibt der ruhige, zentrierte
- * Hero. Reiner Stil-Swap, kein Verhaltens-/Text-Verlust.
+ * One primary task per screen. If a proactive pickup/INTERNAL card
+ * (SubchatPulse) is above the empty state, the centered hero must not compete
+ * with it for focus. `deEmphasized=true` anchors the intro at the top with
+ * generous spacing (smaller, left-aligned, dimmed) — the card below
+ * reads as the ONE primary surface. Without the card the quiet, centered
+ * hero stays. A pure style swap, no behavior/text loss.
  */
 function EmptyState({ deEmphasized = false }: { deEmphasized?: boolean }) {
   return (
@@ -5058,14 +5058,14 @@ function formatSttError(code: string): string {
 
 /**
  * Phase Reload-Recovery V2 · 2026-04-27.
- * Best-effort DELETE des Streaming-Snapshots im Backend. Das Snapshot-
- * Item kommt im History-Endpoint als HistoryItem mit `streamState`-Feld;
- * pendingPromptId steht im Item-Feld. Wir feuern einen DELETE-Call ab
- * und ignorieren das Ergebnis (optimistisch im UI entfernt).
+ * Best-effort DELETE of the streaming snapshot in the backend. The snapshot
+ * item comes from the history endpoint as a HistoryItem with a `streamState` field;
+ * pendingPromptId is in the item field. We fire a DELETE call
+ * and ignore the result (removed optimistically in the UI).
  *
- * TODO(backend): Implementiere `DELETE /api/chat/snapshot/[pendingPromptId]`
- * mit Auth-Gate (gleicher Cookie-Pattern wie /api/chat/history). Bis dahin
- * antwortet der Endpoint 404 und wir behandeln das wie ein noop.
+ * TODO(backend): implement `DELETE /api/chat/snapshot/[pendingPromptId]`
+ * with an auth gate (same cookie pattern as /api/chat/history). Until then
+ * the endpoint answers 404 and we treat that as a no-op.
  */
 async function deleteSnapshotFromBackend(
   item: HistoryItem,
@@ -5083,7 +5083,7 @@ async function deleteSnapshotFromBackend(
       },
     });
   } catch {
-    /* offline / 404 — UI ist bereits optimistisch geupdated */
+    /* offline / 404 — the UI is already optimistically updated */
   }
 }
 
@@ -5116,14 +5116,14 @@ function isHistoryItem(v: unknown): v is HistoryItem {
 // Styles
 // ---------------------------------------------------------------------
 
-// Chat-Page belegt die volle Viewport-Höhe so dass der Stream-Container
-// scrollt, NICHT die Page. Das löst den iOS-Bug "am Scroll-Top zieht
-// die Bewegung den Body": wenn die Page selbst kein Scroll mehr hat,
-// kann iOS auch nicht in sie hinein-bouncen. TopNav-Höhe wird via CSS-
-// Variable kompensiert (gesetzt in TopNav-Mount; Fallback 64px).
-// Robust-Layout: main fuellt Viewport zwischen TopNav und Bottom-Edge.
-// KEIN .sheet-Klasse (deren Padding war Quelle vieler iOS-Glitches).
-// containment isoliert das Layout vom restlichen DOM — kein Bleeding.
+// The chat page occupies the full viewport height so the stream container
+// scrolls, NOT the page. This solves the iOS bug "at scroll-top the
+// movement drags the body": when the page itself has no scroll anymore,
+// iOS cannot bounce into it either. The TopNav height is compensated via a CSS
+// variable (set on TopNav mount; fallback 64px).
+// Robust layout: main fills the viewport between TopNav and the bottom edge.
+// NO .sheet class (whose padding was the source of many iOS glitches).
+// Containment isolates the layout from the rest of the DOM — no bleeding.
 const chatMainStyle: CSSProperties = {
   height: 'calc(100dvh - var(--topnav-h, 64px))',
   display: 'flex',
@@ -5143,14 +5143,14 @@ const sectionStyle: CSSProperties = {
   margin: '0 auto',
   padding: '0 clamp(12px, 4vw, 32px)',
   minHeight: 0,
-  // 2026-04-26 — relative damit der Floating-Down-Button darin
-  // absolut positioniert werden kann.
+  // 2026-04-26 — relative so the floating-down button can be
+  // positioned absolutely within it.
   position: 'relative',
 };
 
-// WhatsApp-Style Floating-Down-Button. Unten links, ueber dem Composer,
-// erscheint nur wenn der User nach oben gescrollt hat und neue Messages
-// reinkommen.
+// WhatsApp-style floating-down button. Bottom left, above the composer,
+// appears only when the user has scrolled up and new messages
+// come in.
 const scrollDownBtnStyle: CSSProperties = {
   position: 'absolute',
   left: 'clamp(20px, 4vw, 40px)',
@@ -5171,9 +5171,9 @@ const scrollDownBtnStyle: CSSProperties = {
   WebkitBackdropFilter: 'blur(8px)',
 };
 
-// Stream: nimmt verfuegbare Hoehe, scrollt als einzige Surface.
-// contain:strict isoliert Layout/Paint - keine Scroll-Anker-Sprunge,
-// keine Layout-Bleeds nach aussen.
+// Stream: takes the available height, scrolls as the only surface.
+// contain:strict isolates layout/paint - no scroll-anchor jumps,
+// no layout bleeds to the outside.
 const streamStyle: CSSProperties = {
   flex: 1,
   minHeight: 0,
@@ -5210,8 +5210,8 @@ const emptyHeadingStyle: CSSProperties = {
   margin: 0,
 };
 
-// P1 · de-emphasized Empty-State: oben verankert, großzügiger Abstand, kein
-// minHeight-Block — die proaktive Karte darunter ist die EINE primäre Fläche.
+// P1 · de-emphasized empty state: top-anchored, generous spacing, no
+// minHeight block — the proactive card below is the ONE primary surface.
 const emptyDeEmphStyle: CSSProperties = {
   marginTop: 8,
   padding: 'clamp(16px, 3vw, 28px) clamp(20px, 4vw, 40px) clamp(20px, 4vw, 32px)',
@@ -5220,8 +5220,8 @@ const emptyDeEmphStyle: CSSProperties = {
   justifyContent: 'flex-start',
 };
 
-// Kleiner + gedämpft (ink-2) + linksbündig → liest als ruhige Intro, nicht als
-// konkurrierender Hero. N1: identischer Text, nur visuelles Gewicht reduziert.
+// Smaller + dimmed (ink-2) + left-aligned → reads as a quiet intro, not as a
+// competing hero. N1: identical text, only the visual weight reduced.
 const emptyHeadingDeEmphStyle: CSSProperties = {
   fontSize: 'clamp(18px, 2.4vw, 22px)',
   maxWidth: 560,
@@ -5282,8 +5282,8 @@ const resetBtnStyle: CSSProperties = {
 };
 
 // streamFooterStyle / streamingDotStyle / streamingTextStyle / stopBtnStyle
-// sind in `.stream-footer*` (components.css) gewandert
-// (2026-05-01 Welle Streaming-UX).
+// have moved into `.stream-footer*` (components.css)
+// (2026-05-01 streaming-UX wave).
 
 const turnFooterStyle: CSSProperties = {
   marginTop: 8,

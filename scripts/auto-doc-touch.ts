@@ -2,23 +2,23 @@
 /**
  * scripts/auto-doc-touch.ts
  *
- * Auto-Doc-Update bei jedem Commit. User-Wunsch 2026-05-03:
+ * Auto-doc update on every commit. User request 2026-05-03 (verbatim):
  *  "wenn du änderungen machst, dass die claude.md und alle dateien
  *   automatisch sozusagen bewusst gemacht werden"
  *
- * Wird vom .git/hooks/post-commit aufgerufen. Liest den letzten Commit
- * via `git log -1` und:
- *   1. Hängt eine Zeile an docs/CHANGELOG-AUTO.md (Append-only).
- *   2. Aktualisiert die managed Section in CLAUDE.md zwischen
+ * Called from .git/hooks/post-commit. Reads the last commit
+ * via `git log -1` and:
+ *   1. Appends a line to docs/CHANGELOG-AUTO.md (append-only).
+ *   2. Updates the managed section in CLAUDE.md between
  *      <!-- AUTO-RECENT-CHANGES-START --> ... <!-- AUTO-RECENT-CHANGES-END -->
- *      mit den letzten 10 Commits.
- *   3. Optional: schreibt System-Event in Event-Log via /api/events/emit
+ *      with the last 10 commits.
+ *   3. Optional: writes a system event into the event log via /api/events/emit
  *      (best-effort, fail-silent).
  *
- * NIEMALS Auto-Commit von dieser Hook (würde Endlos-Loop bauen).
- * Hook schreibt die Files, der nächste menschliche Commit committet sie mit.
+ * NEVER auto-commit from this hook (it would build an infinite loop).
+ * The hook writes the files; the next human commit commits them along.
  *
- * Idempotent: doppelte Aufrufe für gleichen Commit-Hash überspringen.
+ * Idempotent: skip duplicate invocations for the same commit hash.
  */
 
 import { execSync } from 'node:child_process';
@@ -76,7 +76,7 @@ function appendChangelog(info: CommitInfo): boolean {
   );
   const existing = readFileSync(CHANGELOG_PATH, 'utf8');
   if (existing.includes(`[${info.shaShort}]`)) {
-    return false; // Idempotent: Commit schon drin.
+    return false; // Idempotent: commit already present.
   }
   const filesPreview =
     info.files.length === 0
@@ -90,9 +90,9 @@ function appendChangelog(info: CommitInfo): boolean {
 }
 
 function recentCommits(): CommitInfo[] {
-  // Pipes im --format brechen ohne Quoting (Shell interpretiert sie). Wir
-  // benutzen einen ASCII-Unit-Separator (US, 0x1f) als Trenner — kommt in
-  // Commit-Subjects praktisch nie vor.
+  // Pipes in --format break without quoting (the shell interprets them). We
+  // use an ASCII unit separator (US, 0x1f) as the delimiter — it practically
+  // never appears in commit subjects.
   const SEP = '\x1f';
   const log = execSync(
     `git -C ${REPO_ROOT} log -n ${RECENT_LIMIT} --format='%H${SEP}%cI${SEP}%s'`,
@@ -117,7 +117,7 @@ function recentCommits(): CommitInfo[] {
 
 function updateClaudeRecent(): boolean {
   if (!existsSync(CLAUDE_MD_PATH)) {
-    return false; // Kein CLAUDE.md im Repo-Root → nichts zu updaten.
+    return false; // No CLAUDE.md in the repo root → nothing to update.
   }
   const content = readFileSync(CLAUDE_MD_PATH, 'utf8');
   const startIdx = content.indexOf(MARKER_START);
@@ -131,7 +131,7 @@ function updateClaudeRecent(): boolean {
 
   let next: string;
   if (startIdx === -1 || endIdx === -1) {
-    // Marker fehlen → am Ende anhängen.
+    // Markers missing → append at the end.
     next = content.trimEnd() + '\n\n' + block + '\n';
   } else {
     next =
@@ -145,8 +145,8 @@ function updateClaudeRecent(): boolean {
 }
 
 function emitEvent(info: CommitInfo): void {
-  // Best-effort: HTTP-POST gegen /api/events/emit (lokaler lazyos-web).
-  // Fail-silent — wenn die Web-App nicht läuft, ist das ok.
+  // Best-effort: HTTP POST against /api/events/emit (local lazyos-web).
+  // Fail-silent — if the web app is not running, that is fine.
   try {
     const url = process.env.LAZYOS_EMIT_URL ?? 'http://127.0.0.1:4200/api/events/emit';
     const payload = JSON.stringify({
@@ -184,7 +184,7 @@ function main(): void {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('[auto-doc-touch] failed (non-fatal):', err);
-    // Hook schließt mit 0 weil Auto-Doc nie einen Commit blockt.
+    // Hook exits with 0 because auto-doc never blocks a commit.
     process.exit(0);
   }
 }

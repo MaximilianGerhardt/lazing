@@ -1,19 +1,19 @@
 /**
- * lib/imagegen/job-store.ts — asynchroner Bild-Generierungs-Job (2026-06-03).
+ * lib/imagegen/job-store.ts — asynchronous image-generation job (2026-06-03).
  *
- * Owner-Befund: das synchrone /api/imagegen/generate blockierte ~30–90 s →
- * lief durch den cloudflared-Proxy in einen Timeout („Fehler, kein Bild") und
- * zeigte nur statischen Toast-Text statt eines animierten Lade-Surfaces.
+ * Owner finding: the synchronous /api/imagegen/generate blocked ~30–90 s →
+ * ran into a timeout through the cloudflared proxy („Fehler, kein Bild") and
+ * showed only static toast text instead of an animated loading surface.
  *
- * Lösung: der Job läuft im HINTERGRUND. `startImageJob` liefert sofort eine
- * jobId; das Surface (ImageGenCard) pollt `getJob` und zeigt währenddessen einen
- * animierten Shimmer (wie Codex/ChatGPT). Kein Long-Request mehr → kein
- * Proxy-Timeout. Ergebnis wird als Cloud-Artifact persistiert (surfaceMarkup).
+ * Solution: the job runs in the BACKGROUND. `startImageJob` immediately returns
+ * a jobId; the surface (ImageGenCard) polls `getJob` and meanwhile shows an
+ * animated shimmer (like Codex/ChatGPT). No more long request → no
+ * proxy timeout. The result is persisted as a cloud artifact (surfaceMarkup).
  *
- * In-Memory-Map: `next start` ist EIN Prozess → die Map überlebt über Requests
- * (generate-start + status-poll teilen sie). Bei Server-Neustart gehen
- * in-flight-Jobs verloren (selten, akzeptabel). N11: die Bild-Engine hat ihr
- * eigenes Single-Flight (ImageGenBusyError) → max ein schwerer Lauf gleichzeitig.
+ * In-memory map: `next start` is ONE process → the map survives across requests
+ * (generate-start + status-poll share it). On a server restart in-flight
+ * jobs are lost (rare, acceptable). N11: the image engine has its
+ * own single-flight (ImageGenBusyError) → max one heavy run at a time.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -33,11 +33,11 @@ export interface ImageJob {
   workspace: string;
   startedAt: number;
   finishedAt?: number;
-  /** Bei done: Cloud-Artifact-Daten. */
+  /** On done: cloud-artifact data. */
   artifactId?: string;
   imageUrl?: string;
   surfaceMarkup?: string;
-  /** Bei error: Code + Nachricht. */
+  /** On error: code + message. */
   errorCode?: 'busy' | 'no-image' | 'failed';
   error?: string;
 }
@@ -47,19 +47,19 @@ const MAX_JOBS = 200;
 
 function evictIfNeeded(): void {
   if (JOBS.size <= MAX_JOBS) return;
-  // Älteste (nach startedAt) entfernen.
+  // Remove the oldest (by startedAt).
   const sorted = [...JOBS.values()].sort((a, b) => a.startedAt - b.startedAt);
   for (const j of sorted.slice(0, JOBS.size - MAX_JOBS)) JOBS.delete(j.id);
 }
 
-/** Eindeutige, sortierbare Job-ID ohne Date.now-im-Renderer-Problem (Server-Seite ok). */
+/** Unique, sortable job ID without the Date.now-in-renderer problem (server-side ok). */
 function newJobId(): string {
   return `IMG-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
- * Startet einen Bild-Job im Hintergrund und gibt SOFORT die jobId zurück.
- * Der eigentliche (langsame) Lauf + Upload passiert fire-and-forget.
+ * Starts an image job in the background and returns the jobId IMMEDIATELY.
+ * The actual (slow) run + upload happens fire-and-forget.
  */
 export function startImageJob(input: {
   workspace: string;

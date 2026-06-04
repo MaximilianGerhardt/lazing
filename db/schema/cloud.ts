@@ -35,17 +35,17 @@ export const cloudArtifacts = sqliteTable(
     id: text("id").primaryKey(),
     /** Workspace-ID (refs workspaces.id, soft-FK). */
     workspaceId: text("workspace_id").notNull(),
-    /** Folder-ID (refs cloud_folders.id, soft-FK). NULL = root des Workspaces. */
+    /** Folder ID (refs cloud_folders.id, soft-FK). NULL = root of the workspace. */
     folderId: text("folder_id"),
-    /** Anzeige-Name inkl. Extension (z.B. "Tagesbericht-2026-04-27.pdf"). */
+    /** Display name incl. extension (e.g. "Tagesbericht-2026-04-27.pdf"). */
     filename: text("filename").notNull(),
-    /** MIME-Type (z.B. "application/pdf", "image/png"). */
+    /** MIME type (e.g. "application/pdf", "image/png"). */
     mime: text("mime").notNull(),
-    /** Größe in Bytes. */
+    /** Size in bytes. */
     bytes: integer("bytes").notNull(),
-    /** SHA-256 hex (Integrity + Dedup-Check). */
+    /** SHA-256 hex (integrity + dedup check). */
     sha256: text("sha256").notNull(),
-    /** Storage-Pfad relativ zum Storage-Root (z.B. "demo-fitness/ART-XYZ"). */
+    /** Storage path relative to the storage root (e.g. "demo-fitness/ART-XYZ"). */
     storagePath: text("storage_path").notNull(),
     /** 0 = unencrypted (phase 1), 1 = AES-256-GCM (phase 2). */
     encryptionVersion: integer("encryption_version").notNull().default(0),
@@ -53,13 +53,13 @@ export const cloudArtifacts = sqliteTable(
     pages: integer("pages"),
     /** Thumbnail path, relative, NULL if none generated. */
     thumbnailPath: text("thumbnail_path"),
-    /** Beliebige JSON-Metadaten (Dimensions, EXIF, Generator-Quelle, ...). */
+    /** Arbitrary JSON metadata (dimensions, EXIF, generator source, ...). */
     metadata: text("metadata"),
     /** "user" | "user:max" | "agent:<id>" | "anon-share-token:<id>". */
     createdBy: text("created_by").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-    /** Soft-Delete-Timestamp. NULL = aktiv. */
+    /** Soft-delete timestamp. NULL = active. */
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
   },
   (table) => ({
@@ -128,7 +128,7 @@ export const cloudAudit = sqliteTable(
     workspaceId: text("workspace_id").notNull(),
     /** Optional. NULL for folder actions or workspace-wide listings. */
     artifactId: text("artifact_id"),
-    /** Optional. NULL bei reinen Artifact-Aktionen. */
+    /** Optional. NULL for pure artifact actions. */
     folderId: text("folder_id"),
     /** "upload" | "download" | "preview" | "list" | "delete" | "move" | "rename" | "generate" | "thumbnail" */
     action: text("action").notNull(),
@@ -136,7 +136,7 @@ export const cloudAudit = sqliteTable(
     actor: text("actor").notNull(),
     ip: text("ip"),
     userAgent: text("user_agent"),
-    /** Beliebige JSON-Metadaten (z.B. share-link-id, bytes-transferred). */
+    /** Arbitrary JSON metadata (e.g. share-link-id, bytes-transferred). */
     metadata: text("metadata"),
     at: integer("at", { mode: "timestamp_ms" }).notNull(),
   },

@@ -45,59 +45,59 @@ import * as orgGithubSchema from "./schema/org_github";
 import * as workspaceKeysSchema from "./schema/workspace_keys";
 import * as workspacesSchema from "./schema/workspaces";
 import * as workstreamsSchema from "./schema/workstreams";
-// BACKPORT-01 (chat_ledger) + BACKPORT-03 (recursive-plans) Schemas:
+// BACKPORT-01 (chat_ledger) + BACKPORT-03 (recursive-plans) schemas:
 import * as chatLedgerSchema from "./schema/chat_ledger";
 import * as workstreamPlanStepsSchema from "./schema/workstream_plan_steps";
 import * as workstreamPlanCriticsSchema from "./schema/workstream_plan_critics";
 // SAR-2 (2026-05-24) — SOP-Framework: sops + sop_steps.
 import * as sopsSchema from "./schema/sops";
-// Slice FS-1 (2026-05-26) — Workspace-Path-Registry: workspace_fs_roots.
+// Slice FS-1 (2026-05-26) — workspace path registry: workspace_fs_roots.
 import * as workspaceFsRootsSchema from "./schema/workspace_fs_roots";
 // Flow Studio P1 (2026-05-27) — flow_templates + flow_steps + flow_runs.
 import * as flowTemplatesSchema from "./schema/flow_templates";
 import * as flowStepsSchema from "./schema/flow_steps";
 import * as flowRunsSchema from "./schema/flow_runs";
-// Self-Learning / WARUM-Engine Stream A (2026-05-27) — workspace_beliefs +
-// decision_outcomes (Workspace-ReasoningBank + Post-Prozess-Abgleich).
+// Self-Learning / WHY-Engine Stream A (2026-05-27) — workspace_beliefs +
+// decision_outcomes (workspace ReasoningBank + post-process reconciliation).
 import * as workspaceBeliefsSchema from "./schema/workspace_beliefs";
-// Sub-Chats (2026-06-02, Gathering-Intelligence-Goal) — Gruppenchats pro
-// Workspace (extern/intern) deren Wissen in die RAG fließt.
+// Sub-Chats (2026-06-02, Gathering-Intelligence-Goal) — group chats per
+// workspace (external/internal) whose knowledge flows into the RAG.
 import * as subchatsSchema from "./schema/subchats";
-// Sub-Chats Read-Marker (2026-06-02, P2) — pro (Sub-Chat, User) Last-Read-Cutoff
-// für den Unread-Badge im Hauptchat.
+// Sub-Chats read marker (2026-06-02, P2) — per (sub-chat, user) last-read cutoff
+// for the unread badge in the main chat.
 import * as subchatReadMarkersSchema from "./schema/subchat_read_markers";
-// Server-pre-generierte proaktive Operator-Vorschläge (2026-06-02, Proactivity-Goal).
+// Server-pre-generated proactive operator suggestions (2026-06-02, Proactivity-Goal).
 import * as proactiveSuggestionsSchema from "./schema/proactive_suggestions";
-// User-Defaults (2026-05-28, Owner-Fix) — system-übergreifender Default
-// für Permission-Mode (und künftige cross-workspace Settings).
+// User defaults (2026-05-28, Owner-Fix) — system-wide default
+// for permission mode (and future cross-workspace settings).
 import * as userPreferencesSchema from "./schema/user_preferences";
-// Strukturierter Open-Question-Antwort-Speicher (2026-05-29, Phase 1
-// Track AB · Befund B) — workspaceId/workstreamId/flowRunId/planId/
-// questionSetId/questionId/sourceTurnId/surfaceId statt nur
-// „Frage:.../Antwort:..."-Textblock.
+// Structured open-question answer store (2026-05-29, Phase 1
+// Track AB · Finding B) — workspaceId/workstreamId/flowRunId/planId/
+// questionSetId/questionId/sourceTurnId/surfaceId instead of just a
+// „Frage:.../Antwort:..." text block.
 import * as questionAnswersSchema from "./schema/question_answers";
 // Phase 2 W2.1 · Lane G Governance (2026-05-29, Migration 0118) —
-// consent_grants + source_traces + governance_audit. FUNDAMENTAL-Lane
-// (Stage 1, Governance Gate Contract) — definiert was JEDE andere Lane
-// darf/muss. Master-Briefing §13.2 + §7.2.
+// consent_grants + source_traces + governance_audit. FUNDAMENTAL lane
+// (Stage 1, Governance Gate Contract) — defines what EVERY other lane
+// may/must do. Master-Briefing §13.2 + §7.2.
 import * as consentGrantsSchema from "./schema/consent_grants";
 // Phase 2 W2.2 · Lane A Communication Intake (2026-05-29, Migration 0119) —
-// intake_events. Verbatim-Substrat fuer WhatsApp/Telegram/Voice/Meeting-
-// Kommunikation; no-auto-run-FSM (§7.2). Master-Briefing §25.1 + §7.3.
+// intake_events. Verbatim substrate for WhatsApp/Telegram/Voice/Meeting
+// communication; no-auto-run FSM (§7.2). Master-Briefing §25.1 + §7.3.
 import * as intakeEventsSchema from "./schema/intake_events";
 // Phase 2 W2.2 · Lane B Expertise Compiler (2026-05-29, Migration 0120) —
-// knowledge_forms (die 12 Wissensformen, §8.2). Approved knowledge_forms
-// werden via lib/lanes/expertise-compiler/mirror-to-beliefs.ts in
-// workspace_beliefs (0113) gespiegelt (N4: kein eigener Belief-Writer).
+// knowledge_forms (the 12 knowledge forms, §8.2). Approved knowledge_forms
+// are mirrored via lib/lanes/expertise-compiler/mirror-to-beliefs.ts into
+// workspace_beliefs (0113) (N4: no separate belief writer).
 import * as knowledgeFormsSchema from "./schema/knowledge_forms";
 // Phase IN · Lane D Innovation Mode (2026-05-29, Migration 0121) —
-// innovation_artifacts (Assumption-Map · Reframe-Set · Cross-Domain-Analogien ·
-// Contrarian-Roast · Concept-Graph, §10.4). Append-only Evidenz (N8/N10).
+// innovation_artifacts (assumption map · reframe set · cross-domain analogies ·
+// contrarian roast · concept graph, §10.4). Append-only evidence (N8/N10).
 import * as innovationArtifactsSchema from "./schema/innovation_artifacts";
 // Phase 2 W2.3 · Lanes C/E/F Engines (2026-05-29, Migration 0122) —
-// lane_artifacts (EINE Tabelle, kind-Diskriminator). Lane C Role Reverse
+// lane_artifacts (ONE table, kind discriminator). Lane C Role Reverse
 // Engineering · Lane E Toolstack Replacement · Lane F Mobile Human-in-the-Loop
-// (Lane F setzt auf lib/push/* auf, N4). Append-only Evidenz (N8/N10).
+// (Lane F builds on lib/push/*, N4). Append-only evidence (N8/N10).
 import * as laneArtifactsSchema from "./schema/lane_artifacts";
 
 export const schema = {
@@ -115,67 +115,67 @@ export const schema = {
   ...membershipsSchema,
   ...magicTokensSchema,
   ...auditLogSchema,
-  // Phase ORG+1 (2026-04-28) — Encryption:
+  // Phase ORG+1 (2026-04-28) — encryption:
   ...workspaceKeysSchema,
-  // Phase ORG+2 (2026-04-28) — Share-Tokens:
+  // Phase ORG+2 (2026-04-28) — share tokens:
   ...shareTokensSchema,
-  // Pattern 5 Traceability (2026-05-01) — Reasoning-Audit:
+  // Pattern 5 Traceability (2026-05-01) — reasoning audit:
   ...reasoningAuditSchema,
-  // Pattern 6a Telemetrie (2026-05-01) — Push-Rule-Overrides:
+  // Pattern 6a telemetry (2026-05-01) — push rule overrides:
   ...pushRuleOverridesSchema,
-  // Pattern 4 Foundation (2026-05-01) — Workflow-Runs:
+  // Pattern 4 Foundation (2026-05-01) — workflow runs:
   ...workflowRunsSchema,
-  // P14 Echter Pattern 9 "Unlearning" (2026-05-01) — Failed-Experiments:
+  // P14 real Pattern 9 "Unlearning" (2026-05-01) — failed experiments:
   ...failedExperimentsSchema,
-  // GitHub-Integration Backport (2026-05-23, Agent 3/8) — Lazing-V2.
+  // GitHub integration backport (2026-05-23, Agent 3/8) — Lazing-V2.
   ...githubSchema,
-  // Org-Level GitHub-Integration (2026-05-24, Slice A) — Migration 0096.
+  // Org-level GitHub integration (2026-05-24, Slice A) — Migration 0096.
   ...orgGithubSchema,
-  // BACKPORT-01 (2026-05-23, Agent 1/8) — chat_ledger N1-verbatim Foundation.
+  // BACKPORT-01 (2026-05-23, Agent 1/8) — chat_ledger N1-verbatim foundation.
   ...chatLedgerSchema,
-  // BACKPORT-03 (2026-05-23, Agent 3/8) — Recursive Plans + Critic-Loop FSM.
+  // BACKPORT-03 (2026-05-23, Agent 3/8) — recursive plans + critic-loop FSM.
   ...workstreamPlanStepsSchema,
   ...workstreamPlanCriticsSchema,
-  // SAR-2 (2026-05-24) — SOP-Framework: sops + sop_steps.
+  // SAR-2 (2026-05-24) — SOP framework: sops + sop_steps.
   ...sopsSchema,
-  // Slice FS-1 (2026-05-26) — Workspace-Path-Registry: workspace_fs_roots.
+  // Slice FS-1 (2026-05-26) — workspace path registry: workspace_fs_roots.
   ...workspaceFsRootsSchema,
   // Flow Studio P1 (2026-05-27) — flow_templates + flow_steps + flow_runs.
   ...flowTemplatesSchema,
   ...flowStepsSchema,
   ...flowRunsSchema,
-  // Self-Learning / WARUM-Engine Stream A (2026-05-27) — workspace_beliefs +
-  // decision_outcomes (Workspace-ReasoningBank + Post-Prozess-Abgleich).
+  // Self-Learning / WHY-Engine Stream A (2026-05-27) — workspace_beliefs +
+  // decision_outcomes (workspace ReasoningBank + post-process reconciliation).
   ...workspaceBeliefsSchema,
   // Sub-Chats (2026-06-02, Gathering-Intelligence-Goal).
   ...subchatsSchema,
-  // Sub-Chats Read-Marker (2026-06-02, P2).
+  // Sub-Chats read marker (2026-06-02, P2).
   ...subchatReadMarkersSchema,
-  // Proaktive Vorschläge (2026-06-02, Proactivity-Goal).
+  // Proactive suggestions (2026-06-02, Proactivity-Goal).
   ...proactiveSuggestionsSchema,
-  // User-Defaults (2026-05-28, Owner-Fix) — systemübergreifender Default
-  // für Permission-Mode etc.
+  // User defaults (2026-05-28, Owner-Fix) — system-wide default
+  // for permission mode etc.
   ...userPreferencesSchema,
-  // Strukturierter Open-Question-Antwort-Speicher (2026-05-29, Phase 1
-  // Track AB · Befund B).
+  // Structured open-question answer store (2026-05-29, Phase 1
+  // Track AB · Finding B).
   ...questionAnswersSchema,
   // Phase 2 W2.1 · Lane G Governance (2026-05-29, Migration 0118) —
-  // consent_grants + source_traces + governance_audit. FUNDAMENTAL-Lane
+  // consent_grants + source_traces + governance_audit. FUNDAMENTAL lane
   // (Stage 1, Governance Gate Contract).
   ...consentGrantsSchema,
   // Phase 2 W2.2 · Lane A Communication Intake (2026-05-29, Migration 0119) —
-  // intake_events (verbatim-Substrat, no-auto-run-FSM).
+  // intake_events (verbatim substrate, no-auto-run FSM).
   ...intakeEventsSchema,
   // Phase 2 W2.2 · Lane B Expertise Compiler (2026-05-29, Migration 0120) —
-  // knowledge_forms (die 12 Wissensformen); Belief-Spiegelung via
+  // knowledge_forms (the 12 knowledge forms); belief mirroring via
   // lib/lanes/expertise-compiler/mirror-to-beliefs.ts (N4).
   ...knowledgeFormsSchema,
   // Phase IN · Lane D Innovation Mode (2026-05-29, Migration 0121) —
-  // innovation_artifacts (§10.4 Artefakte vor Build). Append-only (N8/N10).
+  // innovation_artifacts (§10.4 artifacts before build). Append-only (N8/N10).
   ...innovationArtifactsSchema,
   // Phase 2 W2.3 · Lanes C/E/F Engines (2026-05-29, Migration 0122) —
   // lane_artifacts (Role Reverse Engineering · Toolstack Replacement ·
-  // Mobile Human-in-the-Loop). Append-only Evidenz (N8/N10).
+  // Mobile Human-in-the-Loop). Append-only evidence (N8/N10).
   ...laneArtifactsSchema,
 };
 
@@ -228,8 +228,8 @@ const MIGRATIONS = [
   path.join(process.cwd(), "db", "migrations", "0007_workflow_state.sql"),
   path.join(process.cwd(), "db", "migrations", "0008_organizations.sql"),
   path.join(process.cwd(), "db", "migrations", "0009_workstreams.sql"),
-  // 0010 ist bewusst freigehalten fuer den Self-Calibration-Index
-  // (Phase C). Siehe db/migrations/MIGRATION-NOTES.md.
+  // 0010 is deliberately kept free for the self-calibration index
+  // (Phase C). See db/migrations/MIGRATION-NOTES.md.
   path.join(process.cwd(), "db", "migrations", "0011_skills.sql"),
   path.join(process.cwd(), "db", "migrations", "0012_cloud.sql"),
   path.join(process.cwd(), "db", "migrations", "0013_workspace_notes.sql"),
@@ -237,8 +237,8 @@ const MIGRATIONS = [
   path.join(process.cwd(), "db", "migrations", "0015_workspace_brand.sql"),
   path.join(process.cwd(), "db", "migrations", "0017_client_visibility.sql"),
   path.join(process.cwd(), "db", "migrations", "0018_streaming_snapshots.sql"),
-  // 0019, 0020 sind reserviert fuer Phase H+I (Sub-Ticket-Spawner /
-  // Tier-Orchestrator). Phase Vers haengt deshalb an 0021 an — siehe
+  // 0019, 0020 are reserved for Phase H+I (sub-ticket spawner /
+  // tier orchestrator). Phase Vers therefore hangs off 0021 — see
   // MIGRATION-NOTES.md.
   path.join(process.cwd(), "db", "migrations", "0021_schema_version.sql"),
   // Phase ORG SP-1 (2026-04-27):
@@ -251,159 +251,159 @@ const MIGRATIONS = [
   path.join(process.cwd(), "db", "migrations", "0028_workspace_keys.sql"),
   // Phase ORG+2 (2026-04-28):
   path.join(process.cwd(), "db", "migrations", "0029_share_tokens.sql"),
-  // Phase QA (2026-04-28): TPM-Budget-Manager
+  // Phase QA (2026-04-28): TPM budget manager
   path.join(process.cwd(), "db", "migrations", "0030_tpm_tracker.sql"),
-  // Phase MU.1 (2026-04-28): Multi-User-MAX-Plan-Tokens
+  // Phase MU.1 (2026-04-28): multi-user MAX-plan tokens
   path.join(process.cwd(), "db", "migrations", "0031_phase_mu_user_creds.sql"),
-  // Phase MU.4 (2026-04-28): TPM-Tracking pro User
+  // Phase MU.4 (2026-04-28): TPM tracking per user
   path.join(process.cwd(), "db", "migrations", "0032_tpm_user_id.sql"),
-  // 2026-04-28: Org-Legal-Felder für rechtliche Outbound-Docs
+  // 2026-04-28: org legal fields for legal outbound docs
   path.join(process.cwd(), "db", "migrations", "0033_org_legal_fields.sql"),
-  // Phase IA.4 (2026-04-29): Org-Root-Chats — pro Org ein virtueller WS
-  // mit ID `__org_root__:<orgId>` für scoped Chat-Kontext.
+  // Phase IA.4 (2026-04-29): org-root chats — one virtual WS per org
+  // with ID `__org_root__:<orgId>` for scoped chat context.
   path.join(process.cwd(), "db", "migrations", "0034_org_root_chats.sql"),
-  // Phase IA-Konsolidierung (2026-04-29): workspace_type + Re-Map aller
-  // Eigen-/Kunden-Workspaces unter Example Company.
+  // Phase IA consolidation (2026-04-29): workspace_type + re-map of all
+  // own/customer workspaces under Example Company.
   path.join(process.cwd(), "db", "migrations", "0035_workspace_type_and_consolidation.sql"),
-  // Phase IA-Konsolidierung Re-Fix (2026-04-29): Sub-Org-Hierarchie wieder
-  // herstellen. Demo PV (CRM+Web) als Sub-Org von PA-LLC, etc.
+  // Phase IA consolidation re-fix (2026-04-29): restore the sub-org
+  // hierarchy. Demo PV (CRM+Web) as a sub-org of PA-LLC, etc.
   path.join(process.cwd(), "db", "migrations", "0036_suborgs_restore.sql"),
-  // Phase IA-Konsolidierung Type-Fix (2026-04-29): Example App + example-tool als product
-  // (waren versehentlich als client/tool klassifiziert).
+  // Phase IA consolidation type-fix (2026-04-29): Example App + example-tool as product
+  // (were accidentally classified as client/tool).
   path.join(process.cwd(), "db", "migrations", "0037_fix_org_types.sql"),
-  // Phase Sub-WS (Sprint C, 2026-04-29): Sub-Workstreams als first-class.
+  // Phase Sub-WS (Sprint C, 2026-04-29): sub-workstreams as first-class.
   // parent_workstream_id + role + tmux_session_id + tokens_in/out + cost.
   path.join(process.cwd(), "db", "migrations", "0040_sub_workstreams.sql"),
-  // Phase Tier-Lock (2026-04-30): Workstream-Mode + Iterate-Config +
-  // Dispatch-Lock. mode + iterate_config_json + dispatch_lock_token +
-  // dispatch_lock_ts. Sub-Plan A + G aus Master-Plan 2026-04-30.
+  // Phase Tier-Lock (2026-04-30): workstream mode + iterate config +
+  // dispatch lock. mode + iterate_config_json + dispatch_lock_token +
+  // dispatch_lock_ts. Sub-Plan A + G from master plan 2026-04-30.
   path.join(process.cwd(), "db", "migrations", "0041_workstream_mode.sql"),
-  // Sprint 2 RAG-Foundation (2026-04-30): rag_chunks + rag_indexer_state.
+  // Sprint 2 RAG foundation (2026-04-30): rag_chunks + rag_indexer_state.
   path.join(process.cwd(), "db", "migrations", "0042_rag_index.sql"),
-  // Sprint 3 (2026-04-30): User-2FA TOTP + Recovery-Codes + Pending-Sessions.
+  // Sprint 3 (2026-04-30): user 2FA TOTP + recovery codes + pending sessions.
   path.join(process.cwd(), "db", "migrations", "0043_user_2fa.sql"),
-  // Pattern 5 Traceability (2026-05-01): reasoning_audit für Hallucination-
-  // Detection. Persist Inputs+Outputs+Hashes pro LLM-Call (Tier-Spawn /
-  // Synthesis / Sniper). Adressiert Critic-Befund "Audit-Log nur Auth, kein
-  // Reasoning-Trail" + Stanford-Studie 1/6 Halluzinations-Rate.
+  // Pattern 5 Traceability (2026-05-01): reasoning_audit for hallucination
+  // detection. Persist inputs+outputs+hashes per LLM call (tier spawn /
+  // synthesis / sniper). Addresses critic finding "audit log only auth, no
+  // reasoning trail" + Stanford study 1/6 hallucination rate.
   path.join(process.cwd(), "db", "migrations", "0044_reasoning_audit.sql"),
-  // Pattern 6a Telemetrie (2026-05-01): push_rule_overrides für adaptive
-  // Decay-Logik. Phase 6b (decay.ts) folgt nach 7d Telemetrie-Vorlauf.
+  // Pattern 6a telemetry (2026-05-01): push_rule_overrides for adaptive
+  // decay logic. Phase 6b (decay.ts) follows after 7d of telemetry lead time.
   path.join(process.cwd(), "db", "migrations", "0045_push_rule_overrides.sql"),
-  // Pattern 5 Welle 3 (2026-05-01): optional Klartext-Prompts für Drift-
-  // Verifikations-Re-Spawn. ALTER TABLE ADD COLUMN — duplicate-column-Fallback
-  // unten greift bei zweitem Run.
+  // Pattern 5 Welle 3 (2026-05-01): optional plaintext prompts for drift-
+  // verification re-spawn. ALTER TABLE ADD COLUMN — duplicate-column fallback
+  // below kicks in on the second run.
   path.join(process.cwd(), "db", "migrations", "0046_add_prompt_text_columns.sql"),
-  // Pattern 4 Foundation (2026-05-01): workflow_runs — kodifizierte Domain-
-  // Workflows (dev-sprint, field-measurement, legal-brief, ...).
-  // Adressiert Critic-VETO-3 + Anne (Legaly-AI): Methodik als deterministischer
-  // FSM-Code statt Markdown-Prompt-Wall.
+  // Pattern 4 Foundation (2026-05-01): workflow_runs — codified domain
+  // workflows (dev-sprint, field-measurement, legal-brief, ...).
+  // Addresses Critic-VETO-3 + Anne (Legaly-AI): methodology as deterministic
+  // FSM code instead of a Markdown prompt wall.
   path.join(process.cwd(), "db", "migrations", "0050_workflow_runs.sql"),
-  // P14 (2026-05-01): Echter Pattern 9 "Unlearning" — failed_experiments.
-  // Korrektur User-Feedback: Anne meint persönliche Arbeitshaltung (Annahmen
-  // verwerfen + experimentieren), NICHT File-Cleanup. Weekly-Retry-Sniper
-  // probiert unresolved Experiments nach 14d mit aktuellem Modell erneut.
+  // P14 (2026-05-01): real Pattern 9 "Unlearning" — failed_experiments.
+  // Correction from user feedback: Anne means a personal working attitude (discard
+  // assumptions + experiment), NOT file cleanup. The weekly retry sniper
+  // re-attempts unresolved experiments after 14d with the current model.
   path.join(process.cwd(), "db", "migrations", "0047_experiment_tracker.sql"),
-  // P16 (2026-05-01): Sandbox-Mode pro Workspace — Constraint-as-Enabler
+  // P16 (2026-05-01): sandbox mode per workspace — constraint-as-enabler
   // (Anne: „Spielfeld klar abgesteckt, dann Entscheidungen frei zulassen").
-  // Auto-Approve in Sandbox + Push-Suppression für Routine-Events.
-  // Safety: NUR aktivierbar wenn sensitivity='low'. Loop-Guard bleibt aktiv.
+  // Auto-approve in sandbox + push suppression for routine events.
+  // Safety: only enableable when sensitivity='low'. Loop guard stays active.
   path.join(process.cwd(), "db", "migrations", "0048_workspace_sandbox_mode.sql"),
-  // 2026-05-01 — Workstream-Intent-Classification. Macht Idee/Bug-Fix/
-  // Implementation visuell unterscheidbar (User-Befund "Unterschied zwischen
-  // Implementierung und Ideen noch nicht klar"). Spalte intent + Index.
+  // 2026-05-01 — workstream intent classification. Makes idea/bug-fix/
+  // implementation visually distinguishable (user finding "difference between
+  // implementation and ideas not yet clear"). Column intent + index.
   path.join(process.cwd(), "db", "migrations", "0051_workstream_intent.sql"),
-  // 2026-04-30 — Workspace-isolierte RAG (DSGVO/AVV § 28 Mandantentrennung).
-  // Defense-in-Depth: Trigger-FK auf rag_chunks.workspace_id, Read-only-View
-  // v_rag_chunks_workspace, Audit-Tabelle fuer Cross-Workspace-Reads.
+  // 2026-04-30 — workspace-isolated RAG (GDPR/DPA § 28 tenant separation).
+  // Defense-in-depth: trigger FK on rag_chunks.workspace_id, read-only view
+  // v_rag_chunks_workspace, audit table for cross-workspace reads.
   // Plan: docs/plans/2026-04-30_workspace-rag-isolation.md
   path.join(process.cwd(), "db", "migrations", "0052_workspace_rag_isolation.sql"),
-  // 2026-05-03 — Workspace-Context-Group für User-driven Sub-Segmentierung
-  // innerhalb einer Org (z.B. Demo PV: CRM + Web als 2 WS unter
-  // einem Sub-Header). User-Befund 2026-05-03. Plan:
+  // 2026-05-03 — workspace context group for user-driven sub-segmentation
+  // within an org (e.g. Demo PV: CRM + Web as 2 WS under
+  // one sub-header). User finding 2026-05-03. Plan:
   // docs/plans/2026-05-03_workspace-create-ui.md
   path.join(process.cwd(), "db", "migrations", "0053_workspace_context_group.sql"),
-  // 2026-05-23 — OSS-Onboarding-State (Phase OSS-WIZ.1). Eigene 5-Step-
-  // Wizard-Reise (Engine/Workspace/GitHub/Push) parallel zur Cloud-Onboarding-
-  // Reise. User-Befund 2026-05-23: "wäre ja hier wichtig, dass es ein OSS
+  // 2026-05-23 — OSS onboarding state (Phase OSS-WIZ.1). Its own 5-step
+  // wizard journey (engine/workspace/GitHub/push) parallel to the cloud
+  // onboarding journey. User finding 2026-05-23: "wäre ja hier wichtig, dass es ein OSS
   // Onboarding gibt, wie z.B. bei lazing es das gab".
   path.join(process.cwd(), "db", "migrations", "0054_oss_onboarding_state.sql"),
-  // 2026-05-23 — GitHub-Integration Backport von Lazing-V2 (Agent 3/8).
+  // 2026-05-23 — GitHub integration backport from Lazing-V2 (Agent 3/8).
   // github_credentials (PAT-primary, OAuth-secondary, AES-256-GCM encrypted)
-  // + workspace_github_repos (N:1 Repo→Workspace Mapping). Quelle:
+  // + workspace_github_repos (N:1 repo→workspace mapping). Source:
   // lazing-wt/realtime-orchestrator-v2 packages/runtime/src/store/
   // migrations/012-github-substrate.ts.
   path.join(process.cwd(), "db", "migrations", "0092_workspace_github_repos.sql"),
-  // 2026-05-23 — BACKPORT-01 (chat_ledger) von Lazing-V2 (Agent 1/8). N1-verbatim
-  // chat-ledger als Foundation für Conversation-Memory + N10 tamper-evidence.
-  // Quelle: lazing-wt/realtime-orchestrator-v2 packages/runtime/src/store/
+  // 2026-05-23 — BACKPORT-01 (chat_ledger) from Lazing-V2 (Agent 1/8). N1-verbatim
+  // chat-ledger as the foundation for conversation memory + N10 tamper-evidence.
+  // Source: lazing-wt/realtime-orchestrator-v2 packages/runtime/src/store/
   // migrations/014-chat-ledger.ts.
   path.join(process.cwd(), "db", "migrations", "0093_chat_ledger.sql"),
-  // 2026-05-23 — BACKPORT-03 (recursive-plans + critic-loop) von Lazing-V2
-  // (Agent 3/8). workstream_plan_steps + workstream_plan_critics. Quelle:
+  // 2026-05-23 — BACKPORT-03 (recursive-plans + critic-loop) from Lazing-V2
+  // (Agent 3/8). workstream_plan_steps + workstream_plan_critics. Source:
   // lazing-wt/realtime-orchestrator-v2 packages/runtime/src/store/
-  // migrations/011-recursive-plans.ts. Lazyos-stable Delta: legt
-  // workstream_plan_steps neu an (V2 erweitert nur die depth-Spalte).
+  // migrations/011-recursive-plans.ts. Lazyos-stable delta: creates
+  // workstream_plan_steps anew (V2 only extends the depth column).
   path.join(process.cwd(), "db", "migrations", "0094_recursive_plans.sql"),
-  // 2026-05-23 — BACKPORT-01 ergänzt (Agent 1/8). Erweitert workstreams um
-  // snapshot_json/at/content_hash + manifestation_payload/kind. Quelle:
+  // 2026-05-23 — BACKPORT-01 augmented (Agent 1/8). Extends workstreams with
+  // snapshot_json/at/content_hash + manifestation_payload/kind. Source:
   // lazing-wt/realtime-orchestrator-v2 packages/runtime/src/store/migrations/
   // 015-streaming-snapshots.ts (Slice DB + SURFACE-PERSIST).
   path.join(process.cwd(), "db", "migrations", "0095_workstream_snapshots_v2.sql"),
-  // 2026-05-24 — Org-Level GitHub-Integration (Slice A). Neue Tabelle
-  // `org_github_credentials` (Org-scoped, UNIQUE(org_id), AES-256-GCM).
-  // Isolation: jede Org hat max. 1 GitHub-Connection; API prüft
+  // 2026-05-24 — org-level GitHub integration (Slice A). New table
+  // `org_github_credentials` (org-scoped, UNIQUE(org_id), AES-256-GCM).
+  // Isolation: each org has at most 1 GitHub connection; the API checks
   // assertOrgRole + WHERE org_id = ?. Schema: db/schema/org_github.ts.
   path.join(process.cwd(), "db", "migrations", "0096_org_github_credentials.sql"),
-  // 2026-05-24 — Lexical-RAG FTS5 (N7: lexical before vector). FTS5-Virtual-
-  // Table `rag_chunks_fts` über rag_chunks.text mit content-table-Link (rowid).
-  // Drei Trigger (AFTER INSERT/UPDATE/DELETE) halten die FTS synchron.
-  // Backfill via FTS5 'rebuild' command. Retriever: lexical-first BM25 → ggf.
-  // Cosine-Rerank → Fallback auf reinen Cosine-Pfad wenn FTS 0 Treffer.
+  // 2026-05-24 — lexical RAG FTS5 (N7: lexical before vector). FTS5 virtual
+  // table `rag_chunks_fts` over rag_chunks.text with content-table link (rowid).
+  // Three triggers (AFTER INSERT/UPDATE/DELETE) keep the FTS in sync.
+  // Backfill via FTS5 'rebuild' command. Retriever: lexical-first BM25 → optionally
+  // cosine rerank → fallback to the pure cosine path when FTS returns 0 hits.
   path.join(process.cwd(), "db", "migrations", "0097_rag_fts.sql"),
-  // 2026-05-24 — Permission-Foundation Wave 1 (ADR-0004 / POS-1 / Batch 4).
-  // Neue Tabellen: lazyos_permission_modes (workspace/org-scoped mode) +
-  // lazyos_permission_audit (append-only op-decision-log, N8/N10 content_hash).
-  // Phase-1-Default: 'freerein-with-audit' (audit-only, nie blockierend).
+  // 2026-05-24 — permission foundation Wave 1 (ADR-0004 / POS-1 / Batch 4).
+  // New tables: lazyos_permission_modes (workspace/org-scoped mode) +
+  // lazyos_permission_audit (append-only op-decision log, N8/N10 content_hash).
+  // Phase-1 default: 'freerein-with-audit' (audit-only, never blocking).
   // Enforcement via LAZYOS_PERMISSION_ENFORCEMENT ENV (default 'audit').
   path.join(process.cwd(), "db", "migrations", "0098_permission.sql"),
-  // 2026-05-24 — SAR-2: SOP-Framework (Standard Operating Procedures).
-  // Neue Tabellen: sops (plan-skeleton templates, global/workspace-scoped) +
-  // sop_steps (geordnete Steps, N1-full-prompt, N10-content_hash).
-  // Binding-Spalten an routines: sop_id, goal_prompt, skill_bindings_json,
+  // 2026-05-24 — SAR-2: SOP framework (Standard Operating Procedures).
+  // New tables: sops (plan-skeleton templates, global/workspace-scoped) +
+  // sop_steps (ordered steps, N1-full-prompt, N10-content_hash).
+  // Binding columns on routines: sop_id, goal_prompt, skill_bindings_json,
   // mcp_tool_allowlist_json, action_kind DEFAULT 'shell' (backward-compat).
   path.join(process.cwd(), "db", "migrations", "0099_sops.sql"),
   // 2026-05-24 — API Connector Layer (ACL).
-  // 0100: api_credentials (generischer Vault, org+workspace scope, provider) +
+  // 0100: api_credentials (generic vault, org+workspace scope, provider) +
   //       credential_access_log (N8). 0101: connector_catalog + connector_
-  //       capabilities (platform-global, nicht-sensitiv, ADR-0006/N2-Abgrenzung).
+  //       capabilities (platform-global, non-sensitive, ADR-0006/N2 demarcation).
   //       0102: workspaces.credential_isolation ('inherit'|'isolated', D2).
   path.join(process.cwd(), "db", "migrations", "0100_api_credentials.sql"),
   path.join(process.cwd(), "db", "migrations", "0101_connector_catalog.sql"),
   path.join(process.cwd(), "db", "migrations", "0102_workspace_credential_isolation.sql"),
-  // 0103: connector-onboarding-SOP (ACL-4) — built-in SOP, die der Auto-Connect-
-  // „Profil fehlt"-Pfad referenziert. (Checkup 2026-05-24: war versehentlich
-  // nie registriert → nur 3 statt 4 SOPs in der DB.)
+  // 0103: connector onboarding SOP (ACL-4) — built-in SOP referenced by the
+  // auto-connect „Profil fehlt" path. (Checkup 2026-05-24: was accidentally
+  // never registered → only 3 instead of 4 SOPs in the DB.)
   path.join(process.cwd(), "db", "migrations", "0103_connector_onboarding_sop.sql"),
-  // 0104: connector_catalog_audit (N8-Trace für Katalog-Writes, best-effort).
+  // 0104: connector_catalog_audit (N8 trace for catalog writes, best-effort).
   path.join(process.cwd(), "db", "migrations", "0104_connector_catalog_audit.sql"),
   // 0105: ACL-5 connector_call_approvals (trust ask|auto, default ask=fail-closed)
   //       + connector_call_audit (N8/N10, payload_hash statt payload).
   path.join(process.cwd(), "db", "migrations", "0105_connector_calls.sql"),
-  // 0106: org_github_token_use_audit (N8-Trace bei Org-Token-Nutzung, best-effort).
+  // 0106: org_github_token_use_audit (N8 trace on org token use, best-effort).
   path.join(process.cwd(), "db", "migrations", "0106_org_github_token_use_audit.sql"),
-  // 0107: R2-Gate scharf — allowed_tools pro Plan-Step (nullable JSON-Array).
-  //       NULL → konservativer Default ["Read","Grep"] in plan-executor.ts.
-  //       Befüllt von SOP-Step-Dispatch (mcp_tool_allowlist_json) oder freien
-  //       Plan-Nodes mit allowedTools. Idempotent via duplicate-column-Fallback.
+  // 0107: R2 gate enforced — allowed_tools per plan step (nullable JSON array).
+  //       NULL → conservative default ["Read","Grep"] in plan-executor.ts.
+  //       Filled by SOP step dispatch (mcp_tool_allowlist_json) or free
+  //       plan nodes with allowedTools. Idempotent via duplicate-column fallback.
   path.join(process.cwd(), "db", "migrations", "0107_plan_step_allowed_tools.sql"),
-  // 0108: App-Store/MCP-Lifecycle (Batch 7d) — app_manifests + app_installs +
-  // app_install_audit. Foundation; echter Activate/OAuth-Connect R3-gated.
+  // 0108: app-store/MCP lifecycle (Batch 7d) — app_manifests + app_installs +
+  // app_install_audit. Foundation; real activate/OAuth-connect is R3-gated.
   path.join(process.cwd(), "db", "migrations", "0108_app_manifests.sql"),
-  // N8-Fix (Checkup 2026-05-25, vom e2e gefunden): 0069 + 0071 waren NIE
-  // registriert → workstream_evidence/workstream_decisions fehlten → trace-repo
-  // writeEvidence/writeDecision no-op'ten still (N8-Trace dunkel). Self-contained
-  // (FK nur auf workstreams/0009), idempotent, append-only. Hier nachgezogen.
+  // N8 fix (Checkup 2026-05-25, found by the e2e): 0069 + 0071 were NEVER
+  // registered → workstream_evidence/workstream_decisions were missing → trace-repo
+  // writeEvidence/writeDecision silently no-op'ed (N8 trace dark). Self-contained
+  // (FK only on workstreams/0009), idempotent, append-only. Pulled in here.
   path.join(process.cwd(), "db", "migrations", "0069_workstream_evidence.sql"),
   path.join(process.cwd(), "db", "migrations", "0071_workstream_decisions.sql"),
   // 0109: Security-Critic CRITICAL #1 follow-up. Downgrades an already-seeded
@@ -415,51 +415,51 @@ const MIGRATIONS = [
   // (JSON step-ids) + group_id (affiliation). Idempotent ADD COLUMN (duplicate-
   // column tolerated). Feeds the parallel ready-queue executor (EXEC/UX-3).
   path.join(process.cwd(), "db", "migrations", "0110_plan_step_deps_group.sql"),
-  // 0111: Workspace-Path-Registry (Slice FS-1, 2026-05-26). Neue Tabelle
-  // workspace_fs_roots — ein Workspace = 1..n lokale FS-Roots (CRM-Git +
-  // Website-Git = EIN Workspace). Schließt die Kern-Lücke aus dem Workspace-
-  // Isolation-Modell (docs/plans/2026-05-26_workspace-isolation-model.md §4.1).
-  // workspaces.path bleibt als role='primary'-Root gespiegelt (Rückwärtskompat).
+  // 0111: workspace path registry (Slice FS-1, 2026-05-26). New table
+  // workspace_fs_roots — one workspace = 1..n local FS roots (CRM-Git +
+  // Website-Git = ONE workspace). Closes the core gap in the workspace
+  // isolation model (docs/plans/2026-05-26_workspace-isolation-model.md §4.1).
+  // workspaces.path stays mirrored as the role='primary' root (backward-compat).
   path.join(process.cwd(), "db", "migrations", "0111_workspace_fs_roots.sql"),
-  // 0112: Flow Studio P1 (2026-05-27). Neue Tabellen flow_templates +
+  // 0112: Flow Studio P1 (2026-05-27). New tables flow_templates +
   // flow_steps + flow_runs (docs/plans/2026-05-27_flow-studio-architecture.md
-  // §1). Rein additiv: ein flow_run erzeugt EINEN workstreams-Run
-  // (flow_runs.workstream_id = Brücke zum tier-orchestrator), die Steps werden
-  // via lib/flow/compile.ts auf Plan-Steps gemappt. sop_id ist ein Soft-FK
-  // (Flow ≠ zwingend SOP, Owner-Entscheidung §7.4). IF NOT EXISTS, idempotent.
+  // §1). Purely additive: one flow_run produces ONE workstreams run
+  // (flow_runs.workstream_id = bridge to the tier orchestrator), the steps are
+  // mapped to plan steps via lib/flow/compile.ts. sop_id is a soft FK
+  // (flow ≠ necessarily SOP, owner decision §7.4). IF NOT EXISTS, idempotent.
   path.join(process.cwd(), "db", "migrations", "0112_flow_studio.sql"),
-  // 0113: Self-Learning / WARUM-Engine Stream A (2026-05-27). Neue Tabellen
-  // workspace_beliefs (Lern-Store: je Topic je Workspace eine aktive
-  // Überzeugung; abgelöste Beliefs bleiben via supersedes_id als Historie) +
-  // decision_outcomes (verknüpft Entscheidungen/Workstreams additiv mit ihrem
-  // Ergebnis — workstream_decisions ist append-only). Macht den bisher
-  // write-only Decision-Trail (0071) lesbar/lernbar. Rein additiv, IF NOT
-  // EXISTS, idempotent. Quelle: GOAL-lazyos-self-learning-why-engine +
+  // 0113: Self-Learning / WHY-Engine Stream A (2026-05-27). New tables
+  // workspace_beliefs (learning store: one active belief per topic per
+  // workspace; superseded beliefs remain as history via supersedes_id) +
+  // decision_outcomes (additively links decisions/workstreams with their
+  // outcome — workstream_decisions is append-only). Makes the previously
+  // write-only decision trail (0071) readable/learnable. Purely additive, IF NOT
+  // EXISTS, idempotent. Source: GOAL-lazyos-self-learning-why-engine +
   // docs/plans/2026-05-27_self-learning-and-flow-completion-plan.md (Stream A).
   path.join(process.cwd(), "db", "migrations", "0113_workspace_beliefs.sql"),
-  // 0114: User-Defaults (Owner-Fix Live-Test 2026-05-28). Eine kleine
-  // additive Tabelle `user_preferences` mit `default_permission_mode`.
-  // Hält den User-Toggle „Vollzugriff" systemübergreifend, damit ein neu
-  // erstellter Workspace SOFORT den User-Default trägt (gestern fiel er
-  // stillschweigend auf 'ask' zurück, Owner musste neu toggeln). Schreiber:
-  // lib/users/preferences-repo.ts; gelesen von POST /api/workspaces (Seed
-  // der lazyos_permission_modes-Row) + GET /api/user/preferences (UI-Fallback
+  // 0114: user defaults (Owner-Fix live test 2026-05-28). A small
+  // additive table `user_preferences` with `default_permission_mode`.
+  // Holds the user toggle „Vollzugriff" system-wide, so that a newly
+  // created workspace IMMEDIATELY carries the user default (yesterday it fell
+  // back silently to 'ask', the owner had to re-toggle). Writer:
+  // lib/users/preferences-repo.ts; read by POST /api/workspaces (seed of
+  // the lazyos_permission_modes row) + GET /api/user/preferences (UI fallback
   // in AllAccessToggle). IF NOT EXISTS, idempotent.
   path.join(process.cwd(), "db", "migrations", "0114_user_preferences.sql"),
-  // 0115 (2026-05-28): legacy-compat tickets-Tabelle. Owner-Live-Test zeigte
-  // 19 wiederholte `SqliteError: no such table: tickets` aus 3 Legacy-Routen
-  // (cross-roast, inject, pause-status). Tickets sind im laz.ing-Modell event-
-  // sourced (db/schema/work_products.ts:10 verbatim) — die 3 Routes wurden
-  // nicht migriert. Diese Migration legt eine leere Compat-Tabelle an, damit
-  // die Routes valide leere Resultate liefern statt 500. Echter Refactor auf
-  // event-sourcing folgt als eigener Slice.
+  // 0115 (2026-05-28): legacy-compat tickets table. The owner live test showed
+  // 19 repeated `SqliteError: no such table: tickets` from 3 legacy routes
+  // (cross-roast, inject, pause-status). Tickets are event-sourced in the
+  // laz.ing model (db/schema/work_products.ts:10 verbatim) — the 3 routes were
+  // not migrated. This migration creates an empty compat table so that
+  // the routes return valid empty results instead of 500. A real refactor to
+  // event-sourcing follows as its own slice.
   path.join(process.cwd(), "db", "migrations", "0115_tickets_legacy_compat.sql"),
-  // 0116 (2026-05-29): Track-D Repro-Persistenz. Additive Spalten auf
-  // flow_runs — req_id (Request-Korrelation UI ↔ Server-Log ↔ DB),
-  // error_message + error_code (N8: Trace ist Evidence). Damit kann
-  // composeAndRun SOFORT nach erfolgreichem Compose einen pending-Stub
-  // schreiben — auch im needs-coupling/needs-style-choice/Compose-Fehler-
-  // Pfad. Schließt Master-Kontext §10 Befund 2 (Owner: "Innerhalb des
+  // 0116 (2026-05-29): Track-D repro persistence. Additive columns on
+  // flow_runs — req_id (request correlation UI ↔ server log ↔ DB),
+  // error_message + error_code (N8: trace is evidence). This lets
+  // composeAndRun write a pending stub IMMEDIATELY after a successful compose
+  // — also in the needs-coupling/needs-style-choice/compose-error
+  // path. Closes master-context §10 finding 2 (Owner: "Innerhalb des
   // kurzen Waits kam keine klare Flow-Antwort/Surface zurück. Es wurde
   // im kurzen Check kein neuer flow_run und kein neuer workstream
   // sichtbar.").
@@ -469,93 +469,93 @@ const MIGRATIONS = [
     "migrations",
     "0116_flow_runs_repro_persistence.sql",
   ),
-  // 0117 (2026-05-29): question_answers — strukturierter Antwort-Speicher
-  // für Open-Questions (Phase 1 Track AB · Befund B). Heute geht das
-  // Envelope (workspaceId/workstreamId/flowRunId/planId/questionSetId/
-  // questionId/sourceTurnId/surfaceId) im „Frage:.../Antwort:..."-Textblock
-  // verloren. Diese Tabelle persistiert es strukturiert, idempotent via
-  // UNIQUE(content_hash) + UNIQUE(source_turn_id, question_id). Schreiber:
-  // app/api/chat/answer/route.ts; Hydration: GET dieselbe Route.
+  // 0117 (2026-05-29): question_answers — structured answer store
+  // for open-questions (Phase 1 Track AB · Finding B). Today the
+  // envelope (workspaceId/workstreamId/flowRunId/planId/questionSetId/
+  // questionId/sourceTurnId/surfaceId) is lost in the „Frage:.../Antwort:..." text
+  // block. This table persists it structured, idempotent via
+  // UNIQUE(content_hash) + UNIQUE(source_turn_id, question_id). Writer:
+  // app/api/chat/answer/route.ts; hydration: GET the same route.
   path.join(process.cwd(), "db", "migrations", "0117_question_answers.sql"),
-  // 0118 (2026-05-29): Phase 2 W2.1 · Lane G Governance — FUNDAMENTAL-Lane
-  // (Stage 1, Governance Gate Contract). Drei additive Tabellen:
-  //   consent_grants    — §13.2 Opt-in / Pause-Stop / Review-Pflicht.
-  //                       Append-only via Trigger; revoked_at-only-Update.
+  // 0118 (2026-05-29): Phase 2 W2.1 · Lane G Governance — FUNDAMENTAL lane
+  // (Stage 1, Governance Gate Contract). Three additive tables:
+  //   consent_grants    — §13.2 opt-in / pause-stop / review obligation.
+  //                       Append-only via trigger; revoked_at-only update.
   //                       reason_text VERBATIM (N1), content_hash (N10).
-  //   source_traces     — Raw/Derived-Provenance-Kette pro Workspace.
-  //   governance_audit  — N8 Trace-as-Evidence; append-only Trigger.
-  // Sie definiert, was JEDE andere Lane darf/muss (Plan-Execute, Connector-
-  // Invoke, Spawn, Persist-Belief, …). Lese-/Schreib-Schicht:
+  //   source_traces     — raw/derived provenance chain per workspace.
+  //   governance_audit  — N8 trace-as-evidence; append-only trigger.
+  // It defines what EVERY other lane may/must do (plan-execute, connector
+  // invoke, spawn, persist-belief, …). Read/write layer:
   // lib/governance/{consent,no-auto-run,source-trace,audit,retention}.ts.
   path.join(process.cwd(), "db", "migrations", "0118_governance_consent.sql"),
   // 0119 (2026-05-29): Phase 2 W2.2 · Lane A Communication Intake.
-  //   intake_events — verbatim-Substrat (N1) fuer eingehende Kommunikation
+  //   intake_events — verbatim substrate (N1) for incoming communication
   //   (WhatsApp/Telegram/Voice/Meeting/...). source_kind = DataSource (1:1
-  //   lib/governance/consent.ts). No-auto-run-FSM (§7.2): fsm_state
+  //   lib/governance/consent.ts). No-auto-run FSM (§7.2): fsm_state
   //   staged → classified → ready-for-compile, plus blocked. nudge_class
-  //   (urgent|decision-needed|info-only|noise) ab Schritt 3. content_hash
-  //   (N10) → Idempotenz. Append-only-Light-Trigger (N8): kein DELETE, keine
-  //   Kern-Mutation; UPDATE nur auf nudge_class/fsm_state/speaker_local_id/
-  //   updated_at. Lane B (0120) liest spaeter daraus — human-gated, kein
+  //   (urgent|decision-needed|info-only|noise) from step 3 on. content_hash
+  //   (N10) → idempotency. Append-only-light trigger (N8): no DELETE, no
+  //   core mutation; UPDATE only on nudge_class/fsm_state/speaker_local_id/
+  //   updated_at. Lane B (0120) reads from it later — human-gated, no
   //   auto-run. Schema: db/schema/intake_events.ts. Master-Briefing §25.1 +
-  //   §7.2 + §7.3. Rein additiv, IF NOT EXISTS, idempotent.
+  //   §7.2 + §7.3. Purely additive, IF NOT EXISTS, idempotent.
   path.join(process.cwd(), "db", "migrations", "0119_intake_events.sql"),
   // 0120 (2026-05-29): Phase 2 W2.2 · Lane B Expertise Compiler.
-  //   knowledge_forms — eine Tabelle mit kind-Spalte fuer die 12 Wissensformen
+  //   knowledge_forms — one table with a kind column for the 12 knowledge forms
   //   (§8.2: glossary | principle | if-then-rule | exception | tactic |
   //   role-judgment | handoff-dependency | quality-criterion | simulation-case
   //   | eval-question | sop-step | open-unknown). statement/rationale/term/
   //   example_cases_json/counter_cases_json VERBATIM (N1). review_state
   //   (pending-review|approved|rejected|superseded). Approved knowledge_forms
-  //   werden NACH human-review via upsertBelief (lib/reasoning/beliefs-repo.ts)
-  //   in workspace_beliefs (0113) gespiegelt — Rueck-FK in source_json.beliefId
-  //   (N4: kein eigener Belief-Writer, keine blinde Doppelhaltung). Append-only-
-  //   Light-Trigger (N8). content_hash (N10). Schema: db/schema/knowledge_forms.ts.
-  //   Master-Briefing §8 + Integration-Plan §4 Lane B Outputs. Rein additiv,
+  //   are mirrored AFTER human review via upsertBelief (lib/reasoning/beliefs-repo.ts)
+  //   into workspace_beliefs (0113) — back-FK in source_json.beliefId
+  //   (N4: no separate belief writer, no blind duplicate storage). Append-only-
+  //   light trigger (N8). content_hash (N10). Schema: db/schema/knowledge_forms.ts.
+  //   Master-Briefing §8 + integration plan §4 Lane B outputs. Purely additive,
   //   IF NOT EXISTS, idempotent.
   path.join(process.cwd(), "db", "migrations", "0120_expertise_knowledge_forms.sql"),
   // 0121 (2026-05-29): Phase IN · Lane D Innovation Mode.
-  //   innovation_artifacts — eine Tabelle mit kind-Spalte fuer die Innovation-
-  //   Mode-Outputs (§10.4: assumption | reframe | cross-domain-analogy |
+  //   innovation_artifacts — one table with a kind column for the Innovation-
+  //   Mode outputs (§10.4: assumption | reframe | cross-domain-analogy |
   //   contrarian-roast | concept-node | concept-edge). content/source_json
-  //   VERBATIM (N1). Append-only — Trigger blockt jede UPDATE + DELETE (N8);
-  //   eine Korrektur ist eine neue Row mit supersedes_id. content_hash (N10).
-  //   Der Contrarian-Roast wiederverwendet die bestehende counter-evidence-
-  //   Surface-Logik (lib/reasoning/reconcile.ts, N4). Schema:
-  //   db/schema/innovation_artifacts.ts. Master-Briefing §10. Rein additiv,
+  //   VERBATIM (N1). Append-only — trigger blocks every UPDATE + DELETE (N8);
+  //   a correction is a new row with supersedes_id. content_hash (N10).
+  //   The contrarian roast reuses the existing counter-evidence
+  //   surface logic (lib/reasoning/reconcile.ts, N4). Schema:
+  //   db/schema/innovation_artifacts.ts. Master-Briefing §10. Purely additive,
   //   IF NOT EXISTS, idempotent.
   path.join(process.cwd(), "db", "migrations", "0121_innovation_artifacts.sql"),
-  // Phase 2 W2.3 · Lanes C/E/F Engines (2026-05-29) — lane_artifacts (EINE
-  // Tabelle, kind-Diskriminator). Lane C Role Reverse Engineering · Lane E
-  // Toolstack Replacement · Lane F Mobile Human-in-the-Loop (auf lib/push, N4).
+  // Phase 2 W2.3 · Lanes C/E/F Engines (2026-05-29) — lane_artifacts (ONE
+  // table, kind discriminator). Lane C Role Reverse Engineering · Lane E
+  // Toolstack Replacement · Lane F Mobile Human-in-the-Loop (on lib/push, N4).
   //   Engines: lib/lanes/{role-reverse,toolstack,mobile-hitl}/. Append-only
-  //   (N8/N10). Schema: db/schema/lane_artifacts.ts. Rein additiv, IF NOT
+  //   (N8/N10). Schema: db/schema/lane_artifacts.ts. Purely additive, IF NOT
   //   EXISTS, idempotent.
   path.join(process.cwd(), "db", "migrations", "0122_lane_artifacts.sql"),
-  // Sub-Chats (2026-06-02, Gathering-Intelligence-Goal) — Gruppenchats pro
-  // Workspace + append-only Nachrichten, Wissen fließt in die RAG.
+  // Sub-Chats (2026-06-02, Gathering-Intelligence-Goal) — group chats per
+  // workspace + append-only messages, knowledge flows into the RAG.
   path.join(process.cwd(), "db", "migrations", "0123_subchats.sql"),
   path.join(process.cwd(), "db", "migrations", "0124_subchat_attachments.sql"),
-  // Sub-Chats Read-Marker (2026-06-02, P2) — Unread-Badge-Grundlage.
+  // Sub-Chats read marker (2026-06-02, P2) — basis for the unread badge.
   path.join(process.cwd(), "db", "migrations", "0125_subchat_read_markers.sql"),
-  // Proaktive Vorschläge (2026-06-02) — server-pre-generierter Operator-Vorschlag
-  // pro EXTERNER Sub-Chat-Nachricht (claude-gated, best-effort).
+  // Proactive suggestions (2026-06-02) — server-pre-generated operator suggestion
+  // per EXTERNAL sub-chat message (claude-gated, best-effort).
   path.join(process.cwd(), "db", "migrations", "0126_proactive_suggestions.sql"),
-  // 0127 (2026-06-03) — claude_sessions Rotation-Bookkeeping (degrade→handoff→
-  // rotate). Auch hier registriert, damit ein Next-first-Boot die Spalten anlegt
-  // (idempotent; der Agent-Server-Runner hat sie ebenfalls).
+  // 0127 (2026-06-03) — claude_sessions rotation bookkeeping (degrade→handoff→
+  // rotate). Registered here too, so a Next-first boot creates the columns
+  // (idempotent; the agent-server runner has them as well).
   path.join(process.cwd(), "db", "migrations", "0127_session_rotation.sql"),
-  // 0128 (2026-06-03) — Question-Spinning in Sub-/Gruppen-Chats: angespinnte
-  // Fragen + erweiterbare Optionen + Antworten pro Teilnehmer (append-only,
-  // workspace-scoped). Sequentiell-prominente Pille wie im Hauptchat.
+  // 0128 (2026-06-03) — question-spinning in sub-/group chats: spun-up
+  // questions + extendable options + answers per participant (append-only,
+  // workspace-scoped). Sequentially prominent pill like in the main chat.
   path.join(process.cwd(), "db", "migrations", "0128_subchat_questions.sql"),
-  // 0129 (2026-06-03) — „Mitarbeiter"-Profile: benannte, wiederverwendbare
-  // Rolle + allow-gelistetes Capability-Bundle (Skills/MCP/SOPs/APIs +
-  // ManifestCoord), ad-hoc spawnbar (kein Dauer-Agent-User).
+  // 0129 (2026-06-03) — „Mitarbeiter" profiles: named, reusable
+  // role + allow-listed capability bundle (skills/MCP/SOPs/APIs +
+  // ManifestCoord), ad-hoc spawnable (no permanent agent user).
   path.join(process.cwd(), "db", "migrations", "0129_agent_profiles.sql"),
-  // 0130 (2026-06-03) — Flow-Parametrisierung: params_json (Template) + io_json
-  // (Step) für {{param.*}}-Interpolation → Workflows wiederverwendbar statt nur
-  // reproduzierbar. Additiv, NULL = heutiges Verhalten.
+  // 0130 (2026-06-03) — flow parametrization: params_json (template) + io_json
+  // (step) for {{param.*}} interpolation → workflows become reusable instead of
+  // merely reproducible. Additive, NULL = today's behavior.
   path.join(process.cwd(), "db", "migrations", "0130_flow_params.sql"),
   path.join(process.cwd(), "db", "migrations", "0131_pii_vault.sql"),
 ];
@@ -572,10 +572,10 @@ export function getDb(): LazyDb {
   // 2. Open connection.
   const raw = new Database(DB_PATH);
   raw.pragma("journal_mode = WAL");
-  // Test-Hook (Pattern 5 Welle 3, 2026-05-01): in Tests ist die DB
-  // initial leer, und Migration 0036 (suborgs_restore) referenziert Parent-
-  // Org-IDs die im echten Setup existieren, in Tests aber nicht. Wir
-  // erlauben Tests, FK-Checks zu deaktivieren — Production-Path bleibt ON.
+  // Test hook (Pattern 5 Welle 3, 2026-05-01): in tests the DB is
+  // initially empty, and migration 0036 (suborgs_restore) references parent
+  // org IDs that exist in the real setup but not in tests. We
+  // allow tests to disable FK checks — the production path stays ON.
   if (process.env.LAZYOS_TEST_DISABLE_FK === "1") {
     raw.pragma("foreign_keys = OFF");
   } else {
@@ -591,21 +591,21 @@ export function getDb(): LazyDb {
   // where the WHERE clause spans lines and a regex split on `;\s*$/m` would
   // wrongly chop the statement. Try the whole file at once first.
   //
-  // Fallback: SQLite `ALTER TABLE ADD COLUMN` ist nicht idempotent → es
-  // wirft "duplicate column name" beim zweiten Run, und `exec()` abortet das
-  // ganze File beim ersten Fehler. Wenn wir den Fehler sehen, fallen wir auf
-  // statement-by-statement zurueck und schlucken NUR den duplicate-column-
-  // Fehler. Andere Fehler werden re-thrown.
+  // Fallback: SQLite `ALTER TABLE ADD COLUMN` is not idempotent → it
+  // throws "duplicate column name" on the second run, and `exec()` aborts the
+  // whole file on the first error. When we see the error, we fall back to
+  // statement-by-statement and swallow ONLY the duplicate-column
+  // error. Other errors are re-thrown.
   //
-  // FK-during-migration (2026-05-24): Migrationen sind vertrauenswürdige
-  // Schema-Änderungen. Ein DDL-Statement (z.B. ALTER TABLE … ADD COLUMN) löst
-  // unter `foreign_keys=ON` eine FK-Revalidierung aus, die an VORBESTEHENDEN
-  // Orphan-Rows scheitert (diese DB hat z.B. eine `workspaces`-Row die auf eine
-  // gelöschte `organizations`-Row zeigt — fkid 0). Das ließ getDb() bei
-  // Migration 0099 mit "FOREIGN KEY constraint failed" abstürzen. Standard-
-  // Praxis (Rails/Django/SQLite-Docs): FK-Enforcement WÄHREND der Migration
-  // deaktivieren, danach wiederherstellen. Erzeugt keine neuen Verstöße — die
-  // Orphan-Row war vorher schon da und wird zur Laufzeit toleriert.
+  // FK-during-migration (2026-05-24): migrations are trusted
+  // schema changes. A DDL statement (e.g. ALTER TABLE … ADD COLUMN) triggers
+  // under `foreign_keys=ON` an FK revalidation that fails on PRE-EXISTING
+  // orphan rows (this DB has e.g. a `workspaces` row pointing to a
+  // deleted `organizations` row — fkid 0). That made getDb() crash at
+  // migration 0099 with "FOREIGN KEY constraint failed". Standard
+  // practice (Rails/Django/SQLite docs): disable FK enforcement DURING the
+  // migration, then restore it. Creates no new violations — the
+  // orphan row was already there and is tolerated at runtime.
   const fkRestore = process.env.LAZYOS_TEST_DISABLE_FK === "1" ? "OFF" : "ON";
   raw.pragma("foreign_keys = OFF");
   for (const migrationPath of MIGRATIONS) {
@@ -632,12 +632,12 @@ export function getDb(): LazyDb {
       }
     }
 
-    // Phase Vers: Append-Only-Insert in `schema_version` pro angewandter
-    // Migration. Idempotent via INSERT OR IGNORE auf der numerischen PK
-    // — Re-Boot mit gleicher Migration ueberschreibt die Row nicht.
-    // Wir setzen das hinter den eigentlichen Migration-Apply, damit die
-    // Tabelle erst nach 0021_schema_version.sql existiert. Falls sie noch
-    // nicht da ist (frueheres Migration-File), schluck den Fehler still.
+    // Phase Vers: append-only insert into `schema_version` per applied
+    // migration. Idempotent via INSERT OR IGNORE on the numeric PK
+    // — a re-boot with the same migration does not overwrite the row.
+    // We place this after the actual migration apply, so that the
+    // table only exists after 0021_schema_version.sql. If it is not yet
+    // there (earlier migration file), swallow the error silently.
     try {
       const filename = path.basename(migrationPath);
       const versionMatch = /^(\d+)_/.exec(filename);
@@ -651,7 +651,7 @@ export function getDb(): LazyDb {
           .run(version, filename, '', Date.now());
       }
     } catch (e: unknown) {
-      // Tabelle gibts erst ab Migration 0021 — frueher schweigt der Insert.
+      // The table only exists from migration 0021 — earlier the insert stays silent.
       const m = e instanceof Error ? e.message : String(e);
       if (!/no such table/i.test(m)) throw e;
     }
@@ -692,13 +692,13 @@ export function getDb(): LazyDb {
 
   cached = db;
 
-  // Sub-Plan 01c (2026-04-29) — Boot-Stuck-Check + Interval-Loop. Erkennt
-  // Workstreams die nach Service-Restart in einem `await sleep(...)`-Pause-
-  // Window standen und seitdem inactive sind, aber DB-State noch `active`
-  // sagt. Markiert sie als `stuck`. UI bietet Resume.
+  // Sub-Plan 01c (2026-04-29) — boot stuck-check + interval loop. Detects
+  // workstreams that were in an `await sleep(...)` pause
+  // window after a service restart and have been inactive since, but DB state
+  // still says `active`. Marks them as `stuck`. The UI offers resume.
   try {
-    // Async-import um Circular-Dep-Risk zu vermeiden (stuck-detector
-    // braucht getDb selber).
+    // Async import to avoid the circular-dep risk (stuck-detector
+    // needs getDb itself).
     void import('../lib/workstreams/stuck-detector').then((m) => {
       try {
         const result = m.runBootStuckCheck();

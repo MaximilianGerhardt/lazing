@@ -36,14 +36,14 @@ export const questionAnswers = sqliteTable(
     planId: text("plan_id"),
     questionSetId: text("question_set_id"),
     questionId: text("question_id").notNull(),
-    /** VERBATIM (N1) — kein .slice/.substring im Schreiber. */
+    /** VERBATIM (N1) — no .slice/.substring in the writer. */
     answer: text("answer").notNull(),
-    /** ChatShell-interner HistoryItem.id (Idempotenz-Anker). */
+    /** ChatShell-internal HistoryItem.id (idempotency anchor). */
     sourceTurnId: text("source_turn_id").notNull(),
     surfaceId: text("surface_id"),
-    /** Epoch-ms. Default 0 für Test-Determinismus (analog 0115). */
+    /** Epoch ms. Default 0 for test determinism (analogous to 0115). */
     createdAt: integer("created_at").notNull().default(0),
-    /** N10 — sha256 über das kanonisch-serialisierte Envelope. */
+    /** N10 — sha256 over the canonically serialized envelope. */
     contentHash: text("content_hash").notNull(),
   },
   (t) => ({

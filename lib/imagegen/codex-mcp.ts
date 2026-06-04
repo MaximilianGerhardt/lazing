@@ -1,33 +1,33 @@
 /**
  * lib/imagegen/codex-mcp.ts
  * -------------------------
- * Bild-Generierung über die Codex-MCP-Brücke (Owner-Wahl 2026-06-03).
+ * Image generation via the Codex-MCP bridge (owner choice 2026-06-03).
  *
- * WARUM MCP statt `codex exec`?
- *   `codex exec` (non-interaktiv) hat KEINEN Zugriff auf das eingebaute
- *   `image_gen`-Tool (OpenAI-Issue #19133) — nur der interaktive Agent kann
- *   Bilder erzeugen. `codex mcp-server` (stdio) startet GENAU diesen vollen
- *   Agenten als MCP-Server und exponiert ein `codex`-Tool, das eine komplette
- *   Agent-Session fährt — inkl. `image_gen`. Kein OPENAI_API_KEY nötig; läuft
- *   über das lokale MAX-/ChatGPT-Abo (~/.codex/auth.json).
+ * WHY MCP instead of `codex exec`?
+ *   `codex exec` (non-interactive) has NO access to the built-in
+ *   `image_gen` tool (OpenAI issue #19133) — only the interactive agent can
+ *   generate images. `codex mcp-server` (stdio) starts EXACTLY this full
+ *   agent as an MCP server and exposes a `codex` tool that runs a complete
+ *   agent session — incl. `image_gen`. No OPENAI_API_KEY needed; it runs
+ *   over the local MAX/ChatGPT subscription (~/.codex/auth.json).
  *
- * VERIFIZIERT (2026-06-03, codex-cli 0.130.0): ein `tools/call` auf das
- * `codex`-Tool mit einem Bild-Prompt erzeugt eine echte PNG (~1 MB) unter
- * `~/.codex/generated_images/<threadId>/ig_*.png`. Latenz ~85 s (TTFT ~35 s).
+ * VERIFIED (2026-06-03, codex-cli 0.130.0): a `tools/call` on the
+ * `codex` tool with an image prompt produces a real PNG (~1 MB) under
+ * `~/.codex/generated_images/<threadId>/ig_*.png`. Latency ~85 s (TTFT ~35 s).
  *
- * SICHERHEIT / DETERMINISMUS:
- *   - `sandbox: 'read-only'` (Default): der Agent darf KEINE Shell-/FS-Writes.
- *     Das `image_gen`-Tool schreibt über seinen eigenen privilegierten Pfad
- *     nach $CODEX_HOME — unabhängig vom Workspace-Sandbox. Read-only verhindert
- *     den beobachteten „ffmpeg-Umweg" (Modell versucht sonst, das Bild per
- *     Shell zu faken).
- *   - `approval-policy: 'never'`: non-interaktiv, keine Genehmigungs-Prompts.
- *   - Strikter Prompt: NUR `image_gen`, kein Shell/Python/ffmpeg.
- *   - Single-Flight (N11): max EINE Generierung gleichzeitig — Bild-Gen ist
- *     teuer (~85 s, gpt-image server-seitig). Parallele Aufrufe → `image_gen_busy`.
+ * SECURITY / DETERMINISM:
+ *   - `sandbox: 'read-only'` (default): the agent may make NO shell/FS writes.
+ *     The `image_gen` tool writes via its own privileged path
+ *     to $CODEX_HOME — independent of the workspace sandbox. Read-only prevents
+ *     the observed „ffmpeg-Umweg" (otherwise the model tries to fake the image
+ *     via the shell).
+ *   - `approval-policy: 'never'`: non-interactive, no approval prompts.
+ *   - Strict prompt: ONLY `image_gen`, no shell/python/ffmpeg.
+ *   - Single-flight (N11): max ONE generation at a time — image gen is
+ *     expensive (~85 s, gpt-image server-side). Parallel calls → `image_gen_busy`.
  *
- * Reines Node (child_process + fs). Kein React, kein Next-spezifischer Import —
- * importierbar aus einer API-Route ODER einem Test-Harness.
+ * Pure Node (child_process + fs). No React, no Next-specific import —
+ * importable from an API route OR a test harness.
  */
 
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
@@ -38,9 +38,9 @@ import { join } from 'node:path';
 const CODEX_BIN = process.env.LAZYOS_CODEX_BIN ?? 'codex';
 const CODEX_HOME = process.env.CODEX_HOME ?? join(homedir(), '.codex');
 const GEN_DIR = join(CODEX_HOME, 'generated_images');
-const DEFAULT_TIMEOUT_MS = 180_000; // 3 min — Bild-Gen läuft ~85 s, Puffer für Cold-Start.
+const DEFAULT_TIMEOUT_MS = 180_000; // 3 min — image gen runs ~85 s, buffer for cold start.
 
-/** Typed error für „eine Generierung läuft bereits" (N11 Single-Flight). */
+/** Typed error for "a generation is already running" (N11 single-flight). */
 export class ImageGenBusyError extends Error {
   constructor() {
     super('image_gen_busy');
@@ -48,7 +48,7 @@ export class ImageGenBusyError extends Error {
   }
 }
 
-/** Typed error für „Agent hat kein Bild produziert" (Refusal / image_gen-Fehler). */
+/** Typed error for "agent produced no image" (refusal / image_gen error). */
 export class NoImageProducedError extends Error {
   constructor(detail: string) {
     super(`no_image_produced: ${detail}`);
@@ -57,11 +57,11 @@ export class NoImageProducedError extends Error {
 }
 
 export interface GenerateImageResult {
-  /** Absoluter Pfad zur erzeugten PNG (unter ~/.codex/generated_images/...). */
+  /** Absolute path to the produced PNG (under ~/.codex/generated_images/...). */
   pngPath: string;
-  /** Codex-Thread-/Conversation-ID (= Unterordner-Name), falls erfasst. */
+  /** Codex thread/conversation ID (= subfolder name), if captured. */
   threadId: string | null;
-  /** Latenz der Generierung in ms. */
+  /** Latency of the generation in ms. */
   latencyMs: number;
 }
 
@@ -70,7 +70,7 @@ interface PngEntry {
   mtimeMs: number;
 }
 
-/** Alle PNGs unter GEN_DIR auflisten (rekursiv über die Thread-Unterordner). */
+/** List all PNGs under GEN_DIR (recursively across the thread subfolders). */
 function listPngs(restrictThreadId?: string | null): PngEntry[] {
   const out: PngEntry[] = [];
   if (!existsSync(GEN_DIR)) return out;
@@ -96,7 +96,7 @@ function listPngs(restrictThreadId?: string | null): PngEntry[] {
       try {
         out.push({ path: p, mtimeMs: statSync(p).mtimeMs });
       } catch {
-        /* race: datei verschwand */
+        /* race: file disappeared */
       }
     }
   }
@@ -104,8 +104,8 @@ function listPngs(restrictThreadId?: string | null): PngEntry[] {
 }
 
 /**
- * Strikter System-/User-Prompt der den Agenten zwingt, NUR `image_gen` zu
- * verwenden (kein Shell-Umweg) und genau EIN Bild zu erzeugen.
+ * Strict system/user prompt that forces the agent to use ONLY `image_gen`
+ * (no shell detour) and to produce exactly ONE image.
  */
 function buildImagePrompt(userPrompt: string): string {
   return [
@@ -122,15 +122,15 @@ function buildImagePrompt(userPrompt: string): string {
   ].join('\n');
 }
 
-// N11 — Single-Flight: nur EINE Generierung gleichzeitig.
+// N11 — single-flight: only ONE generation at a time.
 let inFlight = false;
 
 /**
- * Erzeugt ein Bild über die Codex-MCP-Brücke und liefert den lokalen PNG-Pfad.
+ * Generates an image via the Codex-MCP bridge and returns the local PNG path.
  *
- * @throws {ImageGenBusyError}     wenn bereits eine Generierung läuft.
- * @throws {NoImageProducedError}  wenn kein neues PNG entstand.
- * @throws {Error}                 bei Spawn-/Timeout-/Abort-Fehlern.
+ * @throws {ImageGenBusyError}     when a generation is already running.
+ * @throws {NoImageProducedError}  when no new PNG was produced.
+ * @throws {Error}                 on spawn/timeout/abort errors.
  */
 export async function generateImageViaCodex(opts: {
   prompt: string;
@@ -160,8 +160,8 @@ function runGeneration(opts: {
   const sandbox = opts.sandbox ?? 'read-only';
   const model = opts.model || process.env.LAZYOS_IMAGEGEN_MODEL || 'gpt-5.5';
 
-  // Baseline-PNGs VOR dem Lauf — Fallback-Erkennung falls die threadId nicht
-  // aus den Notifications zu lesen ist.
+  // Baseline PNGs BEFORE the run — fallback detection in case the threadId
+  // cannot be read from the notifications.
   const before = new Set(listPngs().map((x) => x.path));
 
   return new Promise<GenerateImageResult>((resolve, reject) => {
@@ -233,9 +233,9 @@ function runGeneration(opts: {
 
     /** Locate the freshest PNG produced by this run. */
     const resolveProducedPng = (): void => {
-      // Bevorzugt: nur der Thread-Ordner dieses Laufs.
+      // Preferred: only the thread folder of this run.
       let candidates = listPngs(threadId).filter((p) => !before.has(p.path));
-      // Fallback: irgendein neues PNG global (threadId nicht erfasst).
+      // Fallback: any new PNG globally (threadId not captured).
       if (candidates.length === 0) {
         candidates = listPngs().filter((p) => !before.has(p.path));
       }
@@ -258,7 +258,7 @@ function runGeneration(opts: {
       stderrTail = (stderrTail + d.toString('utf8')).slice(-2000);
     });
     child.on('exit', (code) => {
-      // Sauberer Exit ohne Resolve = Fehler.
+      // Clean exit without resolve = error.
       if (!settled) {
         fail(
           new Error(
@@ -287,7 +287,7 @@ function runGeneration(opts: {
           pending.delete(id);
           cb(msg);
         } else if (typeof msg.method === 'string') {
-          // Notification — threadId aus _meta lesen (erstes Auftreten genügt).
+          // Notification — read threadId from _meta (first occurrence suffices).
           if (!threadId) {
             const params = msg.params as { _meta?: { threadId?: unknown } } | undefined;
             const tid = params?._meta?.threadId;
@@ -322,8 +322,8 @@ function runGeneration(opts: {
           fail(new NoImageProducedError(err.message ?? 'tools/call error'));
           return;
         }
-        // Egal was der Agent als Text antwortet — wir lesen das PNG aus dem
-        // Thread-Ordner (deterministisch, unabhängig vom Antworttext).
+        // No matter what the agent replies as text — we read the PNG from the
+        // thread folder (deterministic, independent of the response text).
         resolveProducedPng();
       } catch (e) {
         fail(e instanceof Error ? e : new Error(String(e)));

@@ -1,9 +1,9 @@
 /**
  * /api/cloud/[id]/preview
  *
- * GET — inline-Stream für Browser-Preview. Identisch zu /api/cloud/[id]
- * aber mit `Content-Disposition: inline` statt `attachment`. Frontend
- * embedded das in iframe oder pdf.js-Viewer.
+ * GET — inline stream for browser preview. Identical to /api/cloud/[id]
+ * but with `Content-Disposition: inline` instead of `attachment`. The frontend
+ * embeds this in an iframe or pdf.js viewer.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -15,11 +15,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * MIME-Whitelist für inline-Preview. Nur diese Mime-Types dürfen mit
- * `Content-Disposition: inline` ausgeliefert werden — alles andere
- * würde same-origin im Browser ausgeführt werden (HTML/SVG → XSS, JS-
- * shenanigans). Whitelist-Misses kriegen `attachment` + octet-stream,
- * sodass der Browser nicht rendert sondern downloadet.
+ * MIME whitelist for inline preview. Only these mime types may be
+ * served with `Content-Disposition: inline` — anything else
+ * would execute same-origin in the browser (HTML/SVG → XSS, JS
+ * shenanigans). Whitelist misses get `attachment` + octet-stream,
+ * so the browser does not render but downloads.
  */
 const PREVIEW_INLINE_WHITELIST = new Set([
   "application/pdf",
@@ -44,8 +44,8 @@ export async function GET(
       ip,
       userAgent: ua,
     });
-    // Audit als "preview" zusätzlich, damit der Audit-Log Read-Pattern
-    // unterscheidet (download vs preview-render).
+    // Audit as "preview" additionally, so the audit log distinguishes the
+    // read pattern (download vs preview render).
     writeAudit({
       workspaceId: row.workspaceId,
       artifactId: row.id,

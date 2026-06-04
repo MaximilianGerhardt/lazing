@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * BrandingShowcase — Visual-Eindruck der aktuellen Token-Stack pro
- * Workspace. Zeigt Akzent-Palette, Font-Stack, Buttons, Inputs, Cards,
- * Pills, Code-Blocks. Stil: 1:1 wie /design.
+ * BrandingShowcase — visual impression of the current token stack per
+ * workspace. Shows accent palette, font stack, buttons, inputs, cards,
+ * pills, code blocks. Style: 1:1 like /design.
  *
- * Phase B (Workspace-Branding) wird das interaktiv: Akzent-Picker,
- * Font-Pair-Selector etc. JETZT erstmal Read-only-Showcase, der die
- * Live-Tokens des aktuellen Workspaces rendert.
+ * Phase B (workspace branding) will make this interactive: accent picker,
+ * font-pair selector etc. FOR NOW just a read-only showcase that renders
+ * the live tokens of the current workspace.
  */
 
 import type { CSSProperties } from 'react';

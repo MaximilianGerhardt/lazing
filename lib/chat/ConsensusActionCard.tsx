@@ -214,8 +214,8 @@ function ConsensusActionCardImpl({
     ? `/tickets/${encodeURIComponent(masterTicketId)}`
     : undefined;
 
-  // 2026-05-01 — Intent-Marker. Zentral hier definiert, in jedem
-  // Header slot reused. NULL-safe: no intent, no render.
+  // 2026-05-01 — intent marker. Defined centrally here, reused in every
+  // header slot. NULL-safe: no intent, no render.
   const intentPill = intent ? <IntentPill intent={intent} /> : null;
 
   // ---- Render ----------------------------------------------------------
@@ -386,7 +386,7 @@ function ConsensusActionCardImpl({
             {pending ? '…' : `Los — ${subsCount > 0 ? subsCount : ''} ${subsCount === 1 ? 'Sub spawnen' : 'Subs spawnen'}`}
           </button>
         </div>
-        {/* Optionale Toggles — default zugeklappt, niedrige visuelle Last */}
+        {/* Optional toggles — collapsed by default, low visual load */}
         {(subsCount > 0 || planText || hasOutliers) ? (
           <div className="srf-consensus__toggles-row">
             {subsCount > 0 ? (
@@ -568,7 +568,7 @@ function DisagreementBlock({
   );
 }
 
-// ---- Atom: kleiner farbiger Dot ------------------------------------------
+// ---- Atom: small colored dot ------------------------------------------
 function DotIcon({ variant }: { variant: 'ok' | 'warn' | 'critical' }) {
   return (
     <span

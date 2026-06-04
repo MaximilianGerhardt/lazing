@@ -1,32 +1,32 @@
 /**
- * Pattern 2 Digital-Twin — Workspace-aware Redaction (Privacy-Sprint 2026-05-01).
+ * Pattern 2 Digital-Twin — workspace-aware redaction (Privacy Sprint 2026-05-01).
  *
  * Critic-VETO V1: the owner twin may contain private/personal data
- * (legal cases, finances, private disputes, etc.). Bei einem
- * Sub-Spawn in einem Kunden-Workspace (z.B. demo-fitness, sensitivity
- * 'low') wird der komplette Twin als Klartext an die LLM-Cloud (Anthropic)
- * geschickt. Das ist DSGVO-kritisch.
+ * (legal cases, finances, private disputes, etc.). On a
+ * sub-spawn in a client workspace (e.g. demo-fitness, sensitivity
+ * 'low'), the entire twin is sent as plain text to the LLM cloud (Anthropic).
+ * That is GDPR-critical.
  *
- * Lösung: Vor jedem Spawn wird der Twin gegen die Workspace-Sensitivity
- * redigiert:
- *   - Workspace 'high' (User-/Privat-/Legal-Workspace): voller Twin OK
- *   - Workspace 'low' oder kein Domain-Twin: Redaction
- *     - sensitive_themen: nur "harmlose" Labels (kunden-credentials, api-keys)
- *     - projekte_aktiv: alle mit `sensitivity: 'high'` werden entfernt
+ * Solution: before each spawn, the twin is redacted against the workspace
+ * sensitivity:
+ *   - Workspace 'high' (user/private/legal workspace): full twin OK
+ *   - Workspace 'low' or no domain twin: redaction
+ *     - sensitive_themen: only "harmless" labels (kunden-credentials, api-keys)
+ *     - projekte_aktiv: all with `sensitivity: 'high'` are removed
  *
- * Token-Budget: Redaction macht den Twin kleiner — das <500-Tokens-Soft-Cap
- * bleibt automatisch eingehalten.
+ * Token budget: redaction makes the twin smaller — the <500-tokens soft cap
+ * stays satisfied automatically.
  */
 
 import type { OwnerTwin } from "./types";
 import type { DomainTwin } from "./types";
 
 /**
- * Welche sensitive_themen dürfen in einen low-sensitivity-Workspace?
- * Faustregel: alles was a) keinen Personen-/Geld-Bezug hat und b) für
- * jeden Sub-Agent als Operational-Hint nützlich ist.
+ * Which sensitive_themen are allowed into a low-sensitivity workspace?
+ * Rule of thumb: anything that a) has no person/money relevance and b) is
+ * useful to every sub-agent as an operational hint.
  *
- * Als allowlist gepflegt — der Default für unbekannte Labels ist "redact".
+ * Maintained as an allowlist — the default for unknown labels is "redact".
  */
 const SAFE_SENSITIVE_LABELS = new Set<string>([
   "kunden-credentials",
@@ -34,12 +34,12 @@ const SAFE_SENSITIVE_LABELS = new Set<string>([
 ]);
 
 /**
- * Liefert eine kopierte und ggf. redigierte Variante des owner twins.
+ * Returns a copied and possibly redacted variant of the owner twin.
  *
- * - `domainTwin` null oder sensitivity='low' → Redaction aktiv
- * - `domainTwin.sensitivity === 'high'` → Twin unverändert
+ * - `domainTwin` null or sensitivity='low' → redaction active
+ * - `domainTwin.sensitivity === 'high'` → twin unchanged
  *
- * Mutiert den Input nicht (deep-shallow-Copy für Arrays).
+ * Does not mutate the input (deep-shallow copy for arrays).
  */
 export function redactOwnerTwinForWorkspace(
   ownerTwin: OwnerTwin,
@@ -47,11 +47,11 @@ export function redactOwnerTwinForWorkspace(
 ): OwnerTwin {
   const isHighSensitivity = domainTwin?.sensitivity === "high";
   if (isHighSensitivity) {
-    // User-eigener Workspace = Trust-Zone, voller Twin OK.
+    // User's own workspace = trust zone, full twin OK.
     return ownerTwin;
   }
 
-  // Low-sensitivity ODER kein Domain-Twin → Redaction.
+  // Low-sensitivity OR no domain twin → redaction.
   return {
     ...ownerTwin,
     projekte_aktiv: ownerTwin.projekte_aktiv.filter(

@@ -1,16 +1,16 @@
 /**
- * TicketThread — Slack-like Diskussion für ein Ticket (Paperclip-Style).
+ * TicketThread — Slack-like discussion for a ticket (Paperclip style).
  *
- * Unterschied zu TicketTimeline:
- *   - Avatare pro Kommentar (TMC-Glyph:  für User, Agent-Initialen für
- *     agent:*,  für System)
- *   - `commented`-Events prominent als "Message-Bubble"
- *   - Status-Changes / Approvals als dezente Inline-Notices
- *   - Work-Products als Inline-Cards
- *   - Mentions (`@max`, `@agent:senior-dev`, `@demo-client`) werden
- *     hervorgehoben (Pill-Style)
+ * Difference from TicketTimeline:
+ *   - avatars per comment (TMC glyph:  for users, agent initials for
+ *     agent:*,  for system)
+ *   - `commented` events prominent as "message bubbles"
+ *   - status changes / approvals as subtle inline notices
+ *   - work products as inline cards
+ *   - mentions (`@max`, `@agent:senior-dev`, `@demo-client`) are
+ *     highlighted (pill style)
  *
- * Server-Component (keine eigene State) — erhält events props vom page.
+ * Server component (no own state) — receives events props from the page.
  */
 
 import type { CSSProperties, ReactNode } from 'react';
@@ -137,12 +137,12 @@ function renderInlineExtra(ev: LazyEvent): ReactNode {
 
 function CommentBody({ text }: { text: string }) {
   if (!text) return null;
-  // 2026-04-26 fix: vorher pre-wrap raw — Tier-Spawn-Outputs sind Markdown
-  // (## Headlines, Listen, ```code-blocks, **bold**), das sah als wall-of-text
-  // aus. Jetzt durch markdown-mini gerendert. Mentions werden via Mark-Replace
-  // pre-processed, damit sie nicht durch den Markdown-Parser verloren gehen.
-  // Pragmatisch: Mentions kommen als `@max` inline-code durch, weniger fancy
-  // als die alten Pills, aber leichter zu lesen.
+  // 2026-04-26 fix: previously pre-wrap raw — tier-spawn outputs are Markdown
+  // (## headlines, lists, ```code blocks, **bold**), which looked like a wall of
+  // text. Now rendered through markdown-mini. Mentions are pre-processed via
+  // mark-replace so they don't get lost through the Markdown parser.
+  // Pragmatic: mentions come through as `@max` inline code, less fancy
+  // than the old pills, but easier to read.
   const escaped = text.replace(/(@(?:agent:[a-z0-9_-]+|max|chairman|claude|codex))/gi, '`$1`');
   return (
     <div
@@ -320,8 +320,8 @@ const timestampStyle: CSSProperties = {
 };
 
 const bubbleStyle: CSSProperties = {
-  // Kein Rahmen — bewusst textorientiert wie Slack. Nur der Avatar + Name
-  // strukturiert. Das erhöht die Lesbarkeit bei langen Threads.
+  // No border — deliberately text-oriented like Slack. Only the avatar + name
+  // provide structure. This improves readability in long threads.
 };
 
 const inlineItemStyle: CSSProperties = {

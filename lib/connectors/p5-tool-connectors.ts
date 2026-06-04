@@ -16,13 +16,13 @@
  *   no live :4200 deploy.
  *
  * The 3 connectors (Flow Studio step-tools):
- *   1. imagegen2   — Bild-Generierung via Codex-Engine. capability: 'image.generate'.
+ *   1. imagegen2   — image generation via the Codex engine. capability: 'image.generate'.
  *                    authKind 'none' — engine-backed: reuses the existing
  *                    Codex/MAX auth (lib/llm/engines/codex.ts), NO separate key.
  *                    Marked engineBacked: true at the registry level.
- *   2. higgsfield  — Motion/Video-Graphics. capability: 'video.motion'.
+ *   2. higgsfield  — motion/video graphics. capability: 'video.motion'.
  *                    authKind 'api_key' (oauth fallback noted in onboarding).
- *   3. heygen-avatar — Sprechender Avatar / Erklärfilm. capability: 'video.avatar'.
+ *   3. heygen-avatar — talking avatar / explainer video. capability: 'video.avatar'.
  *                    authKind 'api_key'.
  *
  * live_gated (R3 / ACL-5):

@@ -22,7 +22,7 @@ export const workstreamPlanSteps = sqliteTable(
     id: text('id').primaryKey(),
     workstreamId: text('workstream_id').notNull(),
     planId: text('plan_id').notNull(),
-    /** Nullable: subplan-Step trägt parent_step_id; root-Steps trägen NULL. */
+    /** Nullable: subplan steps carry parent_step_id; root steps carry NULL. */
     parentStepId: text('parent_step_id'),
     stepIndex: integer('step_index').notNull(),
     /** N1: verbatim from LLM/template. */

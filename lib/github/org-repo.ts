@@ -1,23 +1,23 @@
 /**
- * DB-Repo für Org-Level GitHub-Credentials (Migration 0096, Slice A).
+ * DB repo for org-level GitHub credentials (Migration 0096, Slice A).
  *
  * Server-only — raw better-sqlite3 prepared statements via `getDb().$raw`
- * (gleiches Muster wie `lib/github/repo.ts`).
+ * (same pattern as `lib/github/repo.ts`).
  *
- * Isolation-Invariante (SICHERHEITS-GEBOT):
- *   - JEDE Funktion filtert hart auf `org_id = ?`.
- *   - `encrypted_token` wird NIEMALS im Klartext zurückgegeben — nutze
- *     `decryptOrgToken` nur wenn du den Plaintext wirklich brauchst
- *     (z.B. für einen Live-GitHub-API-Call).
- *   - `getOrgCredential` ist intern und gibt die Row MIT encrypted_token
- *     zurück (nur für `decryptOrgToken` + `upsertOrgCredential`).
- *   - `getOrgCredentialMeta` ist der public-safe Getter: gibt Metadaten
- *     OHNE `encrypted_token` zurück (für Status-Routes / UI-Panels).
- *   - Token NIEMALS in Logs oder API-Responses schreiben.
+ * Isolation invariant (SECURITY MANDATE):
+ *   - EVERY function filters strictly on `org_id = ?`.
+ *   - `encrypted_token` is NEVER returned in plaintext — use
+ *     `decryptOrgToken` only when you really need the plaintext
+ *     (e.g. for a live GitHub API call).
+ *   - `getOrgCredential` is internal and returns the row WITH encrypted_token
+ *     (only for `decryptOrgToken` + `upsertOrgCredential`).
+ *   - `getOrgCredentialMeta` is the public-safe getter: returns metadata
+ *     WITHOUT `encrypted_token` (for status routes / UI panels).
+ *   - NEVER write the token to logs or API responses.
  *
- * N8-Audit: `decryptOrgToken` schreibt bei jedem Token-Zugriff eine
- *   best-effort Audit-Row in `org_github_token_use_audit` (Migration 0106).
- *   KEIN Token-Wert im Audit. Idempotenz-Guard via N10 content_hash.
+ * N8 audit: `decryptOrgToken` writes a best-effort audit row to
+ *   `org_github_token_use_audit` (Migration 0106) on every token access.
+ *   NO token value in the audit. Idempotency guard via N10 content_hash.
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -29,14 +29,14 @@ import {
   encryptCredential,
 } from "@/lib/security/credentials";
 
-// ─── Row-Typen (raw SQL, nicht Drizzle-inferiert) ─────────────────────
+// ─── Row types (raw SQL, not Drizzle-inferred) ─────────────────────
 
-/** Vollständige Row inkl. encrypted_token — NUR intern (getOrgCredential). */
+/** Complete row incl. encrypted_token — internal ONLY (getOrgCredential). */
 export interface OrgGithubCredentialRow {
   id: string;
   org_id: string;
   auth_kind: "pat" | "oauth" | "github_app";
-  /** AES-256-GCM ciphertext — NIEMALS plaintext. */
+  /** AES-256-GCM ciphertext — NEVER plaintext. */
   encrypted_token: string;
   github_login: string | null;
   github_user_id: number | null;
@@ -49,10 +49,10 @@ export interface OrgGithubCredentialRow {
 }
 
 /**
- * Public-safe Projektion ohne `encrypted_token`.
+ * Public-safe projection without `encrypted_token`.
  *
- * Für Status-Routes, UI-Panels und alle Caller, die nur Metadaten brauchen.
- * `encrypted_token` ist NICHT enthalten — verlässt die Repo-Schicht nicht.
+ * For status routes, UI panels and all callers that only need metadata.
+ * `encrypted_token` is NOT included — it does not leave the repo layer.
  */
 export interface OrgGithubCredentialMeta {
   id: string;
@@ -73,7 +73,7 @@ export interface OrgGithubCredentialMeta {
 export interface UpsertOrgCredentialInput {
   orgId: string;
   authKind: "pat" | "oauth" | "github_app";
-  /** Plaintext token — wird sofort verschlüsselt, nie gespeichert. */
+  /** Plaintext token — encrypted immediately, never stored. */
   token: string;
   githubLogin: string | null;
   githubUserId: number | null;
@@ -83,13 +83,13 @@ export interface UpsertOrgCredentialInput {
 }
 
 /**
- * Upsert einer Org-GitHub-Verbindung.
+ * Upsert an org-GitHub connection.
  *
- * Token wird vor dem Speichern mit `encryptCredential` verschlüsselt.
- * Setzt `last_validated_at` auf jetzt (da der Caller erst `validateToken`
- * aufruft und dann `upsertOrgCredential`).
+ * The token is encrypted with `encryptCredential` before being stored.
+ * Sets `last_validated_at` to now (since the caller first calls `validateToken`
+ * and then `upsertOrgCredential`).
  *
- * WHERE org_id = ? (via UNIQUE-Index + conditional UPDATE/INSERT).
+ * WHERE org_id = ? (via UNIQUE index + conditional UPDATE/INSERT).
  */
 export function upsertOrgCredential(
   input: UpsertOrgCredentialInput,
@@ -125,7 +125,7 @@ export function upsertOrgCredential(
         input.expiresAt ?? null,
         now,
         now,
-        input.orgId, // WHERE org_id = ? — Isolation-Anker
+        input.orgId, // WHERE org_id = ? — isolation anchor
       );
   } else {
     db.$raw
@@ -160,21 +160,21 @@ export function upsertOrgCredential(
   return updated;
 }
 
-// ─── Get (encrypted — kein plaintext) ────────────────────────────────
+// ─── Get (encrypted — no plaintext) ────────────────────────────────
 
 /**
- * Interner Getter: gibt die vollständige Row zurück (encrypted_token NOT
- * decrypted) oder null.
+ * Internal getter: returns the complete row (encrypted_token NOT
+ * decrypted) or null.
  *
- * NICHT für API-Responses oder UI-Panels — nur für:
- *   - `decryptOrgToken` (braucht encrypted_token zum Entschlüsseln).
- *   - `upsertOrgCredential` (UPDATE/INSERT-Pfad, braucht die bestehende Row).
+ * NOT for API responses or UI panels — only for:
+ *   - `decryptOrgToken` (needs encrypted_token to decrypt).
+ *   - `upsertOrgCredential` (UPDATE/INSERT path, needs the existing row).
  *
- * Akzeptiert `db.$raw` (better-sqlite3 Database) als Parameter damit
- * Caller die gleiche Verbindung wiederverwenden können ohne getDb()
- * mehrfach aufzurufen.
+ * Accepts `db.$raw` (better-sqlite3 Database) as a parameter so
+ * callers can reuse the same connection without calling getDb()
+ * multiple times.
  *
- * WHERE org_id = ? — Isolation-Anker.
+ * WHERE org_id = ? — isolation anchor.
  */
 export function getOrgCredential(
   raw: import("better-sqlite3").Database,
@@ -189,13 +189,13 @@ export function getOrgCredential(
 }
 
 /**
- * Public-safe Getter: gibt Metadaten OHNE `encrypted_token` zurück.
+ * Public-safe getter: returns metadata WITHOUT `encrypted_token`.
  *
- * Für Status-Routes, UI-Panels und alle Caller, die NUR Metadaten
- * (connected-Status, github_login, last_validated_at, …) brauchen.
- * `encrypted_token` ist NICHT im Ergebnis enthalten.
+ * For status routes, UI panels and all callers that need ONLY metadata
+ * (connected status, github_login, last_validated_at, …).
+ * `encrypted_token` is NOT included in the result.
  *
- * WHERE org_id = ? — Isolation-Anker.
+ * WHERE org_id = ? — isolation anchor.
  */
 export function getOrgCredentialMeta(
   orgId: string,
@@ -215,11 +215,11 @@ export function getOrgCredentialMeta(
   return row ?? null;
 }
 
-// ─── N8-Audit-Hilfsfunktionen ─────────────────────────────────────────
+// ─── N8 audit helpers ─────────────────────────────────────────
 
 /**
- * Berechnet den N10-content_hash für eine Token-Use-Audit-Row.
- * Felder: org_id, purpose, ts — KEIN Token-Wert.
+ * Computes the N10 content_hash for a token-use audit row.
+ * Fields: org_id, purpose, ts — NO token value.
  */
 function computeTokenUseHash(row: {
   org_id: string;
@@ -238,15 +238,15 @@ function computeTokenUseHash(row: {
 }
 
 /**
- * Schreibt eine best-effort N8-Audit-Row in `org_github_token_use_audit`
- * (Migration 0106) wenn `decryptOrgToken` für einen echten GitHub-Call
- * aufgerufen wird.
+ * Writes a best-effort N8 audit row to `org_github_token_use_audit`
+ * (Migration 0106) when `decryptOrgToken` is called for a real GitHub
+ * call.
  *
- * Best-effort: wirft nie — ein fehlgeschlagener Audit-Write darf den
- * echten GitHub-Call NICHT blockieren.
- * N8-Observability: Fehler werden als console.warn sichtbar gemacht.
- * KEIN Token-Wert im Audit (D5 / SICHERHEITS-GEBOT).
- * N10: content_hash über canonicalJSON.
+ * Best-effort: never throws — a failed audit write must NOT block the
+ * real GitHub call.
+ * N8 observability: errors are made visible as console.warn.
+ * NO token value in the audit (D5 / SECURITY MANDATE).
+ * N10: content_hash over canonicalJSON.
  */
 function writeTokenUseAuditRow(orgId: string, purpose: string): void {
   try {
@@ -262,36 +262,36 @@ function writeTokenUseAuditRow(orgId: string, purpose: string): void {
       )
       .run(id, orgId, purpose, ts, content_hash);
   } catch (err) {
-    // Best-effort — sichtbar für N8-Observability, aber nie blockierend.
+    // Best-effort — visible for N8 observability, but never blocking.
     // eslint-disable-next-line no-console
     console.warn("[org-github-audit] token-use audit write failed:", err);
   }
 }
 
-// ─── Decrypt (Klartext nur für interne API-Calls) ─────────────────────
+// ─── Decrypt (plaintext only for internal API calls) ─────────────────────
 
 /**
- * Entschlüsselt das Token für einen Live-GitHub-API-Call.
+ * Decrypts the token for a live GitHub API call.
  *
- * Schreibt eine best-effort N8-Audit-Row (org_id, purpose, ts, content_hash)
- * in `org_github_token_use_audit` (Migration 0106). KEIN Token-Wert im Audit.
+ * Writes a best-effort N8 audit row (org_id, purpose, ts, content_hash)
+ * to `org_github_token_use_audit` (Migration 0106). NO token value in the audit.
  *
- * NIEMALS in einem HTTP-Response zurückgeben.
- * NIEMALS in Logs schreiben.
+ * NEVER return it in an HTTP response.
+ * NEVER write it to logs.
  *
- * @param orgId   Org-ID (N9 Isolation-Anker).
- * @param purpose Kurze Zweckbeschreibung für die Audit-Row (z.B. 'list-repos',
+ * @param orgId   Org ID (N9 isolation anchor).
+ * @param purpose Short purpose description for the audit row (e.g. 'list-repos',
  *                'token-resolver'). Default: 'unspecified'.
  *
- * WHERE org_id = ? — Isolation-Anker.
+ * WHERE org_id = ? — isolation anchor.
  */
 export function decryptOrgToken(orgId: string, purpose = "unspecified"): string | null {
   const db = getDb();
   const row = getOrgCredential(db.$raw, orgId);
   if (!row) return null;
   const plaintext = decryptCredential(row.encrypted_token);
-  // N8: Audit-Row schreiben NACHDEM das Token erfolgreich entschlüsselt wurde.
-  // Nur wenn wir tatsächlich ein Token zurückgeben (nicht null).
+  // N8: write the audit row AFTER the token has been successfully decrypted.
+  // Only when we actually return a token (not null).
   if (plaintext !== null) {
     writeTokenUseAuditRow(orgId, purpose);
   }
@@ -301,11 +301,11 @@ export function decryptOrgToken(orgId: string, purpose = "unspecified"): string 
 // ─── Delete ───────────────────────────────────────────────────────────
 
 /**
- * Löscht die Org-GitHub-Verbindung.
+ * Deletes the org-GitHub connection.
  *
- * WHERE org_id = ? — Isolation-Anker.
- * Gibt true zurück wenn eine Row gelöscht wurde, false wenn keine
- * Verbindung vorhanden war.
+ * WHERE org_id = ? — isolation anchor.
+ * Returns true if a row was deleted, false if no
+ * connection existed.
  */
 export function deleteOrgCredential(orgId: string): boolean {
   const db = getDb();

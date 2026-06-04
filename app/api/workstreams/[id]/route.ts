@@ -2,7 +2,7 @@
  * GET /api/workstreams/[id]
  * PATCH /api/workstreams/[id]
  *
- * Detail-Endpoint mit Workstream + verlinkten Tickets (über
+ * Detail endpoint with workstream + linked tickets (via
  * events.payload.workstreamId).
  */
 
@@ -55,9 +55,9 @@ export async function GET(_req: NextRequest, ctx: Ctx): Promise<Response> {
   if (!workstream) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
-  // Hole alle Tickets im selben Workspace und filtere die mit
-  // workstreamId === id. Performant genug für die ~100 Tickets pro
-  // Workspace; bei Skalierung würde ein dedizierter Index lohnen.
+  // Fetch all tickets in the same workspace and filter the ones with
+  // workstreamId === id. Performant enough for the ~100 tickets per
+  // workspace; at scale a dedicated index would pay off.
   const allTickets = await listTickets({ workspaceId: workstream.workspaceId });
   const tickets = allTickets.filter((t) => t.workstreamId === id);
   return NextResponse.json({ workstream, tickets });

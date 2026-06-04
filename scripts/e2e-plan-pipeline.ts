@@ -1,15 +1,15 @@
 /**
  * scripts/e2e-plan-pipeline.ts
  * ----------------------------
- * E2E-Vertragstest für die Plan-Pipeline — OHNE echten LLM/Embedder.
+ * E2E contract test for the plan pipeline — WITHOUT a real LLM/embedder.
  *
- * Schritt-für-Schritt:
+ * Step by step:
  *   1. Decompose (stub callEngine)   — parseProposedPlan via proposeRecursivePlan
  *   2. Persist                        — createWorkstream + insertProposedPlan
- *   3. Read-back                      — listRootPlanSteps + Verbatim-N1-Assert
- *   4. Card-Contract                  — updateCard-Payload reproduzieren, renderSubplan-Guards prüfen
- *   5. Executor-Helfer                — buildStepPrompt / buildSummaryContent (nicht exportiert → skip)
- *   6. Cleanup                        — DELETE aus workstream_plan_steps + workstreams
+ *   3. Read-back                      — listRootPlanSteps + verbatim N1 assert
+ *   4. Card contract                  — reproduce the updateCard payload, check renderSubplan guards
+ *   5. Executor helpers               — buildStepPrompt / buildSummaryContent (not exported → skip)
+ *   6. Cleanup                        — DELETE from workstream_plan_steps + workstreams
  *
  * Run:
  *   set -a && source .env.local && set +a
@@ -17,7 +17,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Bootstrap — cwd auf Repo-Root setzen damit @/* Aliase + DB-Pfad stimmen.
+// Bootstrap — set cwd to the repo root so @/* aliases + DB path are correct.
 // ---------------------------------------------------------------------------
 
 import path from 'node:path';
@@ -25,11 +25,11 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Repo-Root ist eine Ebene über scripts/
+// The repo root is one level above scripts/
 process.chdir(path.join(__dirname, '..'));
 
 // ---------------------------------------------------------------------------
-// Imports nach cwd-Fixup (wichtig: DB-Client liest process.cwd())
+// Imports after the cwd fixup (important: the DB client reads process.cwd())
 // ---------------------------------------------------------------------------
 
 import { randomUUID } from 'node:crypto';
@@ -56,7 +56,7 @@ import {
   listSubplanSteps,
 } from '../lib/workstreams/plan-repo.js';
 
-// DB (für Cleanup)
+// DB (for cleanup)
 import { getDb } from '../db/client.js';
 import { workstreamPlanSteps } from '../db/schema/workstream_plan_steps.js';
 import { workstreams } from '../db/schema/workstreams.js';

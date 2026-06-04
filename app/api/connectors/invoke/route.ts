@@ -1,34 +1,34 @@
 /**
  * POST /api/connectors/invoke
  *
- * ACL5-E (2026-05-24) — Connector-Call nach User-Approve.
+ * ACL5-E (2026-05-24) — connector call after user approve.
  *
- * Diese Route ist der EINZIGE Weg für echte Connector-Calls nach User-Freigabe.
- * Sie empfängt die User-Bestätigung (Klick auf „Freigeben & ausführen" in der
- * connector-call-preview-Card) und ruft executeCall({..., approved:true}).
+ * This route is the ONLY way for real connector calls after user approval.
+ * It receives the user confirmation (click on „Freigeben & ausführen" in the
+ * connector-call-preview card) and calls executeCall({..., approved:true}).
  *
- * ── Auth-Gate ─────────────────────────────────────────────────────────────────
- *   Dieselbe Härtung wie /api/connectors/[provider]/credential:
- *   (A) currentUserIdResolved → 401 wenn nicht eingeloggt.
+ * ── Auth gate ─────────────────────────────────────────────────────────────────
+ *   The same hardening as /api/connectors/[provider]/credential:
+ *   (A) currentUserIdResolved → 401 if not logged in.
  *   (B) canEditWorkspaceContent(getEffectiveWorkspaceRole) → 403.
- *   (C) hasRealWorkspaceMembership (IDOR-Härtung) → 403.
- *   Kein `solo-implicit-founder`-Vertrauen für diesen sensiblen Call.
+ *   (C) hasRealWorkspaceMembership (IDOR hardening) → 403.
+ *   No `solo-implicit-founder` trust for this sensitive call.
  *
- * ── LIVE-Gate ────────────────────────────────────────────────────────────────
- *   executeCall ist selbst gated durch:
- *   PRE-1..PRE-4: Profil, Coverage, S4-Hardening, S6-Trust/Approval.
- *   PRE-5: LAZYOS_CONNECTOR_LIVE — default off → Dry-Run.
- *   PRE-6: Credential-Resolution ERST wenn LIVE on.
+ * ── LIVE gate ────────────────────────────────────────────────────────────────
+ *   executeCall is itself gated by:
+ *   PRE-1..PRE-4: profile, coverage, S4 hardening, S6 trust/approval.
+ *   PRE-5: LAZYOS_CONNECTOR_LIVE — default off → dry run.
+ *   PRE-6: credential resolution ONLY when LIVE is on.
  *
  * ── Security ─────────────────────────────────────────────────────────────────
- *   - `approved:true` kommt von diesem Endpoint (User-Bestätigung = Klick).
- *   - Kein Secret in Request-Body, Response oder Logs.
- *   - Response: { ok, dryRun?, blocked?, resultSummary } — KEIN Secret.
- *   - Audit: executeCall schreibt immer eine N8-Audit-Row.
+ *   - `approved:true` comes from this endpoint (user confirmation = click).
+ *   - No secret in the request body, response or logs.
+ *   - Response: { ok, dryRun?, blocked?, resultSummary } — NO secret.
+ *   - Audit: executeCall always writes an N8 audit row.
  *
  * ── N8 ───────────────────────────────────────────────────────────────────────
  *   executeCall → recordCallAudit('invoke'|'deny'|'dry-run', ...).
- *   Dieser Endpoint schreibt keine eigene Audit-Row — executeCall macht das.
+ *   This endpoint writes no audit row of its own — executeCall does that.
  */
 
 import { and, eq } from 'drizzle-orm';
@@ -47,24 +47,24 @@ import { executeCall } from '@/lib/connectors/invoke';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Provider-Regex (gespiegelt von vault.ts + credential-route.ts).
+// Provider regex (mirrored from vault.ts + credential-route.ts).
 const PROVIDER_RE = /^[a-z][a-z0-9_-]{0,63}$/;
 
-// Capability-Regex: erlaubt [a-z][a-z0-9_-]*.
+// Capability regex: allows [a-z][a-z0-9_-]*.
 const CAPABILITY_RE = /^[a-z][a-z0-9_-]{0,63}$/;
 
-// WorkspaceId-Format-Guard (Security-Critic Finding 2, LOW).
-// Verhindert dass Kontroll-/überlange Werte in Audit-result_summary landen.
-// Membership-Query ist via Drizzle ohnehin parametrisiert — reine Härtung.
+// WorkspaceId format guard (security critic finding 2, LOW).
+// Prevents control/overlong values from landing in the audit result_summary.
+// The membership query is parametrized via Drizzle anyway — pure hardening.
 const WORKSPACE_ID_RE = /^[a-zA-Z0-9_:-]{1,128}$/;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IDOR-Härtung (analog credential/route.ts — Security-Critic 2a)
+// IDOR hardening (analogous to credential/route.ts — security critic 2a)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Für diesen sensiblen Call (echter API-Aufruf nach User-Approve) verlangen
- * wir nachgewiesene Workspace-Zugehörigkeit — `solo-implicit-founder` reicht nicht.
+ * For this sensitive call (real API call after user approve) we require
+ * proven workspace membership — `solo-implicit-founder` is not enough.
  */
 function hasRealWorkspaceMembership(userId: string, workspaceId: string): boolean {
   const db = getDb();
@@ -88,25 +88,25 @@ function hasRealWorkspaceMembership(userId: string, workspaceId: string): boolea
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST-Handler
+// POST handler
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface InvokeBody {
   provider?: unknown;
   capability?: unknown;
   workspaceId?: unknown;
-  /** Optionaler Payload (Keys + beliebige Werte, kein Secret). */
+  /** Optional payload (keys + arbitrary values, no secret). */
   payload?: unknown;
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
-  // ── 1. Auth-Gate ─────────────────────────────────────────────────────────
+  // ── 1. Auth gate ─────────────────────────────────────────────────────────
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required' }, { status: 401 });
   }
 
-  // ── 2. Body parsen ───────────────────────────────────────────────────────
+  // ── 2. Parse the body ──────────────────────────────────────────────────────
   let body: InvokeBody;
   try {
     body = (await req.json()) as InvokeBody;
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
 
-  // ── 3. Validierung (N6: deterministisch vor DB-Zugriff) ──────────────────
+  // ── 3. Validation (N6: deterministic before DB access) ───────────────────
   const provider = typeof body.provider === 'string' ? body.provider.trim() : '';
   if (!PROVIDER_RE.test(provider)) {
     return NextResponse.json(
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 400 },
     );
   }
-  // Finding 2 (LOW): Format-Guard auf workspaceId — analog provider/capability.
+  // Finding 2 (LOW): format guard on workspaceId — analogous to provider/capability.
   if (!WORKSPACE_ID_RE.test(workspaceId)) {
     return NextResponse.json(
       { error: 'invalid_workspace_id', message: 'workspaceId muss ^[a-zA-Z0-9_:-]{1,128}$ sein' },
@@ -146,19 +146,19 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // ── 4. Permission-Gate ───────────────────────────────────────────────────
+  // ── 4. Permission gate ───────────────────────────────────────────────────
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // ── 4b. IDOR-Härtung ─────────────────────────────────────────────────────
+  // ── 4b. IDOR hardening ───────────────────────────────────────────────────
   if (!hasRealWorkspaceMembership(userId, workspaceId)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // ── 5. Payload sanitisieren (keine Secrets, kein PII) ────────────────────
-  // Der Body-Payload kommt aus der Preview-Card (payloadSummary = Keys + Typen).
-  // Wir filtern bekannte sensitive Key-Namen heraus bevor wir executeCall aufrufen.
+  // ── 5. Sanitize the payload (no secrets, no PII) ─────────────────────────
+  // The body payload comes from the preview card (payloadSummary = keys + types).
+  // We filter out known sensitive key names before calling executeCall.
   const rawPayload = body.payload;
   let callPayload: Record<string, unknown> | undefined;
   if (rawPayload !== null && rawPayload !== undefined && typeof rawPayload === 'object' && !Array.isArray(rawPayload)) {
@@ -176,9 +176,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     callPayload = sanitized;
   }
 
-  // ── 6. executeCall — gated (N6: alle PRE-1..PRE-5) ──────────────────────
-  // approved:true = User hat den Call über die preview-Card freigegeben.
-  // Die Gate-Kette in executeCall entscheidet über echten Call vs. Dry-Run.
+  // ── 6. executeCall — gated (N6: all PRE-1..PRE-5) ───────────────────────
+  // approved:true = the user approved the call via the preview card.
+  // The gate chain in executeCall decides between a real call vs. a dry run.
   let callResult;
   try {
     callResult = await executeCall({
@@ -189,12 +189,12 @@ export async function POST(req: NextRequest): Promise<Response> {
       userId,
       scopeKind: 'workspace',
       requiredCaps: [capability],
-      // approved:true: User-Bestätigung via Klick auf „Freigeben & ausführen".
+      // approved:true: user confirmation via a click on „Freigeben & ausführen".
       approved: true,
     });
   } catch (err) {
-    // executeCall wirft intern nicht (alle Fehler → BlockedCallResult),
-    // aber defensive Catch für unerwartete Exceptions.
+    // executeCall does not throw internally (all errors → BlockedCallResult),
+    // but a defensive catch for unexpected exceptions.
     const msg = err instanceof Error ? err.message : String(err);
     console.warn('[connectors/invoke] executeCall threw unexpectedly:', msg);
     return NextResponse.json(
@@ -203,26 +203,26 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // ── 7. Response — KEIN Secret ────────────────────────────────────────────
+  // ── 7. Response — NO secret ──────────────────────────────────────────────
   if (!callResult.ok) {
-    // Blockiert: PRE-Gate hat versagt oder Call-Error.
-    // Finding 1 (MEDIUM): NUR der maschinenlesbare Code geht an den Client.
-    // `callResult.detail` enthält interne S4-Struktur (hardened.rationale,
-    // allowedMcpTools-Liste, erlaubte Capabilities) — würde einem Workspace-
-    // Member per Probing das interne Toolset-Layout enumerieren lassen.
-    // Die volle Begründung bleibt server-seitig in der N8-Audit-Row, die
-    // executeCall ohnehin schreibt (recordCallAudit('deny', ...)).
+    // Blocked: the PRE gate failed or a call error.
+    // Finding 1 (MEDIUM): ONLY the machine-readable code goes to the client.
+    // `callResult.detail` contains internal S4 structure (hardened.rationale,
+    // allowedMcpTools list, allowed capabilities) — would let a workspace
+    // member enumerate the internal toolset layout by probing.
+    // The full reasoning stays server-side in the N8 audit row that
+    // executeCall writes anyway (recordCallAudit('deny', ...)).
     return NextResponse.json(
       {
         ok: false,
         blocked: callResult.blocked,
       },
-      { status: 200 }, // 200 weil die Route selbst erfolgreich war; der Call war gated
+      { status: 200 }, // 200 because the route itself succeeded; the call was gated
     );
   }
 
   if (callResult.dryRun) {
-    // Dry-Run: LAZYOS_CONNECTOR_LIVE ist off. Klar gelabelt.
+    // Dry run: LAZYOS_CONNECTOR_LIVE is off. Clearly labeled.
     return NextResponse.json(
       {
         ok: true,
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // Echter Call: status + resultSummary (kein Response-Body, kein Secret).
+  // Real call: status + resultSummary (no response body, no secret).
   return NextResponse.json(
     {
       ok: true,

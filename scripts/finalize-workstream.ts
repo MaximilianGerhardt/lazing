@@ -1,9 +1,9 @@
 /**
  * scripts/finalize-workstream.ts (2026-04-29).
  *
- * Pragmatischer Helper: für einen iterate-fertig-Workstream die ConsensusAction-
- * Card im Chat erzeugen + Master-Ticket workflowState='review' setzen.
- * Nutzt existing Surface-Library — kein neues UI.
+ * Pragmatic helper: for an iterate-finished workstream, create the
+ * ConsensusAction card in the chat + set the master ticket workflowState='review'.
+ * Uses the existing surface library — no new UI.
  *
  * Usage:
  *   pnpm tsx scripts/finalize-workstream.ts <workstreamId>
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  // Letzten iterate-version Plan-Text aus DB
+  // Latest iterate-version plan text from DB
   const planRow = db.$raw
     .prepare(
       `SELECT json_extract(payload,'$.text') as text,
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
     process.exit(3);
   }
 
-  // 1) workflowState='review' Update-Event
+  // 1) workflowState='review' update event
   await emitEvent({
     segmentId: wsRow.workspace_id,
     entityType: 'ticket',
@@ -67,18 +67,18 @@ async function main(): Promise<void> {
     sensitivity: 'low',
   });
 
-  // 2) Master-Ticket workflow_state Spalte hochziehen (Auto-Dispatch
-  //    nutzt das, nicht das Event direkt — siehe lib/tickets/auto-dispatch.ts).
+  // 2) Bump the master ticket's workflow_state column (auto-dispatch
+  //    uses that, not the event directly — see lib/tickets/auto-dispatch.ts).
   try {
     db.$raw
       .prepare("UPDATE tickets SET workflow_state='review' WHERE id=?")
       .run(wsRow.primary_ticket_id);
   } catch {
-    /* tickets-Tabelle existiert evt. nicht (Event-Sourcing) — egal */
+    /* the tickets table may not exist (event-sourcing) — never mind */
   }
 
-  // 2b) Outlier-Aggregation aus Roaster-Events der letzten Welle.
-  //     Sub-Plan 04 (2026-04-29) — Outlier-Inline-Daten statt extern.
+  // 2b) Outlier aggregation from the roaster events of the last wave.
+  //     Sub-Plan 04 (2026-04-29) — outlier inline data instead of external.
   const lastVersionRow = db.$raw
     .prepare(
       `SELECT created_at FROM events
@@ -111,8 +111,8 @@ async function main(): Promise<void> {
     }))
     .slice(0, 4);
 
-  // 3) chat_message_completed-Event mit ConsensusActionCard-Surface-Tag.
-  //    ChatShell rendert diesen als Assistant-Message + Surface.
+  // 3) chat_message_completed event with the ConsensusActionCard surface tag.
+  //    ChatShell renders it as an assistant message + surface.
   const consensusJson = JSON.stringify({
     workstreamId: wsRow.id,
     consensusLevel: 'majority',

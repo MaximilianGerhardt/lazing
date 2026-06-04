@@ -1,15 +1,15 @@
 /**
  * DELETE /api/chat/snapshot/[pendingPromptId]
  *
- * Streaming-Recovery · 2026-04-27. Löscht eine `streaming_snapshots`-Row.
- * Wird vom Frontend aufgerufen für:
- *   - "Verwerfen"-Button in der aborted-StreamingBubble
- *   - Cleanup nach erfolgreichem "Regenerieren" (alte Snapshot-Karteileiche entfernen)
+ * Streaming recovery · 2026-04-27. Deletes a `streaming_snapshots` row.
+ * Called by the frontend for:
+ *   - the "Verwerfen" button in the aborted StreamingBubble
+ *   - cleanup after a successful "Regenerieren" (remove the old snapshot zombie)
  *
- * Auth: Cookie-basiert (gleicher Pattern wie GET /api/chat/history/[workspaceId]).
+ * Auth: cookie-based (same pattern as GET /api/chat/history/[workspaceId]).
  *
- * Response: 204 No Content bei Erfolg, 404 wenn Row nicht (mehr) existiert,
- *           401 unauthenticated, 400 bei ungültigem Param.
+ * Response: 204 No Content on success, 404 if the row no longer exists,
+ *           401 unauthenticated, 400 on an invalid param.
  */
 
 import { NextResponse } from "next/server";

@@ -1,28 +1,28 @@
 'use client';
 
 /**
- * InlineWorkerStatus — Inline-Banner unterhalb der letzten Bubble, wenn
- * andere Workstreams im aktuellen Workspace im Hintergrund arbeiten.
+ * InlineWorkerStatus — an inline banner below the last bubble when
+ * other workstreams in the current workspace are working in the background.
  *
- * Ergänzt den TopNav `BackgroundActivityIndicator`. User-Befund 2026-05-03:
- * "ich sehe schon wieder nicht ob du arbeitest im lazyOS Chat" — Mobile
- * TopNav-Pulse-Pill war zu klein/unauffällig.
+ * Complements the TopNav `BackgroundActivityIndicator`. User finding 2026-05-03:
+ * "ich sehe schon wieder nicht ob du arbeitest im lazyOS Chat" — the mobile
+ * TopNav pulse pill was too small/inconspicuous.
  *
- * Klare Abgrenzung zu existierenden Indikatoren:
- *  - StreamingAssistant      → AKTUELLER Turn (zeigt Caret + Phase-Text)
- *  - TypingIndicator         → Mock/Server-Pending OHNE Stream
- *  - InlineWorkerStatus      → ANDERE Workstreams im selben Workspace
- *  - BackgroundActivityIndicator (TopNav) → Workspace-übergreifend
+ * Clear distinction from existing indicators:
+ *  - StreamingAssistant      → CURRENT turn (shows caret + phase text)
+ *  - TypingIndicator         → mock/server-pending WITHOUT a stream
+ *  - InlineWorkerStatus      → OTHER workstreams in the same workspace
+ *  - BackgroundActivityIndicator (TopNav) → across workspaces
  *
- * 2026-05-28 — Owner-Fix: Klick oeffnete vorher den ganzen MobileDrawer
- * und scrollte zu drawer-section-activity (direkt ueber Workspaces).
- * Auf Mobile las sich das als „scrollt mich zu den Workspaces" — Owner
- * verlor Chat-Kontext, Pill war „nutzlos". JETZT: Klick oeffnet eine
- * fokussierte Detail-Surface (InlineWorkerStatusDetail) inline am Anker,
- * KEIN Drawer-Dispatch, KEIN Scroll-Sprung.
+ * 2026-05-28 — owner fix: a click previously opened the whole MobileDrawer
+ * and scrolled to drawer-section-activity (directly above workspaces).
+ * On mobile this read as „it scrolls me to the workspaces" — the owner
+ * lost the chat context, the pill was „useless". NOW: a click opens a
+ * focused detail surface (InlineWorkerStatusDetail) inline at the anchor,
+ * NO drawer dispatch, NO scroll jump.
  *
- * Klein, Token-konform, kein Sticky/Modal/Overlay (das modale ist nur die
- * Detail-Surface, und auch dort: kein doppelter Hintergrund-Layer).
+ * Small, token-compliant, no sticky/modal/overlay (the modal is only the
+ * detail surface, and even there: no double background layer).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -39,7 +39,7 @@ interface ActivityItem {
   phase: string | null;
   lastTickMs: number | null;
   workspaceId: string;
-  /** Detail-Felder — vom /api/activity/live?detail=1 geliefert. */
+  /** Detail fields — delivered by /api/activity/live?detail=1. */
   status?: 'active' | 'paused' | 'stuck' | null;
   stuckSinceMs?: number | null;
   stuckReason?: string | null;
@@ -86,8 +86,8 @@ export function InlineWorkerStatus({
       inflightRef.current?.abort();
       const ctrl = new AbortController();
       inflightRef.current = ctrl;
-      // detail=1 → Backend liefert status/stuckSinceMs/stuckReason mit.
-      // Backwards-compatible: ohne detail=1 bleibt der Payload identisch.
+      // detail=1 → the backend also delivers status/stuckSinceMs/stuckReason.
+      // Backwards-compatible: without detail=1 the payload stays identical.
       fetch('/api/activity/live?detail=1', {
         cache: 'no-store',
         signal: ctrl.signal,
@@ -151,8 +151,8 @@ export function InlineWorkerStatus({
   );
 
   const onClick = useCallback((): void => {
-    // Owner-Fix 2026-05-28: NICHT mehr lazyos:drawer:open dispatchen.
-    // Inline Detail-Surface oeffnen — kein Drawer, kein Scroll-Sprung.
+    // Owner fix 2026-05-28: no longer dispatch lazyos:drawer:open.
+    // Open the inline detail surface — no drawer, no scroll jump.
     const rect = pillRef.current?.getBoundingClientRect() ?? null;
     setAnchorRect(rect);
     setDetailOpen(true);
@@ -164,7 +164,7 @@ export function InlineWorkerStatus({
 
   if (items.length === 0) return null;
 
-  // Primary item = jüngstes (items kommen DESC sortiert vom Endpoint)
+  // Primary item = newest (items come DESC-sorted from the endpoint)
   const primary = items[0];
   const more = items.length - 1;
   const dur = formatDur(primary.lastTickMs, now);

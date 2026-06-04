@@ -1,34 +1,34 @@
 /**
- * Connector Invoke-Policy Gate (S4, ACL-5-C — 2026-05-24).
+ * Connector invoke-policy gate (S4, ACL-5-C — 2026-05-24).
  *
- * Deterministisches, fail-closed Tool-Hardening für Connector-Calls.
- * Adressiert S4 aus dem ACL-5-Auto-Connect-Plan:
+ * Deterministic, fail-closed tool hardening for connector calls.
+ * Addresses S4 from the ACL-5 auto-connect plan:
  *   "baut hardened allowedTools strikt aus Connector-Capabilities ∩ binding-resolver
  *    ∩ K1-Deny; verbietet bash/file/andere-Provider"
  *
- * Komplementär zu lib/security/execution-policy.ts (R2 für Plan-Steps):
- *   - execution-policy.ts: plan-steps mit Rollen, file/bash-Tools, workspaceId.
- *   - invoke-policy.ts:    connector-calls mit Provider, Capabilities, MCP-Tools.
- *   Beide sind pure Funktionen (keine I/O, kein LLM, keine DB, kein child_process).
+ * Complementary to lib/security/execution-policy.ts (R2 for plan steps):
+ *   - execution-policy.ts: plan steps with roles, file/bash tools, workspaceId.
+ *   - invoke-policy.ts:    connector calls with provider, capabilities, MCP tools.
+ *   Both are pure functions (no I/O, no LLM, no DB, no child_process).
  *
- * Designprinzipien (identisch zu execution-policy.ts + binding-resolver.ts):
- *   - Keine Default-allow. Fehlende / unbekannte Felder → deny.
- *   - Pure Funktionen: keine DB, kein LLM, kein IO.
- *   - fail-closed: im Zweifel WENIGER Tools.
- *   - K1-Deny ist hart — nicht überschreibbar durch Allowlist.
- *   - N6: Deterministische Validatoren vor symbolischem Reasoning.
- *   - N1: reason verbatim, kein slice, kein Kürzen.
+ * Design principles (identical to execution-policy.ts + binding-resolver.ts):
+ *   - No default allow. Missing / unknown fields → deny.
+ *   - Pure functions: no DB, no LLM, no IO.
+ *   - fail-closed: when in doubt, FEWER tools.
+ *   - K1-Deny is hard — not overridable by the allowlist.
+ *   - N6: deterministic validators before symbolic reasoning.
+ *   - N1: reason verbatim, no slice, no truncation.
  *
- * Sicherheits-Constraints (S4):
- *   - allowedMcpTools = mcp_tool_names der Capabilities ∩ requestedCaps, MINUS K1-Deny.
- *   - KEINE File/Bash/Edit/Write/Read-Tools — Connector-Calls sind MCP-only.
- *   - KEINE Tools anderer Provider: Tool muss mit 'mcp__<provider>__' beginnen
- *     (Provider-Namespacing) oder muss explizit im Capability-Profil des Providers stehen.
- *   - Unbekannte Capability (nicht im Katalog-Profil) → assertCallAllowed wirft.
+ * Security constraints (S4):
+ *   - allowedMcpTools = mcp_tool_names of the capabilities ∩ requestedCaps, MINUS K1-Deny.
+ *   - NO File/Bash/Edit/Write/Read tools — connector calls are MCP-only.
+ *   - NO tools of other providers: a tool must start with 'mcp__<provider>__'
+ *     (provider namespacing) or must be explicitly in the provider's capability profile.
+ *   - Unknown capability (not in the catalog profile) → assertCallAllowed throws.
  *
- * K1-RAG-Deny-Patterns:
- *   Identisch zu binding-resolver.ts K1_RAG_DENY_PATTERNS (inlined für Audit-Klarheit).
- *   Ein K1-Match blockiert unüberwindbar — die Allowlist kann K1 nicht aufheben.
+ * K1-RAG-Deny patterns:
+ *   Identical to binding-resolver.ts K1_RAG_DENY_PATTERNS (inlined for audit clarity).
+ *   A K1 match blocks insurmountably — the allowlist cannot override K1.
  */
 
 import { matchesK1Deny } from "../routines/binding-resolver";
@@ -38,52 +38,52 @@ import { matchesK1Deny } from "../routines/binding-resolver";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Ein Connector-Capability-Profil, wie es aus listCapabilities() + getConnectorProfile()
- * zusammengestellt wird. Nur die für S4 relevanten Felder.
+ * A connector capability profile, as assembled from listCapabilities() +
+ * getConnectorProfile(). Only the fields relevant for S4.
  */
 export interface ConnectorCapabilityProfile {
-  /** Capability-Name, z.B. 'render_video'. */
+  /** Capability name, e.g. 'render_video'. */
   name: string;
   /**
-   * MCP-Tool-Name in kanonischer Form 'mcp__<server>__<tool>'.
-   * NULL = Capability hat keine MCP-Entsprechung (REST-only).
+   * MCP tool name in canonical form 'mcp__<server>__<tool>'.
+   * NULL = the capability has no MCP counterpart (REST-only).
    */
   mcpToolName: string | null;
 }
 
 /**
- * Das Connector-Profil, das an buildHardenedToolset übergeben wird.
- * Entspricht dem Subset aus ConnectorCatalogRow + ConnectorCapabilityRow[].
+ * The connector profile passed to buildHardenedToolset.
+ * Corresponds to the subset of ConnectorCatalogRow + ConnectorCapabilityRow[].
  */
 export interface ConnectorProfile {
-  /** Provider-Slug aus connector_catalog, z.B. 'heygen'. */
+  /** Provider slug from connector_catalog, e.g. 'heygen'. */
   provider: string;
-  /** Alle bekannten Capabilities dieses Connectors. */
+  /** All known capabilities of this connector. */
   capabilities: ConnectorCapabilityProfile[];
 }
 
 /**
- * Ergebnis von buildHardenedToolset.
+ * Result of buildHardenedToolset.
  *
- * allowedMcpTools: STRIKT die MCP-Tool-Namen aus den Capabilities des Providers
- *   die (a) in requestedCaps enthalten sind UND (b) K1-Deny nicht matchen.
- * deniedMcpTools: Capabilities die K1-geblockt wurden oder keinen mcpToolName haben.
- * capabilityToTool: explizite Auflösung Capability-Name → konkreter erlaubter
- *   MCP-Tool-Name. NUR erlaubte (nicht denied) Capabilities tauchen hier auf.
- *   Dies ist die maßgebliche Quelle für assertCallAllowed — sie ist robust
- *   gegen Divergenz zwischen Capability-Name und Tool-Name (Finding 3a:
- *   reale Connectoren haben cap 'list_avatars' → tool 'mcp__heygen__avatars_list').
- * allowedFileTools: immer [] — Connector-Calls brauchen keine lokalen File-Tools.
- * rationale: Erklärung (N1), verbatim.
+ * allowedMcpTools: STRICTLY the MCP tool names from the provider's capabilities
+ *   that (a) are contained in requestedCaps AND (b) do not match K1-Deny.
+ * deniedMcpTools: capabilities that were K1-blocked or have no mcpToolName.
+ * capabilityToTool: explicit resolution capability-name → concrete allowed
+ *   MCP tool name. ONLY allowed (not denied) capabilities appear here.
+ *   This is the authoritative source for assertCallAllowed — it is robust
+ *   against divergence between capability name and tool name (Finding 3a:
+ *   real connectors have cap 'list_avatars' → tool 'mcp__heygen__avatars_list').
+ * allowedFileTools: always [] — connector calls need no local file tools.
+ * rationale: explanation (N1), verbatim.
  */
 export interface HardenedToolset {
   allowedMcpTools: string[];
   deniedMcpTools: string[];
   /**
-   * Mapping erlaubte Capability → konkreter erlaubter MCP-Tool-Name.
-   * Ein Eintrag existiert genau dann, wenn die Capability alle Gates (Profil,
-   * mcpToolName, K1, Provider-Namespace) bestanden hat. assertCallAllowed prüft
-   * `capability in capabilityToTool` (fail-closed: nicht enthalten → wirft).
+   * Mapping allowed capability → concrete allowed MCP tool name.
+   * An entry exists exactly when the capability has passed all gates (profile,
+   * mcpToolName, K1, provider namespace). assertCallAllowed checks
+   * `capability in capabilityToTool` (fail-closed: not contained → throws).
    */
   capabilityToTool: Record<string, string>;
   allowedFileTools: readonly never[];
@@ -91,30 +91,30 @@ export interface HardenedToolset {
 }
 
 /**
- * Eingabe für assertCallAllowed.
+ * Input for assertCallAllowed.
  */
 export interface CallAllowedArgs {
-  /** Provider-Slug, z.B. 'heygen'. */
+  /** Provider slug, e.g. 'heygen'. */
   provider: string;
-  /** Capability-Name die aufgerufen werden soll, z.B. 'render_video'. */
+  /** Capability name to be called, e.g. 'render_video'. */
   capability: string;
-  /** Das gehärtete Toolset aus buildHardenedToolset. */
+  /** The hardened toolset from buildHardenedToolset. */
   hardened: HardenedToolset;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Interne Konstanten (S4 Hardening)
+// Internal constants (S4 hardening)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * File/Bash-Tools die für Connector-Calls NIEMALS erlaubt sind.
- * Connector-Calls sind MCP-Calls gegen externe APIs — sie brauchen keine
- * lokalen Filesystem- oder Shell-Zugriffe. Ein solches Tool in einer Anfrage
- * ist entweder ein Programmierfehler oder ein Angriff.
+ * File/Bash tools that are NEVER allowed for connector calls.
+ * Connector calls are MCP calls against external APIs — they need no
+ * local filesystem or shell access. Such a tool in a request
+ * is either a programming error or an attack.
  *
- * Dies ist defense-in-depth gegenüber execution-policy.ts (das ebenfalls
- * Bash blockiert), weil invoke-policy.ts einen völlig anderen Kontext hat:
- * hier gibt es keine "erlaubten Schreib-Rollen" — es gibt gar keine file-tools.
+ * This is defense-in-depth on top of execution-policy.ts (which also
+ * blocks Bash), because invoke-policy.ts has a completely different context:
+ * here there are no "allowed write roles" — there are no file tools at all.
  */
 const FORBIDDEN_FILE_TOOLS: ReadonlySet<string> = new Set([
   "Read",
@@ -134,33 +134,33 @@ const FORBIDDEN_FILE_TOOLS: ReadonlySet<string> = new Set([
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Baut die strikt gehärtete Tool-Liste für einen Connector-Call.
+ * Builds the strictly hardened tool list for a connector call.
  *
- * Algorithmus (fail-closed, in dieser Reihenfolge):
- *   1. provider muss nicht-leer sein.
- *   2. Für jede requestedCap (Capability-Name):
- *      a. Suche die Capability im Profil → nicht gefunden → denied (unbekannt → raus).
- *      b. mcpToolName vorhanden? Sonst → denied (REST-only Capability ohne MCP-Tool).
- *      c. K1-Deny Check (hart, nicht überschreibbar) → K1-match → denied.
- *      d. Provider-Namespace-Check: mcpToolName muss mit 'mcp__' beginnen
- *         UND 'mcp__<provider>__' als Präfix haben → sonst denied (falscher Provider).
- *      e. Alle Checks bestanden → allowed.
- *   3. File/Bash-Tools sind strukturell nie in allowedMcpTools enthalten
- *      (sie kommen nie aus Capability.mcpToolName rein).
+ * Algorithm (fail-closed, in this order):
+ *   1. provider must be non-empty.
+ *   2. For each requestedCap (capability name):
+ *      a. Look up the capability in the profile → not found → denied (unknown → out).
+ *      b. mcpToolName present? Otherwise → denied (REST-only capability without an MCP tool).
+ *      c. K1-Deny check (hard, not overridable) → K1 match → denied.
+ *      d. Provider-namespace check: mcpToolName must start with 'mcp__'
+ *         AND have 'mcp__<provider>__' as a prefix → otherwise denied (wrong provider).
+ *      e. All checks passed → allowed.
+ *   3. File/Bash tools are structurally never contained in allowedMcpTools
+ *      (they never come in via Capability.mcpToolName).
  *
- * Pure Funktion: keine Side-Effects, keine DB, kein LLM, kein IO.
+ * Pure function: no side effects, no DB, no LLM, no IO.
  *
- * @param provider       Provider-Slug, z.B. 'heygen'.
- * @param profile        Connector-Profil mit Capabilities.
- * @param requestedCaps  Capability-Namen die der Caller haben möchte.
- * @returns              HardenedToolset (immer, nie throws — assertCallAllowed wirft).
+ * @param provider       Provider slug, e.g. 'heygen'.
+ * @param profile        Connector profile with capabilities.
+ * @param requestedCaps  Capability names the caller wants.
+ * @returns              HardenedToolset (always, never throws — assertCallAllowed throws).
  */
 export function buildHardenedToolset(
   provider: string,
   profile: ConnectorProfile,
   requestedCaps: readonly string[],
 ): HardenedToolset {
-  // Schritt 1: provider-Pflicht.
+  // Step 1: provider is required.
   if (!provider || provider.trim().length === 0) {
     return {
       allowedMcpTools: [],
@@ -174,7 +174,7 @@ export function buildHardenedToolset(
 
   const trimmedProvider = provider.trim();
 
-  // Schritt 2: requestedCaps leer → leeres Toolset (nicht denied, einfach leer).
+  // Step 2: requestedCaps empty → empty toolset (not denied, simply empty).
   if (requestedCaps.length === 0) {
     return {
       allowedMcpTools: [],
@@ -185,7 +185,7 @@ export function buildHardenedToolset(
     };
   }
 
-  // Capability-Lookup: name → Capability
+  // Capability lookup: name → capability
   const capabilityMap = new Map<string, ConnectorCapabilityProfile>();
   for (const cap of profile.capabilities) {
     capabilityMap.set(cap.name, cap);
@@ -194,16 +194,16 @@ export function buildHardenedToolset(
   const allowedMcpTools: string[] = [];
   const deniedMcpTools: string[] = [];
   const deniedReasons: string[] = [];
-  // Finding 3a: explizite Auflösung Capability-Name → erlaubter MCP-Tool-Name.
-  // Nur erlaubte Capabilities landen hier. Robust gegen Name-Divergenz.
+  // Finding 3a: explicit resolution capability-name → allowed MCP tool name.
+  // Only allowed capabilities land here. Robust against name divergence.
   const capabilityToTool: Record<string, string> = {};
 
-  // Provider-Namespace-Präfix für den Check.
-  // MCP-Tools dieses Providers müssen mit 'mcp__<provider>__' beginnen.
+  // Provider-namespace prefix for the check.
+  // MCP tools of this provider must start with 'mcp__<provider>__'.
   const expectedPrefix = `mcp__${trimmedProvider}__`;
 
   for (const capName of requestedCaps) {
-    // (a) Capability im Profil vorhanden?
+    // (a) Capability present in the profile?
     const cap = capabilityMap.get(capName);
     if (!cap) {
       deniedMcpTools.push(capName);
@@ -213,7 +213,7 @@ export function buildHardenedToolset(
       continue;
     }
 
-    // (b) Hat diese Capability einen MCP-Tool-Namen?
+    // (b) Does this capability have an MCP tool name?
     const toolName = cap.mcpToolName;
     if (!toolName || toolName.trim().length === 0) {
       deniedMcpTools.push(capName);
@@ -225,7 +225,7 @@ export function buildHardenedToolset(
 
     const trimmedTool = toolName.trim();
 
-    // (c) K1-Deny — hart, nicht überschreibbar.
+    // (c) K1-Deny — hard, not overridable.
     if (matchesK1Deny(trimmedTool)) {
       deniedMcpTools.push(trimmedTool);
       deniedReasons.push(
@@ -234,9 +234,9 @@ export function buildHardenedToolset(
       continue;
     }
 
-    // (d) Provider-Namespace-Check: Tool muss zum Provider gehören.
-    // Verhindert dass Capabilities eines Providers auf Tools eines anderen Providers
-    // zeigen (z.B. 'mcp__malicious__exfiltrate' in einem heygen-Profil).
+    // (d) Provider-namespace check: the tool must belong to the provider.
+    // Prevents capabilities of one provider from pointing at tools of another provider
+    // (e.g. 'mcp__malicious__exfiltrate' in a heygen profile).
     if (!trimmedTool.startsWith(expectedPrefix)) {
       deniedMcpTools.push(trimmedTool);
       deniedReasons.push(
@@ -246,10 +246,10 @@ export function buildHardenedToolset(
       continue;
     }
 
-    // (e) Alle Checks bestanden — Tool ist erlaubt.
+    // (e) All checks passed — the tool is allowed.
     allowedMcpTools.push(trimmedTool);
-    // Finding 3a: Capability-Name explizit auf den konkreten Tool-Namen mappen.
-    // Damit ist assertCallAllowed unabhängig von einer Tail-Heuristik.
+    // Finding 3a: map the capability name explicitly to the concrete tool name.
+    // This makes assertCallAllowed independent of a tail heuristic.
     capabilityToTool[capName] = trimmedTool;
   }
 
@@ -277,22 +277,22 @@ export function buildHardenedToolset(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Assertiert dass eine Capability in dem gehärteten Toolset erlaubt ist.
+ * Asserts that a capability is allowed in the hardened toolset.
  *
- * Finding 3a: Die Auflösung Capability → MCP-Tool-Name wurde von
- * buildHardenedToolset EXPLIZIT in `hardened.capabilityToTool` gespeichert.
- * assertCallAllowed prüft daher `capability in capabilityToTool` — kein
- * Tail-Heuristik-Match mehr. Damit funktioniert das Gate auch wenn
- * Capability-Name und Tool-Name divergieren (z.B. cap 'list_avatars' →
+ * Finding 3a: the resolution capability → MCP tool name was stored EXPLICITLY
+ * in `hardened.capabilityToTool` by buildHardenedToolset.
+ * assertCallAllowed therefore checks `capability in capabilityToTool` — no
+ * more tail-heuristic match. This makes the gate work even when
+ * capability name and tool name diverge (e.g. cap 'list_avatars' →
  * tool 'mcp__heygen__avatars_list').
  *
- * Zusätzlich (defense-in-depth) wird verifiziert, dass der aufgelöste Tool-Name
- * tatsächlich in allowedMcpTools steht und zum Provider gehört — eine
- * manipulierte Map kann das Gate also nicht aufweichen.
+ * Additionally (defense-in-depth) it verifies that the resolved tool name
+ * actually appears in allowedMcpTools and belongs to the provider — so a
+ * manipulated map cannot weaken the gate.
  *
- * Fail-closed: bei jeder Unklarheit wird geworfen.
+ * Fail-closed: throws on any ambiguity.
  *
- * @throws {CallDeniedError} wenn die Capability nicht erlaubt ist.
+ * @throws {CallDeniedError} if the capability is not allowed.
  */
 export function assertCallAllowed(
   provider: string,
@@ -309,8 +309,8 @@ export function assertCallAllowed(
     );
   }
 
-  // Defensiv: capabilityToTool kann bei einem fehlerhaft konstruierten Toolset
-  // fehlen (z.B. ältere Caller). Fail-closed: ohne Map → keine Auflösung möglich.
+  // Defensive: capabilityToTool may be missing on a malformed toolset
+  // (e.g. older callers). Fail-closed: without the map → no resolution possible.
   const capabilityToTool = hardened.capabilityToTool ?? {};
 
   if (hardened.allowedMcpTools.length === 0) {
@@ -321,9 +321,9 @@ export function assertCallAllowed(
     );
   }
 
-  // Provider-Konsistenz: das gehärtete Toolset muss überhaupt Tools für diesen
-  // Provider enthalten. Verhindert dass ein Toolset für Provider A einen Call
-  // für Provider B durchwinkt.
+  // Provider consistency: the hardened toolset must contain tools for this
+  // provider at all. Prevents a toolset for provider A from waving through a call
+  // for provider B.
   const expectedPrefix = `mcp__${trimmedProvider}__`;
   const relevantAllowed = hardened.allowedMcpTools.filter((t) =>
     t.startsWith(expectedPrefix),
@@ -339,10 +339,10 @@ export function assertCallAllowed(
     );
   }
 
-  // Maßgebliche Auflösung (Finding 3a): ist die Capability als erlaubt aufgelöst?
-  // Eigenes Property (kein Prototype-Walk) prüfen, dann den aufgelösten Tool-Namen
-  // gegen allowedMcpTools + Provider-Namespace re-verifizieren (defense-in-depth
-  // gegen eine manipulierte Map).
+  // Authoritative resolution (Finding 3a): is the capability resolved as allowed?
+  // Check an own property (no prototype walk), then re-verify the resolved tool name
+  // against allowedMcpTools + provider namespace (defense-in-depth
+  // against a manipulated map).
   const resolvedTool = Object.prototype.hasOwnProperty.call(capabilityToTool, trimmedCap)
     ? capabilityToTool[trimmedCap]
     : undefined;
@@ -362,19 +362,19 @@ export function assertCallAllowed(
     );
   }
 
-  // Capability → Tool ist explizit aufgelöst, das Tool steht in allowedMcpTools
-  // und gehört zum Provider-Namespace → erlaubt.
+  // Capability → tool is explicitly resolved, the tool is in allowedMcpTools
+  // and belongs to the provider namespace → allowed.
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CallDeniedError — spezifischer Fehler-Typ für fail-closed Denys
+// CallDeniedError — specific error type for fail-closed denials
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Wird von assertCallAllowed geworfen wenn ein Connector-Call blockiert wird.
+ * Thrown by assertCallAllowed when a connector call is blocked.
  *
- * code-Feld erlaubt dem Caller (trust.ts, ACL5-D executor) die Deny-Ursache
- * zu unterscheiden für N8-Audit-Zwecke ohne den Fehler-Text parsen zu müssen.
+ * The code field lets the caller (trust.ts, ACL5-D executor) distinguish the
+ * deny cause for N8 audit purposes without having to parse the error text.
  */
 export class CallDeniedError extends Error {
   readonly code:
@@ -394,15 +394,15 @@ export class CallDeniedError extends Error {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// hasFileToolInRequest — pure Hilfsfunktion für Tests + Verteidigungslinie
+// hasFileToolInRequest — pure helper for tests + defense line
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Prüft ob eine Liste von Tool-Namen ein File/Bash-Tool enthält.
- * Wird von Tests verwendet um sicherzustellen dass buildHardenedToolset nie
- * ein File/Bash-Tool in allowedMcpTools liefert.
+ * Checks whether a list of tool names contains a File/Bash tool.
+ * Used by tests to ensure that buildHardenedToolset never
+ * returns a File/Bash tool in allowedMcpTools.
  *
- * Pure Hilfsfunktion.
+ * Pure helper function.
  */
 export function hasFileTool(tools: readonly string[]): boolean {
   return tools.some((t) => FORBIDDEN_FILE_TOOLS.has(t));

@@ -1,15 +1,15 @@
 /**
- * POST /api/proactive/decision — N8 Decision-Audit (Proactivity-Goal, 2026-06-02).
+ * POST /api/proactive/decision — N8 decision audit (proactivity goal, 2026-06-02).
  *
- * Wenn der Operator im Hauptchat einen vor-generierten proaktiven Vorschlag
- * "Übernimmt", schreiben wir eine APPEND-ONLY 'decision'-Entity ins Event-Log
- * (entityType 'decision', eventType 'created') — exakt die Form, die
- * projectDecisions/foldDecision liest, damit sie in /decisions erscheint. Zudem
- * markieren wir den gespeicherten Vorschlag als dismissed (dedupe).
+ * When the operator in the main chat "picks up" a pre-generated proactive
+ * suggestion, we write an APPEND-ONLY 'decision' entity into the event log
+ * (entityType 'decision', eventType 'created') — exactly the form that
+ * projectDecisions/foldDecision reads, so it appears in /decisions. We also
+ * mark the stored suggestion as dismissed (dedupe).
  *
- * NIEMALS Auto-Send: diese Route persistiert nur eine Entscheidung; sie schickt
- * KEINE Nachricht an den Kunden. Das eigentliche Seeden des Composers macht der
- * Client (onPickUp). Member-gated (N2/N9).
+ * NEVER auto-send: this route only persists a decision; it sends
+ * NO message to the customer. The actual seeding of the composer is done by the
+ * client (onPickUp). Member-gated (N2/N9).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -51,8 +51,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // N8 append-only: decision-Entity, scoped auf den KUNDEN-Workspace. Form EXAKT
-  // wie foldDecision sie liest (headline/sub/options auf eventType 'created').
+  // N8 append-only: decision entity, scoped to the CUSTOMER workspace. Form EXACTLY
+  // as foldDecision reads it (headline/sub/options on eventType 'created').
   const headline = suggestion.split('\n')[0].slice(0, 200) || 'Proaktiver Vorschlag übernommen';
   const sub = `Kundenchat „${sc.title}" — Vorschlag vom OS-Assistenten übernommen`;
   try {
@@ -77,12 +77,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 
-  // Dedupe: gespeicherten Vorschlag dismissen (idempotent; best-effort).
+  // Dedupe: dismiss the stored suggestion (idempotent; best-effort).
   if (suggestionId) {
     try {
       dismissProactiveSuggestion(suggestionId);
     } catch {
-      /* non-fatal — Decision ist schon persisted */
+      /* non-fatal — decision is already persisted */
     }
   }
 

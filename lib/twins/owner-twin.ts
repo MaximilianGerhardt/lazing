@@ -1,13 +1,13 @@
 /**
- * Pattern 2 Digital-Twin MVP — owner twin-Loader.
+ * Pattern 2 Digital-Twin MVP — owner-twin loader.
  *
- * Lädt `data/owner_twin.yaml` einmal, cached module-scope, invalidiert
- * automatisch wenn sich das File-mtime ändert (mtime-Check pro Call,
- * stat ist <0,1ms — wir sparen uns chokidar als Dep).
+ * Loads `data/owner_twin.yaml` once, cached module-scope, invalidates
+ * automatically when the file mtime changes (mtime check per call,
+ * stat is <0.1ms — we save ourselves chokidar as a dep).
  *
- * Fail-soft: bei Schema-Validation-Error wird der bestehende Cache
- * behalten und ein Warn geloggt. Kein Twin-Lookup darf jemals
- * tier-spawn blockieren.
+ * Fail-soft: on a schema validation error, the existing cache is
+ * kept and a warning is logged. No twin lookup may ever
+ * block tier-spawn.
  */
 
 import { promises as fs } from "node:fs";
@@ -35,7 +35,7 @@ async function load(): Promise<OwnerTwin | null> {
   try {
     stat = await fs.stat(TWIN_PATH);
   } catch {
-    // File fehlt komplett — graceful: leerer Twin.
+    // File is missing entirely — graceful: empty twin.
     return null;
   }
 
@@ -87,17 +87,17 @@ async function load(): Promise<OwnerTwin | null> {
 }
 
 /**
- * Liefert den aktuellen owner twin (oder null bei fehlendem/ungültigem File).
- * Cache-Invalidierung via mtime — Edits an `data/owner_twin.yaml` werden
- * beim nächsten Call automatisch eingelesen.
+ * Returns the current owner twin (or null on a missing/invalid file).
+ * Cache invalidation via mtime — edits to `data/owner_twin.yaml` are
+ * read in automatically on the next call.
  */
 export async function getOwnerTwin(): Promise<OwnerTwin | null> {
   return load();
 }
 
 /**
- * Test-Hook: Cache leeren, damit Tests einen frischen Load erzwingen
- * können nach yaml-Datei-Änderung.
+ * Test hook: clear the cache so tests can force a fresh load
+ * after a yaml-file change.
  */
 export function clearOwnerTwinCache(): void {
   cache = null;

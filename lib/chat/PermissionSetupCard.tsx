@@ -6,14 +6,14 @@
  * Shown ONCE when an agent run needs tools but no permission mode has been set
  * for the workspace. Presents three options with clear effect descriptions:
  *
- *   FreeRein   — Agenten arbeiten voll selbstständig (inkl. Datei-Writes, isoliert im Worktree)
- *   Lane       — Lesen + begrenzte Writes (architect/coder), kein Bash
- *   Ask        — Nur Vorschläge/Plan — du gibst jede Aktion frei
+ *   FreeRein   — agents work fully autonomously (incl. file writes, isolated in the worktree)
+ *   Lane       — read + limited writes (architect/coder), no Bash
+ *   Ask        — suggestions/plan only — you approve every action
  *
  * On click: PATCH /api/permission/[workspaceId]/mode — persists the choice.
  * Card transitions to "gesetzt: <mode>" — never shown again for this workspace.
  *
- * Design: Pitch-Black, min 13px body, primary action per mode, keine Emojis,
+ * Design: Pitch-Black, min 13px body, primary action per mode, no emojis,
  * laz.ing brand-gradient on the selected option highlight only.
  *
  * Security: no secret fields, no tool calls from this component.

@@ -1,7 +1,7 @@
 /**
  * Multi-Engine Orchestrator — Parallel Race + Single-Engine Modes.
  *
- * Scope-Decision (2026-05-23, Direktive "Engine darf parallel alle sein"):
+ * Scope decision (2026-05-23, directive "Engine darf parallel alle sein"):
  *
  * The User-Directive removes the "pick one default" mental model. lazyos
  * connects ALL available engines after onboarding, and every chat turn either:
@@ -155,10 +155,10 @@ export async function orchestrate(
     }
     const t0 = Date.now();
     try {
-      // Engine-übergreifende Skills (2026-06-03): claude/codex laden SKILL.md
-      // NATIV aus ihren Skill-Verzeichnissen. Engines OHNE Skill-System (ollama)
-      // bekommen die Skill-Metadaten als System-Block in den Prompt injiziert,
-      // damit auch ein nacktes Modell die Playbooks kennt. Best-effort.
+      // Cross-engine skills (2026-06-03): claude/codex load SKILL.md
+      // NATIVELY from their skill directories. Engines WITHOUT a skill system (ollama)
+      // get the skill metadata injected as a system block into the prompt,
+      // so that even a bare model knows the playbooks. Best-effort.
       let chatReq = req;
       if (req.mode === 'ollama') {
         try {
@@ -241,9 +241,9 @@ export async function orchestrate(
   }
 
   try {
-    // 2026-06-03 (Owner-Direktive): KONSENS statt fastest-wins. ALLE Engines
-    // laufen durch, wir sammeln ALLE Erfolge und synthetisieren daraus EINE
-    // Konsens-Antwort (überlagern statt "der Schnellste gewinnt").
+    // 2026-06-03 (owner directive): CONSENSUS instead of fastest-wins. ALL engines
+    // run through, we collect ALL successes and synthesize ONE
+    // consensus answer from them (overlay instead of "the fastest wins").
     const settled = await Promise.allSettled(racers);
     clearTimeout(overallTimeout);
 
@@ -259,7 +259,7 @@ export async function orchestrate(
         });
       }
     }
-    // Stubs für Engines ohne (Erfolgs-/Fehler-)Eintrag.
+    // Stubs for engines without a (success/error) entry.
     for (const id of availableIds) {
       if (!attempts.has(id)) {
         const lT0 = startedAt.get(id) ?? Date.now();
@@ -281,7 +281,7 @@ export async function orchestrate(
       );
     }
 
-    // Genau eine Engine erfolgreich → kein Konsens nötig, direkt zurück.
+    // Exactly one engine succeeded → no consensus needed, return directly.
     if (fulfilled.length === 1) {
       return finalize({
         ...fulfilled[0].res,
@@ -290,9 +290,9 @@ export async function orchestrate(
       });
     }
 
-    // ≥2 Engines → überlagern + Konsens synthetisieren (claude-cli, N11).
-    // Fail-soft: scheitert die Synthese (z.B. claude-cli nicht verfügbar),
-    // fällt auf die informativste Einzelantwort zurück statt zu crashen.
+    // ≥2 engines → overlay + synthesize a consensus (claude-cli, N11).
+    // Fail-soft: if the synthesis fails (e.g. claude-cli not available),
+    // it falls back to the most informative individual answer instead of crashing.
     try {
       const { synthesizeConsensus } = await import('./chat-consensus');
       const consensus = await synthesizeConsensus({

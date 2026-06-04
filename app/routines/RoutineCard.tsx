@@ -1,19 +1,19 @@
 "use client";
 
 /**
- * RoutineCard — eine Zeile in der Routines-Liste.
+ * RoutineCard — one row in the routines list.
  *
- * Zeigt:
- *   - Name + Workspace-Pill + Aktiv-Dot
- *   - Lesbaren Trigger-Text (Cron → "Jeden Tag um 08:00", *\/15 → "Alle 15 Minuten")
- *   - Letzter Run + Status, naechster Run (bei cron)
- *   - Delivery-Badge(s) (push / ticket / decision …) — abgeleitet aus YAML
- *   - Aktiv-Toggle (optimistisch) + "Jetzt triggern" + "Details"
+ * Shows:
+ *   - name + workspace pill + active dot
+ *   - readable trigger text (cron → "Jeden Tag um 08:00", *\/15 → "Alle 15 Minuten")
+ *   - last run + status, next run (for cron)
+ *   - delivery badge(s) (push / ticket / decision …) — derived from YAML
+ *   - active toggle (optimistic) + "Jetzt triggern" + "Details"
  *
- * Zustands-Wechsel werden vom Parent orchestriert (List). Diese Komponente
- * ist praesentativ + dispatcht nur Intents.
+ * State changes are orchestrated by the parent (List). This component
+ * is presentational + only dispatches intents.
  *
- * Design: LazyOS v1.0 — Tokens aus globals.css, keine Hex-Hardcodes.
+ * Design: LazyOS v1.0 — tokens from globals.css, no hex hardcodes.
  */
 
 import { useMemo } from "react";
@@ -26,15 +26,15 @@ import {
 
 interface Props {
   routine: RoutineSummary;
-  /** YAML-geparste Delivery-Badges aus der Routine (best-effort, kann leer sein). */
+  /** YAML-parsed delivery badges from the routine (best-effort, may be empty). */
   deliveryBadges?: readonly string[];
-  /** Optional: Ergebnis des letzten manuellen Triggers, inline angezeigt. */
+  /** Optional: result of the last manual trigger, shown inline. */
   lastTriggerResult?: {
     status: string;
     deliveryRef?: string | null;
     error?: string | null;
   } | null;
-  /** Ist gerade eine Aktion (Toggle/Trigger) fuer diese Routine in-flight? */
+  /** Is an action (toggle/trigger) for this routine currently in-flight? */
   busy?: boolean;
   onToggleActive: (routine: RoutineSummary) => void;
   onTriggerNow: (routine: RoutineSummary) => void;
@@ -42,7 +42,7 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
-// Workspace-Pill Farb-Mapping (identisch zu bisheriger Convention).
+// Workspace-pill color mapping (identical to the previous convention).
 // ---------------------------------------------------------------------------
 
 function accentForWorkspace(id: string): string {
@@ -54,7 +54,7 @@ function accentForWorkspace(id: string): string {
   return "var(--a-own)";
 }
 
-// Delivery-Badge → Kurz-Label + Farbe
+// Delivery badge → short label + color
 const DELIVERY_META: Record<
   string,
   { label: string; color: string; bg: string }
@@ -125,7 +125,7 @@ export function RoutineCard(props: Props) {
       aria-label={`Routine ${routine.name}`}
     >
       <div style={mainColStyle}>
-        {/* Titel-Zeile: Dot + Name + Workspace-Pill */}
+        {/* Title row: dot + name + workspace pill */}
         <div style={titleRowStyle}>
           <span
             aria-hidden
@@ -163,7 +163,7 @@ export function RoutineCard(props: Props) {
           )}
         </div>
 
-        {/* Trigger — lesbar, nicht raw cron */}
+        {/* Trigger — readable, not raw cron */}
         <div style={triggerRowStyle}>
           <span aria-hidden style={triggerIconStyle}>
             {schedule.icon}
@@ -171,7 +171,7 @@ export function RoutineCard(props: Props) {
           <span style={triggerLabelStyle}>{schedule.label}</span>
         </div>
 
-        {/* Meta-Zeile: Letzter Run · Naechster Run · Delivery-Badges */}
+        {/* Meta row: last run · next run · delivery badges */}
         <div style={metaRowStyle}>
           <span style={metaItemStyle}>
             <span style={metaLabelStyle}>Zuletzt</span>
@@ -480,8 +480,8 @@ const toggleThumbStyle: React.CSSProperties = {
   width: 18,
   height: 18,
   borderRadius: "50%",
-  // Toggle-Thumb nutzt --ink (=#F5F5F7, Apple-Pure-White-Pendant) — UI-Primitive.
-  // Stuft sich gegen den Dark-Track ab; bleibt unverändert bei Branding.
+  // Toggle thumb uses --ink (=#F5F5F7, Apple pure-white counterpart) — UI primitive.
+  // Contrasts against the dark track; stays unchanged across branding.
   background: "var(--ink)",
   transition: "transform 180ms cubic-bezier(0.4, 0, 0.2, 1)",
   boxShadow: "0 1px 3px rgba(0,0,0,0.35)",

@@ -1,21 +1,21 @@
 /**
- * /lab/[kind] Detail-Page (MVP, 2026-05-01).
+ * /lab/[kind] detail page (MVP, 2026-05-01).
  *
- * 6 Tabs: Live | Refactored | Real-Use | Diff | Tokens | Spring-Compare
- * Tab-State via ?tab=. Default: 'real' (echte Daten zeigen, nicht
- * synthetisches Beispiel).
+ * 6 tabs: Live | Refactored | Real-Use | Diff | Tokens | Spring-Compare
+ * Tab state via ?tab=. Default: 'real' (show real data, not a
+ * synthetic example).
  *
- * MVP-Mode:
- *   - Live: synthetischer Sample-Payload als JSON-Pretty (Welle 3 mountet
- *     <SurfaceRenderer> mit echtem Card-Component)
- *   - Refactored: Placeholder „Verfügbar nach Welle 3-Refactor"
- *   - Real-Use: lädt Top-N echte Events aus der DB (redacted)
- *   - Diff: grep-Output von borderRadius/fontSize-Hits aus Card-File
- *   - Tokens: liest verwendete CSS-Custom-Properties aus Card-File
- *   - Spring-Compare: Side-by-Side pure-CSS vs motion/react Mount-Spring
- *     (Welle 8, Decision-Feature für Production-Stack)
+ * MVP mode:
+ *   - Live: synthetic sample payload as JSON-pretty (wave 3 mounts
+ *     <SurfaceRenderer> with the real card component)
+ *   - Refactored: placeholder "available after the wave 3 refactor"
+ *   - Real-Use: loads the top-N real events from the DB (redacted)
+ *   - Diff: grep output of borderRadius/fontSize hits from the card file
+ *   - Tokens: reads the used CSS custom properties from the card file
+ *   - Spring-Compare: side-by-side pure-CSS vs motion/react mount spring
+ *     (wave 8, decision feature for the production stack)
  *
- * Auth ist im Layout abgehandelt.
+ * Auth is handled in the layout.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -47,8 +47,8 @@ interface DetailPageProps {
 }
 
 function samplePayloadFor(kind: string): Record<string, unknown> {
-  // Welle 7 (2026-05-01): Mocks gegen echtes Surface-Tag-Schema gebaut, damit
-  // der Live-Tab via renderSurface() echte Cards rendert.
+  // Wave 7 (2026-05-01): mocks built against the real surface-tag schema, so
+  // the live tab renders real cards via renderSurface().
   switch (kind) {
     case "auto-dispatch-stage":
       return {
@@ -136,9 +136,9 @@ function samplePayloadFor(kind: string): Record<string, unknown> {
 }
 
 /**
- * Welle 7 (2026-05-01): Mappt Kind-IDs auf den `surface:KIND`-Tag-Namen.
- * Manche Kinds (auto-dispatch-stage, sniper-pause-start) werden via die
- * generische LoopPhaseCard gerendert und brauchen den `loop-phase`-Tag.
+ * Wave 7 (2026-05-01): maps kind IDs to the `surface:KIND` tag name.
+ * Some kinds (auto-dispatch-stage, sniper-pause-start) are rendered via the
+ * generic LoopPhaseCard and need the `loop-phase` tag.
  */
 function surfaceKindFor(kindId: string): string | null {
   if (kindId === "auto-dispatch-stage" || kindId === "sniper-pause-start") {
@@ -151,9 +151,9 @@ function surfaceKindFor(kindId: string): string | null {
   ) {
     return kindId;
   }
-  // Andere Kinds (sub-workstream, bug-fix-swarm, synthesis) werden weiterhin
-  // als JSON-Pretty gerendert — sie haben jeweils eigene Cards mit anderen
-  // payload-Shapes die nicht 1:1 vom Mock passen.
+  // Other kinds (sub-workstream, bug-fix-swarm, synthesis) are still
+  // rendered as JSON-pretty — they each have their own cards with different
+  // payload shapes that don't fit the mock 1:1.
   return null;
 }
 
@@ -511,15 +511,15 @@ function DiffPanel({
 }
 
 /**
- * RefactoredPanel — Welle 3 (2026-05-01).
+ * RefactoredPanel — wave 3 (2026-05-01).
  *
- * Rendert die echte refactored Card-Component live mit Mock-Payloads.
- * Zeigt: Tokens-bind, Spring-Easings, Press-Scale, srf-pop Mount-Animation.
+ * Renders the real refactored card component live with mock payloads.
+ * Shows: tokens-bind, spring easings, press-scale, srf-pop mount animation.
  *
- * Cards mit Polling/Live-Effects (IteratePipeline, SubWorkstreams,
- * ConsensusAction, LivePipeline) werden ohne echten Backend-Workstream
- * gerendert — Polling läuft trocken (404/offline-tolerant), das schadet
- * dem Showcase nicht. Die Card zeigt ihren Loading/Empty-State.
+ * Cards with polling/live effects (IteratePipeline, SubWorkstreams,
+ * ConsensusAction, LivePipeline) are rendered without a real backend
+ * workstream — polling runs dry (404/offline-tolerant), which does not harm
+ * the showcase. The card shows its loading/empty state.
  */
 function RefactoredPanel({ kindId }: { kindId: string }): React.JSX.Element {
   return (
@@ -622,7 +622,7 @@ function RefactoredSample({
     case "streaming-bubble":
       return <StreamingBubbleMockShow />;
     case "bug-fix-swarm":
-      // ConsensusActionCard als Showcase fuer disagreement-Modus.
+      // ConsensusActionCard as a showcase for disagreement mode.
       return (
         <ConsensusActionCard
           workstreamId="lab-mock-consensus"
@@ -703,7 +703,7 @@ function TokensPanel({
             fontStyle: "italic",
           }}
         >
-          {/* audit-tokens-ignore — dokumentarischer Text, kein echter Use */}
+          {/* audit-tokens-ignore — documentary text, not a real use */}
           Keine var(--token)-Referenzen gefunden — Component nutzt
           ausschliesslich hardcoded Styles. Siehe{" "}
           <a

@@ -1,14 +1,14 @@
 /**
- * Pattern 2 Digital-Twin MVP — Domain-Twin-Loader.
+ * Pattern 2 Digital-Twin MVP — domain-twin loader.
  *
- * Domain-Twin = Workspace-Snapshot (Label, Type, Sensitivity, Accent,
- * Active-Workstreams-Count, Recent-Decisions, Open-Tickets-P0/P1).
+ * Domain twin = workspace snapshot (label, type, sensitivity, accent,
+ * active-workstreams count, recent decisions, open tickets P0/P1).
  *
- * Strategie: simple Map-LRU mit TTL=60s. Kein lru-cache-Dep nötig,
- * der Cache ist ein Performance-Layer — fail-soft, der Truth liegt in der DB.
+ * Strategy: simple Map LRU with TTL=60s. No lru-cache dep needed,
+ * the cache is a performance layer — fail-soft, the truth lives in the DB.
  *
- * SQL-Queries gehen direkt über `db.$raw` (better-sqlite3 prepared statements)
- * statt über `projectTickets` — wir wollen Counts, nicht volle Projektionen.
+ * SQL queries go directly through `db.$raw` (better-sqlite3 prepared statements)
+ * instead of through `projectTickets` — we want counts, not full projections.
  */
 
 import { getDb } from "@/db/client";
@@ -48,7 +48,7 @@ function parseSynthesisTitle(payload: string): string | null {
     if (obj.kind !== "synthesis" || typeof obj.text !== "string") {
       return null;
     }
-    // Erste nicht-leere Zeile als Decision-Titel; Markdown-Header strippen.
+    // First non-empty line as the decision title; strip the markdown header.
     const firstLine = obj.text
       .split("\n")
       .map((l) => l.trim())
@@ -62,7 +62,7 @@ function parseSynthesisTitle(payload: string): string | null {
 }
 
 async function loadFromDb(workspaceId: string): Promise<DomainTwin | null> {
-  // Test-Hook: in Unit-Tests wollen wir DB-Init nicht triggern.
+  // Test hook: in unit tests we don't want to trigger DB init.
   if (process.env.LAZYOS_TWIN_SKIP_DB === "1") {
     return null;
   }
@@ -96,9 +96,9 @@ async function loadFromDb(workspaceId: string): Promise<DomainTwin | null> {
     )
     .get(workspaceId) as CountRow | undefined;
 
-  // Recent Decisions: synthesis-Events der letzten Zeit, nach segmentId.
-  // payload enthält JSON mit kind:'synthesis' und text. Wir limit 10 raw,
-  // filtern dann auf 3 valide Synthesis-Texts.
+  // Recent decisions: recent synthesis events, by segmentId.
+  // payload contains JSON with kind:'synthesis' and text. We limit 10 raw,
+  // then filter down to 3 valid synthesis texts.
   const synthesisRows = db.$raw
     .prepare(
       `SELECT payload
@@ -121,11 +121,11 @@ async function loadFromDb(workspaceId: string): Promise<DomainTwin | null> {
     }
   }
 
-  // Open Tickets P0/P1: Tickets brauchen volle Projektion (status ist
-  // event-sourced). Wir nutzen aber eine Heuristik direkt auf den Events
-  // um den Hot-Path schlank zu halten: Tickets mit prio P0/P1 die nicht
-  // closed sind. Da Tickets event-sourced sind, gehen wir über
-  // safeProjectTickets — das ist intern bereits gecached.
+  // Open tickets P0/P1: tickets need a full projection (status is
+  // event-sourced). But we use a heuristic directly on the events
+  // to keep the hot path lean: tickets with prio P0/P1 that are not
+  // closed. Since tickets are event-sourced, we go through
+  // safeProjectTickets — which is already cached internally.
   let openTicketsP0P1 = 0;
   try {
     const { safeProjectTickets } = await import("@/lib/events/safe-projection");
@@ -155,8 +155,8 @@ async function loadFromDb(workspaceId: string): Promise<DomainTwin | null> {
 }
 
 /**
- * Domain-Twin für einen Workspace.
- * Cached 60s; bei DB-Fehler null (graceful).
+ * Domain twin for a workspace.
+ * Cached 60s; null on a DB error (graceful).
  */
 export async function getDomainTwin(
   workspaceId: string,
@@ -182,8 +182,8 @@ export async function getDomainTwin(
 }
 
 /**
- * Cache invalidieren (z.B. nach Workspace-Update oder Workstream-Status-
- * Wechsel). Optional — der TTL killt den Eintrag spätestens nach 60s.
+ * Invalidate the cache (e.g. after a workspace update or workstream status
+ * change). Optional — the TTL kills the entry after 60s at the latest.
  */
 export function invalidateDomainTwin(workspaceId: string): void {
   cache.delete(workspaceId);

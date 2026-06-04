@@ -34,11 +34,11 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 export const routines = sqliteTable(
   "routines",
   {
-    /** ULID — aber mit `RTN-` Präfix zur optischen Unterscheidung in der UI. */
+    /** ULID — but with a `RTN-` prefix for visual distinction in the UI. */
     id: text("id").primaryKey(),
-    /** Kurzname, muss innerhalb eines Workspaces eindeutig sein (App-Ebene). */
+    /** Short name, must be unique within a workspace (app level). */
     name: text("name").notNull(),
-    /** Workspace-Zuordnung — bestimmt Sichtbarkeit + Sensitivity-Floor. */
+    /** Workspace assignment — determines visibility + sensitivity floor. */
     workspaceId: text("workspace_id").notNull(),
     /**
      * YAML configuration as a string. Parsed + validated via
@@ -94,16 +94,16 @@ export type RoutineInsert = typeof routines.$inferInsert;
 export const routineRuns = sqliteTable(
   "routine_runs",
   {
-    id: text("id").primaryKey(), // ULID mit `RNR-` Präfix
+    id: text("id").primaryKey(), // ULID with a `RNR-` prefix
     routineId: text("routine_id").notNull(),
     startedAt: integer("started_at").notNull(),
     finishedAt: integer("finished_at"),
     /** 'success' | 'failure' | 'partial' | 'running' */
     status: text("status").notNull(),
-    /** Rendered Markdown-Output (kann groß sein; später Retention). */
+    /** Rendered Markdown output (can be large; retention later). */
     output: text("output"),
     error: text("error"),
-    /** Optional: ID des erzeugten Events/Tickets/Push-Delivery-Logs. */
+    /** Optional: ID of the created event/ticket/push-delivery log. */
     deliveryRef: text("delivery_ref"),
   },
   (table) => ({

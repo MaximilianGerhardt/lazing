@@ -1,23 +1,23 @@
 /**
  * POST /api/auth/master-login
  *
- * Solo-Self-Host Login OHNE Mail. Akzeptiert den ENV-Master-Code
- * `LAZYOS_ACCESS_CODE` und loggt als der **erste Founder-User** ein.
+ * Solo self-host login WITHOUT mail. Accepts the ENV master code
+ * `LAZYOS_ACCESS_CODE` and logs in as the **first founder user**.
  *
- * Anwendungsfall: Open-Source-Forks die ohne Resend laufen wollen, oder
- * Solo-Setups wo der Operator + User dieselbe Person ist. Setzt voraus,
- * dass mindestens ein Founder in der DB existiert (sonst → 410, dann
- * via /api/auth/bootstrap den ersten Founder anlegen).
+ * Use case: open-source forks that want to run without Resend, or
+ * solo setups where the operator + user are the same person. Requires
+ * that at least one founder exists in the DB (otherwise → 410, then
+ * create the first founder via /api/auth/bootstrap).
  *
- * Sicherheit:
- *   - Same-Origin-Check (CSRF)
- *   - timing-safe Compare gegen LAZYOS_ACCESS_CODE
- *   - 500-1000ms Delay bei Fehlern
- *   - Rate-Limit über Edge-Middleware (existing)
- *   - Audit-Log auf jeden Versuch
+ * Security:
+ *   - Same-origin check (CSRF)
+ *   - timing-safe compare against LAZYOS_ACCESS_CODE
+ *   - 500-1000ms delay on errors
+ *   - rate limit via edge middleware (existing)
+ *   - audit log on every attempt
  *
- * Im Unterschied zu /api/auth/bootstrap: KEIN 410 nach erstem Erfolg.
- * Der Master-Code bleibt für den Operator immer ein Master-Key.
+ * Unlike /api/auth/bootstrap: NO 410 after the first success.
+ * The master code always remains a master key for the operator.
  */
 
 import { NextResponse } from "next/server";
@@ -113,8 +113,8 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // Erster Founder-User in der DB. Wenn keiner existiert, soll User über
-  // /api/auth/bootstrap gehen (= eigentlicher Setup-Pfad).
+  // First founder user in the DB. If none exists, the user should go
+  // via /api/auth/bootstrap (= the actual setup path).
   const founderId = findFirstFounderUserId();
   if (!founderId) {
     return NextResponse.json(

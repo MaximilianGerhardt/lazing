@@ -1,7 +1,7 @@
 /**
- * Sub-Chat-Messenger-Icons — schlichte SVG-Glyphen (currentColor, 1.8px Stroke,
- * Apple-/SF-Symbols-nah). KEINE Emojis (Owner-Direktive 2026-06-02).
- * Geteilt von externer + interner Sub-Chat-Ansicht.
+ * Sub-chat messenger icons — plain SVG glyphs (currentColor, 1.8px stroke,
+ * close to Apple/SF Symbols). NO emojis (owner directive 2026-06-02).
+ * Shared by the external + internal sub-chat view.
  */
 
 import type { CSSProperties } from 'react';
@@ -35,7 +35,7 @@ export function IconBack({ size = 24, style }: IconProps): React.JSX.Element {
 }
 
 export function IconSend({ size = 20, style }: IconProps): React.JSX.Element {
-  // Aufwärts-Pfeil (Composer-Send, Codex-/iMessage-Stil).
+  // Upward arrow (composer send, Codex/iMessage style).
   return (
     <svg {...svgProps(size, style)}>
       <path d="M12 19V5" />
@@ -45,7 +45,7 @@ export function IconSend({ size = 20, style }: IconProps): React.JSX.Element {
 }
 
 export function IconAttach({ size = 22, style }: IconProps): React.JSX.Element {
-  // Büroklammer.
+  // Paperclip.
   return (
     <svg {...svgProps(size, style)}>
       <path d="M21.44 11.05l-8.49 8.49a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l7.78-7.78" />
@@ -82,7 +82,7 @@ export function IconClose({ size = 16, style }: IconProps): React.JSX.Element {
 }
 
 export function IconCamera({ size = 22, style }: IconProps): React.JSX.Element {
-  // Kamera-Korpus + Linse + Sucher-Bump (Foto-Aufnahme).
+  // Camera body + lens + viewfinder bump (photo capture).
   return (
     <svg {...svgProps(size, style)}>
       <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -92,7 +92,7 @@ export function IconCamera({ size = 22, style }: IconProps): React.JSX.Element {
 }
 
 export function IconImage({ size = 22, style }: IconProps): React.JSX.Element {
-  // Galerie/Foto-Rahmen (Mediathek).
+  // Gallery/photo frame (media library).
   return (
     <svg {...svgProps(size, style)}>
       <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -103,7 +103,7 @@ export function IconImage({ size = 22, style }: IconProps): React.JSX.Element {
 }
 
 export function IconMic({ size = 22, style }: IconProps): React.JSX.Element {
-  // Mikrofon-Kapsel + Halterung (Sprach-Diktat).
+  // Microphone capsule + stand (voice dictation).
   return (
     <svg {...svgProps(size, style)}>
       <rect x="9" y="3" width="6" height="11" rx="3" />
@@ -114,7 +114,7 @@ export function IconMic({ size = 22, style }: IconProps): React.JSX.Element {
 }
 
 export function IconStop({ size = 18, style }: IconProps): React.JSX.Element {
-  // Gefülltes Quadrat = Aufnahme stoppen (Push-to-record loslassen / Cancel-Affordance).
+  // Filled square = stop recording (release push-to-record / cancel affordance).
   return (
     <svg {...svgProps(size, style)}>
       <rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none" />
@@ -123,7 +123,7 @@ export function IconStop({ size = 18, style }: IconProps): React.JSX.Element {
 }
 
 export function IconPlay({ size = 18, style }: IconProps): React.JSX.Element {
-  // Play-Dreieck (Audio-Player Start).
+  // Play triangle (audio player start).
   return (
     <svg {...svgProps(size, style)}>
       <path d="M8 5.5l11 6.5-11 6.5z" fill="currentColor" stroke="none" />
@@ -132,7 +132,7 @@ export function IconPlay({ size = 18, style }: IconProps): React.JSX.Element {
 }
 
 export function IconPause({ size = 18, style }: IconProps): React.JSX.Element {
-  // Pause (Audio-Player Pause).
+  // Pause (audio player pause).
   return (
     <svg {...svgProps(size, style)}>
       <rect x="7" y="5" width="3.5" height="14" rx="1.2" fill="currentColor" stroke="none" />
@@ -142,7 +142,7 @@ export function IconPause({ size = 18, style }: IconProps): React.JSX.Element {
 }
 
 export function IconZoomOut({ size = 20, style }: IconProps): React.JSX.Element {
-  // Lupe mit Minus (Lightbox-Verkleinern; optionales Affordance).
+  // Magnifier with minus (lightbox zoom-out; optional affordance).
   return (
     <svg {...svgProps(size, style)}>
       <circle cx="11" cy="11" r="7" />
@@ -153,7 +153,7 @@ export function IconZoomOut({ size = 20, style }: IconProps): React.JSX.Element 
 }
 
 export function IconCheck({ size = 14, style }: IconProps): React.JSX.Element {
-  // Einzel-Haken = zugestellt/gesendet.
+  // Single check = delivered/sent.
   return (
     <svg {...svgProps(size, style)}>
       <path d="M5 12.5l4.2 4.2L19 7" />
@@ -162,7 +162,7 @@ export function IconCheck({ size = 14, style }: IconProps): React.JSX.Element {
 }
 
 export function IconCheckDouble({ size = 16, style }: IconProps): React.JSX.Element {
-  // Doppel-Haken = gelesen. Zwei versetzte Haken (WhatsApp-Standard).
+  // Double check = read. Two offset checks (WhatsApp standard).
   return (
     <svg {...svgProps(size, style)}>
       <path d="M2 12.5l4 4L14.5 8" />

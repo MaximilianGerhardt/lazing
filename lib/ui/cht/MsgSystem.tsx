@@ -9,7 +9,7 @@ interface MsgSystemProps {
    * Kind / Event-Type label (e.g. "approval · tickets", "heartbeat", "routine").
    */
   kind: string;
-  /** Relative time string (z.B. "14:32", "vor 2 min"). */
+  /** Relative time string (e.g. "14:32", "vor 2 min"). */
   ts?: string;
   /** Severity color-hint. */
   severity?: 'info' | 'warn' | 'critical';
@@ -22,11 +22,11 @@ interface MsgSystemProps {
 }
 
 /**
- * CHT — System-Message (Event from Live-Stream).
+ * CHT — system message (event from the live stream).
  *
- * Dezenter als MsgAssistant, links-ausgerichtet, mit kleinem
- * Header "System · <kind> · <ts>" und optionalem Dismiss-.
- * Severity steuert Akzent-Farbe (info: ink-3, warn: a-warn, critical: a-danger).
+ * More subtle than MsgAssistant, left-aligned, with a small
+ * header "System · <kind> · <ts>" and an optional dismiss.
+ * Severity controls the accent color (info: ink-3, warn: a-warn, critical: a-danger).
  */
 export function MsgSystem({
   kind,

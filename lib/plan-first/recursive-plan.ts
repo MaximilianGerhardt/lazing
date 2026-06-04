@@ -1,6 +1,6 @@
 // Recursive Plan-in-Plan proposer.
 //
-// BACKPORT-03 von Lazing-V2 (2026-05-23 · Agent 3/8). Quelle:
+// BACKPORT-03 from Lazing-V2 (2026-05-23 · agent 3/8). Source:
 // lazing-wt/realtime-orchestrator-v2/apps/web/src/lib/plan-first/
 // recursive-plan.ts (271 LOC, V2 Slice C).
 //
@@ -94,21 +94,21 @@ export interface ProposeRecursivePlanOpts {
   readonly mintId?: () => string;
   readonly now?: () => number;
   /**
-   * E1 — Self-Learning / WARUM-Engine (2026-05-27). Ein bereits gerenderter
-   * WARUM-Block (lib/reasoning/why-context.ts::renderWhyContextForPrompt) mit
-   * früheren Begründungen + aktiven Beliefs dieses Workspace. Wird unverändert
-   * an `proposePlan` durchgereicht — und zwar auf JEDER rekursiven Ebene
-   * (Root-Plan + jeder eager/lazy Subplan): frühere Begründungen gelten für den
-   * GANZEN Plan-Baum, nicht nur die Wurzel. So startet auch der rekursive
-   * Plan-Walker nicht amnesisch.
+   * E1 — self-learning / WHY engine (2026-05-27). An already-rendered
+   * WHY block (lib/reasoning/why-context.ts::renderWhyContextForPrompt) with
+   * earlier rationales + active beliefs of this workspace. Passed through unchanged
+   * to `proposePlan` — and at EVERY recursive level
+   * (root plan + every eager/lazy subplan): earlier rationales apply to the
+   * WHOLE plan tree, not just the root. So the recursive
+   * plan walker also does not start amnesic.
    *
-   * KEINE DB-Kopplung (E1.2): dieses Modul liest NIE selbst — der String kommt
-   * fertig vom Caller (der das workspace-gescopte Read-Back besitzt, N9). Es wird
-   * KEIN Re-Build pro Ebene gemacht; derselbe String wird weitergereicht.
+   * NO DB coupling (E1.2): this module NEVER reads itself — the string arrives
+   * ready from the caller (which owns the workspace-scoped read-back, N9). NO
+   * re-build per level is done; the same string is passed through.
    *
-   * Fehlt der Parameter ODER ist er leer/whitespace (E1.3), ist der an die
-   * Engine gereichte Prompt auf jeder Ebene BIT-IDENTISCH zu vorher — bestehende
-   * Caller/Tests bleiben unverändert (proposePlan kappt leeren whyContext selbst).
+   * If the parameter is missing OR empty/whitespace (E1.3), the prompt handed to the
+   * engine is BIT-IDENTICAL to before at every level — existing
+   * callers/tests stay unchanged (proposePlan trims an empty whyContext itself).
    */
   readonly whyContext?: string;
 }
@@ -173,8 +173,8 @@ async function proposeSubplanFor(
   const sub = await proposePlan(intentText, opts.callEngine, {
     mintId: () => makeId(opts),
     now: () => now(opts),
-    // E1: derselbe WARUM-Block gilt für jede Subplan-Ebene (kein Re-Build).
-    // Fehlt/leer ⇒ proposePlan stellt nichts voran ⇒ bit-identischer Prompt.
+    // E1: the same WHY block applies to every subplan level (no re-build).
+    // Missing/empty ⇒ proposePlan prepends nothing ⇒ bit-identical prompt.
     ...(opts.whyContext ? { whyContext: opts.whyContext } : {}),
   });
   // Defense in depth: if the LLM somehow returned an empty list we
@@ -226,7 +226,7 @@ export async function proposeRecursivePlan(
       return proposePlan(rootIntent, opts.callEngine, {
         mintId: () => makeId(opts),
         now: () => now(opts),
-        // E1: WARUM-Block auch dem Root-Plan voranstellen (s. proposeSubplanFor).
+        // E1: prepend the WHY block to the root plan too (see proposeSubplanFor).
         ...(opts.whyContext ? { whyContext: opts.whyContext } : {}),
       });
     })());

@@ -1,21 +1,21 @@
 'use client';
 
 /**
- * PushSettingsSection — MobileDrawer-Section "Benachrichtigungen".
+ * PushSettingsSection — MobileDrawer section "Benachrichtigungen".
  *
- * Master-Toggle + per-Push-Rule-Toggle.
+ * Master toggle + per-push-rule toggle.
  *
- * Master-Toggle:
- *   - Aus: ruft `unsubscribe()` auf — der Browser dropt die Subscription,
- *     der Server bekommt DELETE und die Lambdas senden nichts mehr.
- *   - An: ruft `subscribe()` auf — Permission-Request + Subscribe-Flow.
+ * Master toggle:
+ *   - Off: calls `unsubscribe()` — the browser drops the subscription,
+ *     the server gets a DELETE and the lambdas stop sending anything.
+ *   - On: calls `subscribe()` — permission request + subscribe flow.
  *
- * Per-Rule-Toggle:
- *   - Schreibt PATCH /api/push/rules { ruleId, enabled }
- *   - Server setzt level='silent' + locked=1 wenn enabled=false
- *   - Server setzt locked=0 (decay übernimmt) wenn enabled=true
+ * Per-rule toggle:
+ *   - Writes PATCH /api/push/rules { ruleId, enabled }
+ *   - Server sets level='silent' + locked=1 when enabled=false
+ *   - Server sets locked=0 (decay takes over) when enabled=true
  *
- * State wird optimistisch gesetzt + bei Server-Fehler zurückgerollt.
+ * State is set optimistically + rolled back on a server error.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -37,9 +37,9 @@ interface RuleLabel {
 }
 
 /**
- * UX-Labels pro Rule. Source-of-truth: lib/push/rules.ts. Wenn dort
- * eine neue Rule hinzukommt, hier ergänzen — sonst wird sie mit
- * fallback-Label `id` angezeigt.
+ * UX labels per rule. Source of truth: lib/push/rules.ts. When a new rule
+ * is added there, add it here too — otherwise it is displayed with the
+ * fallback label `id`.
  */
 const RULE_LABELS: ReadonlyArray<RuleLabel> = [
   { id: 'ticket-p0-created', label: 'P0-Tickets', description: 'Neue Tickets mit P0-Priority' },
@@ -82,8 +82,8 @@ export function PushSettingsSection({ vapidPublicKey }: Props): React.JSX.Elemen
   }, []);
 
   useEffect(() => {
-    // Microtask-Kick statt direkter Sync-State-Set — vermeidet
-    // react-hooks/set-state-in-effect Lint und entkoppelt vom Render-Cycle.
+    // Microtask kick instead of a direct sync state set — avoids the
+    // react-hooks/set-state-in-effect lint and decouples from the render cycle.
     if (sub.state === 'subscribed') {
       const handle = Promise.resolve().then(() => loadRules());
       return () => {

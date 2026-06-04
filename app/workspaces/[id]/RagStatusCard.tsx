@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * RAG-Status-Card im Workspace-Detail.
+ * RAG status card in the workspace detail.
  *
- * Zeigt:
- *   - Total Chunks + Tokens
- *   - Source-Type-Breakdown (file/chat/ticket/work-product)
- *   - Last-Indexed (relative)
- *   - Circuit-Open-Warnung wenn gesetzt
- *   - „Re-Index"-Button (POST /api/rag/index)
+ * Shows:
+ *   - total chunks + tokens
+ *   - source-type breakdown (file/chat/ticket/work-product)
+ *   - last-indexed (relative)
+ *   - circuit-open warning when set
+ *   - "Re-Index" button (POST /api/rag/index)
  *
- * Apple-Pure: keine Spam-Cards, eine sauber strukturierte Sektion.
+ * Apple-pure: no spam cards, one cleanly structured section.
  */
 
 import { useEffect, useState, type CSSProperties } from 'react';

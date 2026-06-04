@@ -1,10 +1,10 @@
 /**
- * POST /api/subchats/search  — Sub-Chat-Wissens-Suche (member, workspace-übergreifend).
+ * POST /api/subchats/search  — sub-chat knowledge search (member, cross-workspace).
  *
- * Aggregiert workspace-scoped RAG-retrieve() über ALLE Sub-Chat-tragenden Workspaces,
- * auf die der eingeloggte User Zugriff hat (jeder einzeln member-gegated, fail-closed).
- * N2: pro Workspace ein isolierter retrieve()-Call (kein cross-workspace fallback).
- * Liefert gerankte Treffer mit Subchat/Workspace + Deep-Link.
+ * Aggregates workspace-scoped RAG retrieve() across ALL sub-chat-bearing workspaces
+ * the logged-in user has access to (each member-gated individually, fail-closed).
+ * N2: one isolated retrieve() call per workspace (no cross-workspace fallback).
+ * Returns ranked hits with subchat/workspace + deep link.
  */
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -52,12 +52,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     const all: Hit[] = [];
 
     for (const ws of accessible) {
-      // N2: isolierter per-Workspace retrieve. topK großzügig, danach global re-cap.
+      // N2: isolated per-workspace retrieve. topK generous, then global re-cap.
       const res = await retrieve({ workspaceId: ws, query: q, topK: limit });
       const subHits = res.hits.filter((h) => h.sourceType === 'subchat');
       if (subHits.length === 0) continue;
 
-      // messageId('SCM-…') → {subchatId,title} Map via existierende Service-Exports.
+      // messageId('SCM-…') → {subchatId,title} map via existing service exports.
       const msgToSub = new Map<string, { id: string; title: string }>();
       for (const sc of listSubchats(ws)) {
         for (const m of listMessages(sc.id)) msgToSub.set(m.id, { id: sc.id, title: sc.title });
@@ -65,13 +65,13 @@ export async function POST(req: NextRequest): Promise<Response> {
 
       for (const h of subHits) {
         const sub = msgToSub.get(h.sourceId);
-        if (!sub) continue; // Chunk ohne auflösbaren Subchat (z.B. gelöscht) → überspringen
+        if (!sub) continue; // chunk without a resolvable subchat (e.g. deleted) → skip
         all.push({
           subchatId: sub.id,
           subchatTitle: sub.title,
           workspaceId: ws,
           workspaceLabel: labels[ws] ?? ws,
-          snippet: h.text,            // N1: verbatim, kein server-seitiges slice
+          snippet: h.text,            // N1: verbatim, no server-side slice
           similarity: h.similarity,
           deepLink: `/workspaces/${encodeURIComponent(ws)}/subchats/${encodeURIComponent(sub.id)}`,
           messageId: h.sourceId,

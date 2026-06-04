@@ -1,28 +1,28 @@
 /**
- * Pure Workspace-Label/Accent-Resolver
+ * Pure workspace label/accent resolver
  * ------------------------------------
- * EINE Quelle der Wahrheit für „segmentId → Anzeigename + Pill-Farbe", die
- * sowohl in Server- als auch Client-Components läuft (kein DB-Import, kein
- * `getDb()`). Der Aufrufer reicht die echte Workspace-Liste (aus
- * `listWorkspaces()`) herein.
+ * ONE source of truth for "segmentId → display name + pill color" that
+ * runs in both server and client components (no DB import, no
+ * `getDb()`). The caller passes in the real workspace list (from
+ * `listWorkspaces()`).
  *
- * Warum nötig (2026-06-03, UI/UX-Neuausrichtung Phase A):
- *   Vor diesem Helper hatten /decisions, /calendar (×2) und ChatShell je eine
- *   lokale, hartkodierte `SEGMENT_LABELS`-Map (`@north → Nord-Sparkasse`,
- *   `@clientb → clientb GmbH`). Seit der Event-Log-Migration tragen die Rows
- *   aber echte Workspace-IDs (`example-website-project`, `intern`, …) →
- *   die Map traf nie, lieferte `undefined` = leere Pills. Bei Alt-Rows zeigte
- *   sie umgekehrt Phantasie-Kunden, die es nie gab.
+ * Why needed (2026-06-03, UI/UX realignment phase A):
+ *   Before this helper, /decisions, /calendar (×2) and ChatShell each had a
+ *   local, hard-coded `SEGMENT_LABELS` map (`@north → Nord-Sparkasse`,
+ *   `@clientb → clientb GmbH`). Since the event-log migration, the rows
+ *   carry real workspace IDs (`example-website-project`, `intern`, …) →
+ *   the map never matched, returning `undefined` = empty pills. For old rows
+ *   it conversely showed fantasy customers that never existed.
  *
- * Vertrag:
- *   - Legacy-`@…`-Segmente werden zuerst via `migrateSegmentToWorkspace`
- *     auf reale Workspace-IDs übersetzt.
- *   - Danach Lookup in der echten Liste → echter `label` / `accent`.
- *   - Nie `undefined`, nie ein erfundener Kundenname: unbekannte IDs fallen
- *     auf die (migrierte) ID bzw. den Accent-Fallback zurück.
+ * Contract:
+ *   - Legacy `@…` segments are first translated to real workspace IDs via
+ *     `migrateSegmentToWorkspace`.
+ *   - Then a lookup in the real list → real `label` / `accent`.
+ *   - Never `undefined`, never an invented customer name: unknown IDs fall
+ *     back to the (migrated) ID or the accent fallback.
  *
- * Vorbild war der Inline-Helper in `app/workstreams/page.tsx` — dieser
- * Helper konsolidiert ihn + ergänzt die Legacy-Migration.
+ * The model was the inline helper in `app/workstreams/page.tsx` — this
+ * helper consolidates it + adds the legacy migration.
  */
 
 import type { PillVariant } from '@/lib/ui/pil';
@@ -31,8 +31,8 @@ import {
   workspaceAccentFallback,
 } from '@/lib/events/types';
 
-/** Minimal-Shape, das aus `listWorkspaces()` herausfällt und an Client-
- *  Components serialisierbar weitergereicht werden kann. */
+/** Minimal shape that falls out of `listWorkspaces()` and can be passed
+ *  serializably to client components. */
 export interface WorkspaceLite {
   id: string;
   label: string;
@@ -49,22 +49,22 @@ const PILL_VARIANTS: readonly PillVariant[] = [
   'error',
 ];
 
-/** Coerced auf das Pill-Variant-Union; alles Unbekannte (z.B. `palette-7`,
- *  `a-now`) → 'own', damit nie eine ungültige Variant ans `Pill` geht. */
+/** Coerced to the pill-variant union; anything unknown (e.g. `palette-7`,
+ *  `a-now`) → 'own', so an invalid variant never reaches `Pill`. */
 function normalizeAccent(raw: string): PillVariant {
   return (PILL_VARIANTS as readonly string[]).includes(raw)
     ? (raw as PillVariant)
     : 'own';
 }
 
-/** Reduziert eine volle Workspace-Liste auf das serialisierbare Lite-Shape. */
+/** Reduces a full workspace list to the serializable lite shape. */
 export function toWorkspaceLite(
   list: ReadonlyArray<{ id: string; label: string; accent: string }>,
 ): WorkspaceLite[] {
   return list.map((w) => ({ id: w.id, label: w.label, accent: w.accent }));
 }
 
-/** Anzeigename für eine (ggf. legacy) segmentId/Workspace-ID. */
+/** Display name for a (possibly legacy) segmentId/workspace ID. */
 export function workspaceLabel(
   segmentId: string,
   list: readonly WorkspaceLite[],
@@ -73,7 +73,7 @@ export function workspaceLabel(
   return list.find((w) => w.id === wsId)?.label ?? wsId;
 }
 
-/** Pill-Variant (Farbe) für eine (ggf. legacy) segmentId/Workspace-ID. */
+/** Pill variant (color) for a (possibly legacy) segmentId/workspace ID. */
 export function workspaceAccentVariant(
   segmentId: string,
   list: readonly WorkspaceLite[],

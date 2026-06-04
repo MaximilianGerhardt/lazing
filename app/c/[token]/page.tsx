@@ -1,8 +1,8 @@
 /**
- * /c/[token] — öffentliche externe Sub-Chat-Seite (Gathering-Intelligence-Goal).
+ * /c/[token] — public external sub-chat page (gathering-intelligence goal).
  *
- * Public (middleware PUBLIC_PREFIXES `/c/`). Kein Login — der Token autorisiert.
- * Reine Shell; die Client-Komponente lädt + postet via /api/subchats/external/.
+ * Public (middleware PUBLIC_PREFIXES `/c/`). No login — the token authorizes.
+ * Pure shell; the client component loads + posts via /api/subchats/external/.
  */
 
 import type { Metadata } from 'next';

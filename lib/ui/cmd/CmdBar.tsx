@@ -248,11 +248,11 @@ const srOnlyStyle = {
 // Input lives above the visual text layer so focus-visible ring works on
 // keyboard nav, but is transparent so the styled .txt span shows through.
 //
-// iOS-ZOOM-FIX (2026-04-24): font-size MUSS >= 16px sein, sonst zoomt
-// Safari bei Focus. Wir setzen hier explizit 16px statt font: 'inherit'
-// (was 15px aus .cmdbar .txt erbt). Der Input ist visuell transparent, die
-// tatsächliche Renderschrift kommt vom <span> daneben — die 16px sind
-// reine iOS-Heuristik, nicht sichtbar.
+// iOS-ZOOM-FIX (2026-04-24): font-size MUST be >= 16px, otherwise
+// Safari zooms on focus. We set 16px explicitly here instead of font: 'inherit'
+// (which would inherit 15px from .cmdbar .txt). The input is visually transparent, the
+// actual rendered font comes from the <span> next to it — the 16px are
+// pure iOS heuristic, not visible.
 const hiddenInputStyle = {
   position: 'absolute',
   inset: 0,

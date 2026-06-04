@@ -3,11 +3,11 @@
  *
  * Pattern 4 Welle 2.2 (2026-05-01).
  *
- * Server-renderbar (kein 'use client'). Mount-Animation via `srf-pop` aus
- * den globalen Surface-Tokens. Hover/Press-Effekte via CSS-Klassen.
+ * Server-renderable (no 'use client'). Mount animation via `srf-pop` from
+ * the global Surface tokens. Hover/press effects via CSS classes.
  *
- * Stubs (isStub=true) werden visuell gedämpft + "Coming Soon"-Badge,
- * kein Start-CTA.
+ * Stubs (isStub=true) are visually dimmed + "Coming Soon" badge,
+ * no start CTA.
  */
 
 import Link from 'next/link';

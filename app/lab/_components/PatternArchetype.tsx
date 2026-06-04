@@ -1,11 +1,11 @@
 /**
- * /lab Pattern-Archetype-Card (MVP, 2026-05-01).
+ * /lab pattern-archetype card (MVP, 2026-05-01).
  *
- * Eine Card auf der Landing-Page: zeigt einen der drei Archetypen
- * (Coding/Planning/Bug-Fix) mit Workspace-Akzent, Real-Use-Count und
- * Click-Through zum primären Kind.
+ * A card on the landing page: shows one of the three archetypes
+ * (Coding/Planning/Bug-Fix) with workspace accent, real-use count and
+ * click-through to the primary kind.
  *
- * Server-Component — keine Interaktivität ausser Link.
+ * Server component — no interactivity other than the link.
  */
 
 import Link from "next/link";
@@ -14,7 +14,7 @@ import type { ArchetypeMeta } from "../_lib/kinds-catalog";
 
 export interface PatternArchetypeProps {
   archetype: ArchetypeMeta;
-  /** Anzahl Real-Use-Events der letzten 30d für die Subline. */
+  /** Number of real-use events in the last 30d for the subline. */
   realUseCount: number;
   accent: string | null;
 }

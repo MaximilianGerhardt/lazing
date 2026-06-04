@@ -1,42 +1,42 @@
 'use client';
 
 /**
- * useSpeechRecognition — Web-Speech-API-Hook (gehärtet).
+ * useSpeechRecognition — Web Speech API hook (hardened).
  *
- * Kapselt `SpeechRecognition` / `webkitSpeechRecognition` hinter einer
- * ergonomischen React-API. Keine externen Deps, keine Polyfills.
+ * Wraps `SpeechRecognition` / `webkitSpeechRecognition` behind an
+ * ergonomic React API. No external deps, no polyfills.
  *
- * Support-Matrix (Stand 2026-04):
- *   - macOS Safari 14.1+ 
- *   - iOS Safari 14.5+  (nur im Browser-Tab)
- *   - iOS Safari PWA-Standalone-Mode  (API exisitiert, wirft aber
- *     silent `service-not-allowed` oder hängt). Wird hier detektiert
- *     und als `isSupported=false` + `error='pwa-standalone-unsupported'`
- *     gemeldet — der User bekommt einen klaren Fallback-Hinweis.
- *   - Chrome/Edge desktop + mobile 
- *   - Firefox  (kein Ctor)
+ * Support matrix (as of 2026-04):
+ *   - macOS Safari 14.1+
+ *   - iOS Safari 14.5+  (only in the browser tab)
+ *   - iOS Safari PWA standalone mode  (the API exists, but throws
+ *     a silent `service-not-allowed` or hangs). Detected here
+ *     and reported as `isSupported=false` + `error='pwa-standalone-unsupported'`
+ *     — the user gets a clear fallback hint.
+ *   - Chrome/Edge desktop + mobile
+ *   - Firefox  (no ctor)
  *
- * Verhalten:
+ * Behavior:
  *   - `interimResults: true` → `interimText` updated live.
- *   - `finalText` wird bei Recognition-End emittiert (onFinal-Callback).
- *   - Auto-stop: `continuous: false` → Safari stoppt nach ~2 s Stille.
- *   - Fehler: `error` gesetzt, `isListening=false`.
- *   - `isSecureContext` Pflicht-Check — ohne HTTPS/localhost erlaubt
- *     der Browser keinen Mic-Zugriff.
+ *   - `finalText` is emitted on recognition end (onFinal callback).
+ *   - Auto-stop: `continuous: false` → Safari stops after ~2 s of silence.
+ *   - Error: `error` set, `isListening=false`.
+ *   - `isSecureContext` mandatory check — without HTTPS/localhost the
+ *     browser allows no mic access.
  *
- * Fehler-Codes (stabilisiert):
- *   - 'not-supported'                 — Browser hat keinen Ctor
- *   - 'insecure-context'              — http (kein localhost)
- *   - 'pwa-standalone-unsupported'    — iOS-PWA-Home-Screen-Mode
- *   - 'not-allowed' | 'service-not-allowed' — Permission denied
- *   - 'no-speech' | 'audio-capture' | 'network' — Runtime
- *   - 'start-failed' | 'init-failed'  — Throw beim Erzeugen/Start
+ * Error codes (stabilized):
+ *   - 'not-supported'                 — the browser has no ctor
+ *   - 'insecure-context'              — http (not localhost)
+ *   - 'pwa-standalone-unsupported'    — iOS PWA home-screen mode
+ *   - 'not-allowed' | 'service-not-allowed' — permission denied
+ *   - 'no-speech' | 'audio-capture' | 'network' — runtime
+ *   - 'start-failed' | 'init-failed'  — throw on create/start
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------
-// Type-Shims — Web Speech API ist in lib.dom nicht vollständig typisiert
+// Type shims — the Web Speech API is not fully typed in lib.dom
 // ---------------------------------------------------------------------
 interface SR_Alternative {
   readonly transcript: string;
@@ -87,7 +87,7 @@ interface NavigatorWithStandalone extends Navigator {
 }
 
 // ---------------------------------------------------------------------
-// Environment-Probes
+// Environment probes
 // ---------------------------------------------------------------------
 
 function getCtor(): SpeechRecognitionCtor | null {
@@ -97,15 +97,15 @@ function getCtor(): SpeechRecognitionCtor | null {
 }
 
 /**
- * iOS Safari PWA-Standalone-Mode Detection.
+ * iOS Safari PWA standalone-mode detection.
  *
- * Wenn die App als Home-Screen-PWA auf iOS läuft, existiert
- * `webkitSpeechRecognition`, aber der Aufruf hängt oder wirft silent.
- * Wir erkennen das Environment und liefern einen klaren Fallback.
+ * When the app runs as a home-screen PWA on iOS,
+ * `webkitSpeechRecognition` exists, but the call hangs or throws silently.
+ * We detect the environment and provide a clear fallback.
  *
  * Signatures:
- *   - `navigator.standalone === true` (Safari-spezifisch)
- *   - display-mode: standalone + iOS-User-Agent
+ *   - `navigator.standalone === true` (Safari-specific)
+ *   - display-mode: standalone + iOS user agent
  */
 function isIosPwaStandalone(): boolean {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -129,8 +129,8 @@ function isIosPwaStandalone(): boolean {
 function isSecureForMic(): boolean {
   if (typeof window === 'undefined') return false;
   if (window.isSecureContext) return true;
-  // `isSecureContext` ist i. d. R. authoritative, aber wir erlauben
-  // localhost ausdrücklich (dev-Setup).
+  // `isSecureContext` is usually authoritative, but we explicitly
+  // allow localhost (dev setup).
   const host = window.location.hostname;
   return host === 'localhost' || host === '127.0.0.1' || host === '::1';
 }
@@ -165,15 +165,15 @@ export function useSpeechRecognition(
 ): UseSpeechRecognitionReturn {
   const { lang = 'de-DE', onFinal } = options;
 
-  // Lazy-feature-detect — einmal pro Mount.
+  // Lazy feature detect — once per mount.
   const env = useMemo(() => {
     const ctor = getCtor();
     const secure = isSecureForMic();
     const iosPwa = isIosPwaStandalone();
-    // Priorität der Fehlerfälle:
-    //  1) Kein Ctor → API fehlt komplett
-    //  2) Nicht secure → Browser blockiert Mic sowieso
-    //  3) iOS-PWA → API präsent aber broken — klarer Fallback
+    // Priority of the error cases:
+    //  1) No ctor → API missing entirely
+    //  2) Not secure → the browser blocks the mic anyway
+    //  3) iOS PWA → API present but broken — clear fallback
     let supportedError: string | null = null;
     if (!ctor) supportedError = 'not-supported';
     else if (!secure) supportedError = 'insecure-context';
@@ -190,13 +190,13 @@ export function useSpeechRecognition(
   const [finalText, setFinalText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Hydration-Gate: `env.supported` ist clientseitig (getCtor/navigator), auf
-  // dem Server immer false. Würden wir den echten Wert sofort zurückgeben,
-  // mismatcht das SSR-Markup (Mic „nicht verfügbar") mit dem ersten Client-
-  // Render (Mic „verfügbar") → React-Hydration-Warning + Attribut-Flip am
-  // Composer-Mic-Button. Wir geben bis nach dem Mount `false` zurück (== SSR),
-  // dann flippt der Effect auf den echten Wert. Kanonisches Next-App-Router-
-  // Muster für Client-only-Feature-Detection.
+  // Hydration gate: `env.supported` is client-side (getCtor/navigator), always
+  // false on the server. If we returned the real value immediately,
+  // the SSR markup (mic „not available") would mismatch the first client
+  // render (mic „available") → React hydration warning + attribute flip on the
+  // composer mic button. We return `false` until after mount (== SSR),
+  // then the effect flips to the real value. Canonical Next App Router
+  // pattern for client-only feature detection.
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     setHydrated(true);
@@ -225,11 +225,11 @@ export function useSpeechRecognition(
   }, []);
 
   const start = useCallback(() => {
-    // Environment-Check zuerst — klarer Fehlercode statt stilles Nichts.
+    // Environment check first — a clear error code instead of silent nothing.
     if (!env.supported) {
       setError(env.supportedError ?? 'not-supported');
       if (process.env.NODE_ENV !== 'production') {
-        // Einmaliger Dev-Hinweis für STT-Debugging.
+        // One-time dev hint for STT debugging.
           console.warn(
           '[useSpeechRecognition] start() aborted:',
           env.supportedError,
@@ -238,7 +238,7 @@ export function useSpeechRecognition(
       return;
     }
     if (recRef.current) {
-      // already running — no-op (UI sollte toggleStt via isListening lesen)
+      // already running — no-op (the UI should read toggleStt via isListening)
       return;
     }
     setError(null);
@@ -247,7 +247,7 @@ export function useSpeechRecognition(
 
     let rec: SpeechRecognitionLike;
     try {
-      // Non-null assertion: env.supported garantiert ctor !== null.
+      // Non-null assertion: env.supported guarantees ctor !== null.
       const Ctor = env.ctor;
       if (!Ctor) {
         setError('not-supported');

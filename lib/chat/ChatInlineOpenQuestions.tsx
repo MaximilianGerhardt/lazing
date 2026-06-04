@@ -1,24 +1,24 @@
 'use client';
 
 /**
- * ChatInlineOpenQuestions — CODEX-Stepper (2026-05-23, Umbau v2).
+ * ChatInlineOpenQuestions — CODEX stepper (2026-05-23, rebuild v2).
  *
- * Vorheriges Verhalten (v1, Bug): Jeder Options-Klick rief sofort `reply()`
- * auf → der Chat wurde sofort neu angestoßen, kein Zurück möglich.
+ * Previous behavior (v1, bug): every option click immediately called `reply()`
+ * → the chat was re-triggered instantly, no going back possible.
  *
- * Neues Verhalten (Stepper):
- *  - Eine Frage pro "Screen", Vor/Zurück + Fortschrittsanzeige „n / total".
- *  - Options-Klick → setzt nur die lokale Antwort für diese Frage (visuell
- *    markiert, aria-pressed), kein reply().
- *  - Free-Text-Fragen: Textarea, Draft bleibt beim Navigieren erhalten.
- *  - Einzelfrage-Fall: kein Vor/Zurück, direkt Absenden.
- *  - Finaler "Antworten absenden"-Button: baut eine Q&A-Liste, ruft reply()
- *    EINMAL auf und lockt den Submit (kein Doppel-Submit).
- *  - Absenden erlaubt sobald ≥1 Frage beantwortet; unbeantwortete Fragen
- *    werden weggelassen (sauberer als „—"-Platzhalter).
+ * New behavior (stepper):
+ *  - One question per "screen", forward/back + progress display „n / total".
+ *  - Option click → only sets the local answer for this question (visually
+ *    marked, aria-pressed), no reply().
+ *  - Free-text questions: textarea, the draft is kept while navigating.
+ *  - Single-question case: no forward/back, submit directly.
+ *  - Final "Antworten absenden" button: builds a Q&A list, calls reply()
+ *    ONCE and locks the submit (no double submit).
+ *  - Submit allowed as soon as ≥1 question is answered; unanswered questions
+ *    are omitted (cleaner than a „—" placeholder).
  *
- * Render-Pfad unverändert: surface-text-render.tsx übergibt `questions`.
- * Signatur unverändert: { questions: PlanQuestion[] }.
+ * Render path unchanged: surface-text-render.tsx passes `questions`.
+ * Signature unchanged: { questions: PlanQuestion[] }.
  */
 
 import { useState } from 'react';
@@ -27,7 +27,7 @@ import type { PlanQuestion } from '../workstreams/parse-plan-questions';
 import { useSurfaceAction } from './SurfaceActionContext';
 
 // ---------------------------------------------------------------------------
-// Hilfs-Util
+// Helper util
 // ---------------------------------------------------------------------------
 
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -35,7 +35,7 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 // ---------------------------------------------------------------------------
-// Haupt-Komponente
+// Main component
 // ---------------------------------------------------------------------------
 
 export function ChatInlineOpenQuestions({
@@ -45,13 +45,13 @@ export function ChatInlineOpenQuestions({
 }): React.JSX.Element | null {
   const { reply } = useSurfaceAction();
 
-  // answers: gespeicherte Antwort pro Frage-ID (leer = noch nicht beantwortet).
+  // answers: stored answer per question ID (empty = not yet answered).
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  // drafts: Free-Text-Zwischenstand pro Frage-ID (auch schon vor finalem Accept).
+  // drafts: free-text intermediate state per question ID (even before final accept).
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  // currentIndex: aktuell sichtbare Frage (0-basiert).
+  // currentIndex: currently visible question (0-based).
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-  // submitted: verhindert Doppel-Submit; blendet nach dem Absenden um.
+  // submitted: prevents a double submit; switches the view after sending.
   const [submitted, setSubmitted] = useState<boolean>(false);
 
   if (questions.length === 0) return null;
@@ -61,24 +61,24 @@ export function ChatInlineOpenQuestions({
   const current = questions[currentIndex]!;
   const hasOptions = Array.isArray(current.options) && current.options.length > 0;
 
-  // Anzahl der bisher beantworteten Fragen (für Submit-Guard + Hinweis).
+  // Number of questions answered so far (for the submit guard + hint).
   const answeredCount = questions.filter((q) => answers[q.id] !== undefined).length;
   const canSubmit = answeredCount > 0 && !submitted;
 
-  // Wie viele Fragen sind noch offen (für Warn-Hinweis im Footer)?
+  // How many questions are still open (for the warning hint in the footer)?
   const openCount = total - answeredCount;
 
   // ------------------------------------------------------------------
-  // Handler
+  // Handlers
   // ------------------------------------------------------------------
 
-  /** Setzt die Antwort für die aktuelle Frage (Options-Klick). */
+  /** Sets the answer for the current question (option click). */
   const selectOption = (qId: string, opt: string): void => {
     if (submitted) return;
     setAnswers((prev) => ({ ...prev, [qId]: opt }));
   };
 
-  /** Akzeptiert den Free-Text-Draft als Antwort für die aktuelle Frage. */
+  /** Accepts the free-text draft as the answer for the current question. */
   const acceptDraft = (qId: string): void => {
     if (submitted) return;
     const trimmed = (drafts[qId] ?? '').trim();
@@ -87,12 +87,12 @@ export function ChatInlineOpenQuestions({
   };
 
   /**
-   * Finaler Submit: baut eine kompakte Q&A-Liste aus allen beantworteten
-   * Fragen und ruft reply() EINMAL auf.
+   * Final submit: builds a compact Q&A list from all answered
+   * questions and calls reply() ONCE.
    */
   const handleSubmit = (): void => {
     if (!canSubmit) return;
-    // Q&A-Text VOR dem Lock bauen (kein State-Zugriff danach nötig).
+    // Build the Q&A text BEFORE the lock (no state access needed afterwards).
     const lines: string[] = [];
     for (const q of questions) {
       const ans = answers[q.id];
@@ -100,14 +100,14 @@ export function ChatInlineOpenQuestions({
         lines.push(`Frage: ${q.text}\nAntwort: ${ans}`);
       }
     }
-    // Lock ZUERST: selbst wenn reply() (sync) wirft, ist submitted bereits
-    // true → der canSubmit-Guard (!submitted) verhindert einen zweiten reply().
+    // Lock FIRST: even if reply() (sync) throws, submitted is already
+    // true → the canSubmit guard (!submitted) prevents a second reply().
     setSubmitted(true);
     reply(lines.join('\n\n'));
   };
 
   // ------------------------------------------------------------------
-  // Submitted-Zustand: kompakte Bestätigung
+  // Submitted state: compact confirmation
   // ------------------------------------------------------------------
 
   if (submitted) {
@@ -121,7 +121,7 @@ export function ChatInlineOpenQuestions({
   }
 
   // ------------------------------------------------------------------
-  // Aktive Frage rendern
+  // Render the active question
   // ------------------------------------------------------------------
 
   const currentAnswer = answers[current.id];
@@ -129,7 +129,7 @@ export function ChatInlineOpenQuestions({
 
   return (
     <div className="open-q-inline" role="group" aria-label="Offene Fragen">
-      {/* Kopfzeile: Fortschritt + Label */}
+      {/* Header row: progress + label */}
       <div className="open-q-stepper-header">
         <span className="open-q-inline-label">Offene Fragen</span>
         {!isSingle && (
@@ -139,11 +139,11 @@ export function ChatInlineOpenQuestions({
         )}
       </div>
 
-      {/* Aktuelle Frage */}
+      {/* Current question */}
       <div className="open-q-inline-q">
         <div className="open-q-inline-text">
           <span>{current.text}</span>
-          {/* Bereits gewählte Antwort: inline-Badge zur schnellen Übersicht */}
+          {/* Already chosen answer: inline badge for a quick overview */}
           {currentAnswer !== undefined && (
             <span className="open-q-answered" aria-label={`Gewählt: ${currentAnswer}`}>
               {currentAnswer}
@@ -152,8 +152,8 @@ export function ChatInlineOpenQuestions({
         </div>
 
         {hasOptions ? (
-          /* Options: eigene Buttons mit selected-Zustand (QuickChoice hat kein
-             aria-pressed / selected-Konzept, deshalb eigene Variante). */
+          /* Options: own buttons with a selected state (QuickChoice has no
+             aria-pressed / selected concept, hence the own variant). */
           <div
             className="open-q-stepper-opts"
             role="group"
@@ -175,7 +175,7 @@ export function ChatInlineOpenQuestions({
             ))}
           </div>
         ) : (
-          /* Free-Text: Textarea + "Merken"-Button (kein sofortiger Submit) */
+          /* Free text: textarea + "Merken" button (no immediate submit) */
           <div className="open-q-input-row">
             <textarea
               className="open-q-textarea"
@@ -186,7 +186,7 @@ export function ChatInlineOpenQuestions({
                 setDrafts((prev) => ({ ...prev, [current.id]: e.target.value }))
               }
               onKeyDown={(e) => {
-                // Cmd/Ctrl+Enter: Draft als Antwort für diese Frage merken
+                // Cmd/Ctrl+Enter: remember the draft as the answer for this question
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   acceptDraft(current.id);
@@ -206,9 +206,9 @@ export function ChatInlineOpenQuestions({
         )}
       </div>
 
-      {/* Footer: Navigation + finaler Submit-Button */}
+      {/* Footer: navigation + final submit button */}
       <div className="open-q-stepper-footer">
-        {/* Vor/Zurück-Navigation — nur wenn mehrere Fragen */}
+        {/* Forward/back navigation — only when multiple questions */}
         {!isSingle && (
           <div className="open-q-stepper-nav">
             <button
@@ -233,7 +233,7 @@ export function ChatInlineOpenQuestions({
         )}
 
         <div className="open-q-stepper-send-group">
-          {/* Hinweis: wie viele Fragen noch unbeantwortet */}
+          {/* Hint: how many questions are still unanswered */}
           {openCount > 0 && answeredCount > 0 && (
             <span className="open-q-stepper-hint">
               {openCount} {openCount === 1 ? 'Frage' : 'Fragen'} offen
@@ -260,10 +260,10 @@ export default ChatInlineOpenQuestions;
 // OpenQuestionsInlineRef — UX-1 (2026-05-26)
 // ---------------------------------------------------------------------------
 /**
- * Kompakte, NICHT-interaktive Referenz für die `## Offene Fragen`-Section im
- * Nachrichtenstrom. Seit UX-1 ist der primäre Antwort-Flow die Q/A-Pill ÜBER
- * dem Composer (ChatOpenQuestionsPill). Diese Inline-Markierung verweist nur
- * darauf — sie eröffnet KEINEN zweiten reply()-Pfad (kein Doppel-Send).
+ * Compact, NON-interactive reference for the `## Offene Fragen` section in the
+ * message stream. Since UX-1 the primary answer flow is the Q/A pill ABOVE
+ * the composer (ChatOpenQuestionsPill). This inline marker only points
+ * to it — it opens NO second reply() path (no double send).
  */
 export function OpenQuestionsInlineRef({
   count,

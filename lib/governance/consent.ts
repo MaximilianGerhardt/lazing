@@ -7,35 +7,35 @@
  *    keine privaten Daten · Review durch betroffene Person · Betriebsrat/
  *    Arbeitsrecht beachten"
  *
- * Lane G ist die FUNDAMENTAL-Lane (Stage 1, Governance Gate Contract). Alle
- * anderen Lanes hängen am Gate, das diese Funktionen liefern.
+ * Lane G is the FUNDAMENTAL lane (Stage 1, Governance Gate Contract). All
+ * other lanes hang off the gate that these functions provide.
  *
- * Mechanik (analog lib/reasoning/beliefs-repo.ts):
- *   - Nimmt ein ROHES better-sqlite3-Handle entgegen — kein getDb()-Singleton,
- *     direkt in-memory testbar.
- *   - PURE/IO-arm: nur DB-Read/Write, KEIN LLM, KEINE Netz-I/O.
- *   - N1:  reason_text VERBATIM (kein .slice).
+ * Mechanics (analogous to lib/reasoning/beliefs-repo.ts):
+ *   - Takes a RAW better-sqlite3 handle — no getDb() singleton,
+ *     directly in-memory testable.
+ *   - PURE/low-IO: only DB read/write, NO LLM, NO net I/O.
+ *   - N1:  reason_text VERBATIM (no .slice).
  *   - N9:  workspaceId-scoped.
- *   - N10: content_hash (sha256 über kanonisches JSON) je Grant-Row.
+ *   - N10: content_hash (sha256 over canonical JSON) per grant row.
  *
- * Append-only-Disziplin (N8) ist in Migration 0118 via Trigger codiert:
- *   - DELETE auf consent_grants → RAISE ABORT.
- *   - UPDATE auf id/workspace_id/user_id/data_source/level/scope_json/
+ * Append-only discipline (N8) is encoded in Migration 0118 via triggers:
+ *   - DELETE on consent_grants → RAISE ABORT.
+ *   - UPDATE on id/workspace_id/user_id/data_source/level/scope_json/
  *     reason_text/granted_at/content_hash → RAISE ABORT.
- *   - revoked_at darf NUR via revokeConsent gesetzt werden (eine kontrollierte
- *     UPDATE-Operation, die NEBEN dem Spalten-Update auch noch einen Audit-
- *     Row in governance_audit anlegt — siehe lib/governance/audit.ts).
+ *   - revoked_at may ONLY be set via revokeConsent (a controlled
+ *     UPDATE operation that, BESIDES the column update, also creates an audit
+ *     row in governance_audit — see lib/governance/audit.ts).
  *
  * Public API:
- *   hasConsent(raw, req)       — boolean, deterministisch
- *   grantConsent(raw, input)   — legt NEUE Grant-Row an
- *   revokeConsent(raw, input)  — setzt revoked_at auf einer existierenden
- *                                Grant-Row + schreibt Audit-Row (Trigger
- *                                erlaubt UPDATE NUR auf revoked_at)
+ *   hasConsent(raw, req)       — boolean, deterministic
+ *   grantConsent(raw, input)   — creates a NEW grant row
+ *   revokeConsent(raw, input)  — sets revoked_at on an existing
+ *                                grant row + writes an audit row (the trigger
+ *                                allows UPDATE ONLY on revoked_at)
  *   listConsents(raw, workspaceId, opts?)
- *                              — alle Grants (aktiv + revoked), neueste zuerst
+ *                              — all grants (active + revoked), newest first
  *
- * Level-Ordnung (höhere Stufe deckt niedrigere ab):
+ * Level ordering (higher level covers lower):
  *   none < read-only < read-derive < read-derive-act < full-automation
  */
 
@@ -49,7 +49,7 @@ type RawDb = import("better-sqlite3").Database;
 // Types
 // ---------------------------------------------------------------------------
 
-/** Owner-Direktive §13.2 — granularer Consent. */
+/** Owner directive §13.2 — granular consent. */
 export type ConsentLevel =
   | "none"
   | "read-only"
@@ -57,7 +57,7 @@ export type ConsentLevel =
   | "read-derive-act"
   | "full-automation";
 
-/** Datenquellen, die Consent benötigen. */
+/** Data sources that require consent. */
 export type DataSource =
   | "whatsapp"
   | "telegram"
@@ -70,9 +70,9 @@ export type DataSource =
   | "workspace-derive";
 
 export interface ConsentScope {
-  /** Optionales Zeitfenster für die Erlaubnis (ms-Epoch). */
+  /** Optional time window for the permission (ms-epoch). */
   readonly timeWindow?: { readonly fromMs?: number; readonly toMs?: number };
-  /** Optionales Datenminimierungs-Profil (Whitelist von Feldern). */
+  /** Optional data-minimization profile (whitelist of fields). */
   readonly dataMin?: readonly string[];
 }
 
@@ -83,10 +83,10 @@ export interface ConsentGrant {
   readonly dataSource: DataSource | string;
   readonly level: ConsentLevel;
   readonly scope: ConsentScope | null;
-  /** §13.2 verbatim Begründung (N1). */
+  /** §13.2 verbatim rationale (N1). */
   readonly reasonText: string;
   readonly grantedAt: number;
-  /** Nullable. Wenn gesetzt → Grant ist zurückgenommen. */
+  /** Nullable. When set → grant has been revoked. */
   readonly revokedAt: number | null;
   readonly contentHash: string;
 }
@@ -96,7 +96,7 @@ export interface HasConsentArgs {
   readonly userId: string;
   readonly dataSource: DataSource | string;
   readonly requiredLevel: ConsentLevel;
-  /** Optional: Zeitpunkt der Prüfung (default Date.now()). */
+  /** Optional: timestamp of the check (default Date.now()). */
   readonly nowMs?: number;
 }
 
@@ -106,7 +106,7 @@ export interface GrantConsentInput {
   readonly dataSource: DataSource | string;
   readonly level: ConsentLevel;
   readonly scope?: ConsentScope | null;
-  /** §13.2 verbatim Begründung (N1). */
+  /** §13.2 verbatim rationale (N1). */
   readonly reasonText: string;
 }
 
@@ -114,12 +114,12 @@ export interface RevokeConsentInput {
   readonly workspaceId: string;
   readonly userId: string;
   readonly dataSource: DataSource | string;
-  /** Optional: spezifische Grant-ID, sonst die jüngste aktive Grant-Row. */
+  /** Optional: specific grant ID, otherwise the most recent active grant row. */
   readonly grantId?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Level-Ordnung
+// Level ordering
 // ---------------------------------------------------------------------------
 
 const LEVEL_RANK: Record<ConsentLevel, number> = {
@@ -131,8 +131,8 @@ const LEVEL_RANK: Record<ConsentLevel, number> = {
 };
 
 /**
- * true ⇔ `granted` deckt `required` ab. Höhere Stufe deckt niedrigere.
- * Pure Funktion — exportiert für Tests + canAutoRun (no-auto-run.ts).
+ * true ⇔ `granted` covers `required`. A higher level covers a lower one.
+ * Pure function — exported for tests + canAutoRun (no-auto-run.ts).
  */
 export function levelCovers(granted: ConsentLevel, required: ConsentLevel): boolean {
   return LEVEL_RANK[granted] >= LEVEL_RANK[required];
@@ -154,7 +154,7 @@ function nowMs(): number {
   return Date.now();
 }
 
-/** N10: sha256 über kanonisches JSON → immer 64 hex-Zeichen. */
+/** N10: sha256 over canonical JSON → always 64 hex characters. */
 function sha256hex(payload: Record<string, unknown>): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
@@ -166,7 +166,7 @@ function mapGrantRow(r: Record<string, unknown>): ConsentGrant {
     try {
       scope = JSON.parse(rawScope) as ConsentScope;
     } catch {
-      // fail-soft: ungültiges scope_json → null. Niemals werfen.
+      // fail-soft: invalid scope_json → null. Never throw.
       scope = null;
     }
   }
@@ -201,18 +201,18 @@ function validateArgs(args: {
 }
 
 // ---------------------------------------------------------------------------
-// hasConsent — deterministische Prüfung (N6: Validatoren vor LLM)
+// hasConsent — deterministic check (N6: validators before LLM)
 // ---------------------------------------------------------------------------
 
 /**
- * Prüft, ob für (workspaceId, userId, dataSource) ein AKTIVER Grant mit
- * mindestens dem geforderten Level existiert.
+ * Checks whether an ACTIVE grant with at least the required level exists for
+ * (workspaceId, userId, dataSource).
  *
- * „Aktiv" = revoked_at IS NULL UND (kein timeWindow ODER nowMs liegt im
- * Fenster). Eine höhere ConsentLevel-Stufe deckt eine niedrigere ab
- * (siehe levelCovers).
+ * "Active" = revoked_at IS NULL AND (no timeWindow OR nowMs is within the
+ * window). A higher ConsentLevel covers a lower one
+ * (see levelCovers).
  *
- * Pure DB-Read, kein LLM, fail-closed: jede ungültige Eingabe → false.
+ * Pure DB read, no LLM, fail-closed: any invalid input → false.
  */
 export function hasConsent(raw: RawDb, args: HasConsentArgs): boolean {
   if (
@@ -243,7 +243,7 @@ export function hasConsent(raw: RawDb, args: HasConsentArgs): boolean {
 
   for (const row of rows) {
     const grant = mapGrantRow(row);
-    // Time-Window-Check (falls scope.timeWindow gesetzt).
+    // Time-window check (if scope.timeWindow is set).
     if (grant.scope?.timeWindow) {
       const { fromMs, toMs } = grant.scope.timeWindow;
       if (typeof fromMs === "number" && now < fromMs) continue;
@@ -257,17 +257,17 @@ export function hasConsent(raw: RawDb, args: HasConsentArgs): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// grantConsent — legt eine NEUE Grant-Row an (Append-only-Geist)
+// grantConsent — creates a NEW grant row (append-only spirit)
 // ---------------------------------------------------------------------------
 
 /**
- * Legt einen neuen Consent-Grant an. Frühere Grants für dieselbe
- * (workspace, user, dataSource)-Kombination bleiben erhalten — die Historie
- * ist über listConsents nachvollziehbar. hasConsent betrachtet automatisch
- * den höchstwertigen NICHT-REVOZIERTEN Grant.
+ * Creates a new consent grant. Earlier grants for the same
+ * (workspace, user, dataSource) combination are kept — the history
+ * is traceable via listConsents. hasConsent automatically considers
+ * the highest-valued NON-REVOKED grant.
  *
- * reason_text wird VERBATIM persistiert (N1). content_hash (N10) wird über
- * das kanonische JSON der Grant-Felder berechnet.
+ * reason_text is persisted VERBATIM (N1). content_hash (N10) is computed over
+ * the canonical JSON of the grant fields.
  */
 export function grantConsent(raw: RawDb, input: GrantConsentInput): ConsentGrant {
   validateArgs({
@@ -335,20 +335,20 @@ export function grantConsent(raw: RawDb, input: GrantConsentInput): ConsentGrant
 }
 
 // ---------------------------------------------------------------------------
-// revokeConsent — setzt revoked_at auf der jüngsten aktiven Grant-Row
+// revokeConsent — sets revoked_at on the most recent active grant row
 // ---------------------------------------------------------------------------
 
 /**
- * Owner-Direktive §13.2 „Pause/Stop jederzeit": eine Person kann ihren
- * Consent jederzeit zurückziehen. Die Grant-Row bleibt aus N8-Gründen
- * erhalten (DELETE-Trigger blockt); revoked_at wird gesetzt.
+ * Owner directive §13.2 „Pause/Stop jederzeit": a person can withdraw their
+ * consent at any time. The grant row is kept for N8 reasons
+ * (the DELETE trigger blocks); revoked_at is set.
  *
- * Falls grantId angegeben ist, wird dieser konkrete Grant revoziert. Sonst:
- * der jüngste AKTIVE Grant (revoked_at IS NULL) für die (workspace, user,
- * dataSource)-Kombination.
+ * If grantId is given, that specific grant is revoked. Otherwise:
+ * the most recent ACTIVE grant (revoked_at IS NULL) for the (workspace, user,
+ * dataSource) combination.
  *
- * Gibt die revozierte Grant-Row zurück, oder null, wenn nichts revoziert
- * werden konnte (fail-soft).
+ * Returns the revoked grant row, or null if nothing could be
+ * revoked (fail-soft).
  */
 export function revokeConsent(
   raw: RawDb,
@@ -398,14 +398,14 @@ export function revokeConsent(
 }
 
 // ---------------------------------------------------------------------------
-// listConsents — alle Grants (aktiv + revoked), neueste zuerst
+// listConsents — all grants (active + revoked), newest first
 // ---------------------------------------------------------------------------
 
 export interface ListConsentsOpts {
   readonly userId?: string;
   readonly dataSource?: DataSource | string;
   readonly limit?: number;
-  /** Wenn true, nur aktive (revoked_at IS NULL). Default false (alle). */
+  /** When true, only active (revoked_at IS NULL). Default false (all). */
   readonly onlyActive?: boolean;
 }
 

@@ -1,21 +1,21 @@
 'use client';
 
 /**
- * CodeBlock — Codex-artiger Inline-Code-Block für Chat-Antworten.
+ * CodeBlock — a Codex-style inline code block for chat answers.
  *
- * Ziel (Goal 2026-06-02): „UI/UX kaum von Codex unterscheidbar". Codex zeigt
- * Code IMMER inline — gerahmter Container, schmale Kopfzeile mit Sprache links
- * + Copy-Button rechts, darunter der Code mit Mono-Font und horizontalem Scroll.
- * Es versteckt Code NICHT hinter einer „Details"-Disclosure.
+ * Goal (2026-06-02): „UI/UX kaum von Codex unterscheidbar". Codex shows
+ * code ALWAYS inline — a framed container, a slim header with the language on the left
+ * + a copy button on the right, below it the code with a mono font and horizontal scroll.
+ * It does NOT hide code behind a „Details" disclosure.
  *
- * Ersetzt die frühere `<details>`-Kollaps-Logik in markdown-mini (Schema/JSON
- * oder > 6 Zeilen wurden zugeklappt — das ließ jede Code-Antwort wie einen
- * eingeklappten Anhang wirken statt wie ein Coding-Assistent).
+ * Replaces the earlier `<details>` collapse logic in markdown-mini (schema/JSON
+ * or > 6 lines were collapsed — which made every code answer look like a
+ * collapsed attachment instead of a coding assistant).
  *
- * Eigenes `'use client'`-Modul, damit `renderMarkdown` (das auch in
- * Server-Components wie TicketThread läuft) eine Client-Insel einbettet, ohne
- * selbst zur Client-Komponente zu werden. Sehr lange Blöcke bekommen eine
- * max-height mit innerem Scroll (wie Codex), bleiben aber default offen.
+ * Its own `'use client'` module so `renderMarkdown` (which also runs in
+ * server components like TicketThread) embeds a client island without
+ * becoming a client component itself. Very long blocks get a
+ * max-height with inner scroll (like Codex), but stay open by default.
  */
 
 import { useCallback, useState, type CSSProperties, type ReactElement } from 'react';
@@ -34,7 +34,7 @@ export function CodeBlock({ content, lang }: CodeBlockProps): ReactElement {
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
     } catch {
-      /* clipboard kann in unsicheren Kontexten fehlen — still ignorieren */
+      /* clipboard can be missing in insecure contexts — ignore silently */
     }
   }, [content]);
 

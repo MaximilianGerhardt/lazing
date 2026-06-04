@@ -1,9 +1,9 @@
-// Resume des Legaly-Patterns-Roast-Workstreams.
-// V_final (V2-Synthesis) ist 11:43:24 fertig + 8 Sub-Tickets created + approval_requested.
-// Max hat 11:50:05 eine Korrektur „Auch Check Skript bauen" injiziert,
-// aber die Sniper-Pause (25s) war zu, also kein V3 ausgelöst.
-// Status='stuck' im Workstream. Wir starten jetzt V3 manuell, sodass die
-// User-Korrektur in den finalen Plan einfließt.
+// Resume of the Legaly-patterns roast workstream.
+// V_final (V2 synthesis) finished at 11:43:24 + 8 sub-tickets created + approval_requested.
+// Max injected a correction "Auch Check Skript bauen" at 11:50:05,
+// but the sniper pause (25s) had closed, so no V3 was triggered.
+// Status='stuck' in the workstream. We now start V3 manually so the
+// user correction flows into the final plan.
 
 import { runIterateResume } from '@/server/agents/tier-orchestrator';
 

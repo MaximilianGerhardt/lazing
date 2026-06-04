@@ -1,22 +1,22 @@
 /**
- * Workspace-Path-Registry — Read/Write-Repo (Slice FS-1, 2026-05-26).
+ * Workspace path registry — read/write repo (slice FS-1, 2026-05-26).
  * --------------------------------------------------------------------
  *
- * Schließt die Kern-Lücke aus dem Workspace-Isolation-Modell
+ * Closes the core gap from the workspace isolation model
  * (docs/plans/2026-05-26_workspace-isolation-model.md §1.4 + §4.1):
- * ein Workspace = 1..n Repos/Verzeichnisse, NICHT genau ein Pfad.
+ * a workspace = 1..n repos/directories, NOT exactly one path.
  *
- * Owner-Direktive (verbatim): „Es soll ganz klar so sein, dass jedes Projekt
+ * Owner directive (verbatim): „Es soll ganz klar so sein, dass jedes Projekt
  * isoliert betrachtet wird … ich habe z.B. bei einem Projekt ein CRM —
  * eigenes Git — und eine Webseite. Beides gehört aber zum selben
  * Projekt/Workspace."
  *
- * Diese Datei persistiert die FS-Roots. Sie setzt KEINE Pfad-Whitelist durch
- * (Pfade dürfen überall liegen) und KEINE Schreib-Politik — das ist Aufgabe
- * des Executors / der Sandbox-Profil-Generierung (§4.2/§4.3).
+ * This file persists the FS roots. It enforces NO path whitelist
+ * (paths may live anywhere) and NO write policy — that is the job of
+ * the executor / the sandbox-profile generation (§4.2/§4.3).
  *
- * Die Funktionen nehmen eine `better-sqlite3`-Database direkt entgegen
- * (test-friendly: in-memory-DB ohne den getDb()-Singleton möglich).
+ * The functions take a `better-sqlite3` Database directly
+ * (test-friendly: an in-memory DB without the getDb() singleton is possible).
  */
 
 import { randomUUID } from "node:crypto";
@@ -36,17 +36,17 @@ export interface FsRoot {
 }
 
 export interface ResolvedWorkspaceRoots {
-  /** Der primary-Root-Pfad (Rückwärtskompat = workspaces.path). */
+  /** The primary root path (backwards-compat = workspaces.path). */
   primary: string;
-  /** ALLE Roots inkl. primary. */
+  /** ALL roots incl. primary. */
   roots: FsRoot[];
-  /** Nur access==='rw'. */
+  /** Only access==='rw'. */
   rwRoots: FsRoot[];
-  /** Nur access==='ro'. */
+  /** Only access==='ro'. */
   roRoots: FsRoot[];
 }
 
-/** Raw DB-Row (snake_case, is_git als 0|1). */
+/** Raw DB row (snake_case, is_git as 0|1). */
 interface FsRootDbRow {
   id: string;
   workspace_id: string;
@@ -74,8 +74,8 @@ function rowToFsRoot(row: FsRootDbRow): FsRoot {
 }
 
 /**
- * Alle FS-Roots eines Workspace. primary-Roots zuerst (stabile Ordnung für
- * den Resolver), dann nach created_at.
+ * All FS roots of a workspace. primary roots first (stable ordering for
+ * the resolver), then by created_at.
  */
 export function listWorkspaceRoots(db: Database, workspaceId: string): FsRoot[] {
   const rows = db
@@ -91,9 +91,9 @@ export function listWorkspaceRoots(db: Database, workspaceId: string): FsRoot[] 
 }
 
 /**
- * Fügt einen FS-Root hinzu. Defaults: role='repo', access='rw', isGit=true.
- * Wirft bei UNIQUE(workspace_id, abs_path)-Verletzung (besser-sqlite3
- * SqliteError mit code 'SQLITE_CONSTRAINT_UNIQUE').
+ * Adds an FS root. Defaults: role='repo', access='rw', isGit=true.
+ * Throws on a UNIQUE(workspace_id, abs_path) violation (better-sqlite3
+ * SqliteError with code 'SQLITE_CONSTRAINT_UNIQUE').
  */
 export function addWorkspaceRoot(
   db: Database,
@@ -143,29 +143,29 @@ export function addWorkspaceRoot(
   };
 }
 
-/** Ergebnis von {@link removeWorkspaceRoot}. */
+/** Result of {@link removeWorkspaceRoot}. */
 export interface RemoveWorkspaceRootResult {
-  /** true wenn eine Row tatsächlich gelöscht wurde. */
+  /** true when a row was actually deleted. */
   removed: boolean;
   /**
-   * Grund falls NICHT gelöscht:
-   *   - 'primary_protected': Row hat role='primary' (gespiegelter
-   *     workspaces.path) und darf nicht über die Registry gelöscht werden.
-   *   - 'not_found': keine Row mit dieser id.
+   * Reason if NOT deleted:
+   *   - 'primary_protected': the row has role='primary' (the mirrored
+   *     workspaces.path) and must not be deleted via the registry.
+   *   - 'not_found': no row with this id.
    */
   reason?: "primary_protected" | "not_found";
 }
 
 /**
- * Entfernt einen FS-Root anhand der Row-ID.
+ * Removes an FS root by row ID.
  *
- * Defense-in-depth (FS-1, Design-Doc §4.1): eine role='primary'-Row (der
- * gespiegelte workspaces.path) wird NICHT gelöscht — sie bleibt erhalten und
- * das Ergebnis trägt reason='primary_protected'. Unbekannte id → no-op mit
- * reason='not_found'. Beide Fälle werfen NICHT.
+ * Defense-in-depth (FS-1, design doc §4.1): a role='primary' row (the
+ * mirrored workspaces.path) is NOT deleted — it is kept and
+ * the result carries reason='primary_protected'. Unknown id → no-op with
+ * reason='not_found'. Neither case throws.
  *
- * Rückgabe-Erweiterung ist additiv: Aufrufer, die `void` erwarten (statement-
- * call), werden nicht gebrochen — sie ignorieren das Result schlicht.
+ * The return-value extension is additive: callers expecting `void` (a statement
+ * call) are not broken — they simply ignore the result.
  */
 export function removeWorkspaceRoot(
   db: Database,
@@ -189,11 +189,11 @@ export function removeWorkspaceRoot(
 }
 
 /**
- * FS-1: aktualisiert die ro/rw-Zugriffspolitik eines FS-Roots (PATCH-Pfad).
+ * FS-1: updates the ro/rw access policy of an FS root (PATCH path).
  *
- * Sauberer expliziter Toggle statt idempotenz-fragilem Re-POST. Setzt
- * `access` + `updated_at=now` und gibt die aktualisierte Row zurück, oder
- * null wenn keine Row mit dieser id existiert. Berührt role/abs_path NICHT.
+ * A clean, explicit toggle instead of an idempotency-fragile re-POST. Sets
+ * `access` + `updated_at=now` and returns the updated row, or
+ * null when no row with this id exists. Does NOT touch role/abs_path.
  */
 export function updateWorkspaceRootAccess(
   db: Database,
@@ -225,15 +225,15 @@ export function updateWorkspaceRootAccess(
 }
 
 /**
- * IDEMPOTENT: spiegelt `workspaces.path` als role='primary'-Root.
+ * IDEMPOTENT: mirrors `workspaces.path` as a role='primary' root.
  *
- * - Existiert bereits eine Row mit (workspace_id, abs_path=path): no-op
- *   (gibt die bestehende Row zurück; aktualisiert sie auf role='primary' +
- *   updated_at falls sie zuvor eine andere Rolle hatte).
- * - Sonst: legt eine neue role='primary', access='rw', isGit=1 Row an.
+ * - If a row with (workspace_id, abs_path=path) already exists: no-op
+ *   (returns the existing row; updates it to role='primary' +
+ *   updated_at if it previously had a different role).
+ * - Otherwise: creates a new role='primary', access='rw', isGit=1 row.
  *
- * Genutzt von discover-workspaces.ts nach jedem Upsert (§4.1). Nutzt
- * UNIQUE(workspace_id, abs_path) als Idempotenz-Schlüssel.
+ * Used by discover-workspaces.ts after every upsert (§4.1). Uses
+ * UNIQUE(workspace_id, abs_path) as the idempotency key.
  */
 export function mirrorPrimaryRoot(
   db: Database,
@@ -253,8 +253,8 @@ export function mirrorPrimaryRoot(
     .get(workspaceId, path) as FsRootDbRow | undefined;
 
   if (existing) {
-    // Idempotent: stelle role='primary' sicher (z.B. falls vorher als 'repo'
-    // angelegt), sonst no-op. Kein zweiter INSERT → bleibt EINE Row.
+    // Idempotent: ensure role='primary' (e.g. if previously created as 'repo'),
+    // otherwise no-op. No second INSERT → stays ONE row.
     if (existing.role !== "primary") {
       db.prepare(
         `UPDATE workspace_fs_roots SET role = 'primary', updated_at = ? WHERE id = ?`,
@@ -275,16 +275,16 @@ export function mirrorPrimaryRoot(
 }
 
 /**
- * FS-2-Kern: löst die effektiven Roots eines Workspace auf.
+ * FS-2 core: resolves the effective roots of a workspace.
  *
- * Read-only-Resolver: spiegelt NICHTS automatisch.
+ * Read-only resolver: mirrors NOTHING automatically.
  *
- * - Wenn fs_roots-Rows existieren: primary = der Pfad der role='primary'-Row
- *   (oder, falls keine primary-Row existiert, der erste Root als Fallback);
- *   roots = ALLE Rows; rwRoots/roRoots gefiltert nach access.
- * - Wenn KEINE Rows existieren: Fallback auf workspaces.path (liest die Row).
- *   primary = workspaces.path falls gesetzt, sonst '' . roots=[] wenn der
- *   Pfad leer/fehlt (Q1: synthetischer 'private'-Workspace darf 0 Roots haben).
+ * - When fs_roots rows exist: primary = the path of the role='primary' row
+ *   (or, if no primary row exists, the first root as a fallback);
+ *   roots = ALL rows; rwRoots/roRoots filtered by access.
+ * - When NO rows exist: fall back to workspaces.path (reads the row).
+ *   primary = workspaces.path if set, otherwise '' . roots=[] when the
+ *   path is empty/missing (Q1: a synthetic 'private' workspace may have 0 roots).
  */
 export function resolveWorkspaceRoots(
   db: Database,
@@ -302,8 +302,8 @@ export function resolveWorkspaceRoots(
     };
   }
 
-  // Fallback: keine Registry-Rows → lies workspaces.path (Rückwärtskompat).
-  // Spiegelt NICHT (read-only). Wirft NICHT wenn workspaces fehlt.
+  // Fallback: no registry rows → read workspaces.path (backwards-compat).
+  // Does NOT mirror (read-only). Does NOT throw if workspaces is missing.
   let path = "";
   try {
     const wsRow = db
@@ -311,7 +311,7 @@ export function resolveWorkspaceRoots(
       .get(workspaceId) as { path?: string | null } | undefined;
     path = (wsRow?.path ?? "").trim();
   } catch {
-    // workspaces-Tabelle existiert evtl. nicht (isolierter Test) → leer.
+    // The workspaces table may not exist (isolated test) → empty.
     path = "";
   }
 

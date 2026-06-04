@@ -50,10 +50,10 @@ export interface MobileDrawerProps {
 }
 
 /**
- * D2 (P4-DRAWER) — ein Eintrag der "Kunden"-Inbox. Eine Org mit type ===
- * 'client' liest als Kunde; andere Org-Typen bleiben gruppierte Orgs (kein
- * Kunde-Relabel). `rows` sind die sichtbaren Workspaces, `unread` ist die
- * Summe der Per-Workspace-Unread-Zähler über `rows`.
+ * D2 (P4-DRAWER) — an entry of the "Kunden" inbox. An org with type ===
+ * 'client' reads as a client; other org types stay grouped orgs (no
+ * client relabel). `rows` are the visible workspaces, `unread` is the
+ * sum of the per-workspace unread counters across `rows`.
  */
 type KundeNode = {
   orgId: string;
@@ -92,13 +92,13 @@ export function MobileDrawer({
 
   const { orgs } = useUserOrgs();
   const { t } = useI18n();
-  // Pro Org collapsed-State (Default: ausgeklappt)
+  // Per-org collapsed state (default: expanded)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // D1 (P4-DRAWER) — Unread-Aggregat pro Workspace aus der geteilten Activity-
-  // Route. Self-contained in dieser Datei (DRAWER liest die Route, besitzt sie
-  // nicht). Nur fetchen wenn der Drawer offen ist; Fehler ist non-fatal (keine
-  // Badges, Inbox rendert trotzdem). Gleiches Muster wie SubchatPulse.tsx.
+  // D1 (P4-DRAWER) — unread aggregate per workspace from the shared activity
+  // route. Self-contained in this file (the DRAWER reads the route, does not own
+  // it). Only fetch when the drawer is open; an error is non-fatal (no
+  // badges, the inbox renders anyway). Same pattern as SubchatPulse.tsx.
   const [unreadByWs, setUnreadByWs] = useState<Record<string, number>>({});
   useEffect(() => {
     if (!open) return;
@@ -135,10 +135,10 @@ export function MobileDrawer({
     closeButtonRef.current?.focus();
   }, [open]);
 
-  // E.2 (2026-04-30) — kleiner Close-Hint nach Drawer-Open, fadet nach 3s aus.
-  // iOS-typischer Onboarding-Cue. P2 (2026-06-02): subordiniert — kürzerer Text
-  // ("Nach links wischen") + einmalig pro Gerät via localStorage-Flag. Nach dem
-  // ersten Open-Cycle gesehen, danach nie wieder (kein wiederkehrendes Hint-Noise).
+  // E.2 (2026-04-30) — a small close hint after the drawer opens, fades out after 3s.
+  // An iOS-typical onboarding cue. P2 (2026-06-02): subordinated — shorter text
+  // ("Nach links wischen") + once per device via a localStorage flag. Seen after the
+  // first open cycle, then never again (no recurring hint noise).
   const HINT_SEEN_KEY = 'lazyos:drawer:swipe-hint-seen';
   const [showCloseHint, setShowCloseHint] = useState(false);
   useEffect(() => {
@@ -150,7 +150,7 @@ export function MobileDrawer({
     try {
       seen = window.localStorage.getItem(HINT_SEEN_KEY) === '1';
     } catch {
-      /* localStorage unavailable (privacy mode) — Hint einfach zeigen */
+      /* localStorage unavailable (privacy mode) — just show the hint */
     }
     if (seen) {
       setShowCloseHint(false);
@@ -160,7 +160,7 @@ export function MobileDrawer({
     try {
       window.localStorage.setItem(HINT_SEEN_KEY, '1');
     } catch {
-      /* non-fatal — Hint zeigt diese Session, ggf. erneut beim nächsten Mal */
+      /* non-fatal — the hint shows this session, possibly again next time */
     }
     const t = window.setTimeout(() => setShowCloseHint(false), 3000);
     return () => window.clearTimeout(t);
@@ -228,21 +228,21 @@ export function MobileDrawer({
     [pathname],
   );
 
-  // D2 (P4-DRAWER) — "Kunden"-Inbox-Modell. Die sichtbaren Workspaces (gleicher
-  // Filter wie zuvor, verbatim erhalten) werden nach Org zu KundeNodes gruppiert.
-  // Eine "Kunde" ist eine Org mit type === 'client'; Nicht-Client-Orgs
-  // (company/own/private/…) behalten das heutige Gruppierungs-Verhalten und
-  // werden NICHT als Kunde umbenannt. Jeder Node trägt die Org-Palette + das
-  // aggregierte Unread, sodass die Render-Logik nur noch die Collapse-Regel
-  // (1 Workspace ⇒ 1 Zeile) anwenden muss.
+  // D2 (P4-DRAWER) — "Kunden" inbox model. The visible workspaces (same
+  // filter as before, preserved verbatim) are grouped by org into KundeNodes.
+  // A "client" is an org with type === 'client'; non-client orgs
+  // (company/own/private/…) keep today's grouping behavior and
+  // are NOT renamed to client. Each node carries the org palette + the
+  // aggregated unread, so the render logic only needs to apply the collapse rule
+  // (1 workspace ⇒ 1 row).
   const kunden = useMemo<KundeNode[]>(() => {
     const visible = workspaces.filter((w) => {
       if (w.archived) return false;
-      // Virtuelle Root-Workspaces (Migration 0034) nicht in Drawer-Liste —
-      // gleiche Filter-Logik wie WorkspaceSwitcher.tsx Z.72-73.
+      // Virtual root workspaces (Migration 0034) not in the drawer list —
+      // same filter logic as WorkspaceSwitcher.tsx L.72-73.
       if (w.id === '__root__') return false;
       if (w.id.startsWith('__org_root__:')) return false;
-      // High-sensitive nur sichtbar wenn es der aktuelle Workspace ist.
+      // High-sensitive only visible when it is the current workspace.
       if (w.sensitivity === 'high' && w.id !== current.id) return false;
       return true;
     });
@@ -273,8 +273,8 @@ export function MobileDrawer({
         unread: sumUnread(rows),
       });
     }
-    // Sortierung: Kunden (client) zuerst (Name, locale 'de'), dann Nicht-Client-
-    // Orgs (Name), dann der Orphan-Bucket als trailing Gruppe.
+    // Sorting: clients (client) first (name, locale 'de'), then non-client
+    // orgs (name), then the orphan bucket as a trailing group.
     nodes.sort((a, b) => {
       if (a.isClient !== b.isClient) return a.isClient ? -1 : 1;
       return a.name.localeCompare(b.name, 'de');
@@ -300,10 +300,10 @@ export function MobileDrawer({
     [setWorkspace, onClose],
   );
 
-  // D3 (P4-DRAWER) — Single-Workspace-Kunde: die Zeile IST der Kunde und öffnet
-  // direkt in den Hauptchat dieses Workspaces. `setWorkspaceId(realId, orgId)`
-  // (imperativ, aus ./hooks) richtet den Org-Kontext aus, BEVOR die Liste neu
-  // auflöst — passt zur Brief-Signatur. Geht in den WORKSPACE, nicht org-root.
+  // D3 (P4-DRAWER) — single-workspace client: the row IS the client and opens
+  // directly into the main chat of this workspace. `setWorkspaceId(realId, orgId)`
+  // (imperative, from ./hooks) aligns the org context BEFORE the list
+  // re-resolves — matches the brief signature. Goes into the WORKSPACE, not org-root.
   const handleSelectKunde = useCallback(
     (workspaceId: string, organizationId: string): void => {
       setWorkspaceId(
@@ -361,10 +361,10 @@ export function MobileDrawer({
           </div>
         ) : null}
 
-        {/* Phase Nav-C 2026-04-28: Sections statt flache Liste. Drei
-            Bereiche: Arbeiten / Organisation / System. Observatory bleibt
-            in System sichtbar, weil Header-Pulse-Pill nur Status, kein
-            Direkt-Sprung ist. */}
+        {/* Phase Nav-C 2026-04-28: sections instead of a flat list. Three
+            areas: Work / Organization / System. Observatory stays
+            visible in System, because the header pulse pill is only status, not
+            a direct jump. */}
         {NAV_SECTIONS.map((section) => {
           const sectionLabel = section.i18nKey
             ? t(section.i18nKey)
@@ -409,19 +409,19 @@ export function MobileDrawer({
 
         <div className="topnav-drawer-sep" role="presentation" />
 
-        {/* Sub-Plan 4: "Aktiv jetzt" — laufende Workstreams/Workflows/
-            Routines/Sub-Workstreams. Lädt eigenständig, refresht bei
-            'lazyos:activity:refresh' Custom-Event. */}
+        {/* Sub-plan 4: "Aktiv jetzt" — running workstreams/workflows/
+            routines/sub-workstreams. Loads on its own, refreshes on the
+            'lazyos:activity:refresh' custom event. */}
         <ActivityNowSection onNavigate={onClose} />
 
         <div className="topnav-drawer-sep" role="presentation" />
 
-        {/* "Kunden"-Inbox (D-Slice, P4). Reframing der früheren Workspace-
-            Section: jede Kunde-Org liest als ein Eintrag; Single-Workspace-
-            Kunden kollabieren zu einer Zeile, Multi-Workspace-Kunden behalten
-            den klappbaren Header. Palette-Dot pro Kunde, Unread-Badge aus
-            /api/subchats/activity. Additiv — alle anderen Drawer-Sections
-            unberührt. */}
+        {/* "Kunden" inbox (D-slice, P4). A reframing of the former workspace
+            section: each client org reads as one entry; single-workspace
+            clients collapse to one row, multi-workspace clients keep
+            the collapsible header. Palette dot per client, unread badge from
+            /api/subchats/activity. Additive — all other drawer sections
+            untouched. */}
         <section
           className="topnav-drawer-section"
           aria-label="Kunden"
@@ -442,9 +442,9 @@ export function MobileDrawer({
                     }
                   : undefined;
 
-              // D3 — Single-Workspace-Kunde: EINE Zeile, kein klappbarer Header.
-              // Die Zeile IST der Kunde (Collapse customer↔workspace) und öffnet
-              // direkt in den Hauptchat dieses Workspaces.
+              // D3 — single-workspace client: ONE row, no collapsible header.
+              // The row IS the client (collapse customer↔workspace) and opens
+              // directly into the main chat of this workspace.
               if (node.rows.length === 1) {
                 const w = node.rows[0];
                 const selected = w.id === current.id;
@@ -482,9 +482,9 @@ export function MobileDrawer({
                 );
               }
 
-              // D3 — Multi-Workspace-Kunde: klappbarer Header (bestehendes
-              // Muster) + Palette-Dot + aggregiertes Unread; Kinder via
-              // WorkspaceRow mit Per-Workspace-Unread-Badge.
+              // D3 — multi-workspace client: collapsible header (existing
+              // pattern) + palette dot + aggregated unread; children via
+              // WorkspaceRow with a per-workspace unread badge.
               const isCollapsed = collapsed[node.orgId] === true;
               return (
                 <li
@@ -566,10 +566,10 @@ export function MobileDrawer({
         >
           <h2 className="topnav-drawer-heading">System</h2>
           <ul className="topnav-drawer-tools-list" role="list">
-            {/* D1-Fix (2026-05-30) — die sekundären Top-Bar-Steuer-Aktionen
-                (Terminal · Einstellungen) leben auf ≤640px hier im Drawer,
-                weil sie aus der Bar genommen wurden (Mobile-Overflow). Touch-
-                Target ≥48px via `.topnav-drawer-tools-link`. */}
+            {/* D1 fix (2026-05-30) — the secondary top-bar control actions
+                (Terminal · Settings) live at ≤640px here in the drawer,
+                because they were taken out of the bar (mobile overflow). Touch
+                target ≥48px via `.topnav-drawer-tools-link`. */}
             <li>
               <Link
                 href="/settings"
@@ -611,8 +611,8 @@ export function MobileDrawer({
                 </span>
               </button>
             </li>
-            {/* Observatory steht bereits in NAV_SECTIONS (System) — kein
-                Doppel-Eintrag im selben Drawer (Redundanz-Cut 2026-06-03). */}
+            {/* Observatory is already in NAV_SECTIONS (System) — no
+                duplicate entry in the same drawer (redundancy cut 2026-06-03). */}
             {process.env.NODE_ENV === 'development' && (
               <li>
                 <Link
@@ -637,17 +637,17 @@ export function MobileDrawer({
 
         <div className="topnav-drawer-sep" role="presentation" />
 
-        {/* Push-Settings — User-Wunsch 2026-05-01: "im Navigation oder so
-            push ein/aus möglich sein". Master-Toggle + per-Rule-Toggles. */}
+        {/* Push settings — user wish 2026-05-01: "im Navigation oder so
+            push ein/aus möglich sein". Master toggle + per-rule toggles. */}
         <PushSettingsSection
           vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''}
         />
 
         <div className="topnav-drawer-sep" role="presentation" />
 
-        {/* 2026-05-03 Welle B — Settings-Section für AutoMode + Compact.
-            Aus dem TopNav-Right-Cluster auf Mobile umgezogen — Header bleibt
-            schlank, Power-Tools im Drawer. */}
+        {/* 2026-05-03 wave B — settings section for AutoMode + Compact.
+            Moved out of the TopNav right cluster on mobile — the header stays
+            slim, power tools in the drawer. */}
         <section
           className="topnav-drawer-section topnav-drawer-settings"
           aria-label="Einstellungen"
@@ -714,7 +714,7 @@ interface WorkspaceRowProps {
   workspace: Workspace;
   selected: boolean;
   onSelect: (id: string) => void;
-  /** D3 (P4-DRAWER) — optionales Per-Workspace-Unread. Additiv; 0 ⇒ kein Badge. */
+  /** D3 (P4-DRAWER) — optional per-workspace unread. Additive; 0 ⇒ no badge. */
   unread?: number;
 }
 
@@ -748,9 +748,9 @@ function WorkspaceRow({
 }
 
 /**
- * D4 (P4-DRAWER) — Unread-Pille. Token-only inline-styled (kein neuer Hex,
- * nur var()/color-mix), gleiche Rezeptur wie SubchatPulse.tsx. Kein roter
- * Punkt, kein Emoji. `99+` ab 100.
+ * D4 (P4-DRAWER) — unread pill. Token-only inline-styled (no new hex,
+ * only var()/color-mix), same recipe as SubchatPulse.tsx. No red
+ * dot, no emoji. `99+` from 100.
  */
 function UnreadBadge({ count }: { count: number }): React.JSX.Element {
   return (
@@ -781,9 +781,9 @@ function UnreadBadge({ count }: { count: number }): React.JSX.Element {
 }
 
 /**
- * D3 (P4-DRAWER) — Inline-SVG-Check (ersetzt das ``-Unicode-Glyph). DRAWER
- * darf NICHT aus icons.tsx importieren (SPINE-eigene Datei), daher inline.
- * Erbt `currentColor`; dekorativ ⇒ aria-hidden.
+ * D3 (P4-DRAWER) — inline SVG check (replaces the `` unicode glyph). The DRAWER
+ * must NOT import from icons.tsx (a SPINE-owned file), hence inline.
+ * Inherits `currentColor`; decorative ⇒ aria-hidden.
  */
 function DrawerCheck(): React.JSX.Element {
   return (

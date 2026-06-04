@@ -1,38 +1,38 @@
 /**
- * POST /api/lanes/compile — Expertise-Compiler erreichbar gemacht
+ * POST /api/lanes/compile — expertise compiler made reachable
  * (Lane-D · 2026-05-30 · Opus 4.8).
  *
- * Der explizite, OWNER-GETRIGGERTE „Als Wissen speichern"-Endpoint (§7.2 kein
- * auto-run): nimmt einen Owner-/Experten-Input (direkt als rawText ODER als
- * Referenz auf einen Lane-A-`intakeEventId`) und extrahiert via
- * `compileKnowledgeForms` typisierte knowledge_forms-Rows — ALLE mit
- * review_state='pending-review' (§8.3 Gate; nichts wird ohne human-review zur
- * Belief).
+ * The explicit, OWNER-TRIGGERED „Als Wissen speichern" endpoint (§7.2 no
+ * auto-run): takes an owner/expert input (directly as rawText OR as a
+ * reference to a Lane-A `intakeEventId`) and extracts via
+ * `compileKnowledgeForms` typed knowledge_forms rows — ALL with
+ * review_state='pending-review' (§8.3 gate; nothing becomes a belief without
+ * human review).
  *
- * ── VERTRAG ───────────────────────────────────────────────────────────────
+ * ── CONTRACT ──────────────────────────────────────────────────────────────
  *   POST { workspaceId: string, intakeEventId?: string, rawText?: string }
- *         — genau EINES von intakeEventId | rawText.
- *   → member-auth (401 → 403 wie compose-and-run)
- *   → Engine-Adapter aus detectEngines()/pickEngine() (codex AUSGESCHLOSSEN)
+ *         — exactly ONE of intakeEventId | rawText.
+ *   → member auth (401 → 403 like compose-and-run)
+ *   → engine adapter from detectEngines()/pickEngine() (codex EXCLUDED)
  *   → compileKnowledgeForms({ db, workspaceId, intakeEventId|rawText, callEngine })
  *   → 200 { forms: [...], count, rejectedCount, intakeEventId }
  *
- * N1: rawText / der aus intakeEventId gelesene raw_content fließen VERBATIM
- * (kein slice) in den Compiler; der Compiler zitiert den Owner-Wortlaut.
- * N6: malformter LLM-Output ist im Compiler fail-soft (0 Formen, kein Crash).
+ * N1: rawText / the raw_content read from intakeEventId flow VERBATIM
+ * (no slice) into the compiler; the compiler quotes the owner wording.
+ * N6: malformed LLM output is fail-soft in the compiler (0 forms, no crash).
  *
- * Fehlerabbildung (fail-soft, klare 4xx/5xx mit reqId):
- *   - Bedienfehler des Compilers (kein/doppeltes Quellen-Argument, intakeEvent
- *     nicht im Workspace) → der Compiler wirft Error → wir mappen auf 400/404.
- *   - sonstiger harter Fehler → 500.
+ * Error mapping (fail-soft, clear 4xx/5xx with reqId):
+ *   - operator error of the compiler (no/double source argument, intakeEvent
+ *     not in the workspace) → the compiler throws an Error → we map to 400/404.
+ *   - other hard error → 500.
  *
- * Welche Chat-/Client-Geste das später aufruft (NICHT in diesem Scope): eine
- * „Als Wissen speichern"-Card im Chat (Owner bestätigt einen erklärten
- * Sachverhalt), bzw. ein Button neben einem ready-for-compile intake_events-Row
- * (Lane-A → Lane-B-Übergabe, human-getriggert).
+ * Which chat/client gesture calls this later (NOT in this scope): an
+ * „Als Wissen speichern" card in chat (owner confirms an explained
+ * fact), or a button next to a ready-for-compile intake_events row
+ * (Lane-A → Lane-B handoff, human-triggered).
  *
- * Auth-Muster + Engine-Wahl 1:1 wie app/api/flow/compose-and-run/route.ts.
- * ADDITIV: keine Kern-Flow-Datei berührt, kein next build/start.
+ * Auth pattern + engine choice 1:1 like app/api/flow/compose-and-run/route.ts.
+ * ADDITIVE: no core flow file touched, no next build/start.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -67,13 +67,13 @@ interface PostBody {
 export async function POST(req: NextRequest): Promise<Response> {
   const reqId = makeReqId();
 
-  // 1. Auth-Gate (member-or-higher).
+  // 1. Auth gate (member-or-higher).
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required', reqId }, { status: 401 });
   }
 
-  // 2. Body parsen.
+  // 2. Parse body.
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     typeof body.workspaceId === 'string' ? body.workspaceId : '';
   const hasIntake =
     typeof body.intakeEventId === 'string' && body.intakeEventId.length > 0;
-  // N1: rawText VERBATIM (kein slice). Nur Leer-/Typ-Validierung getrimmt.
+  // N1: rawText VERBATIM (no slice). Only empty/type validation is trimmed.
   const rawText = typeof body.rawText === 'string' ? body.rawText : '';
   const hasRaw = rawText.trim().length > 0;
 
@@ -95,8 +95,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 400 },
     );
   }
-  // Genau eines von beiden (XOR) — spiegelt den Compiler-Vertrag, aber als
-  // klarer 400 statt als geworfener Error.
+  // Exactly one of the two (XOR) — mirrors the compiler contract, but as a
+  // clear 400 instead of a thrown Error.
   if (hasIntake === hasRaw) {
     return NextResponse.json(
       {
@@ -108,12 +108,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  // 3. Workspace-Permission (member-or-higher; Viewer/fremde User → 403).
+  // 3. Workspace permission (member-or-higher; viewer/foreign user → 403).
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, workspaceId))) {
     return NextResponse.json({ error: 'forbidden', reqId }, { status: 403 });
   }
 
-  // 4. Engine wählen — codex ausgeschlossen (wie plan-dispatch.ts).
+  // 4. Pick engine — codex excluded (like plan-dispatch.ts).
   const selection = await detectEngines();
   // PII vault: wrap at the engine boundary — claude-cli (cloud) is the resolved
   // pick, and the compiler quotes the owner wording verbatim (N1) into the prompt.
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 503 },
     );
   }
-  // compileKnowledgeForms erwartet callEngine: ({system,user}) => Promise<string>.
+  // compileKnowledgeForms expects callEngine: ({system,user}) => Promise<string>.
   const callEngine = async (args: {
     system: string;
     user: string;
@@ -138,9 +138,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     return r.text;
   };
 
-  // 5. Kompilieren. Der Compiler wirft NUR bei Bedienfehler (Quellen-XOR,
-  //    fehlender Workspace, intakeEvent nicht gefunden); LLM/Parse sind
-  //    fail-soft (0 Formen).
+  // 5. Compile. The compiler throws ONLY on operator error (source XOR,
+  //    missing workspace, intakeEvent not found); LLM/parse are
+  //    fail-soft (0 forms).
   try {
     const result = await compileKnowledgeForms({
       db: getDb().$raw,
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // intakeEvent-not-found → 404; andere Bedienfehler → 400.
+    // intakeEvent-not-found → 404; other operator errors → 400.
     const status = /not found/i.test(message) ? 404 : 400;
     return NextResponse.json(
       { error: 'compile_failed', message, reqId },

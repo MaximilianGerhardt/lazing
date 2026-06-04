@@ -84,7 +84,7 @@ export async function dataToXlsxBuffer(input: XlsxInput): Promise<Buffer> {
       ws.addRow((row ?? []).map((v) => (v === null || v === undefined ? '' : v)));
     }
     if (headers.length > 0) {
-      ws.views = [{ state: 'frozen', ySplit: 1 }]; // Header-Zeile fixieren
+      ws.views = [{ state: 'frozen', ySplit: 1 }]; // freeze the header row
     }
   });
 

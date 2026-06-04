@@ -1,24 +1,24 @@
 'use client';
 
 /**
- * SubplanCard — BACKPORT-03 von Lazing-V2 (2026-05-23 · Agent 3/8).
+ * SubplanCard — BACKPORT-03 from Lazing-V2 (2026-05-23 · Agent 3/8).
  *
- * Quelle: lazing-wt/realtime-orchestrator-v2/packages/manifestation/src/surfaces/Subplan/
- * (V2 manifestation primitive). Port-Strategie (R-02-... analog): das V2-Surface
- * ist Frame-wrapped; lazyos chat-cards sind flat (kein Frame). Wir reproduzieren
- * den reducer-Logik-Kern verbatim, swap den Render-Tree gegen `srf-subplan__*`
- * className-Pattern (siehe BugFixSwarmCard / IteratePipelineCard).
+ * Source: lazing-wt/realtime-orchestrator-v2/packages/manifestation/src/surfaces/Subplan/
+ * (V2 manifestation primitive). Port strategy (R-02-... analogous): the V2 surface
+ * is frame-wrapped; lazyos chat cards are flat (no frame). We reproduce
+ * the reducer-logic core verbatim, swap the render tree for the `srf-subplan__*`
+ * className pattern (see BugFixSwarmCard / IteratePipelineCard).
  *
  * Discipline (Jobs/Rams — feedback_jobs_rams_design.md):
- *   - Eine Primary Action pro Karte (Approve | Edit | Decline).
- *   - Body ≥ 13pt (CSS-Token --font-size-body).
- *   - Brand-Gradient NUR auf Highlight (active step), nicht überall.
- *   - 240ms cubic-bezier Transitions.
- *   - Light-first (kein Dark-Mode-only).
- *   - Manifestation-first — Surface ist Output-Form, nicht Telemetry.
+ *   - One primary action per card (Approve | Edit | Decline).
+ *   - Body ≥ 13pt (CSS token --font-size-body).
+ *   - Brand gradient ONLY on the highlight (active step), not everywhere.
+ *   - 240ms cubic-bezier transitions.
+ *   - Light-first (not dark-mode-only).
+ *   - Manifestation-first — the surface is an output form, not telemetry.
  *
- * Collapse-to-pill bei depth >= 2 — der Operator soll auf depth-0 + depth-1
- * die volle Story sehen, deeper hops sind ein Pill mit n-pending.
+ * Collapse-to-pill at depth >= 2 — the operator should see the full story at
+ * depth-0 + depth-1, deeper hops are a pill with n-pending.
  */
 
 import { memo, useState, type ReactElement } from 'react';
@@ -26,11 +26,11 @@ import { memo, useState, type ReactElement } from 'react';
 import type { ProposedPlan, PlanStep } from '@/lib/plan-first/orchestrate-plan';
 
 /**
- * Ist die Step-Rationale ein verbose Maschinen-Prompt (SOP-stepPromptTemplate)
- * statt eines kurzen menschlichen Grunds? Codex-Parität (2026-06-02): solche
- * Templates (mit `{{target_provider}}`-Platzhaltern + Schema-Dumps) leakten
- * roh + dominant in den Feed. Wir erkennen sie heuristisch und klappen sie in
- * eine Disclosure — der volle Text bleibt erhalten (N1), dominiert aber nicht.
+ * Is the step rationale a verbose machine prompt (SOP-stepPromptTemplate)
+ * instead of a short human reason? Codex parity (2026-06-02): such
+ * templates (with `{{target_provider}}` placeholders + schema dumps) leaked
+ * raw + dominant into the feed. We detect them heuristically and fold them into
+ * a disclosure — the full text is preserved (N1), but does not dominate.
  */
 function isVerbosePrompt(rationale: string): boolean {
   return (
@@ -56,20 +56,20 @@ export interface SubplanCardProps {
   /** Per-step status snapshot keyed by step.id. */
   readonly stepStatuses?: Readonly<Record<string, 'pending' | 'active' | 'done' | 'failed' | 'in-critic' | 'fix-iter-1' | 'fix-iter-2' | 'escalated' | 'cancelled'>>;
   /**
-   * Owner-Fix 2026-05-28: Card startet eingeklappt (Pill mit Chevron) auch
-   * bei depth < 2. Wird vom plan-dispatch fuer Child-Subplaene gesetzt, damit
-   * nicht parent + N children gleichzeitig aufgeklappt im Strom landen. Der
-   * User klappt sie per Tap auf. depth >= 2 erzwingt weiterhin Collapse
-   * (alte Heuristik bleibt unveraendert).
+   * Owner fix 2026-05-28: the card starts collapsed (pill with chevron) even
+   * at depth < 2. Set by plan-dispatch for child subplans, so that
+   * parent + N children do not land expanded in the stream at the same time. The
+   * user expands them with a tap. depth >= 2 still forces collapse
+   * (the old heuristic stays unchanged).
    */
   readonly initialCollapsed?: boolean;
 }
 
 function SubplanCardImpl(props: SubplanCardProps): ReactElement {
   const { depth, plan, parentStep, awaitingApproval, stepStatuses } = props;
-  // Owner-Fix 2026-05-28: initialCollapsed-Flag (aus dem Surface-Payload via
-  // plan-dispatch fuer Child-Subplaene) erzwingt die Pill-Variante auch bei
-  // depth < 2. depth >= 2 kollabiert weiter automatisch (alter Pfad).
+  // Owner fix 2026-05-28: the initialCollapsed flag (from the surface payload via
+  // plan-dispatch for child subplans) forces the pill variant even at
+  // depth < 2. depth >= 2 still collapses automatically (old path).
   const startCollapsed = props.initialCollapsed === true || depth >= 2;
   const [collapsed, setCollapsed] = useState(startCollapsed);
 
@@ -132,7 +132,7 @@ function SubplanCardImpl(props: SubplanCardProps): ReactElement {
       </div>
 
       <div className="srf-subplan__intent">
-        {/* N1: verbatim originalIntent, kein .slice */}
+        {/* N1: verbatim originalIntent, no .slice */}
         {plan.originalIntent}
       </div>
 
@@ -160,15 +160,15 @@ function SubplanCardImpl(props: SubplanCardProps): ReactElement {
               </div>
               {step.rationale ? (
                 isVerbosePrompt(step.rationale) ? (
-                  // Codex-Parität: verbose Agent-Prompt-Templates nicht roh in
-                  // den Feed schreien — in eine Disclosure klappen. N1: der
-                  // volle Text bleibt verbatim erhalten, nur default zu.
+                  // Codex parity: do not scream verbose agent-prompt templates raw
+                  // into the feed — fold into a disclosure. N1: the
+                  // full text is preserved verbatim, only collapsed by default.
                   <details className="srf-subplan__step-promptbox">
                     <summary className="srf-subplan__step-promptbox-summary">
                       Agent-Prompt anzeigen
                     </summary>
                     <div className="srf-subplan__step-rationale">
-                      {/* N1: verbatim rationale, kein .slice */}
+                      {/* N1: verbatim rationale, no .slice */}
                       {step.rationale}
                     </div>
                   </details>

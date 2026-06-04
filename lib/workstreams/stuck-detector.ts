@@ -1,25 +1,25 @@
 /**
- * Sub-Plan 01c · Stuck-Workstream-Detector (Schicht 1 + 4).
+ * Sub-plan 01c · stuck-workstream detector (layer 1 + 4).
  *
- * Findet Workstreams die laut DB `active` sind aber kein Event mehr
- * in den letzten N Minuten produziert haben. Cause meist: Service-
- * Restart während ein `await waitForSniperPause(...)` lief — der Process
- * stirbt, DB hängt im active-State.
+ * Finds workstreams that are `active` per the DB but produced no event
+ * in the last N minutes. Cause usually: a service
+ * restart while an `await waitForSniperPause(...)` was running — the process
+ * dies, the DB hangs in the active state.
  *
- * Markiert solche WS als `stuck`. UI (Sub-Plan 01b Banner +
- * Workstream-Detail) zeigt sie dann mit Resume-/Cancel-Action.
+ * Marks such WS as `stuck`. The UI (sub-plan 01b banner +
+ * workstream detail) then shows them with a resume/cancel action.
  *
- * Wird gerufen:
- *   - Beim lazyos-web-Boot (one-shot in db/client.ts post-init)
- *   - Periodisch alle 60 s (interval in agent-server.ts ODER lazyos-web)
+ * Called:
+ *   - At lazyos-web boot (one-shot in db/client.ts post-init)
+ *   - Periodically every 60 s (interval in agent-server.ts OR lazyos-web)
  */
 
 import { getDb } from '../../db/client';
 
 export interface StuckCheckOptions {
-  /** Threshold-Millisekunden: kein Event seit X ms = stuck. Default 5 min. */
+  /** Threshold milliseconds: no event for X ms = stuck. Default 5 min. */
   thresholdMs?: number;
-  /** Dry-Run — markiert nicht, gibt nur Liste zurück. */
+  /** Dry run — does not mark, only returns the list. */
   dryRun?: boolean;
 }
 
@@ -36,9 +36,9 @@ export interface StuckCheckResult {
 }
 
 /**
- * Scannt active-Workstreams + markiert die hängenden als `stuck`.
+ * Scans active workstreams + marks the stuck ones as `stuck`.
  *
- * Idempotent. Mehrfach-Aufruf macht nichts Doppeltes.
+ * Idempotent. Repeated calls do nothing twice.
  */
 export function detectStuckWorkstreams(
   opts: StuckCheckOptions = {},
@@ -50,8 +50,8 @@ export function detectStuckWorkstreams(
 
   const db = getDb();
 
-  // Active-Workstreams mit primary_ticket_id (sonst können wir nicht
-  // checken — kein Anchor für Events).
+  // Active workstreams with a primary_ticket_id (otherwise we can't
+  // check — no anchor for events).
   const rows = db.$raw
     .prepare(
       `SELECT id, workspace_id, primary_ticket_id, updated_at
@@ -69,7 +69,7 @@ export function detectStuckWorkstreams(
   const stuckList: StuckCheckResult['details'] = [];
 
   for (const ws of rows) {
-    // Letztes Event am primary-ticket
+    // Last event on the primary ticket
     const evRow = db.$raw
       .prepare(
         `SELECT MAX(created_at) as last_at
@@ -99,8 +99,8 @@ export function detectStuckWorkstreams(
     for (const s of stuckList) {
       stmt.run(now, s.workstreamId);
     }
-    // Push-Trigger: emit workstream-stuck-Event. Push-Rules
-    // `workstream-stuck` (lib/push/rules.ts) feuert Notification.
+    // Push trigger: emit a workstream-stuck event. The push rule
+    // `workstream-stuck` (lib/push/rules.ts) fires the notification.
     void (async () => {
       try {
         const { emitEvent } = await import('../events/emit');
@@ -134,22 +134,22 @@ export function detectStuckWorkstreams(
 }
 
 /**
- * Boot-Hook: wird einmalig bei lazyos-web Start gerufen. Findet alle
- * Workstreams die *jetzt* hängen müssten (>2 min seit letztem Event auf
- * einem Pause-Window — Pause sollte max 25 s sein, also 2 min ist sicher).
+ * Boot hook: called once at lazyos-web start. Finds all
+ * workstreams that should *now* be stuck (>2 min since the last event on
+ * a pause window — a pause should be max 25 s, so 2 min is safe).
  */
 export function runBootStuckCheck(): StuckCheckResult {
-  // Beim Boot: aggressiver — 2 min reicht, weil ein Restart-Tod nur
-  // wenige Sekunden vor Boot passiert. Ohne Aggressivität würden wir
-  // 5 min lang einen toten Process für „lebt" halten.
+  // At boot: more aggressive — 2 min is enough because a restart death happens only
+  // a few seconds before boot. Without aggressiveness we would
+  // hold a dead process as "alive" for 5 min.
   return detectStuckWorkstreams({ thresholdMs: 2 * 60 * 1000 });
 }
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
 /**
- * Periodischer Check — alle 60 s. Idempotent. Soll nur EINMAL pro
- * Process gerufen werden (sonst doppelte interval-Loops).
+ * Periodic check — every 60 s. Idempotent. Should be called only ONCE per
+ * process (otherwise duplicate interval loops).
  */
 export function startStuckDetectorLoop(intervalMs = 60_000): void {
   if (intervalHandle !== null) return;
@@ -173,32 +173,32 @@ export function stopStuckDetectorLoop(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Owner-Fix 2026-05-28 — Stuck-Aging / Maintenance-Helper.
+// Owner fix 2026-05-28 — stuck aging / maintenance helper.
 //
-// Begleitend zum Live-Filter in `/api/activity/live` (Workstreams im Status
-// `stuck` mit updatedAt aelter als LAZYOS_STUCK_AGING_MS werden im Pill-
-// Counter NICHT mehr gezeigt). Der Filter ist reversibel (kein DB-Mutate).
+// Accompanying the live filter in `/api/activity/live` (workstreams in status
+// `stuck` with updatedAt older than LAZYOS_STUCK_AGING_MS are NO longer shown in the pill
+// counter). The filter is reversible (no DB mutation).
 //
-// Wenn der Owner alte stuck-Reste persistent als „abandoned" markieren will,
-// ruft er diese Funktion explizit auf. Sie ist NICHT auto-gehookt — kein
-// Boot-Side-Effect, kein Loop. Idempotent.
+// When the owner wants to mark old stuck remnants persistently as "abandoned",
+// they call this function explicitly. It is NOT auto-hooked — no
+// boot side effect, no loop. Idempotent.
 //
 // Trade-off:
-//   - Filter-only (Default in route.ts): keine DB-Aenderung, jederzeit
-//     reversibel; aber stuck-Status bleibt in /lanes sichtbar.
-//   - status='abandoned' (diese Funktion, opt-in): persistent + Push-fest;
-//     irreversibel ohne Migration.
+//   - Filter-only (default in route.ts): no DB change, reversible at any
+//     time; but the stuck status stays visible in /lanes.
+//   - status='abandoned' (this function, opt-in): persistent + push-proof;
+//     irreversible without a migration.
 // ---------------------------------------------------------------------------
 
 export interface MarkAbandonedOptions {
   /**
-   * Aging-Schwellwert in Millisekunden. Stuck-WS mit updatedAt aelter als
-   * `now - olderThanMs` werden markiert. Default 6h.
+   * Aging threshold in milliseconds. Stuck WS with updatedAt older than
+   * `now - olderThanMs` are marked. Default 6h.
    */
   olderThanMs?: number;
-  /** Dry-Run — nur Liste zurueck, kein Update. */
+  /** Dry run — returns only the list, no update. */
   dryRun?: boolean;
-  /** Optionale Zeitreferenz fuer Tests (Default Date.now()). */
+  /** Optional time reference for tests (default Date.now()). */
   now?: number;
 }
 
@@ -214,13 +214,13 @@ export interface MarkAbandonedResult {
 }
 
 /**
- * Markiert alte stuck-Workstreams als `abandoned` (Owner-Aufruf).
+ * Marks old stuck workstreams as `abandoned` (owner call).
  *
- * Idempotent: einen bereits `abandoned`en WS faesst sie nicht nochmal an
- * (das `status='stuck'`-Filter im WHERE garantiert das). Mehrfach-Aufruf
- * ist deterministisch (N6) und fail-soft (kein Throw bei leerer Liste).
+ * Idempotent: it does not touch an already-`abandoned` WS again
+ * (the `status='stuck'` filter in the WHERE guarantees this). Repeated calls
+ * are deterministic (N6) and fail-soft (no throw on an empty list).
  *
- * Beispiel (Owner-Console):
+ * Example (owner console):
  *   import { markAbandonedStuckWorkstreams } from '@/lib/workstreams/stuck-detector';
  *   const res = markAbandonedStuckWorkstreams({ olderThanMs: 24 * 60 * 60 * 1000 });
  *   console.log('marked', res.marked);

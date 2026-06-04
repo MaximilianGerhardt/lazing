@@ -1,9 +1,9 @@
 /**
- * /share/[token] — Public-Stakeholder-View für Cloud-Artifacts.
+ * /share/[token] — public stakeholder view for cloud artifacts.
  *
- * Kein Auth. Token in URL ist die ganze Authentifizierung.
- * Server-Rendered: zeigt eine Card mit Filename + Open + Download.
- * Bei Password-Required: Form fürs Password.
+ * No auth. The token in the URL is the entire authentication.
+ * Server-rendered: shows a card with filename + open + download.
+ * On password-required: a form for the password.
  */
 
 import type { CSSProperties } from "react";
@@ -29,10 +29,10 @@ export default async function PublicSharePage({
     | { kind: "error"; reason: string };
 
   try {
-    // NOTE: resolveAndConsumeShare INKREMENTIERT views — auf der Page
-    // sollten wir das vermeiden bei initial render. Day-1 akzeptieren wir
-    // den Tick (Counter ist eh approximate). Phase-N: separate
-    // `peekShareToken` ohne consume.
+    // NOTE: resolveAndConsumeShare INCREMENTS views — on the page
+    // we should avoid this on initial render. Day-1 we accept the
+    // tick (the counter is approximate anyway). Phase-N: separate
+    // `peekShareToken` without consuming.
     const r = await resolveAndConsumeShare(token, { password });
     state = {
       kind: "ok",

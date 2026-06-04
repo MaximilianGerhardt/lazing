@@ -1,33 +1,33 @@
 'use client';
 
 /**
- * NewWorkspaceForm — Apple-Pure Inline-Form für Workspace-Create.
+ * NewWorkspaceForm — Apple-pure inline form for workspace creation.
  *
- * 2026-05-03 · User-Befund:
+ * 2026-05-03 · User finding:
  *   "ich kann keinen neuen workspace innerhalb einer organisation erstellen.
  *    plane das aus, dass ich nicht nur welche auswählen sondern auch
  *    erstellen kann!"
  *
- * Render-Modi:
- *   - Inline im WorkspaceSwitcher-Popover (Mode-Toggle list↔create)
- *   - Inline-Card auf /orgs/[id]/page.tsx (Org-Detail)
+ * Render modes:
+ *   - Inline in the WorkspaceSwitcher popover (mode toggle list↔create)
+ *   - Inline card on /orgs/[id]/page.tsx (org detail)
  *
- * Felder (in dieser Reihenfolge):
+ * Fields (in this order):
  *   1. Label (auto-focus, max 64)
- *   2. Type-Pill-Choice (Produkt / Kunde / Tool / Sonstig)
- *   3. Context-Group (max 32, frei text — z.B. CRM / Web / Mobile)
- *   4. Sensitivity-Toggle (off=low, on=high)
+ *   2. Type pill choice (Produkt / Kunde / Tool / Sonstig)
+ *   3. Context group (max 32, free text — e.g. CRM / Web / Mobile)
+ *   4. Sensitivity toggle (off=low, on=high)
  *
  * Submit:
  *   - POST /api/workspaces
  *   - 201 → onSuccess(workspace) + dispatchWorkspaceDataChange()
- *   - 409 id-taken → Inline-Hint, Form bleibt offen
- *   - andere 4xx/5xx → generischer Inline-Hint
+ *   - 409 id-taken → inline hint, form stays open
+ *   - other 4xx/5xx → generic inline hint
  *
- * Anti-Pattern check (Memory-Pin " KEINE Overlays"):
- *   Diese Komponente ist KEIN Modal. Sie rendert inline im Caller-Container.
- *   Das Caller-Element (Popover oder Page-Section) ist verantwortlich für
- *   die räumliche Einbettung.
+ * Anti-pattern check (memory pin " NO overlays"):
+ *   This component is NOT a modal. It renders inline in the caller container.
+ *   The caller element (popover or page section) is responsible for
+ *   the spatial embedding.
  */
 
 import {
@@ -42,9 +42,9 @@ import {
 import { dispatchWorkspaceDataChange } from './hooks';
 import type { Workspace } from './types';
 
-/** Whitelist gespiegelt aus app/api/workspaces/route.ts. */
+/** Whitelist mirrored from app/api/workspaces/route.ts. */
 type FormType = 'product' | 'client' | 'tool' | 'default';
-/** ACL-3: Credential-Isolation Werte. */
+/** ACL-3: credential-isolation values. */
 type CredentialIsolation = 'inherit' | 'isolated';
 
 interface TypeChoice {
@@ -65,26 +65,26 @@ const CONTEXT_MAX = 32;
 const LABEL_MIN = 2;
 
 export interface NewWorkspaceFormProps {
-  /** Org in die der WS angelegt wird. Pflicht. */
+  /** Org the workspace is created in. Required. */
   defaultOrgId: string;
-  /** Optional Vorgabe Context-Group (z.B. „CRM" wenn vom Caller bekannt). */
+  /** Optional default for the context group (e.g. "CRM" when known by the caller). */
   defaultContextGroup?: string;
   /**
-   * ACL-3: Vorausgewählter Credential-Isolation-Wert. Wenn nicht gesetzt,
-   * wird der aus dem Org-Type abgeleitete Wert vom Server genutzt. Im
-   * Formular zeigen wir 'inherit' als visuellen Default (kann überschrieben
-   * werden). Caller kann 'isolated' vorbelegen, z.B. wenn der User bereits
-   * Org-Type 'client' gewählt hat.
+   * ACL-3: preselected credential-isolation value. When not set,
+   * the value derived from the org type by the server is used. In the
+   * form we show 'inherit' as the visual default (can be overridden).
+   * The caller can preset 'isolated', e.g. when the user has already
+   * chosen org type 'client'.
    */
   defaultCredentialIsolation?: CredentialIsolation;
-  /** Callback wenn Anlegen erfolgreich. Liefert die neue Workspace-Row. */
+  /** Callback when creation succeeds. Provides the new workspace row. */
   onSuccess: (workspace: Pick<
     Workspace,
     'id' | 'label' | 'organizationId' | 'workspaceType' | 'contextGroup' | 'sensitivity' | 'credentialIsolation'
   >) => void;
-  /** Callback wenn User abbricht (Esc / Cancel-Button). */
+  /** Callback when the user cancels (Esc / cancel button). */
   onCancel: () => void;
-  /** Optional: Variant für räumliches Layout. Default „popover" (kompakt). */
+  /** Optional: variant for spatial layout. Default "popover" (compact). */
   variant?: 'popover' | 'card';
 }
 
@@ -138,7 +138,7 @@ export function NewWorkspaceForm({
     labelInputRef.current?.focus();
   }, []);
 
-  // ESC schließt.
+  // ESC closes.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape' && !submitting) {

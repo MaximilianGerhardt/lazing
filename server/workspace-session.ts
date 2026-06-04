@@ -1913,7 +1913,7 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
         });
       }
 
-      // Persistiere die Assistant-Response im Event-Log (Cross-Device, Replay).
+      // Persist the assistant response to the event log (cross-device, replay).
       logResponseReceived({
         reqId: logReqId,
         workspaceId: opts.workspaceId,
@@ -1925,14 +1925,14 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
         aborted: opts.signal.aborted,
       });
 
-      // N8-Trace · chat_ledger Assistant-Response (BACKPORT-01 · 2026-05-24)
-      // Best-effort — ein Ledger-Fehler darf den Chat-Stream NIEMALS killen.
-      // contentFull = completionContent (vollständiger responseText verbatim, N1).
-      // coordKey = workspaceId (minimaler ManifestCoord, N9).
-      // conversationThreadId = pendingPromptId falls mitgegeben (bindet an den
-      // User-Message-Ledger-Eintrag); Fallback auf logReqId (immer non-empty).
-      // Berechnet nach completionContent, weil finalResultText vs. responseText
-      // erst an dieser Stelle final feststeht.
+      // N8-Trace · chat_ledger assistant response (BACKPORT-01 · 2026-05-24)
+      // Best-effort — a ledger error must NEVER kill the chat stream.
+      // contentFull = completionContent (full responseText verbatim, N1).
+      // coordKey = workspaceId (minimal ManifestCoord, N9).
+      // conversationThreadId = pendingPromptId if provided (binds to the
+      // user-message ledger entry); fallback to logReqId (always non-empty).
+      // Computed from completionContent because finalResultText vs. responseText
+      // is only finalized at this point.
       {
         const ledgerCompletionContent =
           finalResultText && finalResultText.trim().length > 0
@@ -2033,7 +2033,7 @@ export async function sendPrompt(opts: SendPromptOpts): Promise<void> {
           // Push trigger only on a successful persist — otherwise the
           // push could potentially reference a message that is not in the DB
           // and is missing there on reopen.
-          // Best-effort: niemals den emitter werfen lassen.
+          // Best-effort: never let the emitter throw.
           try {
             onChatMessageCompleted({
               workspaceId: opts.workspaceId,

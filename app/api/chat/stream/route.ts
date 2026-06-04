@@ -54,14 +54,14 @@ const MessageSchema = z.object({
   content: z.string().max(32_000),
 });
 
-// Akzeptiert echte Workspace-IDs, __root__ Cross-Workspace-Pseudo, und
-// Klammer-IDs aus dem Sessions-Registry ((root)/(tmp)).
+// Accepts real workspace IDs, the __root__ cross-workspace pseudo, and
+// parenthesized IDs from the sessions registry ((root)/(tmp)).
 const WorkspaceIdSchema = z
   .string()
   .min(1)
   .max(96)
-  // Org-Root-Scope `__org_root__:<orgId>` (Phase IA.1) zugelassen — sonst
-  // verwirft der `:` die workspaceId → 400. max(96) deckt den Prefix-Overhead.
+  // Org-root scope `__org_root__:<orgId>` (Phase IA.1) allowed — otherwise
+  // the `:` rejects the workspaceId → 400. max(96) covers the prefix overhead.
   .regex(/^(?:__org_root__:)?[a-z0-9_()][a-z0-9_()-]{0,63}$/i);
 
 const BodySchema = z.object({
@@ -70,27 +70,27 @@ const BodySchema = z.object({
   /** Reserved for the approval-gate (Stream H). Forwarded as-is. */
   sensitivityFloor: z.enum(["low", "med", "high"]).optional(),
   /**
-   * Engine-Routing (Engine-Pill, C6 entgate · 2026-05-25).
+   * Engine routing (engine pill, C6 entgate · 2026-05-25).
    *
-   * Alle vier Modi sind jetzt routbar:
-   *   'claude-cli'   — bestehender agent-server-Pfad (default).
-   *   'ollama'       — buildOrchestratorSse(mode:'ollama') — lokaler HTTP-Text-Chat.
-   *   'parallel-all' — buildOrchestratorSse(mode:'parallel-all') — Race claude+ollama+codex-READ.
+   * All four modes are now routable:
+   *   'claude-cli'   — existing agent-server path (default).
+   *   'ollama'       — buildOrchestratorSse(mode:'ollama') — local HTTP text chat.
+   *   'parallel-all' — buildOrchestratorSse(mode:'parallel-all') — race claude+ollama+codex-READ.
    *   'codex-cli'    — buildOrchestratorSse(mode:'codex-cli', codexMode:'read') — read-only sandbox.
    *
-   * Sicherheitsgarantie: codex-cli im Chat-Pfad läuft IMMER mit codexMode:'read'
-   * (OS-Level-Sandbox, kein Write, kein Shell-Side-Effect). Write-codex ist über
-   * diesen Pfad physisch nicht erreichbar — der orchestrate()-Call erzwingt 'read'
-   * auf Engine-Ebene (resolveSandboxFlags), unabhängig vom Caller.
+   * Security guarantee: codex-cli in the chat path ALWAYS runs with codexMode:'read'
+   * (OS-level sandbox, no write, no shell side effect). Write-codex is physically
+   * unreachable via this path — the orchestrate() call forces 'read'
+   * at the engine level (resolveSandboxFlags), regardless of the caller.
    */
   engineMode: z
     .enum(["parallel-all", "claude-cli", "codex-cli", "ollama", "ultracoding"])
     .optional(),
   /**
-   * 2-Stufen-Modell (Owner 2026-06-03): wenn der Client einen mehrstufigen
-   * Intent erkannt hat (ChatShell `shouldDecompose`), setzt er `thinking:true`.
-   * Im claude-cli-Default-Pfad wird das an :4201 → sendPrompt → `--effort`
-   * weitergereicht. Fehlt das Feld → schneller Turn (heutiges Verhalten).
+   * Two-stage model (owner 2026-06-03): if the client detected a multi-step
+   * intent (ChatShell `shouldDecompose`), it sets `thinking:true`.
+   * In the claude-cli default path this is forwarded to :4201 → sendPrompt → `--effort`.
+   * If the field is missing → fast turn (today's behavior).
    */
   thinking: z.boolean().optional(),
   thinkingBudget: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
@@ -102,9 +102,9 @@ const BodySchema = z.object({
 const CONNECT_TIMEOUT_MS = 20_000;
 
 /**
- * TD-4 fix 2026-04-26: Strip UI-/Agent-Hint-Marker aus dem Content bevor wir
- * persistieren. Konservativ — nur die exakten Strings die ChatShell heute
- * anhaengt; keine fuzzy-RegExp die auch User-Text matchen koennte.
+ * TD-4 fix 2026-04-26: strip UI/agent hint markers from the content before we
+ * persist. Conservative — only the exact strings ChatShell appends today;
+ * no fuzzy RegExp that could also match user text.
  */
 const AGENT_HINT_TRAILERS: RegExp[] = [
   /\n\n\[Auto-Mode aktiv\]\s*$/,
@@ -121,9 +121,9 @@ function stripAgentHints(content: string): string {
 
 export async function POST(req: Request): Promise<Response> {
   // ---- 1. Env gate -----------------------------------------------------
-  // Default auf lokalen Agent-Server wenn env fehlt (VPS-Next.js läuft neben
-  // dem Agent-Server, 127.0.0.1:4201 ist direkt erreichbar). Auf Vercel
-  // muss LAZYOS_AGENT_URL gesetzt sein (externe URL), auf VPS reicht local.
+  // Default to the local agent-server if the env is missing (the VPS Next.js runs
+  // next to the agent-server, 127.0.0.1:4201 is directly reachable). On Vercel
+  // LAZYOS_AGENT_URL must be set (external URL); on the VPS local is enough.
   const agentUrl = (process.env.LAZYOS_AGENT_URL ?? "http://127.0.0.1:4201").trim();
   const chatKey = (process.env.LAZYOS_CHAT_KEY ?? "").trim();
 
@@ -161,22 +161,22 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  // ---- 2.5 Persistiere User-Message (Phase MS) -------------------------
-  // VOR dem Agent-Call die User-Message als chat_message_sent-Event
-  // schreiben, damit sie auch dann ueberlebt wenn der Agent-Server
-  // haengt oder der Client sofort disconnected. Cross-Device-sichtbar
-  // ueber /api/events/stream und /api/chat/history.
+  // ---- 2.5 Persist the user message (Phase MS) -------------------------
+  // BEFORE the agent call, write the user message as a chat_message_sent
+  // event so it survives even if the agent-server
+  // hangs or the client disconnects immediately. Cross-device visible
+  // via /api/events/stream and /api/chat/history.
   //
-  // pendingPromptId wird im allerersten SSE-Frame an den Client zurueck
-  // geliefert ("event: pending_id"). Der Client merkt sich diese ID und
-  // ignoriert sein eigenes Echo wenn das chat_message_sent-Event live
-  // ueber den Event-Stream zurueckkommt (sonst Doppel-Render).
+  // pendingPromptId is returned to the client in the very first SSE frame
+  // ("event: pending_id"). The client remembers this ID and
+  // ignores its own echo when the chat_message_sent event comes back live
+  // via the event stream (otherwise double render).
   const lastUserMessage = [...body.messages].reverse().find((m) => m.role === "user");
-  // Bug-C-RACE Fix 2026-04-26: Wenn der Client eine pendingPromptId per
-  // Header `X-LazyOS-Pending-Id` mitschickt, nutzen wir die — der Client
-  // hat sie dann schon in seinem `ownPendingIdsRef`-Set, BEVOR der
-  // chat_message_sent-Live-Event ankommt. Echo-Filter greift sofort.
-  // Validierung: max 64 Zeichen, nur safe-chars (UUID/ULID-Format).
+  // Bug-C-RACE fix 2026-04-26: if the client sends a pendingPromptId via
+  // the header `X-LazyOS-Pending-Id`, we use it — the client
+  // then already has it in its `ownPendingIdsRef` set BEFORE the
+  // chat_message_sent live event arrives. The echo filter applies immediately.
+  // Validation: max 64 characters, safe chars only (UUID/ULID format).
   const headerPid = req.headers.get("x-lazyos-pending-id");
   const isValidPid =
     typeof headerPid === "string" &&
@@ -185,21 +185,21 @@ export async function POST(req: Request): Promise<Response> {
     /^[A-Za-z0-9_-]+$/.test(headerPid);
   const pendingPromptId = isValidPid ? headerPid! : ulid();
 
-  // ---- Actor-Detection: Cookie -> user:max, Bearer -> agent:* ----------
-  // Cookie zuerst (User-typed prompts). Wenn kein Cookie aber Bearer
-  // vorhanden -> Bearer-Auth-Call (CLI / Test-Skript / Terminal-Claude).
-  // Header-Override `X-LazyOS-Caller` erlaubt expliziten Actor-Tag (z.B.
-  // 'agent:terminal-claude'). Default fuer Bearer-without-header: 'agent:api'.
+  // ---- Actor detection: Cookie -> user:max, Bearer -> agent:* ----------
+  // Cookie first (user-typed prompts). If no cookie but a Bearer is
+  // present -> Bearer-auth call (CLI / test script / terminal Claude).
+  // The header override `X-LazyOS-Caller` allows an explicit actor tag (e.g.
+  // 'agent:terminal-claude'). Default for Bearer-without-header: 'agent:api'.
   const actor: `user:${string}` | `agent:${string}` = detectActor(req);
 
   if (lastUserMessage) {
     try {
-      // TD-4 fix 2026-04-26: `[Auto-Mode aktiv]` ist ein UI-/Agent-Hint und
-      // hat in der persistierten chat_message_sent-History nichts zu suchen
-      // — User sah den Trailer in alten Messages nach jedem Reload. Strippen
-      // VOR emit; der Forward an den Agent (body.messages, weiter unten)
-      // bleibt unveraendert, sonst verlieren wir den Mode-Hint im
-      // workspace-session.ts-System-Prompt.
+      // TD-4 fix 2026-04-26: `[Auto-Mode aktiv]` is a UI/agent hint and
+      // has no business in the persisted chat_message_sent history
+      // — the user saw the trailer in old messages after every reload. Strip it
+      // BEFORE emit; the forward to the agent (body.messages, further below)
+      // stays unchanged, otherwise we lose the mode hint in the
+      // workspace-session.ts system prompt.
       const cleanedContent = stripAgentHints(lastUserMessage.content);
       await emitChatMessageSent({
         workspaceId: body.workspaceId,
@@ -208,24 +208,24 @@ export async function POST(req: Request): Promise<Response> {
         actor,
       });
     } catch (err) {
-      // Best-effort. Wenn die DB nicht erreichbar ist, lassen wir den
-      // Stream trotzdem weiterlaufen — die UI schreibt die User-Message
-      // local-first weiter, und das chat_turn-Audit-Log haelt Audit
-      // separat. Aber loggen damit Max das im Health-Check sieht.
+      // Best-effort. If the DB is not reachable, we let the
+      // stream continue anyway — the UI keeps writing the user message
+      // local-first, and the chat_turn audit log keeps the audit
+      // separate. But log it so Max sees it in the health check.
       console.warn(
         "[chat/stream] emitChatMessageSent failed:",
         err instanceof Error ? err.message : String(err),
       );
     }
 
-    // N8-Trace · chat_ledger User-Message (BACKPORT-01 · 2026-05-24)
-    // Best-effort — ein Ledger-Fehler darf den Chat-Stream NIEMALS killen.
-    // contentFull = lastUserMessage.content VERBATIM (N1 — kein stripAgentHints
-    // hier; das Ledger soll das echte User-Wort, Hints und alles, damit die
-    // Trace-Zeile exakt das wiedergibt, was der User tatsächlich gesendet hat).
-    // coordKey = workspaceId (minimaler ManifestCoord, N9).
-    // conversationThreadId = pendingPromptId (per-Turn-Schlüssel; verbindet
-    // User-Message und Assistant-Response in einer Thread-Gruppe).
+    // N8 trace · chat_ledger user message (BACKPORT-01 · 2026-05-24)
+    // Best-effort — a ledger error must NEVER kill the chat stream.
+    // contentFull = lastUserMessage.content VERBATIM (N1 — no stripAgentHints
+    // here; the ledger should hold the real user words, hints and all, so the
+    // trace row reflects exactly what the user actually sent).
+    // coordKey = workspaceId (minimal ManifestCoord, N9).
+    // conversationThreadId = pendingPromptId (per-turn key; links the
+    // user message and assistant response in one thread group).
     try {
       appendLedgerRow(getDb().$raw, {
         coordKey: body.workspaceId,
@@ -241,14 +241,14 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  // ---- 2.7 N6-Hybrid Plan-Dispatch — „Hybrid sanft" (Slice 2, 2026-05-23) -
-  // Bei komplexem Intent zerlegen wir im HINTERGRUND in Plan+Subpläne und
-  // emittieren eine `subplan`-Surface (Pfad B → broadcast → /api/events/stream,
-  // selber Next-Prozess → erreicht den Live-Client). Der normale claude-Turn
-  // läuft TROTZDEM weiter (kein return) — der User bekommt IMMER eine Antwort
-  // UND zusätzlich die Plan-Karte. Fire-and-forget mit eigener 40s-Deadline,
-  // bewusst NICHT an req.signal gekoppelt, damit der Plan auch fertig wird,
-  // wenn der Antwort-Stream schon geschlossen ist. Gate-Miss/Fehler = no-op.
+  // ---- 2.7 N6 hybrid plan dispatch — „Hybrid sanft" (Slice 2, 2026-05-23) -
+  // On complex intent we decompose in the BACKGROUND into plan+subplans and
+  // emit a `subplan` surface (path B → broadcast → /api/events/stream,
+  // same Next process → reaches the live client). The normal claude turn
+  // continues ANYWAY (no return) — the user ALWAYS gets an answer
+  // AND additionally the plan card. Fire-and-forget with its own 40s deadline,
+  // deliberately NOT coupled to req.signal so the plan also finishes
+  // when the response stream is already closed. Gate miss/error = no-op.
   if (lastUserMessage) {
     const planPrompt = lastUserMessage.content;
     void (async () => {
@@ -273,25 +273,25 @@ export async function POST(req: Request): Promise<Response> {
     })();
   }
 
-  // ---- 2.8 ACL5-E Auto-Connect — Hybrid (2026-05-24) ----------------------
-  // Deterministisches Connector-Gate im HINTERGRUND (fire-and-forget).
-  // Muster: identisch zu plan-dispatch (Next-Prozess, best-effort, non-fatal).
+  // ---- 2.8 ACL5-E auto-connect — hybrid (2026-05-24) ----------------------
+  // Deterministic connector gate in the BACKGROUND (fire-and-forget).
+  // Pattern: identical to plan-dispatch (Next process, best-effort, non-fatal).
   //
-  // maybeAutoConnect macht KEINEN echten Call — nur detect/setup/preview:
+  // maybeAutoConnect makes NO real call — only detect/setup/preview:
   //   missing='no-connector' → no-op
-  //   missing='profile'      → Onboarding-Toast-Card
-  //   missing='credential'   → credential-request-Card
-  //   missing='none'         → connector-call-preview-Card (Approve-Action)
+  //   missing='profile'      → onboarding toast card
+  //   missing='credential'   → credential-request card
+  //   missing='none'         → connector-call-preview card (approve action)
   //
-  // Echter Call NUR nach User-Approve via POST /api/connectors/invoke.
-  // Codex bleibt ausgeschlossen (B1-Sicherheits-Fix, analog plan-dispatch).
-  // NICHT an req.signal gekoppelt — Card soll auch ankommen wenn der Stream
-  // schon geschlossen ist.
+  // A real call ONLY after user approve via POST /api/connectors/invoke.
+  // Codex stays excluded (B1 security fix, analogous to plan-dispatch).
+  // NOT coupled to req.signal — the card should also arrive when the stream
+  // is already closed.
   if (lastUserMessage) {
     const connectPrompt = lastUserMessage.content;
     const connectWorkspaceId = body.workspaceId;
-    // userId aus actor ableiten (Pattern: user:<ulid> → <ulid>).
-    // Bei 'agent:*' oder 'user:max-bootstrap' → leer lassen (no-op für ACL5-E).
+    // Derive userId from actor (pattern: user:<ulid> → <ulid>).
+    // For 'agent:*' or 'user:max-bootstrap' → leave empty (no-op for ACL5-E).
     const connectUserId = actor.startsWith("user:") ? actor.slice("user:".length) : "";
 
     if (connectUserId) {
@@ -317,30 +317,30 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  // ---- 2.9 Engine-Mode Branch (C6 entgate · 2026-05-25) -----------------
+  // ---- 2.9 Engine-mode branch (C6 entgate · 2026-05-25) -----------------
   //
-  // Routing-Tabelle:
-  //   'claude-cli' (default) → agent-server-Forward (unverändert, Zeile ~325+)
+  // Routing table:
+  //   'claude-cli' (default) → agent-server forward (unchanged, line ~325+)
   //   'ollama'               → buildOrchestratorSse(mode:'ollama')
   //   'parallel-all'         → buildOrchestratorSse(mode:'parallel-all')
   //   'codex-cli'            → buildOrchestratorSse(mode:'codex-cli', codexMode:'read')
   //
-  // Sicherheitsgarantie codex-cli:
-  //   codexMode:'read' wird EXPLIZIT als Argument gesetzt — der Orchestrator
-  //   und die Engine ignorieren ggf. einen anderen Wert im req-Body (es gibt
-  //   keinen). resolveSandboxFlags im codex-Engine forciert OS-Level read-only
-  //   (`-s read-only -a never`) — kein Write, kein Shell-Side-Effect.
-  //   Write-codex ist über diesen Pfad physisch nicht erreichbar.
+  // Security guarantee codex-cli:
+  //   codexMode:'read' is set EXPLICITLY as an argument — the orchestrator
+  //   and the engine ignore any other value in the req body (there is
+  //   none). resolveSandboxFlags in the codex engine forces OS-level read-only
+  //   (`-s read-only -a never`) — no write, no shell side effect.
+  //   Write-codex is physically unreachable via this path.
   //
-  //   Parallel-Race: parallel-all übergibt codexMode:'read' als Default im
-  //   EngineChatRequest. Der Orchestrator setzt es nicht explizit pro Engine —
-  //   aber types.ts default ist 'read' (undefined === read). Zur Klarheit:
-  //   buildOrchestratorSse gibt codexMode:'read' in den orchestrate-Call.
-  // Availability-aware Default (2026-06-03, Owner): wenn der Client keine Engine
-  // vorgibt, die beste VERFÜGBARE wählen — Opus(claude) zuerst, sonst Codex
-  // (fast gpt-5.5), sonst Ollama. Deckt OSS-User ab, die nur Claude ODER nur
-  // Codex haben. Setzt der Client eine Engine, gewinnt die. Keine verfügbar →
-  // claude-cli (der not_configured-Pfad liefert dann die ehrliche Meldung).
+  //   Parallel race: parallel-all passes codexMode:'read' as the default in the
+  //   EngineChatRequest. The orchestrator does not set it explicitly per engine —
+  //   but the types.ts default is 'read' (undefined === read). For clarity:
+  //   buildOrchestratorSse passes codexMode:'read' into the orchestrate call.
+  // Availability-aware default (2026-06-03, owner): if the client specifies no engine,
+  // pick the best AVAILABLE one — Opus(claude) first, then Codex
+  // (fast gpt-5.5), then Ollama. Covers OSS users who have only Claude OR only
+  // Codex. If the client sets an engine, that one wins. None available →
+  // claude-cli (the not_configured path then returns the honest message).
   let engineMode: string = body.engineMode ?? "";
   if (!engineMode) {
     try {
@@ -360,23 +360,23 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  // ---- 2.95 RAG-Retrieve in Orchestrator-Pfaden (TG-1 Audit-Fix · 2026-05-28) -
-  // Workspace-scoped RAG-Block VOR den Spawn vorbereiten. Wird NUR in den
-  // Orchestrator-Branches (ollama / parallel-all / codex-cli) als zusätzliche
-  // 'system'-Message prepended; der claude-cli-Branch bleibt bit-identisch,
-  // weil dort `server/workspace-session.ts:1299` schon RAG injiziert
-  // (Doppel-Injection vermeiden).
+  // ---- 2.95 RAG retrieve in orchestrator paths (TG-1 audit fix · 2026-05-28) -
+  // Prepare a workspace-scoped RAG block BEFORE the spawn. Only prepended in the
+  // orchestrator branches (ollama / parallel-all / codex-cli) as an additional
+  // 'system' message; the claude-cli branch stays bit-identical,
+  // because there `server/workspace-session.ts:1299` already injects RAG
+  // (avoid double injection).
   //
-  // Fail-soft Posture (identisch zu workspace-session.ts:1299):
-  //   - Cheap COUNT-Guard auf rag_chunks WHERE workspace_id=? (0 Chunks → kein
-  //     embed-Call → null Zusatz-Latenz).
-  //   - Jeder Fehler (DB, Embed, Module-Init) → leerer Block → Verhalten
-  //     bit-identisch zur Pre-Fix-Welt (keine Verhaltens-Regression).
-  //   - Cross-Scope wird HIER nie automatisch ausgelöst (N2 fail-closed) —
-  //     der verwendete `retrieve()` ist workspace-isoliert via View-Filter
-  //     (workspace_id + sensitivity!='high'). Cross-Workspace-Read würde
-  //     einen Bridge-Approve + Audit-Row brauchen.
-  //   - Kein Schema-Change, kein Auth-Bypass.
+  // Fail-soft posture (identical to workspace-session.ts:1299):
+  //   - Cheap COUNT guard on rag_chunks WHERE workspace_id=? (0 chunks → no
+  //     embed call → zero extra latency).
+  //   - Any error (DB, embed, module init) → empty block → behavior
+  //     bit-identical to the pre-fix world (no behavior regression).
+  //   - Cross-scope is never triggered automatically HERE (N2 fail-closed) —
+  //     the `retrieve()` used is workspace-isolated via a view filter
+  //     (workspace_id + sensitivity!='high'). A cross-workspace read would
+  //     need a Bridge approve + audit row.
+  //   - No schema change, no auth bypass.
   let ragSystemBlock = "";
   const isOrchestratorMode =
     engineMode === "ollama" ||
@@ -420,9 +420,9 @@ export async function POST(req: Request): Promise<Response> {
       messages: orchestratorMessages,
       pendingPromptId,
       workspaceId: body.workspaceId,
-      // codexMode:'read' wird explizit gesetzt — parallel-race darf codex
-      // nur im read-only-Sandbox starten. Der orchestrator-Layer erzwingt
-      // es auf Engine-Ebene zusätzlich (resolveSandboxFlags).
+      // codexMode:'read' is set explicitly — the parallel race may only start
+      // codex in the read-only sandbox. The orchestrator layer additionally
+      // forces it at the engine level (resolveSandboxFlags).
       codexMode: "read",
     });
   }
@@ -432,19 +432,19 @@ export async function POST(req: Request): Promise<Response> {
       messages: orchestratorMessages,
       pendingPromptId,
       workspaceId: body.workspaceId,
-      // SICHERHEIT: codexMode:'read' ist Pflicht für den Chat-Pfad.
-      // Kein Caller kann über diesen Branch codexMode:'write' setzen
-      // — der Wert kommt ausschliesslich von hier, nicht aus body.
+      // SECURITY: codexMode:'read' is required for the chat path.
+      // No caller can set codexMode:'write' via this branch
+      // — the value comes exclusively from here, not from body.
       codexMode: "read",
     });
   }
   if (engineMode === "ultracoding") {
-    // Ultracoding (Multi-Agent · 2026-06-02): NICHT über buildOrchestratorSse
-    // (das emittiert nur EINEN token-Chunk) — Ultracoding braucht streaming
-    // Lane-Events. Gate: claude-cli muss verfügbar sein (detectEngines ist
-    // 60s-gecacht + günstig). Bei Miss: sauberer SSE-error-Frame (KEIN 500),
-    // sodass useAgentStream die Gate-Message über den bestehenden error-Pfad
-    // zeigt. pendingPromptId-Header bleibt erhalten.
+    // Ultracoding (multi-agent · 2026-06-02): NOT via buildOrchestratorSse
+    // (that emits only ONE token chunk) — Ultracoding needs streaming
+    // lane events. Gate: claude-cli must be available (detectEngines is
+    // 60s-cached + cheap). On miss: a clean SSE error frame (NO 500),
+    // so useAgentStream shows the gate message via the existing error path.
+    // The pendingPromptId header is preserved.
     const { detectEngines } = await import("@/lib/llm/engines/selector");
     const sel = await detectEngines();
     const claudeOk = sel.available.some(
@@ -457,27 +457,27 @@ export async function POST(req: Request): Promise<Response> {
       return buildUltracodingGateError(pendingPromptId, body.workspaceId, reason);
     }
     return buildUltracodingSse({
-      // RAG-Block ist via isOrchestratorMode bereits prepended.
+      // The RAG block is already prepended via isOrchestratorMode.
       messages: orchestratorMessages,
       pendingPromptId,
       workspaceId: body.workspaceId,
     });
   }
-  // 'claude-cli' und alles andere → bestehender agent-server-Forward.
-  // RAG wird im claude-cli-Pfad downstream in server/workspace-session.ts:1299
-  // injiziert — dieser Block muss hier NICHT gerendert werden, sonst
-  // doppelter Kontext im Prompt.
+  // 'claude-cli' and everything else → existing agent-server forward.
+  // RAG is injected in the claude-cli path downstream in server/workspace-session.ts:1299
+  // — this block must NOT be rendered here, otherwise
+  // double context in the prompt.
 
   // ---- 3. Outbound fetch (NO abort-propagation) ------------------------
-  // 2026-04-25: User-Feedback - wenn Max die PWA schliesst, soll der Agent
-  // weiterlaufen, nicht abgebrochen werden. Output landet ohnehin im
-  // chat-event-log + tmux-transcript; beim Wieder-Oeffnen sieht er die
-  // Antwort dort. Nur connect-timeout aborted noch (sonst haengt das
-  // request-handling bei toten Agents).
+  // 2026-04-25: user feedback - when Max closes the PWA, the agent should
+  // keep running, not be aborted. The output lands in the
+  // chat event log + tmux transcript anyway; on reopening he sees the
+  // answer there. Only the connect timeout still aborts (otherwise the
+  // request handling hangs on dead agents).
   const targetUrl = joinUrl(agentUrl, "/chat");
   const outboundCtl = new AbortController();
-  // Bewusst KEIN req.signal-listener — client-disconnect aborted den Agent
-  // nicht mehr.
+  // Deliberately NO req.signal listener — a client disconnect no longer
+  // aborts the agent.
   const clientAbort = (): void => undefined;
 
   // Connect-timeout. Once we *start* receiving bytes we no longer police
@@ -488,9 +488,9 @@ export async function POST(req: Request): Promise<Response> {
 
   let upstream: Response;
   try {
-    // Phase MU.3 (Activate-Switch) — den eingeloggten User durchreichen,
-    // sodass agent-server pro Spawn ggf. user-eigene MAX-Plan-Credentials
-    // nutzt. Header ist nur informational; Bearer-Auth bleibt der Cap.
+    // Phase MU.3 (activate switch) — pass the logged-in user through,
+    // so the agent-server may use the user's own MAX-Plan credentials per spawn.
+    // The header is only informational; Bearer auth stays the cap.
     const headers: Record<string, string> = {
       "content-type": "application/json",
       accept: "text/event-stream",
@@ -516,14 +516,14 @@ export async function POST(req: Request): Promise<Response> {
         workspaceId: body.workspaceId,
         // Passed through; agent-server ignores unknown keys today.
         sensitivityFloor: body.sensitivityFloor,
-        // Streaming-Recovery V2 (2026-04-27): Agent-Server nutzt die
-        // pendingPromptId als PK fuer `streaming_snapshots`-UPSERTs.
-        // Ohne sie laeuft der Stream weiter, aber Reload zeigt nichts
-        // (kein Recovery — nur kein Crash).
+        // Streaming recovery V2 (2026-04-27): the agent-server uses the
+        // pendingPromptId as the PK for `streaming_snapshots` UPSERTs.
+        // Without it the stream continues, but a reload shows nothing
+        // (no recovery — just no crash).
         pendingPromptId,
-        // 2-Stufen-Modell: Intent-getriebenes tiefes Denken an :4201 reichen.
-        // undefined wird von JSON.stringify gedroppt → agent-server-Default
-        // (kein --effort = schnell). N11: claude-cli, nicht deepseek.
+        // Two-stage model: pass intent-driven deep thinking to :4201.
+        // undefined is dropped by JSON.stringify → agent-server default
+        // (no --effort = fast). N11: claude-cli, not deepseek.
         ...(body.thinking
           ? { thinking: true, ...(body.thinkingBudget ? { thinkingBudget: body.thinkingBudget } : {}) }
           : {}),
@@ -563,9 +563,9 @@ export async function POST(req: Request): Promise<Response> {
   clearTimeout(connectTimer);
 
   // ---- 4. Error-status mapping -----------------------------------------
-  // P1-4: pendingPromptId wird IMMER als Header zurueckgegeben — auch
-  // bei 5xx — damit der Client sein Echo-Set vorhalten kann obwohl der
-  // SSE-Frame `pending_id` nie ankam.
+  // P1-4: the pendingPromptId is ALWAYS returned as a header — even
+  // on 5xx — so the client can keep its echo set even though the
+  // SSE frame `pending_id` never arrived.
   const pendingHeader = { "x-lazyos-pending-id": pendingPromptId };
 
   if (upstream.status === 401) {
@@ -594,9 +594,9 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
   if (upstream.status === 400) {
-    // Agent hat den Request strukturell abgelehnt (z.B. invalid workspaceId).
-    // Reicht den 400 + payload durch — UI kann das als User-Fehler zeigen
-    // statt als Server-Crash.
+    // The agent rejected the request structurally (e.g. invalid workspaceId).
+    // Passes the 400 + payload through — the UI can show this as a user error
+    // instead of a server crash.
     const payload = await safeJson(upstream);
     req.signal.removeEventListener("abort", clientAbort);
     const detail =
@@ -648,21 +648,21 @@ export async function POST(req: Request): Promise<Response> {
     pendingPromptId,
     workspaceId: body.workspaceId,
   })}\n\n`;
-  // Native-chat-feeling (2026-05-01): Initial-Heartbeat + 2KB-Comment-Padding
-  // direkt nach dem pending_id-Frame. Zwei Ziele:
-  //   1) iOS Safari + diverse Proxies (Cloudflare/nginx) buffern SSE-Frames
-  //      bis ein Mindest-Volumen erreicht ist. 2 KB Comment-Padding (`: ...`)
-  //      zwingt sie sofort den Header-Block zu flushen — TTFB < 100ms.
-  //   2) Der Client kann sofort Status "Liest deine Frage …" rendern, ohne
-  //      auf das erste Token zu warten (das oft 2-5s dauert bei kalter CLI).
+  // Native chat feeling (2026-05-01): initial heartbeat + 2KB comment padding
+  // right after the pending_id frame. Two goals:
+  //   1) iOS Safari + various proxies (Cloudflare/nginx) buffer SSE frames
+  //      until a minimum volume is reached. 2 KB of comment padding (`: ...`)
+  //      forces them to flush the header block immediately — TTFB < 100ms.
+  //   2) The client can immediately render the status "Liest deine Frage …" without
+  //      waiting for the first token (which often takes 2-5s on a cold CLI).
   const PADDING = ":" + " ".repeat(2048) + "\n\n";
   const initialHeartbeat = `event: heartbeat\ndata: ${JSON.stringify({
     phase: "reading",
     ts: Date.now(),
   })}\n\n`;
-  // Heartbeat alle 5s waehrend wir auf den agent-server warten — verhindert
-  // Proxy-Idle-Timeouts und gibt dem Client Lebenszeichen waehrend langer
-  // Tool-Calls zwischen Tokens.
+  // Heartbeat every 5s while we wait for the agent-server — prevents
+  // proxy idle timeouts and gives the client a sign of life during long
+  // tool calls between tokens.
   const HEARTBEAT_INTERVAL_MS = 5_000;
 
   // PII vault: when on, detokenize the streamed agent deltas back to real values
@@ -675,21 +675,21 @@ export async function POST(req: Request): Promise<Response> {
       let firstUpstreamByteSeen = false;
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
-      // Phase MS: erstes SSE-Event ist die pending_id, damit der Client
-      // sein eigenes chat_message_sent-Echo ueber /api/events/stream
-      // erkennt und nicht doppelt rendert.
-      // Zusatz 2026-05-01: pending_id + 2KB-Padding + heartbeat in EINEM
-      // enqueue() — sodass der TLS/HTTP-Stack das als ein Paket sendet
-      // und der Browser sofort den ersten Frame sieht.
+      // Phase MS: the first SSE event is the pending_id, so the client
+      // recognizes its own chat_message_sent echo via /api/events/stream
+      // and does not render twice.
+      // Addition 2026-05-01: pending_id + 2KB padding + heartbeat in ONE
+      // enqueue() — so the TLS/HTTP stack sends it as one packet
+      // and the browser sees the first frame immediately.
       try {
         controller.enqueue(encoder.encode(pendingPrologue + PADDING + initialHeartbeat));
       } catch {
         /* socket already gone */
       }
 
-      // Periodischer Heartbeat-Comment bis der erste Upstream-Byte ankommt.
-      // Sobald Tokens fliessen, brauchen wir keinen Heartbeat mehr — der
-      // Token-Stream selbst haelt die Connection alive.
+      // Periodic heartbeat comment until the first upstream byte arrives.
+      // Once tokens flow, we no longer need a heartbeat — the
+      // token stream itself keeps the connection alive.
       heartbeatTimer = setInterval(() => {
         if (firstUpstreamByteSeen) {
           if (heartbeatTimer) {
@@ -763,8 +763,8 @@ export async function POST(req: Request): Promise<Response> {
       "cache-control": "no-store, no-transform",
       connection: "keep-alive",
       "x-accel-buffering": "no",
-      // P1-4: pendingPromptId auch als Header — Recovery-Pfad fuer
-      // Edge-Cases wo der SSE-pending_id-Frame nicht ankommt.
+      // P1-4: pendingPromptId also as a header — recovery path for
+      // edge cases where the SSE pending_id frame does not arrive.
       "x-lazyos-pending-id": pendingPromptId,
     },
   });
@@ -797,32 +797,32 @@ async function drainBody(res: Response): Promise<void> {
 }
 
 /**
- * Workspace-scoped RAG-Block für den System-Prompt der Orchestrator-Pfade
- * (TG-1 Audit-Fix · 2026-05-28).
+ * Workspace-scoped RAG block for the system prompt of the orchestrator paths
+ * (TG-1 audit fix · 2026-05-28).
  *
- * Pattern + Posture spiegeln server/workspace-session.ts:1299 (claude-cli-Pfad)
+ * Pattern + posture mirror server/workspace-session.ts:1299 (claude-cli path)
  * + server/agents/tier-orchestrator.ts:138 (injectRagContextWithSources):
  *
- *   1. Cheap COUNT-Guard auf rag_chunks WHERE workspace_id=? — null Embed-
- *      Call wenn der Workspace noch nichts indexiert hat (Default-Zustand bei
- *      frischen Workspaces). Spart die ~120ms Embedder-Latenz im Leerlauf.
- *   2. `retrieve()` ist workspace-isoliert (View `v_rag_chunks_workspace`
- *      filtert workspace_id + sensitivity!='high'). Kein Cross-Scope, kein
- *      Bridge nötig — das hier ist die N2-konforme single-tenant-Variante.
- *   3. Best-effort: jeder Fehler (DB nicht erreichbar, Embedder dead,
- *      sanitiseFtsQuery fail, …) → leerer String → Caller behandelt das als
- *      "kein RAG-Block" → Verhalten bit-identisch zur Pre-Fix-Welt.
+ *   1. Cheap COUNT guard on rag_chunks WHERE workspace_id=? — zero embed
+ *      call if the workspace has indexed nothing yet (the default state for
+ *      fresh workspaces). Saves the ~120ms embedder latency when idle.
+ *   2. `retrieve()` is workspace-isolated (the view `v_rag_chunks_workspace`
+ *      filters workspace_id + sensitivity!='high'). No cross-scope, no
+ *      Bridge needed — this is the N2-compliant single-tenant variant.
+ *   3. Best-effort: any error (DB unreachable, embedder dead,
+ *      sanitiseFtsQuery fail, …) → empty string → the caller treats this as
+ *      "no RAG block" → behavior bit-identical to the pre-fix world.
  *
- * KEIN auto-cross-scope. KEIN Schema-Change. KEIN Audit-Insert hier — der
- * workspace-scoped `retrieve()`-Pfad schreibt keine Audit-Row (nur cross-WS
- * tut das via `writeAudit()`, atomar mit der Transaktion). Bridge-Approve
- * ist die einzige Tür zu Cross-WS, und die geht NICHT durch diesen Helper.
+ * NO auto cross-scope. NO schema change. NO audit insert here — the
+ * workspace-scoped `retrieve()` path writes no audit row (only cross-WS
+ * does that via `writeAudit()`, atomic with the transaction). A Bridge approve
+ * is the only door to cross-WS, and it does NOT go through this helper.
  *
- * @param workspaceId  Der Caller-Workspace aus dem geprüften BodySchema.
- * @param query        Letzter User-Prompt (lastUserMessage.content) — die
- *                     gleiche Quelle wie workspace-session.ts nutzt.
- * @returns            Markdown-Block für die system-Message, oder '' bei
- *                     kein-Hit / leerem Index / Fehler.
+ * @param workspaceId  The caller workspace from the validated BodySchema.
+ * @param query        The last user prompt (lastUserMessage.content) — the
+ *                     same source workspace-session.ts uses.
+ * @returns            Markdown block for the system message, or '' on
+ *                     no-hit / empty index / error.
  */
 async function buildRagSystemBlock(
   workspaceId: string,
@@ -830,19 +830,19 @@ async function buildRagSystemBlock(
 ): Promise<string> {
   const parts: string[] = [];
 
-  // Always-on Subchat-Kontext (2026-06-03, Owner-Direktive): die jüngste
-  // Kundenkommunikation dieses Workspaces — UNCONDITIONAL injiziert, unabhängig
-  // vom query-getriebenen RAG-Treffer, damit der Hauptchat das Subchat-Wissen
-  // IMMER kennt („muss erkannt werden"). Fail-soft, workspace-isoliert (N2).
+  // Always-on subchat context (2026-06-03, owner directive): the most recent
+  // customer communication of this workspace — injected UNCONDITIONALLY, independent
+  // of the query-driven RAG hit, so the main chat ALWAYS knows the subchat
+  // knowledge („muss erkannt werden"). Fail-soft, workspace-isolated (N2).
   try {
     const { formatSubchatContextBlock } = await import("@/lib/subchats/service");
     const sc = formatSubchatContextBlock(workspaceId);
     if (sc) parts.push(sc);
   } catch {
-    /* fail-soft — kein Stream-Kill */
+    /* fail-soft — no stream kill */
   }
 
-  // Query-getriebenes RAG (wie bisher), workspace-isoliert via View-Filter.
+  // Query-driven RAG (as before), workspace-isolated via the view filter.
   if (workspaceId && query && query.trim().length >= 3) {
     try {
       const { getDb: getRagDb } = await import("@/db/client");
@@ -857,7 +857,7 @@ async function buildRagSystemBlock(
         if (rag) parts.push(rag);
       }
     } catch (err) {
-      // Fail-soft — kein Stream-Kill bei RAG-Problem.
+      // Fail-soft — no stream kill on a RAG problem.
       console.warn(
         "[chat/stream] buildRagSystemBlock RAG failed (non-fatal):",
         err instanceof Error ? err.message : String(err),
@@ -869,59 +869,59 @@ async function buildRagSystemBlock(
 }
 
 // ---------------------------------------------------------------------------
-// Orchestrator-SSE-Adapter (C6 entgate · 2026-05-25)
+// Orchestrator SSE adapter (C6 entgate · 2026-05-25)
 // ---------------------------------------------------------------------------
 
 interface OrchestratorSseArgs {
   /**
-   * Engine-Mode für orchestrate(). Alle drei Orchestrator-Pfade erlaubt:
-   *   'ollama'       — single-engine HTTP-Text-Chat, kein Spawn.
-   *   'parallel-all' — Race aller verfügbaren Engines, fastest wins.
-   *   'codex-cli'    — single-engine, MUSS codexMode:'read' mitbekommen.
+   * Engine mode for orchestrate(). All three orchestrator paths allowed:
+   *   'ollama'       — single-engine HTTP text chat, no spawn.
+   *   'parallel-all' — race of all available engines, fastest wins.
+   *   'codex-cli'    — single-engine, MUST receive codexMode:'read'.
    *
-   * 'claude-cli' ist NICHT hier — der geht über den normalen agent-server-
-   * Forward-Pfad (bestehender Code bleibt bit-identisch unverändert).
+   * 'claude-cli' is NOT here — that goes through the normal agent-server
+   * forward path (existing code stays bit-identical, unchanged).
    */
   mode: "ollama" | "parallel-all" | "codex-cli";
   /**
-   * 'system'-Role ist optional unterstützt — wird vom Caller (Engine-Mode-
-   * Branch) gesetzt wenn ein RAG-Kontext-Block prepended wird (TG-1).
+   * The 'system' role is optionally supported — set by the caller (engine-mode
+   * branch) when a RAG context block is prepended (TG-1).
    */
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
   pendingPromptId: string;
   workspaceId: string;
   /**
-   * Codex-Safety-Flag. Wird an orchestrate() weitergereicht.
-   * Bei mode:'codex-cli' und mode:'parallel-all' IMMER 'read' setzen.
-   * Omit (undefined) für 'ollama' — Ollama ignoriert das Feld.
+   * Codex safety flag. Forwarded to orchestrate().
+   * For mode:'codex-cli' and mode:'parallel-all' ALWAYS set 'read'.
+   * Omit (undefined) for 'ollama' — Ollama ignores the field.
    */
   codexMode?: "read" | "write";
 }
 
 /**
- * Ruft lib/llm/orchestrator.orchestrate() single-shot auf und baut daraus
- * einen SSE-ReadableStream, dessen Frame-Format EXAKT dem agent-server-Pfad
- * entspricht. Der Client-Parser (useAgentStream.ts) sieht keinen Unterschied.
+ * Calls lib/llm/orchestrator.orchestrate() single-shot and builds from it
+ * an SSE ReadableStream whose frame format EXACTLY matches the agent-server path.
+ * The client parser (useAgentStream.ts) sees no difference.
  *
- * Frame-Sequenz:
- *   1. pending_id  — wie im agent-server-Pfad (Echo-Filter-Dedup)
- *   2. ready       — sessionId: null (kein agent-server-Session-Objekt)
- *   3. token       — delta: result.text (ein einziger Chunk, kein Streaming)
+ * Frame sequence:
+ *   1. pending_id  — as in the agent-server path (echo-filter dedup)
+ *   2. ready       — sessionId: null (no agent-server session object)
+ *   3. token       — delta: result.text (a single chunk, no streaming)
  *   4. done        — duration_ms, num_turns: 1, is_error: false
  *
- * Bei Fehler:
- *   error-Frame   — message aus dem Catch
- *   done-Frame    — is_error: true
+ * On error:
+ *   error frame   — message from the catch
+ *   done frame    — is_error: true
  *
- * Best-effort: ein orchestrate-Fehler produziert ein error-Frame statt 500.
- * Headers sind bit-identisch mit dem normalen SSE-Pfad.
+ * Best-effort: an orchestrate error produces an error frame instead of a 500.
+ * Headers are bit-identical with the normal SSE path.
  *
- * N11-Ressource-Budget-Note: parallel-all startet bis zu 3 Engine-Requests
- * gleichzeitig (claude-cli, codex-cli-read, ollama). Der Orchestrator selbst
- * verwaltet keinen Slot-Pool — das ist der Subagent-Pool-Job. Text-Race ist
- * leichtgewichtig (keine Worktree-Spawns, kein Heavy-Ollama-Modell per default).
- * Wird deepseek-r1:14b als Ollama-Modell konfiguriert, zählt das gegen das
- * Heavy-Budget (N11: max 2 heavy jobs) — bei parallelen Chat-Turns beachten.
+ * N11 resource-budget note: parallel-all starts up to 3 engine requests
+ * simultaneously (claude-cli, codex-cli-read, ollama). The orchestrator itself
+ * manages no slot pool — that is the subagent-pool's job. The text race is
+ * lightweight (no worktree spawns, no heavy Ollama model by default).
+ * If deepseek-r1:14b is configured as the Ollama model, that counts against the
+ * heavy budget (N11: max 2 heavy jobs) — keep in mind for parallel chat turns.
  */
 function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
   const { mode, messages, pendingPromptId, workspaceId, codexMode } = args;
@@ -932,7 +932,7 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      // Frame 1: pending_id (gleiche Struktur wie normaler Pfad)
+      // Frame 1: pending_id (same structure as the normal path)
       controller.enqueue(
         enc.encode(
           `event: pending_id\ndata: ${JSON.stringify({ pendingPromptId, workspaceId })}\n\n`,
@@ -940,9 +940,9 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
       );
 
       const t0 = Date.now();
-      // orchestrate-Typ: OrchestratorRequest erwartet EngineMessage (role:
-      // 'system'|'user'|'assistant'). Unser BodySchema-Messages-Typ hat nur
-      // 'user'|'assistant' — das ist ein Subset, der Cast ist sicher.
+      // orchestrate type: OrchestratorRequest expects EngineMessage (role:
+      // 'system'|'user'|'assistant'). Our BodySchema messages type only has
+      // 'user'|'assistant' — that is a subset, the cast is safe.
       void (async () => {
         try {
           const { orchestrate } = await import("@/lib/llm/orchestrator");
@@ -964,8 +964,8 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
           // persistence below (the cloud only ever saw the tokens).
           const shownText = rehydrate(workspaceId, result.text);
 
-          // Frame 2: ready (sessionId null — kein persistenter agent-server-
-          // Session-Context, nur Single-Shot-Antwort)
+          // Frame 2: ready (sessionId null — no persistent agent-server
+          // session context, just a single-shot answer)
           controller.enqueue(frame("ready", { sessionId: null }));
 
           // Frame 3: token (full answer as one delta chunk) — real values.
@@ -980,10 +980,10 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
             }),
           );
 
-          // Persistenz (N8-Trace): sonst verliert ein Reload / Cross-Device die
-          // Antwort + der Ledger-Thread bliebe halbiert.
-          // emitChatMessageCompleted = History-Event (broadcast), appendLedgerRow
-          // = N8-Trace. Beide best-effort — kein Stream-Kill bei DB-Fehler.
+          // Persistence (N8 trace): otherwise a reload / cross-device loses the
+          // answer + the ledger thread would stay halved.
+          // emitChatMessageCompleted = history event (broadcast), appendLedgerRow
+          // = N8 trace. Both best-effort — no stream kill on a DB error.
           try {
             await emitChatMessageCompleted({
               workspaceId,
@@ -1017,7 +1017,7 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.warn("[chat/stream] buildOrchestratorSse orchestrate-Fehler:", msg);
-          // Fehler-Frame + done (kein 500 — best-effort)
+          // Error frame + done (no 500 — best-effort)
           controller.enqueue(frame("error", { message: msg }));
           controller.enqueue(
             frame("done", { duration_ms: Date.now() - t0, num_turns: 1, is_error: true }),
@@ -1036,15 +1036,15 @@ function buildOrchestratorSse(args: OrchestratorSseArgs): Response {
       "cache-control": "no-store, no-transform",
       connection: "keep-alive",
       "x-accel-buffering": "no",
-      // P1-4: pendingPromptId auch als Header — Recovery-Pfad fuer Edge-Cases
-      // wo der SSE-pending_id-Frame nicht ankommt.
+      // P1-4: pendingPromptId also as a header — recovery path for edge cases
+      // where the SSE pending_id frame does not arrive.
       "x-lazyos-pending-id": pendingPromptId,
     },
   });
 }
 
 // ---------------------------------------------------------------------------
-// Ultracoding-SSE-Adapter (Multi-Agent · 2026-06-02)
+// Ultracoding SSE adapter (multi-agent · 2026-06-02)
 // ---------------------------------------------------------------------------
 
 /**
@@ -1085,12 +1085,12 @@ function buildUltracodingSse(args: {
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      // Frame 1: pending_id (identisch zu buildOrchestratorSse).
+      // Frame 1: pending_id (identical to buildOrchestratorSse).
       controller.enqueue(frame("pending_id", { pendingPromptId, workspaceId }));
       const t0 = Date.now();
       void (async () => {
         try {
-          // Frame 2: ready (sessionId null — kein agent-server-Session-Context).
+          // Frame 2: ready (sessionId null — no agent-server session context).
           controller.enqueue(frame("ready", { sessionId: null }));
           const { runUltracoding } = await import(
             "@/server/agents/ultracoding-orchestrator"
@@ -1098,7 +1098,7 @@ function buildUltracodingSse(args: {
           const result = await runUltracoding({
             messages,
             workspaceId,
-            // Frames 3..N: ein subagent_lane-Frame pro Lane-Event.
+            // Frames 3..N: one subagent_lane frame per lane event.
             onLaneEvent: (ev: SubagentLaneEvent) => {
               try {
                 controller.enqueue(frame("subagent_lane", ev));
@@ -1107,7 +1107,7 @@ function buildUltracodingSse(args: {
               }
             },
           });
-          // Frame N+1: token (aggregierte Markdown-Zusammenfassung).
+          // Frame N+1: token (aggregated Markdown summary).
           controller.enqueue(frame("token", { delta: result.text }));
           // Frame N+2: done.
           controller.enqueue(
@@ -1117,8 +1117,8 @@ function buildUltracodingSse(args: {
               is_error: false,
             }),
           );
-          // Persistenz — gleiche Posture wie buildOrchestratorSse (best-effort,
-          // non-fatal). Engine ist immer claude-cli (Gate), mode 'ultracoding'.
+          // Persistence — same posture as buildOrchestratorSse (best-effort,
+          // non-fatal). The engine is always claude-cli (gate), mode 'ultracoding'.
           try {
             await emitChatMessageCompleted({
               workspaceId,
@@ -1178,10 +1178,10 @@ function buildUltracodingSse(args: {
 }
 
 /**
- * Gate-Miss-Stream für Ultracoding wenn claude-cli nicht verfügbar ist.
- * Sauberer SSE-error-Frame (KEIN 500/Crash) → useAgentStream zeigt die
- * Gate-Message über den bestehenden `case 'error'`-Pfad. Header bleibt
- * erhalten, damit der Echo-Filter-Recovery greift.
+ * Gate-miss stream for Ultracoding when claude-cli is not available.
+ * A clean SSE error frame (NO 500/crash) → useAgentStream shows the
+ * gate message via the existing `case 'error'` path. The header is
+ * preserved so the echo-filter recovery applies.
  */
 function buildUltracodingGateError(
   pendingPromptId: string,
@@ -1216,59 +1216,59 @@ function buildUltracodingGateError(
 }
 
 /**
- * Wer hat den /api/chat/stream-Call ausgeloest?
+ * Who triggered the /api/chat/stream call?
  *
- * Phase ORG (2026-04-27): Wir lesen den `x-lazyos-subject`-Header, den die
- * Edge-Middleware nach Cookie/Bearer-Verify gesetzt hat. Das ersetzt das
- * frühere hardgecodete `user:max`-Mapping.
+ * Phase ORG (2026-04-27): we read the `x-lazyos-subject` header that the
+ * edge middleware set after cookie/bearer verify. This replaces the
+ * earlier hardcoded `user:max` mapping.
  *
- * P0-#1b / F-1b (2026-05-25): Der frühere `x-lazyos-caller`-Override ist
- * entfernt. Dieser inbound-Header war eine Audit-Spoof-Klasse — ein
- * bearer-authentifizierter Caller konnte ein beliebiges `agent:<name>`-Label
- * in den Audit-Trail schreiben. Die Middleware stripped den Header jetzt
- * bedingungslos (Step 0); der Actor leitet sich ausschliesslich aus dem
- * kryptographisch verifizierten `x-lazyos-subject` ab, den die Middleware
- * nach Cookie-/Bearer-Verify gesetzt hat.
+ * P0-#1b / F-1b (2026-05-25): the earlier `x-lazyos-caller` override is
+ * removed. This inbound header was an audit-spoof class — a
+ * bearer-authenticated caller could write any `agent:<name>` label
+ * into the audit trail. The middleware now strips the header
+ * unconditionally (step 0); the actor is derived exclusively from the
+ * cryptographically verified `x-lazyos-subject` that the middleware
+ * set after cookie/bearer verify.
  *
- * Reihenfolge (alles aus VERIFIZIERTER Quelle):
- *   1) `user:<ulid>`  → verifizierter Session-Cookie (currentSubject user).
- *   2) `agent:cli`    → verifizierter Agent/CLI-Bearer (currentSubject agent).
- *                        Ersetzt das vorher spoofbare `agent:<name>` durch das
- *                        verifizierte Token-Label — Audit zeigt die
- *                        verifizierte statt der behaupteten Identität.
- *   3) `system:<id>`  → Bridge / Cron (currentSubject system) -> als
- *                        `agent:<id>` ins Event-Actor-Schema gemappt.
- *   4) Cookie-Fallback (kein Subject-Header, nur direkter VPS-Call ohne
- *      Middleware-Vorlauf) -> 'user:max-bootstrap'.
- *   5) Defensiv (middleware laesst sonst keine unauth Calls durch) ->
+ * Order (everything from a VERIFIED source):
+ *   1) `user:<ulid>`  → verified session cookie (currentSubject user).
+ *   2) `agent:cli`    → verified agent/CLI bearer (currentSubject agent).
+ *                        Replaces the previously spoofable `agent:<name>` with the
+ *                        verified token label — the audit shows the
+ *                        verified instead of the claimed identity.
+ *   3) `system:<id>`  → Bridge / cron (currentSubject system) -> mapped as
+ *                        `agent:<id>` into the event-actor schema.
+ *   4) Cookie fallback (no subject header, only a direct VPS call without
+ *      middleware preamble) -> 'user:max-bootstrap'.
+ *   5) Defensive (the middleware otherwise lets no unauth calls through) ->
  *      'agent:api'.
  */
 export function detectActor(req: Request): `user:${string}` | `agent:${string}` {
-  // Phase ORG / P0-#1b: subject-Header ist der einzige Trust-Anchor.
+  // Phase ORG / P0-#1b: the subject header is the only trust anchor.
   const subject = currentSubject(req);
   if (subject.kind === "user") {
     return `user:${subject.userId}`;
   }
   if (subject.kind === "agent") {
-    // Verifiziertes Agent/CLI-Bearer-Label (z.B. 'cli'). KEIN inbound-Override
-    // mehr — der x-lazyos-caller-Header ist von der Middleware gestript.
+    // Verified agent/CLI bearer label (e.g. 'cli'). NO more inbound override
+    // — the x-lazyos-caller header is stripped by the middleware.
     return `agent:${subject.agentId}`;
   }
   if (subject.kind === "system") {
-    // Bridge/Cron als agent:<systemId> ins Event-Actor-Schema mappen.
+    // Map Bridge/cron as agent:<systemId> into the event-actor schema.
     return `agent:${subject.systemId}`;
   }
-  // subject.kind === "anon" — kein verifiziertes Subject im Header.
+  // subject.kind === "anon" — no verified subject in the header.
   const cookieHeader = req.headers.get("cookie") ?? "";
-  // Legacy-Fallback wenn kein Subject-Header (sollte nur bei direkten
-  // VPS-Calls ohne Middleware-Vorlauf vorkommen). Cookie-Existence-Check.
-  // Phase AU.4: bleibt vorerst „user:max-bootstrap" als Marker — die echte
-  // ULID-Auflösung passiert eine Schicht weiter oben in den Routen, die
-  // chat_message_sent emitten.
+  // Legacy fallback when there is no subject header (should only occur on direct
+  // VPS calls without a middleware preamble). Cookie existence check.
+  // Phase AU.4: stays „user:max-bootstrap" as a marker for now — the real
+  // ULID resolution happens one layer further up in the routes that
+  // emit chat_message_sent.
   if (/(^|;\s*)lazyos_session=/.test(cookieHeader)) {
     return "user:max-bootstrap";
   }
-  // Sollte nicht passieren — middleware laesst keine unauthentifizierten
-  // Calls durch. Defensiv: agent:api.
+  // Should not happen — the middleware lets no unauthenticated
+  // calls through. Defensive: agent:api.
   return "agent:api";
 }

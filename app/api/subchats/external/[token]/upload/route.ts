@@ -1,13 +1,13 @@
 /**
- * POST /api/subchats/external/[token]/upload  — Anhang-Upload für externe Gäste
+ * POST /api/subchats/external/[token]/upload  — attachment upload for external guests
  *
- * Der Share-Token IST die Autorisierung (kein Login). Lädt eine Datei in den
- * Cloud-Artifact-Store des Workspace, zu dem der Sub-Chat gehört, und gibt eine
- * Referenz zurück, die der Client dann als Anhang an eine Nachricht hängt
- * (POST /api/subchats/external/[token]). Public-Route (middleware PUBLIC_PREFIXES
- * `/api/subchats/external/`). WhatsApp-Standard: Dokumente/Medien/Fotos für alle.
+ * The share token IS the authorization (no login). Uploads a file into the
+ * cloud artifact store of the workspace the sub-chat belongs to, and returns a
+ * reference that the client then attaches to a message
+ * (POST /api/subchats/external/[token]). Public route (middleware PUBLIC_PREFIXES
+ * `/api/subchats/external/`). WhatsApp standard: documents/media/photos for everyone.
  *
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Gathering-Intelligence goal (2026-06-02).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -18,17 +18,17 @@ import { resolveExternalToken } from '@/lib/subchats/service';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Externer Hard-Cap (niedriger als intern): 25 MB pro Upload. */
+/** External hard cap (lower than internal): 25 MB per upload. */
 const MAX_EXTERNAL_BYTES = 25 * 1024 * 1024;
 
-/* ---- Härtung des anonymen Uploads (sicheres OSS-Hosting, 2026-06-02) ---- */
+/* ---- Hardening of the anonymous upload (secure OSS hosting, 2026-06-02) ---- */
 
-// Nie erlaubt: aktive/scriptbare Typen (XSS/RCE-Risiko beim Öffnen).
+// Never allowed: active/scriptable types (XSS/RCE risk when opened).
 const DENY_EXT = new Set([
   'svg', 'html', 'htm', 'xhtml', 'js', 'mjs', 'jsx', 'ts',
   'exe', 'sh', 'bat', 'cmd', 'com', 'scr', 'msi', 'app', 'jar', 'dll', 'pkg', 'deb', 'apk',
 ]);
-// Ohne verlässliche Magic-Bytes nur per Extension erlaubt (Dokumente/Text/Medien).
+// Without reliable magic bytes, allowed only by extension (documents/text/media).
 const ALLOW_EXT = new Set([
   'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'md', 'rtf', 'zip',
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif',
@@ -40,7 +40,7 @@ function extOf(name: string): string {
   return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
 }
 
-/** Magic-Byte-Sniff für inline-sichere Bild-/PDF-Typen. */
+/** Magic-byte sniff for inline-safe image/PDF types. */
 function sniffMagic(buf: Buffer): { mime: string; kind: 'image' } | { mime: 'application/pdf'; kind: 'file' } | null {
   if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return { mime: 'image/png', kind: 'image' };
   if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return { mime: 'image/jpeg', kind: 'image' };
@@ -51,9 +51,9 @@ function sniffMagic(buf: Buffer): { mime: string; kind: 'image' } | { mime: 'app
 }
 
 /**
- * Eingehende Datei prüfen: Reject scriptbare Typen; Bilder/PDF per Magic-Bytes
- * verifizieren (vertrauenswürdiger als client-mime); sonst per Extension-Allow.
- * Liefert den ZU SPEICHERNDEN (vertrauenswürdigen) MIME + kind, oder einen Fehler.
+ * Validate the incoming file: reject scriptable types; verify images/PDF via
+ * magic bytes (more trustworthy than the client mime); otherwise allow by extension.
+ * Returns the (trustworthy) MIME to STORE + kind, or an error.
  */
 function validateUpload(buf: Buffer, filename: string, declaredMime: string):
   | { ok: true; mime: string; kind: 'image' | 'file' }
@@ -65,7 +65,7 @@ function validateUpload(buf: Buffer, filename: string, declaredMime: string):
   }
   const magic = sniffMagic(buf);
   if (magic) return { ok: true, mime: magic.mime, kind: magic.kind };
-  // Kein erkanntes Magic → nur erlaubte Extensions (Office/Text/Medien) durchlassen.
+  // No recognized magic → only let allowed extensions (office/text/media) through.
   if (ALLOW_EXT.has(ext)) {
     const safeMime = declaredMime && !/(svg|html|javascript)/i.test(declaredMime) ? declaredMime : 'application/octet-stream';
     return { ok: true, mime: safeMime, kind: safeMime.startsWith('image/') ? 'image' : 'file' };
@@ -73,8 +73,8 @@ function validateUpload(buf: Buffer, filename: string, declaredMime: string):
   return { ok: false, reason: 'type-not-allowed' };
 }
 
-// Stopgap-Throttle (in-memory, pro IP) bis der Middleware-Rate-Limit-Fix greift
-// (siehe docs/plans/2026-06-02_secure-oss-hosting-plan.md P0 #4). Fenster 60s.
+// Stopgap throttle (in-memory, per IP) until the middleware rate-limit fix lands
+// (see docs/plans/2026-06-02_secure-oss-hosting-plan.md P0 #4). Window 60s.
 const UPLOADS_PER_MIN = 8;
 const ipHits = new Map<string, number[]>();
 function clientIp(req: NextRequest): string {
@@ -93,7 +93,7 @@ function throttled(ip: string): boolean {
   }
   arr.push(now);
   ipHits.set(ip, arr);
-  if (ipHits.size > 5000) ipHits.clear(); // grober Schutz gegen Map-Wachstum
+  if (ipHits.size > 5000) ipHits.clear(); // rough protection against map growth
   return false;
 }
 
@@ -142,7 +142,7 @@ export async function POST(
     return NextResponse.json({ error: 'file-too-large', maxBytes: MAX_EXTERNAL_BYTES }, { status: 413 });
   }
 
-  // Typ-Härtung: scriptbare Typen ablehnen, Bilder/PDF per Magic-Bytes verifizieren.
+  // Type hardening: reject scriptable types, verify images/PDF via magic bytes.
   const verdict = validateUpload(buffer, filename, mime);
   if (!verdict.ok) {
     return NextResponse.json(
@@ -155,7 +155,7 @@ export async function POST(
     const row = await uploadArtifact({
       workspaceId: sc.workspaceId,
       filename,
-      mime: verdict.mime, // vertrauenswürdiger (gesnifft/safe), nicht der rohe Client-MIME
+      mime: verdict.mime, // trustworthy (sniffed/safe), not the raw client MIME
       data: buffer,
       createdBy: `external:${sc.id}`,
       metadata: { subchatId: sc.id, via: 'external-subchat' },

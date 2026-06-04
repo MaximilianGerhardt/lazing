@@ -20,24 +20,24 @@
  *    Brief, Why Bank, Glossary oder Open Questions ueberfuehren. 6. Erst
  *    nach Freigabe in Planung oder Build uebergeben."
  *
- * Diese Datei deklariert das Vokabular des Source-Envelope, die Nudge-
- * Klassifikation, die kandidaten-Extraktion und die Pipeline-Ergebnisse.
+ * This file declares the vocabulary of the source envelope, the nudge
+ * classification, the candidate extraction and the pipeline results.
  *
- * Reines Type-Modul — keine Runtime-Imports, keine Side-Effects.
+ * Pure type module — no runtime imports, no side effects.
  *
- * SUBSTRAT (N4): Tabelle intake_events (Migration 0119). KEIN Eingriff in
- * workstream_decisions, workspace_beliefs oder events. Lane A schreibt in
- * intake_events; Lane B (Expertise-Compiler) liest später daraus.
+ * SUBSTRATE (N4): table intake_events (Migration 0119). NO intervention in
+ * workstream_decisions, workspace_beliefs or events. Lane A writes to
+ * intake_events; Lane B (Expertise-Compiler) reads from it later.
  */
 
 // ───────────────────────────────────────────────────────────────────────────
-// DataSource — exakt das Vokabular aus lib/governance/consent.ts (kein Drift)
+// DataSource — exactly the vocabulary from lib/governance/consent.ts (no drift)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Datenquellen, die Lane A konsumiert. ABSICHTLICH 1:1 deckungsgleich mit
- * `ConsentLevel.DataSource` aus lib/governance/consent.ts — Lane A delegiert
- * Consent-Checks an Lane G und darf nichts erlauben, was Lane G nicht kennt.
+ * Data sources that Lane A consumes. DELIBERATELY 1:1 congruent with
+ * `ConsentLevel.DataSource` from lib/governance/consent.ts — Lane A delegates
+ * consent checks to Lane G and must not allow anything Lane G does not know.
  */
 export type DataSource =
   | "whatsapp"
@@ -63,7 +63,7 @@ export const DATA_SOURCES: readonly DataSource[] = [
 ] as const;
 
 // ───────────────────────────────────────────────────────────────────────────
-// Sensitivity — vier-Stufen-Skala, identisch zu consent_grants.level-Geist
+// Sensitivity — four-level scale, identical to the consent_grants.level spirit
 // ───────────────────────────────────────────────────────────────────────────
 
 export type IntakeSensitivity =
@@ -80,7 +80,7 @@ export const INTAKE_SENSITIVITIES: readonly IntakeSensitivity[] = [
 ] as const;
 
 // ───────────────────────────────────────────────────────────────────────────
-// RawContentType — wie der Rohinhalt vorliegt
+// RawContentType — how the raw content is present
 // ───────────────────────────────────────────────────────────────────────────
 
 export type RawContentType =
@@ -101,40 +101,40 @@ export const RAW_CONTENT_TYPES: readonly RawContentType[] = [
 ] as const;
 
 // ───────────────────────────────────────────────────────────────────────────
-// SourceEnvelope — §7.3 Schritt 1+2 (verbatim speichern + Quelle/Sprecher/
-// Zeit/Projekt/Sensitivitaet)
+// SourceEnvelope — §7.3 steps 1+2 (store verbatim + source/speaker/
+// time/project/sensitivity)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Das Envelope, das jede eingehende Kommunikation in laz.ing trägt.
+ * The envelope that carries every incoming communication in laz.ing.
  *
- * `rawContent` ist VERBATIM (N1) — keine Kürzung, keine Paraphrase. Das
- * intake_events-Schema (Migration 0119) hat KEINE TEXT(N)-Längen.
+ * `rawContent` is VERBATIM (N1) — no truncation, no paraphrase. The
+ * intake_events schema (Migration 0119) has NO TEXT(N) lengths.
  *
- * `contentHash` (N10) = sha256 über kanonisches JSON der envelope-Identität
- * (externalId + dataSource + rawContent + receivedAt). Damit ist die
- * Idempotenz herstellbar: derselbe Input → derselbe Hash → derselbe Insert
- * (oder ein vorhandener Row, dedupliziert).
+ * `contentHash` (N10) = sha256 over canonical JSON of the envelope identity
+ * (externalId + dataSource + rawContent + receivedAt). This makes
+ * idempotency achievable: the same input → the same hash → the same insert
+ * (or an existing row, deduplicated).
  */
 export interface SourceEnvelope {
-  /** ID vom externen System (whatsapp message id, telegram update id, …). */
+  /** ID from the external system (whatsapp message id, telegram update id, …). */
   readonly externalId: string;
   readonly dataSource: DataSource;
-  /** Wer hat es gesagt — externe ID des Sprechers/Senders. */
+  /** Who said it — external ID of the speaker/sender. */
   readonly speakerExternalId?: string;
-  /** Mapped auf den lokalen User/Contact (sobald die Auflösung greift). */
+  /** Mapped to the local user/contact (once the resolution kicks in). */
   readonly speakerLocalId?: string;
-  /** ms-Epoch. Wann ist die Quelle entstanden (nicht: wann wir sie sehen). */
+  /** ms-epoch. When the source originated (not: when we see it). */
   readonly receivedAt: number;
   readonly sensitivity: IntakeSensitivity;
-  /** workspaceId — N9 ManifestCoord-Scope. */
+  /** workspaceId — N9 ManifestCoord scope. */
   readonly projectScope: string;
-  /** VERBATIM Inhalt (N1). KEIN slice. */
+  /** VERBATIM content (N1). NO slice. */
   readonly rawContent: string;
   readonly rawContentType: RawContentType;
-  /** Reply/Forward-Kette — Soft-FK auf eine andere envelope.id im selben Workspace. */
+  /** Reply/forward chain — soft FK to another envelope.id in the same workspace. */
   readonly parentEnvelopeId?: string;
-  /** sha256 über kanonisches JSON (N10). */
+  /** sha256 over canonical JSON (N10). */
   readonly contentHash: string;
 }
 
@@ -143,14 +143,14 @@ export interface SourceEnvelope {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Eine Nudge-Klasse beschreibt, WIE eine Lane (oder UI-Surface) das envelope
- * priorisieren soll:
+ * A nudge class describes HOW a lane (or UI surface) should prioritize the
+ * envelope:
  *
- *   - urgent          — Deadline/Notfall-Marker; Surface SOLL pushen.
- *   - decision-needed — Frage/Approval-Marker; gehört in Open-Questions.
- *   - info-only       — deklarativ, keine Aktion nötig.
- *   - noise           — kein Signal (z.B. „ok", „danke"), kann ignoriert
- *                       werden.
+ *   - urgent          — deadline/emergency marker; the surface SHOULD push.
+ *   - decision-needed — question/approval marker; belongs in Open-Questions.
+ *   - info-only       — declarative, no action needed.
+ *   - noise           — no signal (e.g. „ok", „danke"), can be
+ *                       ignored.
  */
 export type NudgeClass =
   | "urgent"
@@ -170,16 +170,16 @@ export const NUDGE_CLASSES: readonly NudgeClass[] = [
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Lifecycle des intake_events-Row. Der Status ist die FSM, die §7.3
- * implementiert — bewusst KEIN automatischer Übergang zu „accepted"
- * (Schritt 6: „Erst nach Freigabe").
+ * Lifecycle of the intake_events row. The status is the FSM that §7.3
+ * implements — deliberately NO automatic transition to „accepted"
+ * (step 6: „Erst nach Freigabe").
  *
- *   - staged             — Schritt 1 fertig (verbatim persistiert).
- *   - classified         — Schritt 3 fertig (nudgeClass gesetzt).
- *   - ready-for-compile  — Schritt 4 fertig (Kandidaten extrahiert; Lane B
- *                          darf hier abholen). KEIN auto-run nach Lane B.
- *   - blocked            — Consent denied oder Lane G no-auto-run-Gate hat
- *                          abgelehnt. Audit-Row geschrieben (N8).
+ *   - staged             — step 1 done (persisted verbatim).
+ *   - classified         — step 3 done (nudgeClass set).
+ *   - ready-for-compile  — step 4 done (candidates extracted; Lane B
+ *                          may pick up here). NO auto-run after Lane B.
+ *   - blocked            — consent denied or Lane G's no-auto-run gate has
+ *                          rejected. Audit row written (N8).
  */
 export type ClassificationStatus =
   | "staged"
@@ -195,14 +195,14 @@ export const CLASSIFICATION_STATUSES: readonly ClassificationStatus[] = [
 ] as const;
 
 // ───────────────────────────────────────────────────────────────────────────
-// IntakeEvent — der projektierte Row, wie er aus intake_events kommt
+// IntakeEvent — the projected row as it comes from intake_events
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * 1:1 Projektion von intake_events (Migration 0119).
+ * 1:1 projection of intake_events (Migration 0119).
  *
- * Felder, die nur durch die Pipeline gesetzt werden (nudgeClass, status),
- * sind nach Schritt 3/4 belegt — vor Schritt 3 sind sie noch null bzw.
+ * Fields that are only set by the pipeline (nudgeClass, status)
+ * are populated after step 3/4 — before step 3 they are still null or
  * 'staged'.
  */
 export interface IntakeEvent {
@@ -225,24 +225,24 @@ export interface IntakeEvent {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Candidates — §7.3 Schritt 4 (Begriffe · Entscheidungen · Fragen · Konflikte)
+// Candidates — §7.3 step 4 (terms · decisions · questions · conflicts)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Deterministisch extrahierte Marker (KEIN LLM — das ist Lane B):
+ * Deterministically extracted markers (NO LLM — that is Lane B):
  *
- *   - urls       — vollständige http(s)://-URLs.
+ *   - urls       — full http(s):// URLs.
  *   - mentions   — `@handle` / `@person`.
- *   - questions  — Sätze, die mit `?` enden.
- *   - decisions  — Sätze, die ein Entscheidungs-Verb tragen
+ *   - questions  — sentences ending with `?`.
+ *   - decisions  — sentences carrying a decision verb
  *                  (entscheiden/decide/approval/freigabe/sign-off …).
- *   - conflicts  — Sätze, die ein Konflikt-Signal tragen
+ *   - conflicts  — sentences carrying a conflict signal
  *                  (aber/jedoch/contrary/widerspruch/blocker …).
- *   - decisionKeywords — VERBATIM Substring-Matches (z.B. „freigabe").
- *   - conflictKeywords — VERBATIM Substring-Matches (z.B. „widerspruch").
+ *   - decisionKeywords — VERBATIM substring matches (e.g. „freigabe").
+ *   - conflictKeywords — VERBATIM substring matches (e.g. „widerspruch").
  *
- * Reihenfolge der Listen ist die Reihenfolge des Auftretens im Rohinhalt
- * (deterministisch, N6) — Tests können auf exakte Indexe matchen.
+ * The order of the lists is the order of occurrence in the raw content
+ * (deterministic, N6) — tests can match exact indexes.
  */
 export interface IntakeCandidates {
   readonly urls: readonly string[];
@@ -265,45 +265,45 @@ export const EMPTY_INTAKE_CANDIDATES: IntakeCandidates = Object.freeze({
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// IntakeResult — was die Pipeline zurückgibt
+// IntakeResult — what the pipeline returns
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Ergebnis von `runIntakePipeline`. Wenn `status='blocked'` → `blockedReason`
- * verbatim und KEIN Insert in intake_events; stattdessen Audit-Row.
+ * Result of `runIntakePipeline`. When `status='blocked'` → `blockedReason`
+ * verbatim and NO insert into intake_events; an audit row instead.
  */
 export interface IntakeResult {
   readonly status: ClassificationStatus;
-  /** Der angelegte / vorhandene intake_events-Row (auch bei blocked, wenn die Row vor dem Block schon gestaged war). */
+  /** The created / existing intake_events row (also on blocked, when the row was already staged before the block). */
   readonly event: IntakeEvent | null;
   readonly candidates: IntakeCandidates;
   readonly nudgeClass: NudgeClass | null;
-  /** Wenn blocked: verbatim Grund (N1) für Owner/Audit. */
+  /** When blocked: verbatim reason (N1) for owner/audit. */
   readonly blockedReason: string | null;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Pipeline-Optionen
+// Pipeline options
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Optionen für runIntakePipeline. Bewusst minimal — die Pipeline ist eine
- * pure Funktion mit einem rohen DB-Handle.
+ * Options for runIntakePipeline. Deliberately minimal — the pipeline is a
+ * pure function with a raw DB handle.
  *
- *   - `userId`              — die Person, die als Akteur in Audit-Rows landet
- *                             (≠ speaker; das ist der angemeldete User der
- *                             eine API-Route triggert). Pflicht.
- *   - `consentGranted`      — Vom Caller (API-Route) vorab via hasConsent()
- *                             ermittelt. Lane A liest die DB nicht selbst,
- *                             damit die Pipeline pure bleibt.
- *   - `humanApproved`       — Hat der User Lane G's Bridge bereits explizit
- *                             zugestimmt? (canAutoRun-Argument).
- *   - `permissionMode`      — Aktueller Workspace-Permission-Mode (canAutoRun-
- *                             Argument).
- *   - `targetAction`        — Welche Action soll Lane A gegen Lane G prüfen?
+ *   - `userId`              — the person who lands as the actor in audit rows
+ *                             (≠ speaker; this is the signed-in user who
+ *                             triggers an API route). Required.
+ *   - `consentGranted`      — determined upfront by the caller (API route) via
+ *                             hasConsent(). Lane A does not read the DB itself,
+ *                             so the pipeline stays pure.
+ *   - `humanApproved`       — has the user already explicitly agreed to Lane G's
+ *                             Bridge? (canAutoRun argument).
+ *   - `permissionMode`      — current workspace permission mode (canAutoRun
+ *                             argument).
+ *   - `targetAction`        — which action should Lane A check against Lane G?
  *                             Default 'persist-belief' (workspace-internal).
- *                             Wenn der Caller weiß, dass er bereits Lane B
- *                             spawnt, kann er 'spawn-subagent' setzen.
+ *                             If the caller knows it is already spawning Lane B,
+ *                             it can set 'spawn-subagent'.
  */
 export interface RunIntakePipelineOpts {
   readonly userId: string;
@@ -315,25 +315,25 @@ export interface RunIntakePipelineOpts {
     | "lane"
     | "ask";
   readonly targetAction?: "persist-belief" | "spawn-subagent";
-  /** Override für Test-Reproduktion (createdAt/updatedAt). Default Date.now(). */
+  /** Override for test reproduction (createdAt/updatedAt). Default Date.now(). */
   readonly nowMs?: number;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Event-Typen, die Lane A emittiert (über lib/events/emit.ts)
+// Event types that Lane A emits (via lib/events/emit.ts)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Lane A emittiert ausschließlich diese drei Event-Typen über das Event-Log
- * (lib/events/emit.ts). Der eventType-String ist die Wahrheit; die Konstante
- * existiert zur Referenz in Tests + Lane-Contract.
+ * Lane A emits exclusively these three event types via the event log
+ * (lib/events/emit.ts). The eventType string is the truth; the constant
+ * exists for reference in tests + the lane contract.
  *
- * HINWEIS: emit.ts hat eine eigene EventType-Union, die unsere Strings noch
- * nicht kennt. Wir emittieren die Events trotzdem über emitEvent (mit einem
- * gezielten as-Cast in der Pipeline), damit a) die Daten ankommen, b) der
- * String stabil ist. Eine Erweiterung der EventType-Union ist Lane-übergreifend
- * (Lane B+C reference dieselben Strings) und wird separat additiv eingebaut —
- * Lane A führt die Strings hier als Source-of-Truth ein.
+ * NOTE: emit.ts has its own EventType union that does not yet know our
+ * strings. We emit the events via emitEvent anyway (with a
+ * targeted as-cast in the pipeline) so that a) the data arrives, b) the
+ * string is stable. Extending the EventType union is cross-lane
+ * (Lane B+C reference the same strings) and is added separately additively —
+ * Lane A introduces the strings here as the source of truth.
  */
 export const INTAKE_EVENT_TYPES = {
   received: "intake_event_received",

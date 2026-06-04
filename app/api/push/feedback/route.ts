@@ -1,25 +1,25 @@
 /**
  * POST /api/push/feedback
  * ----------------------------------------------------------------
- * Pattern 6a Push-Telemetrie (2026-05-01).
+ * Pattern 6a push telemetry (2026-05-01).
  *
- * Empfängt Notification-Lifecycle-Events vom Service-Worker:
- *   - `clicked`   → Notification wurde geklickt (User-Engagement)
- *   - `dismissed` → Notification wurde geschlossen ohne Klick
+ * Receives notification lifecycle events from the service worker:
+ *   - `clicked`   → notification was clicked (user engagement)
+ *   - `dismissed` → notification was closed without a click
  *
- * Schreibt die Events in den Event-Log via `emitEvent`. Phase 6b
- * (Decay-Algorithmus, kommt nach 7d Vorlauf) aggregiert die Events
- * pro `ruleId` und derived eine Dismiss-Rate, anhand derer Rules
- * adaptiv heruntergestuft werden.
+ * Writes the events into the event log via `emitEvent`. Phase 6b
+ * (decay algorithm, arrives after a 7d lead time) aggregates the events
+ * per `ruleId` and derives a dismiss rate, by which rules are
+ * adaptively downgraded.
  *
- * Auth (Dual-Path):
- *   1. Bearer $LAZYOS_PUSH_SECRET — für Server-zu-Server-Calls
- *      (z.B. wenn ein Backend-Cron Telemetrie injiziert)
- *   2. Session-Cookie `lazyos_session` — für SW-Calls aus dem
- *      Browser. SW läuft same-origin und schickt das HttpOnly-Cookie
- *      automatisch mit `credentials: 'include'`.
+ * Auth (dual-path):
+ *   1. Bearer $LAZYOS_PUSH_SECRET — for server-to-server calls
+ *      (e.g. when a backend cron injects telemetry)
+ *   2. Session cookie `lazyos_session` — for SW calls from the
+ *      browser. The SW runs same-origin and sends the HttpOnly cookie
+ *      automatically with `credentials: 'include'`.
  *
- * Sensitivity: low (kein Klartext-Inhalt — nur ruleId/action/tag).
+ * Sensitivity: low (no plaintext content — only ruleId/action/tag).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -51,7 +51,7 @@ async function authorized(req: NextRequest): Promise<boolean> {
   const bearer = verifyBearer(req, process.env.LAZYOS_PUSH_SECRET);
   if (bearer.ok) return true;
 
-  // Path 2: Session-Cookie (Browser-SW Same-Origin)
+  // Path 2: session cookie (browser SW same-origin)
   const cfg = readSessionConfig();
   if (!cfg) return false;
   const cookieHeader = req.headers.get("cookie");
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? "notification_clicked"
       : "notification_dismissed_without_action";
 
-  // segmentId fallback: lazyos (System-Workspace), reine Telemetrie-Events.
+  // segmentId fallback: lazyos (system workspace), pure telemetry events.
   const seg: SegmentId = segmentId ?? "lazyos";
 
   try {
@@ -114,8 +114,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       sensitivity: "low",
     });
   } catch (err) {
-    // Telemetrie ist non-critical; bei DB-Stress nicht 500 zurückgeben,
-    // sondern still failen damit der SW nicht endlos retried.
+    // Telemetry is non-critical; under DB stress do not return 500,
+    // but fail silently so the SW does not retry endlessly.
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(
       "[push/feedback] emitEvent failed (non-fatal):",

@@ -171,10 +171,10 @@ export function AccountAvatar(): React.JSX.Element {
             )}
           </div>
 
-          {/* Redundanz-Cut (UI/UX-Audit 2026-06-03): Einstellungen/Engines
-              leben kanonisch im Drawer (mobil) / OverflowMenu (Desktop) / Cmd+K.
-              Das Avatar-Menü ist jetzt reine Identität + Onboarding + Logout
-              (Apple-Pattern). */}
+          {/* Redundancy cut (UI/UX audit 2026-06-03): Settings/Engines
+              live canonically in the drawer (mobile) / OverflowMenu (desktop) / Cmd+K.
+              The avatar menu is now pure identity + onboarding + logout
+              (Apple pattern). */}
           <Link
             href="/oss-onboarding"
             onClick={() => setOpen(false)}

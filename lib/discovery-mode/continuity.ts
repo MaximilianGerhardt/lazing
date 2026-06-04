@@ -1,29 +1,29 @@
 /**
  * lib/discovery-mode/continuity.ts
  * ----------------------------------------------------------------------------
- * 2026-05-29 — Continuity-Check beim Discovery-Mode-Wechsel — Opus 4.8.
+ * 2026-05-29 — Continuity check on a discovery-mode switch — Opus 4.8.
  *
- * Quelle: Master-Brief §6 + §20.3. Verbatim §6:
+ * Source: master brief §6 + §20.3. Verbatim §6:
  *
  *   > „Jeder Reframe muss eine Continuity Checkpoint erzeugen: Welche
  *   >  bisherigen Informationen bleiben gueltig, welche werden ersetzt,
  *   >  welche fehlen noch?"
  *
- * Das in §6 beschriebene LLM-Problem: „Das Modell wechselt die
+ * The LLM problem described in §6: „Das Modell wechselt die
  * Abstraktionsebene, ohne die vorherigen Wissensbausteine sauber
- * weiterzutragen." → Beim Wechsel von priorMode → nextMode prüfen wir
- * DETERMINISTISCH (N6), welche bisher gesammelten Beliefs/Entscheidungen
- *   - gültig bleiben (stillValid),
- *   - durch den neuen Modus ersetzt/überholt werden (superseded),
- *   - jetzt fehlen, um den neuen Modus sinnvoll zu betreiben (missing).
+ * weiterzutragen." → On a switch from priorMode → nextMode we check
+ * DETERMINISTICALLY (N6) which of the so-far collected beliefs/decisions
+ *   - stay valid (stillValid),
+ *   - get replaced/superseded by the new mode (superseded),
+ *   - are now missing to run the new mode sensibly (missing).
  *
- * Reine Funktion. Kein I/O. Optionale Persistenz NICHT hier (siehe README:
- * der Haupt-Agent ruft `writeDecision` aus `lib/workstreams/trace-repo.ts`).
+ * Pure function. No I/O. Optional persistence NOT here (see README:
+ * the main agent calls `writeDecision` from `lib/workstreams/trace-repo.ts`).
  *
  * Constraints:
- *   - N6 deterministisch — feste Regelmatrix, keine LLM-Heuristik.
- *   - N1 — Beliefs/Decisions werden verbatim übernommen, kein `.slice`.
- *   - N8 — der Checkpoint ist Evidenz ("warum bleibt X gültig"), kein Log.
+ *   - N6 deterministic — fixed rule matrix, no LLM heuristic.
+ *   - N1 — beliefs/decisions are taken over verbatim, no `.slice`.
+ *   - N8 — the checkpoint is evidence ("why does X stay valid"), not a log.
  */
 
 import type { DiscoveryMode } from './detect';
@@ -32,129 +32,129 @@ import type { DiscoveryMode } from './detect';
 // Public Types
 // ---------------------------------------------------------------------------
 
-/** Ein bisher gesammelter Wissensbaustein (Belief oder Entscheidung). */
+/** A so-far collected knowledge piece (belief or decision). */
 export interface PriorKnowledge {
-  /** Stabile ID (z. B. reasoning_bank-Belief-ID oder workstream_decision-ID). */
+  /** Stable ID (e.g. reasoning_bank belief ID or workstream_decision ID). */
   id: string;
-  /** Verbatim-Text (N1 — nicht kürzen). */
+  /** Verbatim text (N1 — do not truncate). */
   text: string;
   /**
-   * In welchem Modus dieser Baustein entstand. Bestimmt, ob ein Mode-Wechsel
-   * ihn überholt. Optional — wenn unbekannt, gilt er als modus-neutral und
-   * bleibt per Default gültig.
+   * In which mode this piece arose. Determines whether a mode switch
+   * supersedes it. Optional — if unknown, it counts as mode-neutral and
+   * stays valid by default.
    */
   originMode?: DiscoveryMode;
-  /** Optionale Kategorie für Lücken-Erkennung (s. missing). */
+  /** Optional category for gap detection (see missing). */
   kind?: KnowledgeKind;
 }
 
 /**
- * Grobe Wissens-Kategorien — genutzt, um zu erkennen, was dem nextMode FEHLT.
- * Bewusst klein gehalten (deterministisch, kuratierbar).
+ * Coarse knowledge categories — used to detect what the nextMode is MISSING.
+ * Deliberately kept small (deterministic, curatable).
  */
 export type KnowledgeKind =
-  | 'term' // geklärter Begriff (clarify)
-  | 'rule' // Regel/SOP/Prinzip (extract_expertise)
-  | 'role' // Rolle/Persona (role_reverse_engineer)
-  | 'idea' // offene Idee (brainstorm/innovate)
-  | 'scenario' // durchgespieltes Szenario (simulate)
-  | 'plan' // Plan-Baustein (plan_graph)
-  | 'artifact' // gebautes Artefakt (build)
-  | 'finding' // Review-Befund (review)
-  | 'vision'; // Vision/Erwartung (reconcile)
+  | 'term' // clarified term (clarify)
+  | 'rule' // rule/SOP/principle (extract_expertise)
+  | 'role' // role/persona (role_reverse_engineer)
+  | 'idea' // open idea (brainstorm/innovate)
+  | 'scenario' // played-through scenario (simulate)
+  | 'plan' // plan piece (plan_graph)
+  | 'artifact' // built artifact (build)
+  | 'finding' // review finding (review)
+  | 'vision'; // vision/expectation (reconcile)
 
 export interface ContinuityCheckInput {
   priorMode: DiscoveryMode;
   nextMode: DiscoveryMode;
-  /** Bisher gesammelte Beliefs (z. B. aus der ReasoningBank). */
+  /** So-far collected beliefs (e.g. from the ReasoningBank). */
   priorBeliefs?: PriorKnowledge[];
-  /** Bisher getroffene Entscheidungen (z. B. workstream_decisions). */
+  /** So-far made decisions (e.g. workstream_decisions). */
   priorDecisions?: PriorKnowledge[];
 }
 
 export interface ContinuityItem {
   id: string;
   text: string;
-  /** Warum gültig / warum überholt — verbatim Begründung (N8). */
+  /** Why valid / why superseded — verbatim justification (N8). */
   reason: string;
 }
 
 export interface MissingItem {
-  /** Welche Wissensart der nextMode braucht, aber nicht vorliegt. */
+  /** Which knowledge kind the nextMode needs but is not present. */
   kind: KnowledgeKind;
-  /** Klartext-Hinweis, was gesammelt werden sollte. */
+  /** Plain-text hint of what should be collected. */
   prompt: string;
 }
 
 export interface ContinuityCheckpoint {
   priorMode: DiscoveryMode;
   nextMode: DiscoveryMode;
-  /** Bausteine, die im neuen Modus gültig bleiben. */
+  /** Pieces that stay valid in the new mode. */
   stillValid: ContinuityItem[];
-  /** Bausteine, die der neue Modus überholt/ersetzt. */
+  /** Pieces that the new mode supersedes/replaces. */
   superseded: ContinuityItem[];
-  /** Wissenslücken, die der neue Modus benötigt. */
+  /** Knowledge gaps that the new mode needs. */
   missing: MissingItem[];
   /**
-   * §20.3 Frage 5: „Darf geplant werden?" — false, solange der nextMode ein
-   * No-Direct-Plan-Modus ist ODER kritische Lücken bestehen.
+   * §20.3 question 5: „Darf geplant werden?" — false as long as the nextMode is a
+   * no-direct-plan mode OR critical gaps exist.
    */
   mayPlan: boolean;
-  /** Verbatim-Zusammenfassung für den Audit/Decision-Row (N8). */
+  /** Verbatim summary for the audit/decision row (N8). */
   summary: string;
 }
 
 // ---------------------------------------------------------------------------
-// Regelmatrix: welcher Mode-Wechsel überholt welche Wissensart
+// Rule matrix: which mode switch supersedes which knowledge kind
 // ---------------------------------------------------------------------------
 //
-// Kernfall aus §6: Wechsel auf eine ABSTRAKTERE Ebene (z. B. build → innovate
-// oder plan_graph → brainstorm) darf KONKRETE Bausteine nicht still fallen
-// lassen — sie bleiben gültig, werden aber als "Kontext" markiert. Umgekehrt
-// überholt ein KONKRETERER/REVIDIERENDER Modus offene/spekulative Bausteine:
-//   - innovate überholt frühere `idea`-Bausteine (Reframe ersetzt alte Idee).
-//   - reconcile/review überholen `artifact`-Bausteine NICHT, sondern bewerten
-//     sie (bleiben gültig).
-//   - clarify überholt nichts — es ergänzt nur.
+// Core case from §6: a switch to a MORE ABSTRACT level (e.g. build → innovate
+// or plan_graph → brainstorm) must not silently drop CONCRETE pieces —
+// they stay valid but are marked as "context". Conversely a
+// MORE CONCRETE/REVISING mode supersedes open/speculative pieces:
+//   - innovate supersedes earlier `idea` pieces (a reframe replaces the old idea).
+//   - reconcile/review do NOT supersede `artifact` pieces but evaluate
+//     them (they stay valid).
+//   - clarify supersedes nothing — it only adds.
 //
-// Wir kodieren das als: pro nextMode eine Menge von originMode/kind, deren
-// Bausteine als `superseded` gelten. Alles andere bleibt `stillValid`.
+// We encode this as: per nextMode a set of originMode/kind whose
+// pieces count as `superseded`. Everything else stays `stillValid`.
 
 interface SupersedeRule {
-  /** Trifft zu, wenn der Baustein aus einem dieser Modi stammt … */
+  /** Applies if the piece comes from one of these modes … */
   originModes?: DiscoveryMode[];
-  /** … oder von einer dieser Wissensarten ist. */
+  /** … or is of one of these knowledge kinds. */
   kinds?: KnowledgeKind[];
 }
 
 const SUPERSEDE_RULES: Partial<Record<DiscoveryMode, SupersedeRule>> = {
-  // Innovate ist ein Reframe → frühere offene Ideen werden ersetzt, neue Sicht
-  // gewinnt. Geklärte Begriffe/Regeln/Rollen bleiben (sie sind Fundament).
+  // Innovate is a reframe → earlier open ideas are replaced, the new view
+  // wins. Clarified terms/rules/roles stay (they are the foundation).
   innovate: { originModes: ['brainstorm'], kinds: ['idea'] },
-  // Ein neuer Brainstorm öffnet den Raum erneut → ein bereits fixierter Plan
-  // ist nicht mehr bindend (wird als überholt markiert, Idee neu).
+  // A new brainstorm reopens the space → an already fixed plan
+  // is no longer binding (marked as superseded, idea anew).
   brainstorm: { originModes: ['plan_graph'], kinds: ['plan'] },
-  // plan_graph ersetzt frühere lose Ideen durch konkrete Schritte: die Ideen
-  // werden in den Plan überführt → als überholt markiert (im Plan aufgegangen).
+  // plan_graph replaces earlier loose ideas with concrete steps: the ideas
+  // are carried into the plan → marked as superseded (absorbed into the plan).
   plan_graph: { originModes: ['brainstorm', 'innovate'], kinds: ['idea'] },
-  // build überholt nichts inhaltlich — es konsumiert den Plan. Plan bleibt
-  // gültig (Referenz). Daher KEINE Regel → alles stillValid.
-  // review/reconcile bewerten, ersetzen nicht → keine Regel.
-  // clarify/extract_expertise/role_reverse_engineer/simulate ergänzen → keine.
+  // build supersedes nothing in substance — it consumes the plan. The plan stays
+  // valid (reference). Therefore NO rule → everything stillValid.
+  // review/reconcile evaluate, do not replace → no rule.
+  // clarify/extract_expertise/role_reverse_engineer/simulate add → none.
 };
 
 // ---------------------------------------------------------------------------
-// Voraussetzungen pro nextMode → was MUSS vorliegen (sonst `missing`)
+// Requirements per nextMode → what MUST be present (otherwise `missing`)
 // ---------------------------------------------------------------------------
 //
-// §20.3 Frage 4: „Welche Wissensluecken bleiben?" — pro nextMode definieren
-// wir, welche Wissensart erwartet wird. Fehlt sie unter den (gültig
-// bleibenden) Bausteinen, erzeugen wir ein `missing`-Item.
+// §20.3 question 4: „Welche Wissensluecken bleiben?" — per nextMode we define
+// which knowledge kind is expected. If it is missing among the (still-valid)
+// pieces, we generate a `missing` item.
 
 interface ModeRequirement {
   kind: KnowledgeKind;
   prompt: string;
-  /** true = harte Lücke → blockiert mayPlan. */
+  /** true = hard gap → blocks mayPlan. */
   critical: boolean;
 }
 
@@ -186,8 +186,8 @@ const MODE_REQUIREMENTS: Partial<Record<DiscoveryMode, ModeRequirement[]>> = {
   ],
 };
 
-// Modi, in denen NICHT direkt geplant werden darf — gespiegelt aus detect.ts,
-// hier lokal gehalten, um Import-Zyklus-Risiko zu vermeiden (rein additiv).
+// Modes in which direct planning is NOT allowed — mirrored from detect.ts,
+// kept locally here to avoid import-cycle risk (purely additive).
 const NO_PLAN_MODES: readonly DiscoveryMode[] = [
   'brainstorm',
   'clarify',
@@ -196,7 +196,7 @@ const NO_PLAN_MODES: readonly DiscoveryMode[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// continuityCheck — Haupt-Entry
+// continuityCheck — main entry
 // ---------------------------------------------------------------------------
 
 function matchesSupersede(item: PriorKnowledge, rule: SupersedeRule | undefined): boolean {
@@ -209,17 +209,17 @@ function matchesSupersede(item: PriorKnowledge, rule: SupersedeRule | undefined)
 }
 
 /**
- * Erzeugt einen Continuity-Checkpoint für den Wechsel priorMode → nextMode.
+ * Generates a continuity checkpoint for the switch priorMode → nextMode.
  *
- * Deterministisch (N6):
- *   - stillValid/superseded: pro Baustein gegen SUPERSEDE_RULES[nextMode].
- *   - missing: MODE_REQUIREMENTS[nextMode] minus vorhandene (gültige) kinds.
- *   - mayPlan: false wenn nextMode ein No-Plan-Modus ist ODER eine kritische
- *     Lücke besteht (§20.3 Frage 5).
+ * Deterministic (N6):
+ *   - stillValid/superseded: per piece against SUPERSEDE_RULES[nextMode].
+ *   - missing: MODE_REQUIREMENTS[nextMode] minus the present (valid) kinds.
+ *   - mayPlan: false when nextMode is a no-plan mode OR a critical
+ *     gap exists (§20.3 question 5).
  *
- * Idempotenz/Same-Mode: priorMode === nextMode → kein Reframe → alles gültig,
- * nichts überholt, Lücken trotzdem geprüft (der Modus könnte erstmals aktiv
- * werden ohne Vorwissen).
+ * Idempotency/same-mode: priorMode === nextMode → no reframe → everything valid,
+ * nothing superseded, gaps still checked (the mode could become active for the
+ * first time without prior knowledge).
  */
 export function continuityCheck(input: ContinuityCheckInput): ContinuityCheckpoint {
   const { priorMode, nextMode } = input;
@@ -234,7 +234,7 @@ export function continuityCheck(input: ContinuityCheckInput): ContinuityCheckpoi
   const superseded: ContinuityItem[] = [];
 
   for (const item of all) {
-    // Bei Same-Mode gibt es keinen Reframe → nichts wird überholt.
+    // On same-mode there is no reframe → nothing is superseded.
     const overridden = !sameMode && matchesSupersede(item, rule);
     if (overridden) {
       superseded.push({
@@ -256,7 +256,7 @@ export function continuityCheck(input: ContinuityCheckInput): ContinuityCheckpoi
     }
   }
 
-  // Lücken-Erkennung: welche geforderten kinds fehlen unter den gültigen?
+  // Gap detection: which required kinds are missing among the valid ones?
   const presentKinds = new Set<KnowledgeKind>(
     stillValid
       .map((v) => all.find((a) => a.id === v.id)?.kind)

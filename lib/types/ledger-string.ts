@@ -1,85 +1,85 @@
 /**
- * lib/types/ledger-string.ts — Brand-Typ für N1 (Detail-Preservation).
+ * lib/types/ledger-string.ts — brand type for N1 (detail preservation).
  *
- * ## Was ist LedgerString?
+ * ## What is LedgerString?
  *
- * `LedgerString` ist ein nominal-getypter Wrapper um `string`, der signalisiert
- * dass der Inhalt **verbatim** ist — d.h. er stammt direkt aus dem Chat-Ledger,
- * einem Evidence-Record oder einem Detail-Ledger-Eintrag und darf unter keinen
- * Umständen gekürzt, zusammengefasst oder anderweitig verändert werden.
+ * `LedgerString` is a nominally-typed wrapper around `string` that signals
+ * the content is **verbatim** — i.e. it comes directly from the chat ledger,
+ * an evidence record or a detail-ledger entry and must under no
+ * circumstances be shortened, summarized or otherwise altered.
  *
- * ## N1 — Detail-Preservation (non-negotiable operating constraint)
+ * ## N1 — detail preservation (non-negotiable operating constraint)
  *
- * Operating Constraint N1 des Lazing Swarm Runtime lautet:
+ * Operating Constraint N1 of the Lazing Swarm Runtime reads:
  *   "Detail preservation is architectural, not a prompt cap."
  *
- * Das bedeutet konkret:
- *   - Kein Code-Pfad darf `.slice()`, `.substring()` oder `.substr()` auf
- *     Ledger-Content-Felder (`contentFull`, `content_full`, `detailBody`,
- *     `detail_body`, `ledgerContent`) aufrufen.
- *   - Diese Einschränkung ist in `eslint.config.mjs` als `no-restricted-syntax`
- *     Regel maschinell durchgesetzt — der Lint schlägt fehl bevor schlechter
- *     Code in main landet.
- *   - `LedgerString`-Werte müssen **immer vollständig** an die nächste Schicht
- *     weitergegeben werden. Truncation ist ausschließlich in der Render-/UI-
- *     Schicht erlaubt und muss dort explizit als CSS (`text-overflow: ellipsis`)
- *     oder als bewusste UI-Entscheidung gekennzeichnet sein — niemals im
- *     Service- oder Repository-Layer.
+ * Concretely this means:
+ *   - No code path may call `.slice()`, `.substring()` or `.substr()` on
+ *     ledger content fields (`contentFull`, `content_full`, `detailBody`,
+ *     `detail_body`, `ledgerContent`).
+ *   - This restriction is enforced mechanically in `eslint.config.mjs` as a
+ *     `no-restricted-syntax` rule — the lint fails before bad
+ *     code lands in main.
+ *   - `LedgerString` values must **always** be passed on **in full** to the next layer.
+ *     Truncation is allowed exclusively in the render/UI
+ *     layer and must be marked there explicitly as CSS (`text-overflow: ellipsis`)
+ *     or as a deliberate UI decision — never in the
+ *     service or repository layer.
  *
- * ## Verwendung
+ * ## Usage
  *
  * ```typescript
  * import { asLedgerString, type LedgerString } from '@/lib/types/ledger-string';
  *
- * // Im Service-Layer: einmalig beim Lesen aus der DB branden
+ * // In the service layer: brand once when reading from the DB
  * const content: LedgerString = asLedgerString(row.content_full);
  *
- * // Weitergabe: immer als LedgerString, nie aufteilen
+ * // Passing on: always as a LedgerString, never split
  * function processEntry(content: LedgerString): void {
- *   // OK: string-Operationen die keinen Inhalt entfernen
- *   const trimmed = content.trim(); // trim() ist erlaubt — kürzt keinen Inhalt
- *   const upper = content.toUpperCase(); // erlaubt
+ *   // OK: string operations that don't remove content
+ *   const trimmed = content.trim(); // trim() is allowed — removes no content
+ *   const upper = content.toUpperCase(); // allowed
  *
- *   // VERBOTEN (Lint-Error):
- *   // content.slice(0, 200)      <- N1-Violation
- *   // content.substring(0, 100)  <- N1-Violation
- *   // content.substr(0, 50)      <- N1-Violation
+ *   // FORBIDDEN (lint error):
+ *   // content.slice(0, 200)      <- N1 violation
+ *   // content.substring(0, 100)  <- N1 violation
+ *   // content.substr(0, 50)      <- N1 violation
  * }
  * ```
  *
- * ## Warum unique symbol?
+ * ## Why a unique symbol?
  *
- * TypeScript's structural typing würde einen einfachen `{ __ledger: true }`
- * brand zulassen, der mit jedem passenden Objekt kompatibel ist. Ein
- * `unique symbol` erzeugt eine nicht-exportierbare, nicht-fälschbare Identität —
- * nur `asLedgerString()` kann einen `LedgerString` erzeugen.
+ * TypeScript's structural typing would allow a simple `{ __ledger: true }`
+ * brand that is compatible with any matching object. A
+ * `unique symbol` creates a non-exportable, non-forgeable identity —
+ * only `asLedgerString()` can create a `LedgerString`.
  *
  * @see {@link https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html}
- * @see eslint.config.mjs — no-restricted-syntax N1-Guard
- * @see lib/chat/ledger.ts — kanonischer Insert-Pfad (appendLedgerRow)
- * @see db/schema/chat_ledger.ts — contentFull ist N1-verbatim
+ * @see eslint.config.mjs — no-restricted-syntax N1 guard
+ * @see lib/chat/ledger.ts — canonical insert path (appendLedgerRow)
+ * @see db/schema/chat_ledger.ts — contentFull is N1-verbatim
  */
 
 /**
- * Nominal string brand für verbatim Ledger-Content.
+ * Nominal string brand for verbatim ledger content.
  *
- * Werte dieses Typs stammen aus append-only Ledger-Tabellen (chat_ledger,
- * workstream_detail_ledger, workstream_evidence) und repräsentieren den
- * unveränderten, vollständigen Originalinhalt. Sie dürfen weder gekürzt
- * noch paraphrasiert werden bevor sie persistiert oder an andere
- * Service-Layer weitergegeben werden.
+ * Values of this type come from append-only ledger tables (chat_ledger,
+ * workstream_detail_ledger, workstream_evidence) and represent the
+ * unaltered, complete original content. They may neither be shortened
+ * nor paraphrased before they are persisted or passed on to other
+ * service layers.
  */
 export type LedgerString = string & { readonly __ledger: unique symbol };
 
 /**
- * Markiert einen `string`-Wert als verifizierten Ledger-Content.
+ * Marks a `string` value as verified ledger content.
  *
- * NUR aufrufen wenn der String aus einem authorisierten Ledger-Read-Pfad
- * stammt (d.h. Service-Layer, nicht direkte DB-Rohabrufe aus API-Routes).
- * Der Type Cast ist bewusst — er dokumentiert die Herkunft des Strings.
+ * ONLY call when the string comes from an authorized ledger read path
+ * (i.e. the service layer, not direct raw DB fetches from API routes).
+ * The type cast is deliberate — it documents the origin of the string.
  *
- * @param s - Verbatim string aus einem Ledger-Record. Muss ungekürzt sein.
- * @returns Der gleiche String, typisiert als LedgerString.
+ * @param s - Verbatim string from a ledger record. Must be unshortened.
+ * @returns The same string, typed as a LedgerString.
  */
 export function asLedgerString(s: string): LedgerString {
   return s as LedgerString;

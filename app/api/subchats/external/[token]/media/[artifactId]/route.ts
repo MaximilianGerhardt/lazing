@@ -1,13 +1,13 @@
 /**
- * GET /api/subchats/external/[token]/media/[artifactId]  — Anhang ausliefern
+ * GET /api/subchats/external/[token]/media/[artifactId]  — serve attachment
  *
- * Token-gegatetes Media-Serving für externe Gäste (kein Login). Sicherheits-
- * grenze: das Artifact MUSS in genau diesem Sub-Chat referenziert sein (egal ob
- * extern oder vom Team hochgeladen) — sonst 404. Streamt die rohen Bytes.
- * `?download=1` erzwingt einen Download statt Inline-Anzeige.
- * Public-Route (middleware PUBLIC_PREFIXES `/api/subchats/external/`).
+ * Token-gated media serving for external guests (no login). Security
+ * boundary: the artifact MUST be referenced in exactly this sub-chat (whether
+ * uploaded externally or by the team) — otherwise 404. Streams the raw bytes.
+ * `?download=1` forces a download instead of inline display.
+ * Public route (middleware PUBLIC_PREFIXES `/api/subchats/external/`).
  *
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Gathering-Intelligence goal (2026-06-02).
  */
 
 import { type NextRequest } from 'next/server';
@@ -18,7 +18,7 @@ import { resolveExternalToken, subchatReferencesArtifact } from '@/lib/subchats/
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Nur diese Typen dürfen inline angezeigt werden; alles andere → Download. */
+/** Only these types may be displayed inline; everything else → download. */
 const INLINE_SAFE = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf']);
 
 export async function GET(
@@ -28,14 +28,14 @@ export async function GET(
   const { token, artifactId } = await ctx.params;
   const sc = resolveExternalToken(token);
   if (!sc) return new Response('not found', { status: 404 });
-  // Sicherheitsgrenze: nur Medien, die in DIESEM Sub-Chat hängen.
+  // Security boundary: only media that belongs to THIS sub-chat.
   if (!subchatReferencesArtifact(sc.id, artifactId)) {
     return new Response('not found', { status: 404 });
   }
   try {
     const { row, stream } = await streamArtifactUnchecked(artifactId);
-    // Defense-in-depth: das Artifact MUSS zum Workspace des Sub-Chats gehören
-    // (streamArtifactUnchecked umgeht den Membership-Check absichtlich).
+    // Defense-in-depth: the artifact MUST belong to the sub-chat's workspace
+    // (streamArtifactUnchecked bypasses the membership check on purpose).
     if (row.workspaceId !== sc.workspaceId) {
       return new Response('not found', { status: 404 });
     }
@@ -45,7 +45,7 @@ export async function GET(
     const headers: Record<string, string> = {
       'Content-Type': mime,
       'Cache-Control': 'private, max-age=300, no-transform',
-      // Härtung: kein MIME-Sniffing, sandboxed, kein Referer-Leak des Tokens.
+      // Hardening: no MIME sniffing, sandboxed, no referer leak of the token.
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'; sandbox",
       'Referrer-Policy': 'no-referrer',

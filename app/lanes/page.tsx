@@ -1,10 +1,10 @@
 /**
- * /lanes — DEPRECATED. Redirect zu /workstreams?view=kanban.
+ * /lanes — DEPRECATED. Redirect to /workstreams?view=kanban.
  *
- * Workstreams haben Lanes auf höherer Ebene ersetzt: ein Workstream gruppiert
- * Tickets pro User-Anfrage, der Kanban-View visualisiert sie nach Status.
- * Diese Route bleibt nur fuer Backlinks/Bookmarks; alles Aktuelle lebt unter
- * /workstreams.
+ * Workstreams have replaced lanes at a higher level: a workstream groups
+ * tickets per user request, the kanban view visualizes them by status.
+ * This route only remains for backlinks/bookmarks; everything current lives
+ * under /workstreams.
  */
 
 import { redirect } from 'next/navigation';

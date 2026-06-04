@@ -1,18 +1,18 @@
 "use client";
 
 /**
- * /lab Spring-Stack-Toggle — Decision-Feature (Welle 8, 2026-05-01).
+ * /lab spring-stack toggle — decision feature (wave 8, 2026-05-01).
  *
- * Rendert dieselbe Card-Komponente zweimal nebeneinander, einmal mit
- * pure-CSS-cubic-bezier (srf-pop, var(--spring-bouncy)) und einmal mit
- * motion/react als Mount-Spring. Replay-Button triggert Re-Mount via
- * Key-Bump beider Spalten gleichzeitig.
+ * Renders the same card component twice side by side, once with
+ * pure-CSS cubic-bezier (srf-pop, var(--spring-bouncy)) and once with
+ * motion/react as a mount spring. The replay button triggers a re-mount via
+ * key-bump of both columns simultaneously.
  *
- * Ziel: User entscheidet visuell, welcher iOS-Pure-Look überzeugender
- * ist. Gewählter Stack wird für Production used.
+ * Goal: the user decides visually which iOS-pure look is more convincing.
+ * The chosen stack is used for production.
  *
- * Tokens-only — keine Inline-Styles. CSS in app/components.css unter
- * Block B'' · SRF-LAB.
+ * Tokens-only — no inline styles. CSS in app/components.css under
+ * block B'' · SRF-LAB.
  */
 
 import { motion } from "motion/react";
@@ -20,9 +20,9 @@ import { useState, type ReactNode } from "react";
 
 export interface SpringStackToggleProps {
   /**
-   * Children werden in BEIDEN Spalten identisch gerendert. Re-Mount
-   * passiert über `key` auf dem Wrapper, daher müssen die Children
-   * idempotent renderbar sein.
+   * Children are rendered identically in BOTH columns. Re-mount
+   * happens via `key` on the wrapper, so the children must be
+   * idempotently renderable.
    */
   cardChildren: ReactNode;
 }

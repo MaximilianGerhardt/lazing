@@ -354,8 +354,8 @@ function EmptyState({ filters }: { filters: Search }) {
     );
   }
 
-  // Zero-Inbox — minimaler, ehrlicher Empty-State. Keine Ghost-Beispiele,
-  // keine „So könnte es aussehen“-Pädagogik. Eine Headline, ein Satz, ein CTA.
+  // Zero-inbox — minimal, honest empty state. No ghost examples,
+  // no „this is how it could look" pedagogy. One headline, one sentence, one CTA.
   return (
     <div
       style={{

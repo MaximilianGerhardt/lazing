@@ -1,16 +1,16 @@
 /**
- * GET /api/auth/me — Current-User-Info für Frontend.
+ * GET /api/auth/me — current-user info for the frontend.
  *
- * Wird vom UI als SWR-Polling alle 60s gecallt, um Cookie-Invalidation
- * (deleted/suspended User, Token-Tampering, expired Cookie) zu erkennen
- * und den Tab zu reloaden.
+ * Called by the UI as SWR polling every 60s, to detect cookie invalidation
+ * (deleted/suspended user, token tampering, expired cookie)
+ * and reload the tab.
  *
- * Response-Shape:
+ * Response shape:
  *   200 { user: { id, email, displayName, locale, ... } }
- *   404 { error: "not-found" }     — Cookie verifiziert aber userId nicht in DB
- *   401 wird von Middleware zurückgegeben (Cookie fehlt/ungültig)
+ *   404 { error: "not-found" }     — cookie verified but userId not in DB
+ *   401 is returned by the middleware (cookie missing/invalid)
  *
- * Edge-Hinweis: Diese Route läuft auf Node-Runtime (DB-Lookup).
+ * Edge note: this route runs on the Node runtime (DB lookup).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -25,9 +25,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest): Promise<Response> {
   const subject = currentSubject(req);
 
-  // Phase AU.4: Bootstrap-Cookie wird auf den ersten Founder-User remapped.
-  // currentUserIdResolved liefert die ULID — falls noch kein Founder existiert,
-  // ist die Antwort 404 (frische Installation, User muss durch Bootstrap-Flow).
+  // Phase AU.4: the bootstrap cookie is remapped to the first founder user.
+  // currentUserIdResolved returns the ULID — if no founder exists yet,
+  // the answer is 404 (fresh installation, the user must go through the bootstrap flow).
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json(

@@ -1,15 +1,15 @@
 /**
  * POST /api/workstreams/[id]/execute-plan
  *
- * Slice 3 · Phase 1 — NICHT-DESTRUKTIVE Plan-Ausführung (2026-05-23).
+ * Slice 3 · Phase 1 — NON-DESTRUCTIVE plan execution (2026-05-23).
  *
- * Startet den sequenziellen Plan-Executor (`executePlan`) im Hintergrund.
- * Pro Step wird NUR `engine.chat()` aufgerufen (reine Text-Completion,
- * kein Code-Execute, kein File-Write). Antwortet sofort mit HTTP 202.
+ * Starts the sequential plan executor (`executePlan`) in the background.
+ * Per step ONLY `engine.chat()` is called (pure text completion,
+ * no code execute, no file write). Responds immediately with HTTP 202.
  *
- * Vorlage: app/api/workstreams/[id]/spawn/route.ts (Background-Run-Pattern).
+ * Template: app/api/workstreams/[id]/spawn/route.ts (background-run pattern).
  *
- * Auth: Cookie-Session reicht (default API-Auth via middleware).
+ * Auth: a cookie session suffices (default API auth via middleware).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -25,8 +25,8 @@ export const dynamic = 'force-dynamic';
 
 const BodySchema = z.object({
   planId: z.string().min(1),
-  // coordKey ist optional — wir leiten ihn aus workspaceId+workstreamId ab,
-  // wenn der Caller ihn nicht explizit mitschickt.
+  // coordKey is optional — we derive it from workspaceId+workstreamId
+  // if the caller does not pass it explicitly.
   coordKey: z.string().min(1).optional(),
 });
 
@@ -37,27 +37,27 @@ interface Ctx {
 export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   const { id } = await ctx.params;
 
-  // Ownership-Check (Critic-M3-Fix, 2026-05-23): nur eingeloggte Workspace-
-  // Editors dürfen einen Plan-Run starten. Ohne das könnte jeder authentifizierte
-  // Caller per fremder workstreamId einen Run auf einem fremden Workstream
-  // auslösen. Pattern analog app/api/rag/index/route.ts (401 → 404 → 403).
+  // Ownership check (Critic-M3-Fix, 2026-05-23): only logged-in workspace
+  // editors may start a plan run. Without it any authenticated
+  // caller could trigger a run on a foreign workstream via a foreign
+  // workstreamId. Pattern analogous to app/api/rag/index/route.ts (401 → 404 → 403).
   const userId = currentUserIdResolved(req);
   if (!userId) {
     return NextResponse.json({ error: 'auth-required' }, { status: 401 });
   }
 
-  // Workstream validieren (404 wenn unbekannt).
+  // Validate the workstream (404 if unknown).
   const ws = await getWorkstream(id);
   if (!ws) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
-  // Effektive Workspace-Rolle: Viewer/Guests/fremde User → 403.
+  // Effective workspace role: viewers/guests/foreign users → 403.
   if (!canEditWorkspaceContent(getEffectiveWorkspaceRole(userId, ws.workspaceId))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // Body parsen.
+  // Parse the body.
   let raw: unknown;
   try {
     raw = await req.json();
@@ -73,12 +73,12 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   }
 
   const { planId } = parsed.data;
-  // coordKey-Ableitung: wenn nicht mitgeschickt, nutzen wir den kanonischen
-  // ManifestCoord-Key-Format (N9): "<workspaceId>/<workstreamId>".
+  // coordKey derivation: if not passed, we use the canonical
+  // ManifestCoord key format (N9): "<workspaceId>/<workstreamId>".
   const coordKey = parsed.data.coordKey ?? `${ws.workspaceId}/${ws.id}`;
 
-  // Hintergrund-Spawn (kein await, sofort 202 zurück).
-  // executePlan ist best-effort/non-fatal pro Step — Fehler landen im console.error.
+  // Background spawn (no await, return 202 immediately).
+  // executePlan is best-effort/non-fatal per step — errors land in console.error.
   void executePlan({
     workstreamId: ws.id,
     workspaceId: ws.workspaceId,

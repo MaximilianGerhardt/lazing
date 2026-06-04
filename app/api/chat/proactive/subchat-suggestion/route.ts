@@ -1,19 +1,19 @@
 /**
- * POST /api/chat/proactive/subchat-suggestion — proaktiver, operator-facing
- * Vorschlag für den HAUPT-Chat, gespeist aus Sub-Chat-Intelligenz
- * (Proactivity-Goal, 2026-06-02).
+ * POST /api/chat/proactive/subchat-suggestion — a proactive, operator-facing
+ * suggestion for the MAIN chat, fed from sub-chat intelligence
+ * (proactivity goal, 2026-06-02).
  *
- * Wenn im Kunden-Sub-Chat etwas Neues von extern ankommt, schlägt diese Route
- * dem Operator (Ein-Mann-Agentur) EINEN konkreten nächsten Schritt vor —
- * angereichert mit workspace-isoliertem RAG-Wissen (N2). Der Vorschlag landet
- * im Composer (SUGGEST + 1-TAP-CONFIRM); NIEMALS Auto-Send, NIEMALS eine
- * Nachricht an den Kunden. Der Hauptchat bleibt Operator↔OS.
+ * When something new arrives from outside in the customer sub-chat, this route
+ * suggests ONE concrete next step to the operator (one-person agency) —
+ * enriched with workspace-isolated RAG knowledge (N2). The suggestion lands
+ * in the composer (SUGGEST + 1-TAP-CONFIRM); NEVER auto-send, NEVER a
+ * message to the customer. The main chat stays operator↔OS.
  *
- * Best-effort: Engine-/Parse-/Runtime-Fehler → `{ suggestion: '' }` mit HTTP 200
- * (die UI rendert dann nichts). Nur Auth-Grenzen (401/403) sind explizit — das
- * sind keine Engine-Fehler. Die claude-CLI ist lokal evtl. nicht verfügbar →
- * `orchestrate({ mode: 'claude-cli' })` wirft „engine not available" → gefangen
- * → leerer Vorschlag.
+ * Best-effort: engine/parse/runtime errors → `{ suggestion: '' }` with HTTP 200
+ * (the UI then renders nothing). Only auth boundaries (401/403) are explicit — those
+ * are not engine errors. The claude CLI may not be available locally →
+ * `orchestrate({ mode: 'claude-cli' })` throws „engine not available" → caught
+ * → empty suggestion.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -40,8 +40,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   const subchatId = typeof body.subchatId === 'string' ? body.subchatId : '';
   const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : '';
 
-  // N2: workspaceId-Scope ist Pflicht — niemals global. Best-effort leer (200),
-  // statt die UI mit 400-Noise zu fluten.
+  // N2: the workspaceId scope is required — never global. Best-effort empty (200),
+  // instead of flooding the UI with 400 noise.
   if (!/^SC-[A-Za-z0-9]{1,40}$/.test(subchatId) || workspaceId.length === 0) {
     return NextResponse.json({ suggestion: '' }, { status: 200, headers: NO_STORE });
   }
@@ -49,14 +49,14 @@ export async function POST(req: NextRequest): Promise<Response> {
   const sc = getSubchat(subchatId);
   if (!sc) return NextResponse.json({ suggestion: '' }, { status: 200, headers: NO_STORE });
 
-  // Defense-in-Depth: der Sub-Chat MUSS zum behaupteten Workspace gehören
-  // (kein Cross-Scope, N2).
+  // Defense-in-depth: the sub-chat MUST belong to the claimed workspace
+  // (no cross-scope, N2).
   if (sc.workspaceId !== workspaceId) {
     return NextResponse.json({ suggestion: '' }, { status: 200, headers: NO_STORE });
   }
 
-  // Auth-Grenzen bleiben explizit (spiegelt suggest/route.ts) — das sind
-  // Berechtigungs-Grenzen, keine Engine-Fehler.
+  // Auth boundaries stay explicit (mirrors suggest/route.ts) — those are
+  // permission boundaries, not engine errors.
   const userId = currentUserIdResolved(req);
   if (!userId) return NextResponse.json({ error: 'auth-required' }, { status: 401 });
 
@@ -65,14 +65,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // Letzte ~15 Nachrichten laden. Leer ⇒ nichts vorzuschlagen.
+  // Load the last ~15 messages. Empty ⇒ nothing to suggest.
   const msgs = listMessages(subchatId, 15);
   if (msgs.length === 0) {
     return NextResponse.json({ suggestion: '' }, { status: 200, headers: NO_STORE });
   }
 
-  // Query-Anker: letzte EXTERNE Nachricht (das Neue vom Kunden); sonst letzte
-  // Nachricht im Verlauf.
+  // Query anchor: the last EXTERNAL message (the new thing from the customer);
+  // otherwise the last message in the history.
   const lastCustomerMessage =
     [...msgs].reverse().find((m) => m.authorKind === 'external')?.content?.trim() ||
     msgs[msgs.length - 1].content.trim();
@@ -82,20 +82,20 @@ export async function POST(req: NextRequest): Promise<Response> {
     .join('\n')
     .slice(-4000);
 
-  // N2: retrieve() asserted workspaceId (RagWorkspaceRequiredError bei leer) und
-  // liest die workspace-isolierte View. Dieser Kunden-Scope ist es, der den
-  // Vorschlag schlau macht. RAG-Fehler dürfen den Vorschlag NIE blockieren.
+  // N2: retrieve() asserts workspaceId (RagWorkspaceRequiredError if empty) and
+  // reads the workspace-isolated view. This customer scope is what makes the
+  // suggestion smart. RAG errors must NEVER block the suggestion.
   let ragBlock = '';
   let ragSources: Array<{ ref: string; sim: number }> = [];
   try {
     const rag = await retrieve({ workspaceId, query: lastCustomerMessage, topK: 6 });
-    ragBlock = formatForPrompt(rag); // '' bei 0 Treffern
+    ragBlock = formatForPrompt(rag); // '' on 0 hits
     ragSources = rag.hits.map((h) => ({
       ref: `${h.sourceType}:${h.sourceId}`,
       sim: Number(h.similarity.toFixed(2)),
     }));
   } catch {
-    ragBlock = ''; // RAG-Ausfall ⇒ Vorschlag trotzdem produzieren.
+    ragBlock = ''; // RAG outage ⇒ produce the suggestion anyway.
     ragSources = [];
   }
 
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   try {
     const { orchestrate } = await import('@/lib/llm/orchestrator');
     const result = await orchestrate({
-      mode: 'claude-cli', // Opus-tier für Plan/Decision (Model-Tiering); NIEMALS Fast-Mode.
+      mode: 'claude-cli', // Opus tier for plan/decision (model tiering); NEVER fast mode.
       messages: [{ role: 'user', content: prompt }],
       parallelTimeoutMs: 30_000,
       // PII vault: the prompt embeds the verbatim customer transcript + RAG.

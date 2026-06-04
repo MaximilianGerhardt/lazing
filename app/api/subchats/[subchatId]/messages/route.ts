@@ -1,9 +1,9 @@
 /**
- * GET  /api/subchats/[subchatId]/messages  — Nachrichten lesen (intern, member).
- * POST /api/subchats/[subchatId]/messages  — als internes Team-Mitglied posten.
+ * GET  /api/subchats/[subchatId]/messages  — read messages (internal, member).
+ * POST /api/subchats/[subchatId]/messages  — post as an internal team member.
  *
- * Auth: Member des Workspace, zu dem der Sub-Chat gehört.
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Auth: member of the workspace the sub-chat belongs to.
+ * Gathering-Intelligence goal (2026-06-02).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
   }
   const content = (body.content ?? '').trim();
   const attachments = sanitizeAttachments(body.attachments, g.workspaceId);
-  // Eine Nachricht braucht Text ODER mindestens einen Anhang.
+  // A message needs text OR at least one attachment.
   if ((content.length < 1 && attachments.length === 0) || content.length > 8000) {
     return NextResponse.json({ error: 'invalid-content' }, { status: 400 });
   }

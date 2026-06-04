@@ -1,26 +1,26 @@
 'use client';
 
 /**
- * CreateWorkspaceCard — Apple-Pure Inline-Card für /orgs/[id].
+ * CreateWorkspaceCard — Apple-pure inline card for /orgs/[id].
  *
- * 2026-05-03: User kann direkt auf der Org-Detail-Page einen neuen
- * Workspace anlegen. Toggle-Button öffnet die NewWorkspaceForm als
- * Inline-Section unterhalb des Org-Headers (kein Modal — siehe
- * Memory-Pin „ KEINE Overlays").
+ * 2026-05-03: the user can create a new workspace directly on the org
+ * detail page. The toggle button opens the NewWorkspaceForm as an
+ * inline section below the org header (no modal — see the
+ * memory pin "NO overlays").
  *
- * Reuse: dieselbe NewWorkspaceForm wie im WorkspaceSwitcher, hier mit
- * variant="card" für den großzügigeren Page-Kontext.
+ * Reuse: the same NewWorkspaceForm as in the WorkspaceSwitcher, here with
+ * variant="card" for the more generous page context.
  *
- * 2026-05-26: onSuccess ruft jetzt setWorkspace + setOrg damit der UI
- * sofort in den neuen Workspace wechselt (Badge/Segment/History).
+ * 2026-05-26: onSuccess now calls setWorkspace + setOrg so the UI
+ * switches into the new workspace immediately (badge/segment/history).
  *
- * 2026-05-28 (Owner-Fix Live-Test): Vor dem Fix blieb der User nach dem
- * Create auf /orgs/[id] stehen — der Workspace-Wechsel war zwar in
- * localStorage geschrieben, aber visuell „nicht passiert". Jetzt navigieren
- * wir hart nach `/?ws=<newId>` (kanonischer Lande-Pfad für Chat-pro-Workspace,
- * siehe app/page.tsx + WorkspaceBootstrap), damit der Owner direkt im
- * Chat des frisch angelegten Workspaces landet — identisch zum Klick auf
- * eine Workspace-Row im WorkspaceSwitcher gefolgt von „zurück zum Chat".
+ * 2026-05-28 (owner fix live test): before the fix, the user stayed on
+ * /orgs/[id] after the create — the workspace switch was written to
+ * localStorage, but visually "did not happen". Now we navigate hard
+ * to `/?ws=<newId>` (the canonical landing path for chat-per-workspace,
+ * see app/page.tsx + WorkspaceBootstrap), so the owner lands directly in
+ * the chat of the freshly created workspace — identical to clicking a
+ * workspace row in the WorkspaceSwitcher followed by "back to chat".
  */
 
 import { useState, useTransition, type CSSProperties } from 'react';
@@ -32,9 +32,9 @@ import { setWorkspaceId } from '@/lib/nav/hooks';
 interface Props {
   orgId: string;
   orgName: string;
-  /** Wenn false → Card zeigt nur eine Hint-Zeile, kein Open-Button. */
+  /** If false → the card only shows a hint line, no open button. */
   canCreate: boolean;
-  /** Optional: vorbelegter Context-Group-Wert (z.B. wenn Org „CRM" heißt). */
+  /** Optional: prefilled context-group value (e.g. when the org is named "CRM"). */
   defaultContextGroup?: string;
 }
 
@@ -90,19 +90,19 @@ export function CreateWorkspaceCard({
         onCancel={() => setOpen(false)}
         onSuccess={(ws) => {
           setOpen(false);
-          // 1) localStorage + Workspace-Change-Event SOFORT setzen, damit
-          //    Listener auf der Landing-Page (Sidebar / TopNav) den richtigen
-          //    Workspace lesen, bevor der neue Tree mountet.
-          // Fix #2 (2026-06-02): Org des neuen Workspace mit-setzen, damit der
-          // Auto-Switch auch greift, wenn der Workspace in einer ANDEREN Org als
-          // der aktiven liegt (sonst Org-Normalisierung → Reset auf org-root).
+          // 1) Set localStorage + workspace-change event IMMEDIATELY, so that
+          //    listeners on the landing page (sidebar / TopNav) read the right
+          //    workspace before the new tree mounts.
+          // Fix #2 (2026-06-02): also set the org of the new workspace, so the
+          // auto-switch also takes effect when the workspace is in a DIFFERENT org
+          // than the active one (otherwise org normalization → reset to org-root).
           setWorkspaceId(ws.id, ws.organizationId ?? undefined);
-          // 2) Owner-Fix 2026-05-28 — Auto-Switch zum Chat des neuen Workspaces.
-          //    `/?ws=<id>` ist der kanonische Lande-Pfad (siehe app/page.tsx +
-          //    WorkspaceBootstrap). router.push triggert die Server-Component
-          //    der HomePage; WorkspaceBootstrap seedet localStorage SYNCHRON
-          //    in useLayoutEffect (vor Hydration), sodass kein State-Flicker
-          //    auf den alten Workspace passiert.
+          // 2) Owner fix 2026-05-28 — auto-switch to the chat of the new workspace.
+          //    `/?ws=<id>` is the canonical landing path (see app/page.tsx +
+          //    WorkspaceBootstrap). router.push triggers the server component
+          //    of the HomePage; WorkspaceBootstrap seeds localStorage SYNCHRONOUSLY
+          //    in useLayoutEffect (before hydration), so that no state flicker
+          //    to the old workspace happens.
           startTransition(() => {
             router.push(`/?ws=${encodeURIComponent(ws.id)}`);
           });

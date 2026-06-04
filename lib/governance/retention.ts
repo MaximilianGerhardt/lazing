@@ -1,29 +1,29 @@
 /**
  * G5 — Retention-Policy (Phase 2 W2.1 · Lane G Governance · 2026-05-29).
  *
- * Integration-Plan §4 Lane G (verbatim, N1):
+ * Integration plan §4 Lane G (verbatim, N1):
  *   „Retention Policy · Raw vs Derived Data Policy"
  *
- * Lane G hält fest:
- *   - Raw-Daten (z.B. originale whatsapp-Message) bekommen ein kurzes
- *     Retention-Fenster (default 30 Tage).
- *   - Derived-Daten (Zusammenfassung, embedding-chunk, belief, …) bekommen
- *     ein längeres Fenster (default 365 Tage).
- *   - Audit-Rows bleiben 7 Jahre (DSGVO Art. 30 Verzeichnis-Pflicht).
- *   - Eine Consent-Revoke hat eine Karenz-Periode von 14 Tagen (lokale
- *     Pipeline-Latenz) — danach werden weiter persistierte Derivate ebenfalls
- *     gelöscht oder anonymisiert.
+ * Lane G establishes:
+ *   - Raw data (e.g. an original whatsapp message) gets a short
+ *     retention window (default 30 days).
+ *   - Derived data (summary, embedding chunk, belief, …) gets
+ *     a longer window (default 365 days).
+ *   - Audit rows stay 7 years (GDPR Art. 30 record-keeping requirement).
+ *   - A consent revoke has a grace period of 14 days (local
+ *     pipeline latency) — after which still-persisted derivatives are likewise
+ *     deleted or anonymized.
  *
- * Diese Default-Werte sind workspace-überschreibbar. Die eigentliche
- * Garbage-Collection ist NICHT Teil von Lane G — sie ist Aufgabe einer
- * separaten Maintenance-Lane (Stage 3). Lane G liefert nur das Policy-
- * Objekt + die deterministische `isExpired`-Prüfung.
+ * These default values are workspace-overridable. The actual
+ * garbage collection is NOT part of Lane G — it is the task of a
+ * separate maintenance lane (Stage 3). Lane G only provides the policy
+ * object + the deterministic `isExpired` check.
  *
- * Substrat-Disziplin:
- *   - PURE Module (kein DB-Read, kein LLM, kein IO) — getWorkspaceRetention
- *     hat zwar eine DB-Lookup-Spur, ist aber explizit ein DB-Read-Helper
- *     (rein lesend) und fail-soft (Workspace-Override missing → Default).
- *   - N1: alle Felder verbatim.
+ * Substrate discipline:
+ *   - PURE module (no DB read, no LLM, no IO) — getWorkspaceRetention
+ *     does have a DB-lookup trace, but is explicitly a DB-read helper
+ *     (read-only) and fail-soft (workspace override missing → default).
+ *   - N1: all fields verbatim.
  */
 
 import type { ConsentLevel } from "./consent";
@@ -35,33 +35,33 @@ type RawDb = import("better-sqlite3").Database;
 // ---------------------------------------------------------------------------
 
 export interface RetentionPolicy {
-  /** Tage bis Raw-Daten gelöscht werden dürfen. */
+  /** Days until raw data may be deleted. */
   readonly rawDataDays: number;
-  /** Tage bis Derived-Daten gelöscht werden dürfen. */
+  /** Days until derived data may be deleted. */
   readonly derivedDataDays: number;
-  /** Tage bis Audit-Rows abgebaut werden dürfen (DSGVO Art. 30 = 7 Jahre). */
+  /** Days until audit rows may be removed (GDPR Art. 30 = 7 years). */
   readonly auditRetentionDays: number;
-  /** Karenz-Periode (Tage) nach einer Consent-Revoke. */
+  /** Grace period (days) after a consent revoke. */
   readonly consentRevocationGracePeriodDays: number;
 }
 
 export const DEFAULT_RETENTION_POLICY: RetentionPolicy = {
   rawDataDays: 30,
   derivedDataDays: 365,
-  auditRetentionDays: 2555, // ≈ 7 Jahre (DSGVO Art. 30)
+  auditRetentionDays: 2555, // ≈ 7 years (GDPR Art. 30)
   consentRevocationGracePeriodDays: 14,
 };
 
 // ---------------------------------------------------------------------------
-// isExpired — pure Funktion
+// isExpired — pure function
 // ---------------------------------------------------------------------------
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Prüft, ob ein Item nach `days` Tagen ab `createdAt` als abgelaufen gilt.
- * Pure Funktion — `nowMs` ist optional und default Date.now() (für Tests
- * deterministisch überschreibbar).
+ * Checks whether an item is considered expired after `days` days from `createdAt`.
+ * Pure function — `nowMs` is optional and defaults to Date.now() (deterministically
+ * overridable for tests).
  */
 export function isExpired(
   createdAt: number,
@@ -76,7 +76,7 @@ export function isExpired(
 }
 
 /**
- * Berechnet das Ablaufdatum (ms-Epoch) für ein Item — pure Funktion.
+ * Computes the expiry date (ms-epoch) for an item — pure function.
  */
 export function retentionExpiresAt(createdAt: number, days: number): number {
   if (!Number.isFinite(createdAt) || !Number.isFinite(days) || days <= 0) {
@@ -90,29 +90,29 @@ export function retentionExpiresAt(createdAt: number, days: number): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Lädt die wirksame RetentionPolicy für einen Workspace.
+ * Loads the effective RetentionPolicy for a workspace.
  *
- * Mechanik (additiv, fail-soft):
- *   - Liest user_preferences (Migration 0114) nach einer optionalen Override-
- *     Spalte. Da user_preferences in dieser Codebase user-scoped ist (nicht
- *     workspace-scoped), gibt es derzeit KEINE Workspace-Override-Quelle —
- *     diese Funktion liefert fortlaufend DEFAULT_RETENTION_POLICY. Eine
- *     zukünftige `workspace_retention_overrides`-Tabelle kann hier additiv
- *     verdrahtet werden, ohne Lane G zu ändern (rein Reader-Schicht).
+ * Mechanics (additive, fail-soft):
+ *   - Reads user_preferences (Migration 0114) for an optional override
+ *     column. Since user_preferences is user-scoped in this codebase (not
+ *     workspace-scoped), there is currently NO workspace override source —
+ *     this function continuously returns DEFAULT_RETENTION_POLICY. A
+ *     future `workspace_retention_overrides` table can be wired in here
+ *     additively, without changing Lane G (purely a reader layer).
  *
- *   - workspaceId wird validiert, ist aber DB-readonly: keine Errors,
- *     fail-soft Default-Rückgabe bei jedem Problem.
+ *   - workspaceId is validated, but is DB-readonly: no errors,
+ *     fail-soft default return on any problem.
  */
 export function getWorkspaceRetention(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- additiv reserviert für künftigen Override-Lesepfad
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- additively reserved for a future override read path
   raw: RawDb,
   workspaceId: string,
 ): RetentionPolicy {
   if (typeof workspaceId !== "string" || workspaceId.length === 0) {
     return DEFAULT_RETENTION_POLICY;
   }
-  // Heute: keine workspace_retention_overrides-Tabelle → Default zurückgeben.
-  // Hook für späteren Override-Lookup (additiv, ohne Lane-G-Änderung):
+  // Today: no workspace_retention_overrides table → return the default.
+  // Hook for a later override lookup (additive, without a Lane-G change):
   //   const row = raw.prepare(
   //     `SELECT raw_days, derived_days, audit_days, grace_days
   //        FROM workspace_retention_overrides WHERE workspace_id = ?`,
@@ -122,13 +122,13 @@ export function getWorkspaceRetention(
 }
 
 // ---------------------------------------------------------------------------
-// Hilfs-Helpers für andere Lane-G-Module
+// Helpers for other Lane-G modules
 // ---------------------------------------------------------------------------
 
 /**
- * Liefert die für eine ConsentLevel-Ebene angemessene Default-Retention
- * (Tage). `none` und `read-only` haben raw-Retention; alles ab `read-derive`
- * darf länger gespeichert werden (derived).
+ * Returns the default retention (days) appropriate for a ConsentLevel.
+ * `none` and `read-only` have raw retention; everything from `read-derive`
+ * onward may be stored longer (derived).
  */
 export function retentionDaysForLevel(
   level: ConsentLevel,
@@ -143,7 +143,7 @@ export function retentionDaysForLevel(
     case "full-automation":
       return policy.derivedDataDays;
     default:
-      // Fail-closed: unbekannter Level → minimal halten.
+      // Fail-closed: unknown level → keep minimal.
       return policy.rawDataDays;
   }
 }

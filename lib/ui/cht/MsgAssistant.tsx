@@ -2,11 +2,11 @@ import type { ReactNode } from 'react';
 
 interface MsgAssistantProps {
   /**
-   * Assistant content (gerendert via renderMarkdown / TextWithHighlights).
-   * Bold wird seit 2026-06-02 (Codex-Parität) als `<strong>` in `var(--ink)`
-   * gerendert — kräftiges Weiß, NICHT mehr im Segment-Akzent. Optional folgt
-   * darunter eine dezente <MessageActions/>-Reihe (Copy / Neu generieren),
-   * die per `.msg-a:hover` enthüllt wird.
+   * Assistant content (rendered via renderMarkdown / TextWithHighlights).
+   * Since 2026-06-02 (Codex parity), bold is rendered as `<strong>` in `var(--ink)`
+   * — strong white, NO longer in the segment accent. Optionally,
+   * a subtle <MessageActions/> row (copy / regenerate) follows below it,
+   * revealed via `.msg-a:hover`.
    */
   children: ReactNode;
 }
@@ -15,8 +15,8 @@ interface MsgAssistantProps {
  * CHT-01 — Assistant text bubble.
  *
  * Left-aligned card-colored bubble (via .msg-a / .txt in
- * app/components.css). Inhalt wird vom Markdown-Renderer gestylt; diese
- * Komponente plumbt nur den Bubble-Rahmen.
+ * app/components.css). Content is styled by the markdown renderer; this
+ * component only plumbs the bubble frame.
  */
 export function MsgAssistant({ children }: MsgAssistantProps) {
   return (

@@ -4,9 +4,9 @@
  *   GET  /api/tickets/:id/products           — list (exclude superseded by default)
  *   POST /api/tickets/:id/products           — create
  *
- * Auth: middleware gated (Cookie ODER Bearer — beides ist in der
- * middleware.ts ueber `verifySessionCookieValue` plus der Bearer-Policy
- * aus `lib/security/*` abgedeckt).
+ * Auth: middleware gated (cookie OR bearer — both are covered in
+ * middleware.ts via `verifySessionCookieValue` plus the bearer policy
+ * from `lib/security/*`).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -82,16 +82,16 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     );
   }
 
-  // createdBy: aus body.actor ableiten (API behaelt Actor-Contract),
-  // sonst aus dem VERIFIZIERTEN Subject.
+  // createdBy: derive from body.actor (the API keeps the actor contract),
+  // otherwise from the VERIFIED subject.
   //
-  // P0-#1b / F-1b (2026-05-25): Der frühere Fallback auf den inbound-Header
-  // `x-lazyos-actor` war eine Audit-Spoof-Klasse — ein bearer-authentifizierter
-  // Caller konnte damit ein beliebiges Identitäts-Label in den Audit-Trail
-  // (createdBy des Work-Products) schreiben. Der Header ist jetzt von der
-  // Middleware bedingungslos gestript; der Fallback kommt aus der
-  // kryptographisch verifizierten Quelle (`currentActor` → verifiziertes
-  // `x-lazyos-subject`, z.B. `user:<id>`, `agent:cli`, `system:bridge`).
+  // P0-#1b / F-1b (2026-05-25): The earlier fallback to the inbound header
+  // `x-lazyos-actor` was an audit-spoof class — a bearer-authenticated
+  // caller could use it to write an arbitrary identity label into the audit
+  // trail (createdBy of the work product). The header is now unconditionally
+  // stripped by the middleware; the fallback comes from the
+  // cryptographically verified source (`currentActor` → verified
+  // `x-lazyos-subject`, e.g. `user:<id>`, `agent:cli`, `system:bridge`).
   const createdBy = parsed.data.actor ?? currentActor(req);
 
   try {

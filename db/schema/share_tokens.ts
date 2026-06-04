@@ -20,21 +20,21 @@ export const shareTokens = sqliteTable(
     id: text("id").primaryKey(),
     /** SHA-256 hex (token). */
     tokenHash: text("token_hash").notNull().unique(),
-    /** Soft-FK auf cloud_artifacts.id. */
+    /** Soft-FK on cloud_artifacts.id. */
     artifactId: text("artifact_id").notNull(),
-    /** Workspace-Bezug für Audit-Filterung. */
+    /** Workspace reference for audit filtering. */
     workspaceId: text("workspace_id").notNull(),
-    /** Wer hat den Link erstellt. */
+    /** Who created the link. */
     createdByUserId: text("created_by_user_id"),
-    /** Optional: bcrypt-style hashed password. Null = kein Password. */
+    /** Optional: bcrypt-style hashed password. Null = no password. */
     passwordHash: text("password_hash"),
-    /** Hard-Expiry timestamp_ms. */
+    /** Hard-expiry timestamp_ms. */
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-    /** Max-Views; null = unbegrenzt. */
+    /** Max views; null = unlimited. */
     maxViews: integer("max_views"),
-    /** Counter inkrementiert pro Use. */
+    /** Counter incremented per use. */
     currentViews: integer("current_views").notNull().default(0),
-    /** Manuelle Revocation. */
+    /** Manual revocation. */
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
     revokedByUserId: text("revoked_by_user_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),

@@ -1,22 +1,22 @@
 /**
  * /orgs/[id]/chat — Phase IA.4.
  *
- * Server-Component-Redirect auf die Haupt-Chat-Route mit dem Org-Root-
- * Pseudo-Workspace als aktivem Workspace. Endpoint existiert damit der
- * OrgSwitcher (Hard-Switch) sauber `/orgs/<id>/chat` als URL-Ziel hat —
- * ohne Logik im Client-Code für „Wie heißt der Root-Workspace dieser Org".
+ * Server-component redirect to the main chat route with the org-root
+ * pseudo-workspace as the active workspace. The endpoint exists so that the
+ * OrgSwitcher (hard switch) has a clean `/orgs/<id>/chat` URL target —
+ * without logic in the client code for "what is the root workspace of this org".
  *
- * Kontext-Erhaltung (SAR-5 fix):
- *   Statt blind `/` zu redirecten, setzen wir den Workspace-Query-Param
- *   `ws=__org_root__:<orgId>`. Die Chat-Seite (`/`) liest `ws` aus dem
- *   Query-String und setzt localStorage + Cookie bevor sie rendert — so
- *   geht der Org-Kontext nicht verloren, auch bei Direct-URL (Bookmark).
+ * Context preservation (SAR-5 fix):
+ *   Instead of blindly redirecting to `/`, we set the workspace query param
+ *   `ws=__org_root__:<orgId>`. The chat page (`/`) reads `ws` from the
+ *   query string and sets localStorage + cookie before it renders — so
+ *   the org context is not lost, even on a direct URL (bookmark).
  *
- *   Format: `__org_root__:<orgId>` — identisch mit dem Pattern in
- *   lib/nav/hooks.ts und dem OrgSwitcher.
+ *   Format: `__org_root__:<orgId>` — identical to the pattern in
+ *   lib/nav/hooks.ts and the OrgSwitcher.
  *
- *   Kein Endlos-Redirect: die Chat-Seite (/) behandelt `ws` als Hint,
- *   nicht als weitere Redirect-Quelle.
+ *   No infinite redirect: the chat page (/) treats `ws` as a hint,
+ *   not as another redirect source.
  */
 
 import { redirect } from "next/navigation";

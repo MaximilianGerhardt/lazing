@@ -1,13 +1,13 @@
 /**
- * lib/subchats/service.ts — Service-Layer für Workspace-Sub-Chats
- * (Gathering-Intelligence-Goal, 2026-06-02).
+ * lib/subchats/service.ts — service layer for workspace sub-chats
+ * (gathering-intelligence goal, 2026-06-02).
  *
- * Gruppenchats pro Workspace (extern Kunden via Share-Token / intern Team).
- * Jede Nachricht wird append-only persistiert UND best-effort in die
- * Workspace-RAG ingestet (workspace-isoliert, N2). Die KI ist im Sub-Chat
- * selbst stumm — das gesammelte Wissen macht den Hauptchat schlauer.
+ * Group chats per workspace (external customers via share token / internal team).
+ * Each message is persisted append-only AND best-effort ingested into the
+ * workspace RAG (workspace-isolated, N2). The AI is silent in the sub-chat
+ * itself — the gathered knowledge makes the main chat smarter.
  *
- * EINZIGER Insert-Pfad für subchats/subchat_messages (UI/API gehen hierüber).
+ * The ONLY insert path for subchats/subchat_messages (UI/API go through here).
  */
 
 import { createHash, randomBytes } from 'node:crypto';
@@ -25,7 +25,7 @@ import { getArtifactWorkspaceId } from '@/lib/cloud/service';
 
 const TOKEN_PREFIX = 'sc_';
 
-/** Anhang an einer Sub-Chat-Nachricht (Referenz auf ein Cloud-Artifact). */
+/** Attachment on a sub-chat message (reference to a cloud artifact). */
 export interface SubchatAttachment {
   artifactId: string;
   filename: string;
@@ -35,9 +35,9 @@ export interface SubchatAttachment {
 }
 
 /**
- * Eingehende Anhang-Referenzen (aus dem Request-Body) säubern + ABSICHERN:
- * jede Referenz muss auf ein Cloud-Artifact zeigen, das zum erwarteten Workspace
- * gehört (sonst raus). So kann niemand fremde Artefakte in einen Sub-Chat ziehen.
+ * Sanitize + SECURE incoming attachment references (from the request body):
+ * each reference must point to a cloud artifact that belongs to the expected
+ * workspace (otherwise dropped). That way nobody can pull foreign artifacts into a sub-chat.
  */
 export function sanitizeAttachments(input: unknown, workspaceId: string): SubchatAttachment[] {
   if (!Array.isArray(input)) return [];
@@ -46,7 +46,7 @@ export function sanitizeAttachments(input: unknown, workspaceId: string): Subcha
     const o = raw as Record<string, unknown>;
     const artifactId = typeof o?.artifactId === 'string' ? o.artifactId : '';
     if (!artifactId) continue;
-    if (getArtifactWorkspaceId(artifactId) !== workspaceId) continue; // fremd/unbekannt → verwerfen
+    if (getArtifactWorkspaceId(artifactId) !== workspaceId) continue; // foreign/unknown → discard
     const mime = typeof o.mime === 'string' ? o.mime : 'application/octet-stream';
     out.push({
       artifactId,
@@ -59,7 +59,7 @@ export function sanitizeAttachments(input: unknown, workspaceId: string): Subcha
   return out;
 }
 
-/** Sicheres Parsen der attachments-JSON-Spalte (nie throw). */
+/** Safe parsing of the attachments JSON column (never throws). */
 export function parseAttachments(raw: string | null | undefined): SubchatAttachment[] {
   if (!raw) return [];
   try {
@@ -100,15 +100,15 @@ export interface CreateSubchatInput {
   kind?: 'external' | 'internal';
   description?: string;
   createdByUserId?: string;
-  /** Externen Token-Zugang erzeugen (Default true bei kind='external'). */
+  /** Create external token access (default true for kind='external'). */
   external?: boolean;
-  /** Token-Lebensdauer in Stunden (Default 720 = 30 Tage); 0/undef = unbefristet. */
+  /** Token lifetime in hours (default 720 = 30 days); 0/undef = unlimited. */
   expiresInHours?: number;
 }
 
 export interface CreateSubchatResult {
   subchat: SubchatRow;
-  /** Roh-Token NUR hier (einmalig) zurückgegeben; in der DB nur der Hash. */
+  /** Raw token returned ONLY here (once); only the hash in the DB. */
   rawToken: string | null;
 }
 
@@ -159,14 +159,14 @@ export function listSubchats(workspaceId: string): SubchatRow[] {
 }
 
 /**
- * Activity-Snapshot pro Workspace für die proaktive Hauptchat-Karte
- * (Gathering-Intelligence in den Hauptchat holen, 2026-06-02).
+ * Activity snapshot per workspace for the proactive main-chat card
+ * (bring gathering-intelligence into the main chat, 2026-06-02).
  *
- * Liefert je Sub-Chat die letzte Nachricht (Vorschau), den Zeitstempel der
- * letzten EXTERNEN Nachricht und die externe Gesamtzahl. `content` wird VOLL
- * zurückgegeben (kein .slice — N1); die UI clampt per CSS. Die „neu seit"-
- * Entscheidung trifft der Client gegen eine lokale seen-Map (keine zusätzliche
- * DB-Tabelle nötig, vollständig reversibel).
+ * Returns, per sub-chat, the last message (preview), the timestamp of the
+ * last EXTERNAL message, and the external total count. `content` is returned in
+ * FULL (no .slice — N1); the UI clamps via CSS. The „new since"
+ * decision is made by the client against a local seen map (no additional
+ * DB table needed, fully reversible).
  */
 export interface SubchatActivity {
   id: string;
@@ -180,7 +180,7 @@ export interface SubchatActivity {
   } | null;
   lastExternalTs: number | null;
   externalCount: number;
-  /** Ungelesene fremde Nicht-System-Nachrichten für den Viewer. 0 ohne Viewer. */
+  /** Unread foreign non-system messages for the viewer. 0 without a viewer. */
   unreadCount: number;
 }
 
@@ -247,8 +247,8 @@ export function getSubchatActivity(workspaceId: string, viewerUserId?: string): 
 }
 
 /**
- * Distinct workspaceIds, die mindestens einen aktiven Sub-Chat tragen.
- * Grundlage für das Hauptchat-Aggregat (über alle zugänglichen Workspaces).
+ * Distinct workspaceIds that carry at least one active sub-chat.
+ * Basis for the main-chat aggregate (across all accessible workspaces).
  */
 export function listSubchatWorkspaceIds(): string[] {
   const db = getDb();
@@ -267,9 +267,9 @@ export function getSubchat(id: string): SubchatRow | null {
 }
 
 /**
- * Markiert für `userId` alle Nachrichten bis `ts` (default now) als gelesen.
- * Idempotenter Upsert auf dem (subchatId, userId)-PK. Read-Marker monoton —
- * ein älterer ts darf einen neueren nicht zurücksetzen.
+ * Marks all messages up to `ts` (default now) as read for `userId`.
+ * Idempotent upsert on the (subchatId, userId) PK. The read marker is monotonic —
+ * an older ts must not reset a newer one.
  */
 export function markRead(subchatId: string, userId: string, ts?: number): void {
   const db = getDb();
@@ -284,10 +284,10 @@ export function markRead(subchatId: string, userId: string, ts?: number): void {
 }
 
 /**
- * Anzahl ungelesener Nachrichten für `userId` in diesem Sub-Chat.
- * createdAt > lastReadTs, OHNE eigene Nachrichten (authorId === userId) UND
- * OHNE System-Nachrichten. Kein Read-Marker ⇒ alle fremden Nicht-System-
- * Nachrichten gelten als ungelesen.
+ * Number of unread messages for `userId` in this sub-chat.
+ * createdAt > lastReadTs, WITHOUT one's own messages (authorId === userId) AND
+ * WITHOUT system messages. No read marker ⇒ all foreign non-system
+ * messages count as unread.
  */
 export function unreadCount(subchatId: string, userId: string): number {
   const db = getDb();
@@ -319,11 +319,11 @@ export function unreadCount(subchatId: string, userId: string): number {
 }
 
 /**
- * Höchster lastReadTs ALLER ANDEREN (userId !== viewerUserId) Leser dieses
- * Sub-Chats. Grundlage für Lese-Haken auf EIGENEN Nachrichten: eine eigene
- * Nachricht gilt als gelesen, sobald recipientLastReadTs >= ihr createdAt.
- * 0 = niemand sonst hat (nachweislich) gelesen. Read-only, N2 via subchatId
- * (der Sub-Chat trägt die workspaceId).
+ * Highest lastReadTs of ALL OTHER (userId !== viewerUserId) readers of this
+ * sub-chat. Basis for read receipts on one's OWN messages: an own
+ * message counts as read once recipientLastReadTs >= its createdAt.
+ * 0 = nobody else has (demonstrably) read. Read-only, N2 via subchatId
+ * (the sub-chat carries the workspaceId).
  */
 export function recipientLastReadTs(subchatId: string, viewerUserId: string): number {
   const db = getDb();
@@ -341,8 +341,8 @@ export function recipientLastReadTs(subchatId: string, viewerUserId: string): nu
 }
 
 /**
- * Externen Token auflösen. Liefert den Sub-Chat oder null (unbekannt/abgelaufen/
- * widerrufen). Read-only, kein Consume (Gruppenchat ist mehrfach nutzbar).
+ * Resolve an external token. Returns the sub-chat or null (unknown/expired/
+ * revoked). Read-only, no consume (a group chat is reusable).
  */
 export function resolveExternalToken(rawToken: string): SubchatRow | null {
   if (!rawToken || !rawToken.startsWith(TOKEN_PREFIX)) return null;
@@ -366,7 +366,7 @@ export function listMessages(subchatId: string, limit = 200): SubchatMessageRow[
     .orderBy(desc(subchatMessages.createdAt))
     .limit(Math.min(limit, 500))
     .all();
-  return rows.reverse(); // chronologisch (älteste zuerst)
+  return rows.reverse(); // chronological (oldest first)
 }
 
 export interface PostMessageInput {
@@ -376,7 +376,7 @@ export interface PostMessageInput {
   authorId?: string | null;
   authorName?: string | null;
   content: string;
-  /** Optionale Anhänge (Dokumente/Medien/Fotos) — Referenzen auf Cloud-Artifacts. */
+  /** Optional attachments (documents/media/photos) — references to cloud artifacts. */
   attachments?: SubchatAttachment[];
 }
 
@@ -402,24 +402,24 @@ export function postMessage(input: PostMessageInput): SubchatMessageRow {
     .run();
   db.update(subchats).set({ updatedAt: now }).where(eq(subchats.id, input.subchatId)).run();
   const row = db.select().from(subchatMessages).where(eq(subchatMessages.id, id)).limit(1).all()[0]!;
-  // P2: Domain-Event für Realtime + Push (best-effort, nie fatal). Trägt nur
-  // einen kurzen Preview (KEIN Volltext im Push-Pfad). N1 bleibt gewahrt — die
-  // VOLLE content-Spalte ist bereits oben persistiert; preview ist reine
-  // Notification-Vorschau.
+  // P2: domain event for realtime + push (best-effort, never fatal). Carries only
+  // a short preview (NO full text in the push path). N1 is preserved — the
+  // FULL content column is already persisted above; preview is a pure
+  // notification preview.
   void emitSubchatMessageEvent(row).catch(() => undefined);
-  // Fire-and-forget: Wissen in die Workspace-RAG. Fehler nie fatal.
+  // Fire-and-forget: knowledge into the workspace RAG. Errors never fatal.
   void ingestMessage(row).catch(() => undefined);
-  // Proactive watcher (2026-06-02): bei EXTERNER Neunachricht EINEN operator-
-  // facing Vorschlag VOR-generieren + speichern. BOUNDED: nur authorKind==='external';
-  // Debounce >=60s pro Subchat; fire-and-forget (blockt postMessage NIE);
-  // CLAUDE-GATED + best-effort in generateAndStore — wirft hier nie.
+  // Proactive watcher (2026-06-02): on an EXTERNAL new message, pre-generate +
+  // store ONE operator-facing suggestion. BOUNDED: only authorKind==='external';
+  // debounce >=60s per subchat; fire-and-forget (NEVER blocks postMessage);
+  // CLAUDE-GATED + best-effort in generateAndStore — never throws here.
   if (row.authorKind === 'external' && !hasRecentProactiveSuggestion(row.subchatId)) {
     void (async () => {
       try {
         const { generateAndStore } = await import('@/lib/proactive/generate');
         await generateAndStore(row.subchatId, row.workspaceId);
       } catch {
-        /* non-fatal — Vorschlag ist best-effort; Nachricht bleibt persistiert */
+        /* non-fatal — the suggestion is best-effort; the message stays persisted */
       }
     })().catch(() => undefined);
   }
@@ -427,9 +427,9 @@ export function postMessage(input: PostMessageInput): SubchatMessageRow {
 }
 
 /**
- * Eine Sub-Chat-Nachricht in die Workspace-RAG ingesten (N2 workspace-isoliert).
- * Best-effort; markiert `ingested=1` bei Erfolg (Idempotenz). System-Nachrichten
- * werden NICHT ingestet (kein Kundenwissen).
+ * Ingest a sub-chat message into the workspace RAG (N2 workspace-isolated).
+ * Best-effort; marks `ingested=1` on success (idempotency). System messages
+ * are NOT ingested (no customer knowledge).
  */
 export async function ingestMessage(row: SubchatMessageRow): Promise<void> {
   if (row.authorKind === 'system') return;
@@ -439,7 +439,7 @@ export async function ingestMessage(row: SubchatMessageRow): Promise<void> {
       ? ` [Anhang: ${atts.map((a) => a.filename).join(', ')}]`
       : '';
   const body = `${row.content.trim()}${attNote}`.trim();
-  // Nichts Sinnvolles zu indexen (leerer Text, keine Anhänge) → überspringen.
+  // Nothing meaningful to index (empty text, no attachments) → skip.
   if (body.length < 2) return;
   try {
     const { indexSource } = await import('@/lib/rag/indexer');
@@ -453,19 +453,19 @@ export async function ingestMessage(row: SubchatMessageRow): Promise<void> {
     });
     getDb().update(subchatMessages).set({ ingested: 1 }).where(eq(subchatMessages.id, row.id)).run();
   } catch {
-    /* non-fatal — Nachricht bleibt persistiert, ingested bleibt 0 (Retry möglich) */
+    /* non-fatal — the message stays persisted, ingested stays 0 (retry possible) */
   }
 }
 
 /**
- * Self-Heal (Subchat-Intelligence-Härtung 2026-06-03): zieht Sub-Chat-
- * Nachrichten nach, deren Inline-`ingestMessage` fehlschlug (ingested=0, z.B.
- * Embedder kurz offline beim Posten). Ohne diesen Drain fehlte das Wissen
- * dauerhaft im Hauptchat-RAG. Idempotent — `ingestMessage` setzt ingested=1
- * nur bei Erfolg, Fehlschläge bleiben für den nächsten Sweep liegen. System-
- * Nachrichten sind ausgenommen (werden nie ingestet, würden sonst ewig
- * retried). Wird vom Auto-Indexer-Sweep (boot + Intervall) aufgerufen — kein
- * eigener Timer.
+ * Self-heal (subchat-intelligence hardening 2026-06-03): catches up on sub-chat
+ * messages whose inline `ingestMessage` failed (ingested=0, e.g. the
+ * embedder briefly offline at post time). Without this drain, the knowledge was
+ * permanently missing from the main-chat RAG. Idempotent — `ingestMessage` sets ingested=1
+ * only on success; failures remain for the next sweep. System
+ * messages are excluded (never ingested, would otherwise be
+ * retried forever). Called by the auto-indexer sweep (boot + interval) — no
+ * separate timer.
  */
 export async function reindexUningestedSubchats(
   limit = 200,
@@ -493,15 +493,15 @@ export async function reindexUningestedSubchats(
 }
 
 /**
- * Always-on Subchat-Kontext für den Workspace-Hauptchat (2026-06-03,
- * Owner-Direktive: „im Workspace Chat muss der Subchat erkannt werden, damit
+ * Always-on subchat context for the workspace main chat (2026-06-03,
+ * owner directive: „im Workspace Chat muss der Subchat erkannt werden, damit
  * das Wissen direkt verwertet werden kann").
  *
- * Das query-getriebene RAG findet Subchat-Inhalte nur, wenn die Nutzer-Worte
- * lexikalisch passen ("was gibt's Neues?" trifft nichts). Dieser Block wird
- * UNCONDITIONAL in jeden Turn-Kontext injiziert (wie Workspace-Notes), damit
- * der Hauptchat die jüngste Kundenkommunikation IMMER kennt — unabhängig von
- * der Formulierung.
+ * The query-driven RAG finds subchat content only when the user's words
+ * match lexically ("what's new?" hits nothing). This block is injected
+ * UNCONDITIONALLY into every turn context (like workspace notes), so that
+ * the main chat ALWAYS knows the most recent customer communication — independent of
+ * the phrasing.
  */
 export interface RecentSubchatMsg {
   title: string;
@@ -536,18 +536,18 @@ export function readRecentSubchatMessages(
     .orderBy(desc(subchatMessages.createdAt))
     .limit(limit)
     .all() as RecentSubchatMsg[];
-  return rows.reverse(); // chronologisch (älteste zuerst) für den Prompt
+  return rows.reverse(); // chronological (oldest first) for the prompt
 }
 
-/** Formatierter Always-on-Block (oder null, wenn keine Subchat-Nachrichten). */
+/** Formatted always-on block (or null if no subchat messages). */
 export function formatSubchatContextBlock(
   workspaceId: string,
   limit = 8,
 ): string | null {
   const msgs = readRecentSubchatMessages(workspaceId, limit);
-  // Question-Spinning (2026-06-03): angespinnte Fragen sind ebenfalls Teil des
-  // Hauptchat-Wissens — offene Fragen + jüngst beantwortete. Best-effort
-  // (require, kein Crash falls das Modul/Tabelle fehlt).
+  // Question-spinning (2026-06-03): spun-up questions are also part of the
+  // main-chat knowledge — open questions + recently answered. Best-effort
+  // (require, no crash if the module/table is missing).
   let questionsBlock: string | null = null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -581,10 +581,10 @@ export function formatSubchatContextBlock(
 }
 
 /**
- * Wird ein Cloud-Artifact von irgendeiner Nachricht in diesem Sub-Chat
- * referenziert? Sicherheitsgrenze für den token-gegateten Media-Endpoint:
- * externe Gäste dürfen NUR Medien sehen/laden, die in IHREM Sub-Chat hängen
- * (egal ob von extern oder vom Team hochgeladen).
+ * Is a cloud artifact referenced by any message in this sub-chat?
+ * Security boundary for the token-gated media endpoint:
+ * external guests may ONLY view/load media that hangs in THEIR sub-chat
+ * (whether uploaded from outside or by the team).
  */
 export function subchatReferencesArtifact(subchatId: string, artifactId: string): boolean {
   const db = getDb();
@@ -600,8 +600,8 @@ export function subchatReferencesArtifact(subchatId: string, artifactId: string)
 }
 
 /**
- * Externen Link widerrufen: setzt shareRevokedAt=now. Token-Hash bleibt
- * stehen (resolveExternalToken lehnt revoked ab). Reversibel via renewShare.
+ * Revoke the external link: sets shareRevokedAt=now. The token hash stays
+ * (resolveExternalToken rejects revoked). Reversible via renewShare.
  */
 export function revokeShare(subchatId: string): SubchatRow | null {
   const db = getDb();
@@ -614,8 +614,8 @@ export function revokeShare(subchatId: string): SubchatRow | null {
 }
 
 /**
- * Externen Link erneuern: neuer Roh-Token + Hash, neue Ablaufzeit (hours > 0;
- * 0/undef = unbefristet), Widerruf gelöscht. Roh-Token NUR hier zurückgegeben.
+ * Renew the external link: new raw token + hash, new expiry (hours > 0;
+ * 0/undef = unlimited), revocation cleared. Raw token returned ONLY here.
  */
 export function renewShare(subchatId: string, hours: number): { rawToken: string } | null {
   const db = getDb();
@@ -637,8 +637,8 @@ export function renewShare(subchatId: string, hours: number): { rawToken: string
 }
 
 /**
- * Token rotieren OHNE die Ablaufzeit zu ändern: neuer Roh-Token + Hash, Widerruf
- * gelöscht, shareExpiresAt unverändert. Roh-Token NUR hier zurückgegeben.
+ * Rotate the token WITHOUT changing the expiry: new raw token + hash, revocation
+ * cleared, shareExpiresAt unchanged. Raw token returned ONLY here.
  */
 export function regenerateToken(subchatId: string): { rawToken: string } | null {
   const db = getDb();
@@ -657,7 +657,7 @@ export function regenerateToken(subchatId: string): { rawToken: string } | null 
   return { rawToken };
 }
 
-/** Sub-Chat umbenennen (N1: kein Truncate über 200 hinaus nur als Hard-Cap). */
+/** Rename a sub-chat (N1: no truncation beyond 200, only as a hard cap). */
 export function renameSubchat(subchatId: string, title: string): SubchatRow | null {
   const db = getDb();
   const now = Date.now();
@@ -666,7 +666,7 @@ export function renameSubchat(subchatId: string, title: string): SubchatRow | nu
   return getSubchat(subchatId);
 }
 
-/** Sub-Chat archivieren: status='archived' (verschwindet aus listSubchats). */
+/** Archive a sub-chat: status='archived' (disappears from listSubchats). */
 export function archiveSubchat(subchatId: string): SubchatRow | null {
   const db = getDb();
   const now = Date.now();
@@ -675,17 +675,17 @@ export function archiveSubchat(subchatId: string): SubchatRow | null {
 }
 
 /**
- * Sub-Chat HART löschen: Nachrichten + Read-Marker + Sub-Chat-Row + RAG-Chunks.
+ * HARD-delete a sub-chat: messages + read markers + sub-chat row + RAG chunks.
  *
- * GDPR-ERASURE (2026-06-03): Beim harten Löschen MÜSSEN die in die Workspace-RAG
- * ingesteten Chunks dieser Nachrichten mit weg — sonst bleiben verwaiste Chunks
- * liegen und vergiften weiter den Hauptchat-Kontext (Audit-Finding: 4+ Waisen).
- * Der FTS-Mirror folgt automatisch via `trg_rag_chunks_fts_delete`. Workspace-
- * gescoped (N2). Reihenfolge: erst Message-IDs einsammeln, dann Kinder + Parent
- * löschen, dann die zugehörigen Chunks (source_type='subchat', source_id=msgId).
+ * GDPR ERASURE (2026-06-03): on a hard delete, the chunks of these messages
+ * ingested into the workspace RAG MUST go too — otherwise orphaned chunks
+ * remain and keep poisoning the main-chat context (audit finding: 4+ orphans).
+ * The FTS mirror follows automatically via `trg_rag_chunks_fts_delete`. Workspace-
+ * scoped (N2). Order: first collect the message IDs, then delete children + parent,
+ * then the associated chunks (source_type='subchat', source_id=msgId).
  *
- * ARCHIVE (archiveSubchat) lässt die Chunks bewusst stehen: Archiv = ausblenden,
- * nicht löschen (reversibel) — das Wissen bleibt gültig.
+ * ARCHIVE (archiveSubchat) deliberately leaves the chunks in place: archive = hide,
+ * not delete (reversible) — the knowledge stays valid.
  */
 export function deleteSubchat(subchatId: string): boolean {
   const db = getDb();
@@ -697,9 +697,9 @@ export function deleteSubchat(subchatId: string): boolean {
     .where(eq(subchatMessages.subchatId, subchatId))
     .all()
     .map((r) => r.id);
-  // Atomar (Review LOW): die ganze Erasure in EINE Transaktion — ein Crash
-  // zwischen Subchat-Delete und Chunk-Delete ließe sonst verwaiste Chunks zurück
-  // (der Reconciler heilt das zwar, aber GDPR-Erasure sollte atomar sein).
+  // Atomic (review LOW): the whole erasure in ONE transaction — a crash
+  // between the subchat delete and the chunk delete would otherwise leave orphaned chunks
+  // (the reconciler heals that, but GDPR erasure should be atomic).
   db.transaction(() => {
     db.delete(subchatMessages).where(eq(subchatMessages.subchatId, subchatId)).run();
     db.delete(subchatReadMarkers).where(eq(subchatReadMarkers.subchatId, subchatId)).run();
@@ -721,9 +721,9 @@ export function deleteSubchat(subchatId: string): boolean {
 }
 
 /**
- * Idempotenter „Allgemein"-Sub-Chat pro Workspace. Liefert den bestehenden
- * aktiven external-Sub-Chat mit Titel "Allgemein" zurück, oder legt ihn an.
- * Default-Anlaufstelle für den Kunden-Kanal eines Workspace.
+ * Idempotent „Allgemein" sub-chat per workspace. Returns the existing
+ * active external sub-chat with the title "Allgemein", or creates it.
+ * Default entry point for a workspace's customer channel.
  */
 export function ensureGeneralSubchat(workspaceId: string, createdByUserId?: string): SubchatRow {
   const db = getDb();
@@ -864,12 +864,12 @@ export function dismissProactiveSuggestion(id: string): boolean {
 }
 
 /**
- * Best-effort Domain-Event für eine neue Sub-Chat-Nachricht (P2). Treibt
- * Realtime-Broadcast + Push-Rules. Nie fatal — postMessage bleibt der einzige
- * Mutationspfad und darf durch einen Event-Fehler nicht scheitern.
+ * Best-effort domain event for a new sub-chat message (P2). Drives the
+ * realtime broadcast + push rules. Never fatal — postMessage stays the only
+ * mutation path and must not fail because of an event error.
  *
- * preview ist eine KURZE Notification-Vorschau (max 120 Zeichen), KEIN
- * Volltext-Leak — die volle content-Spalte ist bereits N1-verbatim persistiert.
+ * preview is a SHORT notification preview (max 120 chars), NO
+ * full-text leak — the full content column is already persisted N1-verbatim.
  */
 async function emitSubchatMessageEvent(row: SubchatMessageRow): Promise<void> {
   try {
@@ -897,6 +897,6 @@ async function emitSubchatMessageEvent(row: SubchatMessageRow): Promise<void> {
       sensitivity: 'low',
     });
   } catch {
-    /* non-fatal — Nachricht bleibt persistiert; Event ist best-effort */
+    /* non-fatal — the message stays persisted; the event is best-effort */
   }
 }

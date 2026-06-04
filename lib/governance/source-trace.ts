@@ -2,32 +2,32 @@
  * G3 — Source-Trace / Raw-vs-Derived-Policy
  * (Phase 2 W2.1 · Lane G Governance · 2026-05-29).
  *
- * Integration-Plan §4 Lane G (verbatim, N1):
+ * Integration plan §4 Lane G (verbatim, N1):
  *   „Raw vs Derived Data Policy · Source Trace Rules"
  *
- * Jede aus einer Datenquelle abgeleitete Einheit (chunk, belief, message)
- * trägt eine source_traces-Row, die per derived_from_trace auf ihren Ursprung
- * zeigt. So lässt sich rückwärts die ganze Provenance-Kette rekonstruieren
+ * Every unit derived from a data source (chunk, belief, message)
+ * carries a source_traces row that points to its origin via derived_from_trace.
+ * This way the whole provenance chain can be reconstructed backwards
  * („Wo kommt dieser belief her? → derived von welchem chunk? → der war eine
  * Zusammenfassung welcher whatsapp-message?").
  *
- * Mechanik:
- *   - Pure DB-Read/Write, kein LLM, keine Netz-I/O.
+ * Mechanics:
+ *   - Pure DB read/write, no LLM, no net I/O.
  *   - N1:  externalId / content_hash verbatim.
  *   - N9:  workspaceId-scoped.
- *   - N10: content_hash je Row.
+ *   - N10: content_hash per row.
  *
- * Retention-Policy (Default-Werte aus lib/governance/retention.ts):
- *   - rawDataDays:     30   — Raw-Inhalte werden nach 30 Tagen gelöscht
+ * Retention policy (default values from lib/governance/retention.ts):
+ *   - rawDataDays:     30   — raw content is deleted after 30 days
  *                             (raw_retention_until = createdAt + 30d)
- *   - derivedDataDays: 365  — Derived-Daten bleiben 365 Tage erhalten
- *                             (raw_retention_until = createdAt + 365d wenn
- *                              derivedFromTrace gesetzt ist)
+ *   - derivedDataDays: 365  — derived data is kept for 365 days
+ *                             (raw_retention_until = createdAt + 365d when
+ *                              derivedFromTrace is set)
  *
  * Public API:
- *   recordSourceTrace(raw, input)  — legt eine source_traces-Row an
- *   traceLineage(raw, contentHash) — gibt die VOLLE Herkunfts-Kette zurück
- *   listSourceTraces(raw, opts)    — Liste pro Workspace, neueste zuerst
+ *   recordSourceTrace(raw, input)  — creates a source_traces row
+ *   traceLineage(raw, contentHash) — returns the FULL provenance chain
+ *   listSourceTraces(raw, opts)    — list per workspace, newest first
  */
 
 import { ulid } from "@/lib/ulid";
@@ -61,11 +61,11 @@ export interface RecordSourceTraceInput {
   readonly contentHash: string;
   readonly derivedFromTrace?: string | null;
   /**
-   * Wenn gegeben, überschreibt die default-Retention. Sonst wird sie aus
-   * der RetentionPolicy abgeleitet (rawData vs derivedData).
+   * If given, overrides the default retention. Otherwise it is derived
+   * from the RetentionPolicy (rawData vs derivedData).
    */
   readonly rawRetentionUntil?: number | null;
-  /** Optional: alternative Retention-Policy (default: DEFAULT_RETENTION_POLICY). */
+  /** Optional: alternative retention policy (default: DEFAULT_RETENTION_POLICY). */
   readonly retention?: RetentionPolicy;
 }
 
@@ -117,11 +117,11 @@ function computeRetention(
 // ---------------------------------------------------------------------------
 
 /**
- * Legt eine source_traces-Row an. Wenn `derivedFromTrace` gesetzt ist, wird
- * der Ziel-Trace zuvor scope-geprüft (muss demselben workspaceId angehören).
- * Bei Scope-Mismatch wird die Kante VERWORFEN (derivedFromTrace = null) —
- * KEIN Wurf, fail-soft. Cross-Workspace-Derive-Ketten sind durch
- * lib/security/dataflow-policy.ts (eigene Schicht) zu gehen.
+ * Creates a source_traces row. If `derivedFromTrace` is set, the target
+ * trace is scope-checked beforehand (must belong to the same workspaceId).
+ * On a scope mismatch the edge is DISCARDED (derivedFromTrace = null) —
+ * NO throw, fail-soft. Cross-workspace derive chains must go through
+ * lib/security/dataflow-policy.ts (its own layer).
  */
 export function recordSourceTrace(
   raw: RawDb,
@@ -145,7 +145,7 @@ export function recordSourceTrace(
       )
       .get(derivedFromTrace, input.workspaceId) as { id: string } | undefined;
     if (!parent) {
-      derivedFromTrace = null; // Scope-Mismatch → Kante verwerfen, fail-soft.
+      derivedFromTrace = null; // Scope mismatch → discard the edge, fail-soft.
     }
   }
 
@@ -187,25 +187,25 @@ export function recordSourceTrace(
 }
 
 // ---------------------------------------------------------------------------
-// traceLineage — volle Herkunfts-Kette
+// traceLineage — full provenance chain
 // ---------------------------------------------------------------------------
 
 /**
- * Gibt die VOLLE Provenance-Kette zurück, beginnend mit dem direkt unter
- * `contentHash` gefundenen Trace, dann dessen derivedFromTrace, dann dessen
- * Parent, usw., bis kein Parent mehr existiert.
+ * Returns the FULL provenance chain, starting with the trace found directly
+ * under `contentHash`, then its derivedFromTrace, then its
+ * parent, and so on, until no parent remains.
  *
- * Falls mehrere Traces denselben contentHash haben (Idempotenz / Re-Indexing),
- * wird der jüngste als Einstieg gewählt.
+ * If multiple traces share the same contentHash (idempotency / re-indexing),
+ * the most recent one is chosen as the entry point.
  *
- * Zyklus-Schutz: wenn ein Trace per derivedFromTrace auf sich selbst oder
- * eine bereits besuchte ID zeigt, wird die Iteration beendet (sollte nicht
- * passieren, aber fail-soft).
+ * Cycle protection: if a trace points via derivedFromTrace to itself or
+ * an already-visited ID, the iteration is terminated (should not
+ * happen, but fail-soft).
  *
- * Cross-Workspace-Schutz: die Kette wird IMMER innerhalb desselben
- * workspaceId gehalten — sollte ein parent_trace.workspace_id != entry.workspace_id
- * sein (sollte durch recordSourceTrace bereits verhindert werden), bricht
- * die Kette ab.
+ * Cross-workspace protection: the chain is ALWAYS kept within the same
+ * workspaceId — should a parent_trace.workspace_id != entry.workspace_id
+ * occur (which recordSourceTrace should already prevent), the
+ * chain breaks off.
  */
 export function traceLineage(raw: RawDb, contentHash: string): SourceTrace[] {
   if (typeof contentHash !== "string" || contentHash.length === 0) {

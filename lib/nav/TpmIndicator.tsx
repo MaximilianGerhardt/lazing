@@ -1,18 +1,18 @@
 'use client';
 
 /**
- * TpmIndicator — Phase QA Pill in der TopNav (2026-04-28)
+ * TpmIndicator — Phase QA pill in the TopNav (2026-04-28)
  *
- * Zeigt aktuellen TPM-Verbrauch des MAX-Plan-Buckets. Polling alle 8s,
- * Farbe nach Auslastung:
- *   green  (<50%)  — alles entspannt
- *   yellow (50-70) — leichter Tropfen
- *   orange (70-90) — adaptive Drosselung greift
- *   red    (>90)   — neue Spawns blocken kurz
- *   over   (>100)  — Hard-Block 30s
+ * Shows the current TPM consumption of the MAX-plan bucket. Polls every 8s,
+ * color by utilization:
+ *   green  (<50%)  — all relaxed
+ *   yellow (50-70) — slight drip
+ *   orange (70-90) — adaptive throttling kicks in
+ *   red    (>90)   — new spawns block briefly
+ *   over   (>100)  — hard block 30s
  *
- * Klick öffnet keine Detail-Page (kein Override gewünscht aktuell);
- * tooltip zeigt rohe Zahlen.
+ * A click opens no detail page (no override wanted currently);
+ * the tooltip shows raw numbers.
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -33,9 +33,9 @@ interface TpmStatus {
   level: 'green' | 'yellow' | 'orange' | 'red' | 'over';
   recentSpawns: number;
   recommendedDelayMs: number;
-  /** Phase MU.4 — 'own' = Verbrauch des eingeloggten Users (eigener MAX-Plan). */
+  /** Phase MU.4 — 'own' = consumption of the logged-in user (their own MAX plan). */
   scope?: 'shared' | 'own';
-  /** Sprint C (2026-04-29) — Top-3 Sub-WS der letzten 60s. */
+  /** Sprint C (2026-04-29) — top-3 sub-workspaces of the last 60s. */
   topConsumers?: TopConsumer[];
 }
 
@@ -43,8 +43,8 @@ const POLL_INTERVAL_MS = 8000;
 
 export function TpmIndicator() {
   const [status, setStatus] = useState<TpmStatus | null>(null);
-  // P1-3: Open-State statt reinem Hover. Click toggelt auf Touch, Hover
-  // oeffnet auf Desktop, Click-Outside schliesst.
+  // P1-3: open state instead of pure hover. Click toggles on touch, hover
+  // opens on desktop, click-outside closes.
   const [open, setOpen] = useState(false);
   const popoverRef = useRef<HTMLSpanElement>(null);
 
@@ -60,7 +60,7 @@ export function TpmIndicator() {
         const json = (await res.json()) as TpmStatus;
         if (!cancelled) setStatus(json);
       } catch {
-        /* offline — Pill verschwindet */
+        /* offline — pill disappears */
       }
     };
     void tick();
@@ -71,7 +71,7 @@ export function TpmIndicator() {
     };
   }, []);
 
-  // P1-3: Click-Outside schliesst Popover. Nur registrieren wenn open.
+  // P1-3: click-outside closes the popover. Only register when open.
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: MouseEvent | TouchEvent): void => {
@@ -89,8 +89,8 @@ export function TpmIndicator() {
   }, [open]);
 
   if (!status) return null;
-  // Pill nur zeigen wenn überhaupt was los ist (>10% Auslastung).
-  // Sonst clutter-frei.
+  // Only show the pill when something is actually happening (>10% utilization).
+  // Otherwise clutter-free.
   if (status.pct < 10) return null;
 
   const color = colorForLevel(status.level);
@@ -130,9 +130,9 @@ export function TpmIndicator() {
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={(e) => {
-        // Nur schliessen wenn Fokus tatsaechlich raus aus dem Pill geht
-        // (nicht beim Wechsel zu Popover-Inhalt). Click-Outside-Listener
-        // uebernimmt den Tap-Pfad.
+        // Only close when focus actually leaves the pill
+        // (not when switching to popover content). The click-outside listener
+        // handles the tap path.
         const next = e.relatedTarget as Node | null;
         if (!next || !popoverRef.current?.contains(next)) {
           setOpen(false);
@@ -205,7 +205,7 @@ const dotStyle: CSSProperties = {
   flexShrink: 0,
 };
 
-// Sprint C (2026-04-29) — Hover-Popover mit Top-3-Sub-WS.
+// Sprint C (2026-04-29) — hover popover with the top-3 sub-workspaces.
 const popoverStyle: CSSProperties = {
   position: 'absolute',
   top: 'calc(100% + 6px)',

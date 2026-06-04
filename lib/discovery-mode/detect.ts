@@ -1,40 +1,40 @@
 /**
  * lib/discovery-mode/detect.ts
  * ----------------------------------------------------------------------------
- * 2026-05-29 — Discovery-Mode-Detection (10 Modi) — Opus 4.8.
+ * 2026-05-29 — Discovery-mode detection (10 modes) — Opus 4.8.
  *
- * Quelle: Innovation/Expertise-Compiler Master-Brief §20 ("Systemverhalten:
+ * Source: Innovation/Expertise-Compiler master brief §20 ("Systemverhalten:
  * Intent und Mode Detection") + §6 ("Beobachteter LLM-Fehler") + §20.3
- * ("Continuity Check"). Verbatim die Kernregel §20.1:
+ * ("Continuity Check"). Verbatim the core rule §20.1:
  *
  *   > „Nicht jede Nachricht ist ein Planungsauftrag."
  *
- * Das §20.2-Modell verlangt ZEHN interne Modi:
+ * The §20.2 model demands TEN internal modes:
  *   brainstorm · clarify · extract_expertise · role_reverse_engineer ·
  *   simulate · innovate · plan_graph · build · review · reconcile
  *
- * Verhältnis zum Alt-Modell (N4 — recovery before reinvention):
- *   - `lib/workstreams/intent-classifier.ts` klassifiziert auf der Achse
- *     „WAS-FÜR-EINE-ARBEIT" in {idea|implementation|bug-fix|question|
- *     discussion}. Das ist ein ÄLTERES, gröberes Modell (5 Intents).
- *   - `lib/chat/intent-flow-classifier.ts` klassifiziert auf der Achse
- *     „IST-ES-EIN-FLOW" (flow|unknown) — ein Binär-Router.
- *   - DIESES Modul ist eine DRITTE, feinere Achse („IN-WELCHEM-DISCOVERY-
- *     MODUS-IST-DER-NUTZER"). Es ERSETZT KEINES der beiden — es ist additiv
- *     und liefert dem Haupt-Agenten den fehlenden §20-Modus.
+ * Relationship to the old model (N4 — recovery before reinvention):
+ *   - `lib/workstreams/intent-classifier.ts` classifies on the axis
+ *     "WHAT-KIND-OF-WORK" into {idea|implementation|bug-fix|question|
+ *     discussion}. That is an OLDER, coarser model (5 intents).
+ *   - `lib/chat/intent-flow-classifier.ts` classifies on the axis
+ *     "IS-IT-A-FLOW" (flow|unknown) — a binary router.
+ *   - THIS module is a THIRD, finer axis ("IN-WHICH-DISCOVERY-
+ *     MODE-IS-THE-USER"). It REPLACES NEITHER of the two — it is additive
+ *     and gives the main agent the missing §20 mode.
  *
- * Constraints (lazing/lazyOS N-Konstanten):
- *   - N6: deterministisch vor symbolisch. Reine Regex+Token-Heuristik. Kein
- *     LLM, kein Embedding, kein I/O. Synchron, pure, direkt unit-testbar.
- *   - N7: lexical vor vector. DE+EN-Keyword-Familien mit Gewichtung.
- *   - N1: detail preservation. Wir tasten den User-Text NICHT an; KEIN
- *     `.slice`/`.substring`. Wir lesen nur, klassifizieren, begründen.
- *   - §20.1 Fail-soft: bei Unklarheit Default `clarify` — NICHT `build`. Im
- *     Zweifel klären, nicht bauen. Das ist der zentrale Schutz gegen den in
- *     §6 beschriebenen „springt zu früh zur Umsetzung"-Fehler.
+ * Constraints (lazing/lazyOS N constants):
+ *   - N6: deterministic before symbolic. Pure regex+token heuristic. No
+ *     LLM, no embedding, no I/O. Synchronous, pure, directly unit-testable.
+ *   - N7: lexical before vector. DE+EN keyword families with weighting.
+ *   - N1: detail preservation. We do NOT touch the user text; NO
+ *     `.slice`/`.substring`. We only read, classify, justify.
+ *   - §20.1 fail-soft: on ambiguity default `clarify` — NOT `build`. When in
+ *     doubt clarify, do not build. That is the central protection against the
+ *     "jumps to implementation too early" error described in §6.
  *
- * Sprachen: Deutsch (primär) + Englisch. Politeness-tolerant analog zum
- * Flow-Classifier (führende Höflichkeits-/Anrede-Präfixe werden gestrippt).
+ * Languages: German (primary) + English. Politeness-tolerant analogous to the
+ * flow classifier (leading politeness/salutation prefixes are stripped).
  */
 
 // ---------------------------------------------------------------------------
@@ -42,22 +42,22 @@
 // ---------------------------------------------------------------------------
 
 /**
- * Die 10 Discovery-Modi aus §20.2 — Reihenfolge entspricht dem typischen
- * Discovery-Fluss (offen → konkret → ausführend → prüfend).
+ * The 10 discovery modes from §20.2 — the order corresponds to the typical
+ * discovery flow (open → concrete → executing → reviewing).
  */
 export type DiscoveryMode =
-  | 'brainstorm' // offenes Ideenfeld, kein Auftrag
-  | 'clarify' // Begriffe/Kontext/Fragen klären (= Fail-soft-Default)
-  | 'extract_expertise' // Expertenwissen / Regeln / SOPs ablegen
-  | 'role_reverse_engineer' // aus Verhalten/Output auf Rolle schließen
-  | 'simulate' // Szenario durchspielen ("was würde X tun")
-  | 'innovate' // gezielte Neuerung / Reframe / Differenzierung
-  | 'plan_graph' // Planung: Schritte/Abhängigkeiten/Graph
-  | 'build' // Umsetzung / Ausführung
-  | 'review' // Prüfung / Kritik / Qualität eines Outputs
-  | 'reconcile'; // Abgleich Ergebnis ↔ Vision/Regeln/Erwartung
+  | 'brainstorm' // open idea field, no task
+  | 'clarify' // clarify terms/context/questions (= fail-soft default)
+  | 'extract_expertise' // store expert knowledge / rules / SOPs
+  | 'role_reverse_engineer' // infer the role from behavior/output
+  | 'simulate' // play through a scenario ("what would X do")
+  | 'innovate' // targeted novelty / reframe / differentiation
+  | 'plan_graph' // planning: steps/dependencies/graph
+  | 'build' // implementation / execution
+  | 'review' // checking / critique / quality of an output
+  | 'reconcile'; // reconcile result ↔ vision/rules/expectation
 
-/** Alle Modi als Laufzeit-Liste (Tests + UI). */
+/** All modes as a runtime list (tests + UI). */
 export const DISCOVERY_MODES: readonly DiscoveryMode[] = [
   'brainstorm',
   'clarify',
@@ -71,50 +71,50 @@ export const DISCOVERY_MODES: readonly DiscoveryMode[] = [
   'reconcile',
 ] as const;
 
-/** Der Fail-soft-Default nach §20.1 — im Zweifel klären, nie bauen. */
+/** The fail-soft default per §20.1 — when in doubt clarify, never build. */
 export const DEFAULT_DISCOVERY_MODE: DiscoveryMode = 'clarify';
 
 export interface DiscoverySignal {
-  /** In welchen Modus dieses Signal zählt. */
+  /** Which mode this signal counts towards. */
   mode: DiscoveryMode;
-  /** Menschenlesbares Label des getroffenen Musters (Debug + N8-Audit). */
+  /** Human-readable label of the matched pattern (debug + N8 audit). */
   label: string;
-  /** Score-Beitrag dieses Treffers. */
+  /** Score contribution of this hit. */
   weight: number;
 }
 
 export interface DiscoveryModeResult {
-  /** Erkannter Modus. Bei Unklarheit `clarify` (§20.1 Fail-soft). */
+  /** Detected mode. On ambiguity `clarify` (§20.1 fail-soft). */
   mode: DiscoveryMode;
-  /** 0..1 heuristisch. <0.35 = unsicher → mode ist auf `clarify` geclamped. */
+  /** 0..1 heuristic. <0.35 = uncertain → mode is clamped to `clarify`. */
   confidence: number;
-  /** Welche Muster gefeuert haben — verbatim, für Erklärbarkeit (N8). */
+  /** Which patterns fired — verbatim, for explainability (N8). */
   signals: DiscoverySignal[];
 }
 
 export interface DiscoveryModeOptions {
   /**
-   * Minimale Wortzahl, unter der ALLES als `clarify` mit confidence 0 gilt.
-   * Default 3 — „bau das" (2 Wörter) ist zu kurz/mehrdeutig für einen
-   * sicheren Modus; §20.1 verlangt im Zweifel `clarify`.
+   * Minimum word count below which EVERYTHING counts as `clarify` with confidence 0.
+   * Default 3 — „bau das" (2 words) is too short/ambiguous for a
+   * safe mode; §20.1 requires `clarify` when in doubt.
    */
   minWords?: number;
   /**
-   * Schwelle, unter der ein erkannter Modus auf `clarify` zurückfällt.
-   * §20.1: Default 0.35 — ein einzelner schwacher Treffer reicht NICHT, um
-   * z. B. nach `build` zu springen.
+   * Threshold below which a detected mode falls back to `clarify`.
+   * §20.1: default 0.35 — a single weak hit is NOT enough to
+   * jump to e.g. `build`.
    */
   confidenceFloor?: number;
 }
 
 // ---------------------------------------------------------------------------
-// Pattern-Bibliothek (DE + EN), pro Modus eine Familie mit Gewicht
+// Pattern library (DE + EN), one family per mode with a weight
 // ---------------------------------------------------------------------------
 //
-// Designprinzip: stärkere Disambiguatoren bekommen höheres Gewicht. „bau"
-// (build) ist absichtlich NICHT übergewichtet, weil §20.1 verlangt, dass ein
-// einzelnes Build-Verb in einem ansonsten erkundenden Satz NICHT direkt zu
-// `build` führt. Brainstorm-/Clarify-Marker gewinnen bei Gleichstand.
+// Design principle: stronger disambiguators get a higher weight. „bau"
+// (build) is deliberately NOT over-weighted, because §20.1 requires that a
+// single build verb in an otherwise exploring sentence does NOT lead directly to
+// `build`. Brainstorm/clarify markers win on a tie.
 
 interface ModeFamily {
   mode: DiscoveryMode;
@@ -280,11 +280,11 @@ const MODE_FAMILIES: readonly ModeFamily[] = [
   },
 ];
 
-/** Öffentlich für Tests (FN-Coverage über alle Pattern-Familien). */
+/** Public for tests (FN coverage across all pattern families). */
 export const DISCOVERY_MODE_PATTERNS = MODE_FAMILIES;
 
 // ---------------------------------------------------------------------------
-// Höflichkeit / Anrede strippen (analog Flow-Classifier, eigenständig)
+// Strip politeness / salutation (analogous to the flow classifier, standalone)
 // ---------------------------------------------------------------------------
 
 const POLITENESS_CUTS: readonly RegExp[] = [
@@ -320,10 +320,10 @@ function stripPoliteness(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Confidence-Heuristik analog intent-classifier.ts: monoton in der Anzahl
- * der Treffer der Gewinner-Familie, abgeschwächt durch „Eindeutigkeit"
- * (Anteil des Top-Scores an allen Scores). Mehrere konkurrierende Familien →
- * niedrigere Confidence → eher `clarify`.
+ * Confidence heuristic analogous to intent-classifier.ts: monotonic in the number
+ * of hits of the winner family, attenuated by "unambiguousness"
+ * (share of the top score in all scores). Several competing families →
+ * lower confidence → rather `clarify`.
  */
 function computeConfidence(topMatchCount: number, topScore: number, totalScore: number): number {
   if (topMatchCount === 0) return 0;
@@ -335,37 +335,37 @@ function computeConfidence(topMatchCount: number, topScore: number, totalScore: 
   else base = 0.95;
 
   const topShare = totalScore > 0 ? topScore / totalScore : 1;
-  // Penalty-Koeffizient 0.15: senkt Confidence bei konkurrierenden Familien,
-  // aber nicht so stark, dass ein klar führender Single-Hit-Modus (z. B.
-  // brainstorm 1.3 vs. build 1.0) unter den Floor fällt. Der Schutz gegen
-  // ein lone-build-Signal läuft separat über BUILD_FLOOR.
+  // Penalty coefficient 0.15: lowers confidence with competing families,
+  // but not so strongly that a clearly leading single-hit mode (e.g.
+  // brainstorm 1.3 vs. build 1.0) falls below the floor. The protection against
+  // a lone-build signal runs separately via BUILD_FLOOR.
   const ambiguityPenalty = (1 - topShare) * 0.15;
   const adjusted = Math.max(0, Math.min(1, base - ambiguityPenalty));
   return Math.round(adjusted * 1000) / 1000;
 }
 
 // ---------------------------------------------------------------------------
-// detectDiscoveryMode — Haupt-Entry
+// detectDiscoveryMode — main entry
 // ---------------------------------------------------------------------------
 
 /**
- * Klassifiziert eine freie User-Eingabe in einen der 10 §20-Modi.
+ * Classifies a free user input into one of the 10 §20 modes.
  *
- * Algorithmus (deterministisch, N6):
- *   1. Trim + Sanity. Leere/Nicht-String-Eingabe → clarify, confidence 0.
- *   2. Höflichkeit strippen, Wortzahl prüfen (`minWords`, default 3).
- *      Zu kurz → clarify, confidence 0 (§20.1: im Zweifel klären).
- *   3. Alle Pattern-Familien scoren (Treffer × Familien-Gewicht).
- *   4. Gewinner = höchster Score. Bei Gleichstand: erkundende Modi gewinnen
- *      über ausführende (brainstorm/clarify > … > build) — §20.1.
- *   4b. Build-Demotion: ist der Gewinner `build`, aber ein erkundender Modus
- *      hat ebenfalls gefeuert → die Erkundung gewinnt (§20.1).
- *   5. Confidence aus Trefferzahl + Eindeutigkeit. `build` braucht den
- *      höheren BUILD_FLOOR (0.5 ≈ ≥2 Signale), sonst → clarify.
- *   6. Liegt die Confidence unter `confidenceFloor` (default 0.35), wird der
- *      Modus auf `clarify` zurückgesetzt — NIEMALS auf `build`.
+ * Algorithm (deterministic, N6):
+ *   1. Trim + sanity. Empty/non-string input → clarify, confidence 0.
+ *   2. Strip politeness, check word count (`minWords`, default 3).
+ *      Too short → clarify, confidence 0 (§20.1: clarify when in doubt).
+ *   3. Score all pattern families (hits × family weight).
+ *   4. Winner = highest score. On a tie: exploring modes win
+ *      over executing ones (brainstorm/clarify > … > build) — §20.1.
+ *   4b. Build demotion: if the winner is `build`, but an exploring mode
+ *      also fired → the exploration wins (§20.1).
+ *   5. Confidence from hit count + unambiguousness. `build` needs the
+ *      higher BUILD_FLOOR (0.5 ≈ ≥2 signals), otherwise → clarify.
+ *   6. If the confidence is below `confidenceFloor` (default 0.35), the
+ *      mode is reset to `clarify` — NEVER to `build`.
  *
- * @returns mode (mit Fail-soft-Clamp), confidence, signals[] (verbatim).
+ * @returns mode (with fail-soft clamp), confidence, signals[] (verbatim).
  */
 export function detectDiscoveryMode(
   text: string,
@@ -373,9 +373,9 @@ export function detectDiscoveryMode(
 ): DiscoveryModeResult {
   const minWords = opts.minWords ?? 3;
   const floor = opts.confidenceFloor ?? 0.35;
-  // §20.1 — `build` braucht eine HÖHERE Schwelle als andere Modi: ein
-  // einzelnes Build-Verb in einem ansonsten erkundenden/hedgenden Satz darf
-  // NICHT zu `build` führen. 0.5 entspricht „mindestens 2 Build-Signale".
+  // §20.1 — `build` needs a HIGHER threshold than other modes: a
+  // single build verb in an otherwise exploring/hedging sentence must
+  // NOT lead to `build`. 0.5 corresponds to "at least 2 build signals".
   const BUILD_FLOOR = 0.5;
 
   // 1. Sanity.
@@ -387,14 +387,14 @@ export function detectDiscoveryMode(
     return { mode: DEFAULT_DISCOVERY_MODE, confidence: 0, signals: [] };
   }
 
-  // 2. Höflichkeit + Länge.
+  // 2. Politeness + length.
   const stripped = stripPoliteness(trimmed);
   const wordCount = stripped.split(/\s+/).filter(Boolean).length;
   if (wordCount < minWords) {
     return { mode: DEFAULT_DISCOVERY_MODE, confidence: 0, signals: [] };
   }
 
-  // 3. Scoring über alle Familien.
+  // 3. Scoring across all families.
   const signals: DiscoverySignal[] = [];
   const score = new Map<DiscoveryMode, { score: number; matchCount: number }>();
   for (const m of DISCOVERY_MODES) score.set(m, { score: 0, matchCount: 0 });
@@ -412,13 +412,13 @@ export function detectDiscoveryMode(
 
   const totalScore = [...score.values()].reduce((s, v) => s + v.score, 0);
 
-  // Kein Treffer → clarify (Fail-soft, §20.1).
+  // No hit → clarify (fail-soft, §20.1).
   if (totalScore === 0) {
     return { mode: DEFAULT_DISCOVERY_MODE, confidence: 0, signals: [] };
   }
 
-  // 4. Gewinner ermitteln. Tie-Break: erkundend > ausführend.
-  // Priorität von "im-Zweifel-nicht-bauen": brainstorm/clarify schlagen build.
+  // 4. Determine the winner. Tie-break: exploring > executing.
+  // Priority of "when-in-doubt-don't-build": brainstorm/clarify beat build.
   const TIE_ORDER: readonly DiscoveryMode[] = [
     'brainstorm',
     'clarify',
@@ -429,7 +429,7 @@ export function detectDiscoveryMode(
     'reconcile',
     'review',
     'plan_graph',
-    'build', // build ist BEWUSST letzter Tie-Break-Gewinner
+    'build', // build is DELIBERATELY the last tie-break winner
   ];
 
   let topScore = -1;
@@ -449,11 +449,11 @@ export function detectDiscoveryMode(
     }
   }
 
-  // 4b. §20.1 Build-Demotion: wenn der Gewinner `build` ist, aber GLEICHZEITIG
-  // ein erkundender Modus (brainstorm/clarify/extract_expertise/innovate)
-  // gefeuert hat, gewinnt die Erkundung. „Lass uns brainstormen, ob wir eine
-  // App bauen sollten" → brainstorm, nicht build. Wir wählen den erkundenden
-  // Modus mit dem höchsten Score (Tie-Break über TIE_ORDER).
+  // 4b. §20.1 build demotion: if the winner is `build`, but AT THE SAME TIME
+  // an exploring mode (brainstorm/clarify/extract_expertise/innovate)
+  // fired, the exploration wins. „Lass uns brainstormen, ob wir eine
+  // App bauen sollten" → brainstorm, not build. We pick the exploring
+  // mode with the highest score (tie-break via TIE_ORDER).
   if (winner === 'build') {
     const exploratory = NO_DIRECT_PLAN_MODES
       .map((m) => ({ mode: m, acc: score.get(m)! }))
@@ -476,12 +476,12 @@ export function detectDiscoveryMode(
   const winnerAcc = score.get(winner)!;
   const confidence = computeConfidence(winnerAcc.matchCount, winnerAcc.score, totalScore);
 
-  // 5. Build-spezifischer Floor: ein einzelnes Build-Signal reicht nicht.
+  // 5. Build-specific floor: a single build signal is not enough.
   if (winner === 'build' && confidence < BUILD_FLOOR) {
     return { mode: DEFAULT_DISCOVERY_MODE, confidence, signals };
   }
 
-  // 6. Fail-soft-Clamp: zu unsicher → clarify, NIE build.
+  // 6. Fail-soft clamp: too uncertain → clarify, NEVER build.
   if (confidence < floor) {
     return { mode: DEFAULT_DISCOVERY_MODE, confidence, signals };
   }
@@ -490,22 +490,22 @@ export function detectDiscoveryMode(
 }
 
 // ---------------------------------------------------------------------------
-// Mode-Metadaten + Planungs-Gate
+// Mode metadata + planning gate
 // ---------------------------------------------------------------------------
 
 export interface DiscoveryModeMeta {
   mode: DiscoveryMode;
   label: string;
-  /** Darf in diesem Modus DIREKT geplant/gebaut werden? §20.1. */
+  /** May one plan/build DIRECTLY in this mode? §20.1. */
   mayPlanDirectly: boolean;
-  /** Kurzbeschreibung des erwarteten Systemverhaltens. */
+  /** Short description of the expected system behavior. */
   behavior: string;
 }
 
 /**
- * Modi, in denen NICHT direkt geplant/gebaut werden darf (§20.1 + Aufgabe 3):
- * brainstorm · clarify · extract_expertise · innovate. Hier sammelt das System
- * erst Wissen / klärt / öffnet den Raum, statt einen Plan zu erzeugen.
+ * Modes in which direct planning/building is NOT allowed (§20.1 + task 3):
+ * brainstorm · clarify · extract_expertise · innovate. Here the system first
+ * collects knowledge / clarifies / opens the space, instead of generating a plan.
  */
 export const NO_DIRECT_PLAN_MODES: readonly DiscoveryMode[] = [
   'brainstorm',
@@ -514,7 +514,7 @@ export const NO_DIRECT_PLAN_MODES: readonly DiscoveryMode[] = [
   'innovate',
 ];
 
-/** True, wenn der Haupt-Agent VOR proposePlan stoppen soll. */
+/** True if the main agent should stop BEFORE proposePlan. */
 export function shouldBlockDirectPlan(mode: DiscoveryMode): boolean {
   return NO_DIRECT_PLAN_MODES.includes(mode);
 }

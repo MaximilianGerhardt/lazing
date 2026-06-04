@@ -42,7 +42,7 @@ export function PushToggle({ vapidPublicKey }: Props): React.JSX.Element | null 
     }
   }, [sub]);
 
-  // Versteckt im 'unsupported'-Fall (kein Sinn die Pill zu zeigen).
+  // Hidden in the 'unsupported' case (no point showing the pill).
   if (sub.state === 'unsupported') return null;
 
   const variant = (() => {

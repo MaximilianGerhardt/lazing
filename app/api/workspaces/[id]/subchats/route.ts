@@ -1,12 +1,12 @@
 /**
- * GET  /api/workspaces/[id]/subchats   — Sub-Chats eines Workspace listen.
- * POST /api/workspaces/[id]/subchats   — Sub-Chat anlegen (gibt rawToken einmalig zurück).
+ * GET  /api/workspaces/[id]/subchats   — list a workspace's sub-chats.
+ * POST /api/workspaces/[id]/subchats   — create a sub-chat (returns rawToken once).
  *
- * Auth: Workspace-Member (gespiegelt aus /api/state/projection — currentUserId
- * + canEditWorkspaceContent + hasRealWorkspaceMembership). Sub-Chats sind
- * Projekt-interne Steuerung, daher member-gated.
+ * Auth: workspace member (mirrored from /api/state/projection — currentUserId
+ * + canEditWorkspaceContent + hasRealWorkspaceMembership). Sub-chats are
+ * project-internal control, hence member-gated.
  *
- * Gathering-Intelligence-Goal (2026-06-02).
+ * Gathering-intelligence goal (2026-06-02).
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -26,12 +26,12 @@ export const dynamic = 'force-dynamic';
 const WORKSPACE_ID_RE = /^(?:__org_root__:)?[a-zA-Z0-9_:()-]{1,128}$/;
 
 /**
- * Öffentliche Base-URL für teilbare Kunden-Links. Ein Kunde kann NICHT auf
- * localhost zugreifen — daher bevorzugen wir die konfigurierte öffentliche Base
- * und fallen erst dann auf die Request-Origin zurück. Reihenfolge: ENV
- * (LAZYOS_PREVIEW_BASE_URL → PUBLIC_URL → BASE_URL) → Laufzeit-Datei
- * `data/public-url` (vom Tunnel-Manager LIVE aktualisiert) → Request-Origin.
- * Zentral in lib/hosting/public-base.ts.
+ * Public base URL for shareable customer links. A customer CANNOT access
+ * localhost — so we prefer the configured public base and only then fall back
+ * to the request origin. Order: ENV
+ * (LAZYOS_PREVIEW_BASE_URL → PUBLIC_URL → BASE_URL) → runtime file
+ * `data/public-url` (updated LIVE by the tunnel manager) → request origin.
+ * Centralized in lib/hosting/public-base.ts.
  */
 function publicBaseUrl(req: NextRequest): string {
   return publicBaseUrlFrom(req.nextUrl.origin);
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, ctx: Ctx): Promise<Response> {
   if (!g.ok) return g.res;
   try {
     const rows = listSubchats(id);
-    // shareTokenHash NIE ausliefern.
+    // never serve shareTokenHash.
     const subchats = rows.map((r) => ({
       id: r.id,
       title: r.title,
@@ -103,8 +103,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       external: kind === 'external',
       expiresInHours: typeof body.expiresInHours === 'number' ? body.expiresInHours : 720,
     });
-    // externer Link nur für den Owner, einmalig — als VOLLE öffentliche URL,
-    // damit ihn ein Kunde auch wirklich öffnen kann (nicht localhost).
+    // external link only for the owner, once — as a FULL public URL,
+    // so that a customer can actually open it (not localhost).
     const externalUrl = rawToken ? `${publicBaseUrl(req)}/c/${rawToken}` : null;
     return NextResponse.json(
       {
