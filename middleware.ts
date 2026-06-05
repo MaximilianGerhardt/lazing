@@ -128,7 +128,6 @@ export const config = {
 const PUBLIC_PATHS = new Set<string>([
   "/login",
   "/welcome",
-  "/design",
   "/whats-new",
   "/api/auth/login",
   "/api/auth/logout",
@@ -155,7 +154,6 @@ const PUBLIC_PATHS = new Set<string>([
   // health endpoint (RSS, heap, broadcast depth, engine availability,
   // DB journal-mode). No secrets surfaced; safe to expose like /api/health.
   "/api/system/health",
-  "/api/feedback",
   // Phase QA / MU.4: TPM-Status ist Diagnose-Read, kein Secret. Anonyme
   // Aufrufer sehen den shared-Scope; eingeloggte User mit own-Plan ihre
   // private Sicht (siehe currentUserIdResolved im Handler).

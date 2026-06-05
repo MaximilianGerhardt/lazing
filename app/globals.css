@@ -115,6 +115,19 @@
      KEIN Tailwind-color-Mirror — andere Agenten KONSUMIEREN, nicht redefinieren. */
   --on-accent: var(--sheet);
   --on-accent-2: color-mix(in oklab, var(--on-accent) 72%, transparent);
+
+  /* ——— GRADIENTS & GLOWS (SP-2: tokenisiert — vorher hardcoded rgba) ———
+     Single source: alle aus den --a-*-Akzenten via color-mix. Alpha bei PARITÄT
+     zur Original-Branding-Konstante (Max 2026-04-25: hellere Skalierung war zu
+     laut → NICHT brighten). Caps: Fills ≤9%, Borders/Active ≤22%. Andere Agenten
+     KONSUMIEREN via var(), redefinieren nicht. */
+  --glow-1: radial-gradient(ellipse at 15% 0%, color-mix(in oklab, var(--a-north) 8%, transparent), transparent 45%);
+  --glow-2: radial-gradient(ellipse at 85% 20%, color-mix(in oklab, var(--a-own) 6%, transparent), transparent 45%);
+  --glow-3: radial-gradient(ellipse at 50% 100%, color-mix(in oklab, var(--a-clientb) 5%, transparent), transparent 55%);
+  --gradient-surface: linear-gradient(180deg, var(--sheet-2) 0%, var(--sheet) 100%);
+  --gradient-card: linear-gradient(155deg, color-mix(in oklab, var(--a-now) 9%, transparent), color-mix(in oklab, var(--sheet-2) 96%, transparent) 60%);
+  --gradient-active: radial-gradient(circle at center, color-mix(in oklab, var(--a-now) 22%, transparent) 0%, var(--card-2) 70%);
+  --gradient-text: linear-gradient(135deg, var(--a-north), var(--a-own));
 }
 
 /* Tailwind v4 theme integration — Utility-Classes für Tokens */
@@ -303,10 +316,7 @@ body::after {
   height: 100lvh;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    radial-gradient(ellipse at 15% 0%, rgba(255, 159, 10, 0.08), transparent 45%),
-    radial-gradient(ellipse at 85% 20%, rgba(191, 90, 242, 0.06), transparent 45%),
-    radial-gradient(ellipse at 50% 100%, rgba(48, 209, 88, 0.05), transparent 55%);
+  background-image: var(--glow-1), var(--glow-2), var(--glow-3);
 }
 
 /* Grain-Overlay: koerniger SVG-Filter, ueber den Glows. */
@@ -401,7 +411,7 @@ body.segment-private { --a-now: var(--a-private); }
 
 /* Gradient-Text (nur Headlines, max 4 Wörter) */
 .gradient-text {
-  background: linear-gradient(135deg, var(--a-north), var(--a-own));
+  background: var(--gradient-text);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
