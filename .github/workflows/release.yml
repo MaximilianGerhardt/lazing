@@ -1,0 +1,33 @@
+name: release
+
+# Cut a GitHub Release whenever a version tag is pushed (e.g. v0.2.0). The
+# in-app update check (GET /api/system/version) compares the local package.json
+# version against the latest GitHub Release, so publishing releases is what makes
+# the "Update available" signal light up for installed instances.
+#
+# Tag a release with:  bash scripts/release.sh [new-version]
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: create github release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create release with auto-generated notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag

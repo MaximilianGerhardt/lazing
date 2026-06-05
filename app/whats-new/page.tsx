@@ -8,6 +8,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { WhatsNewClient } from "./WhatsNewClient";
+
 export const metadata: Metadata = {
   title: "What's new — laz.ing 2026-05-02",
   description: "Release notes since the 2026-04-30 cutover",
@@ -19,6 +21,7 @@ export default function WhatsNewPage() {
       <header className="whatsnew__head">
         <span className="whatsnew__pill">Release · 2026-05-02</span>
         <h1>What&apos;s new</h1>
+        <WhatsNewClient />
         <p className="whatsnew__lead">
           62 commits since the cutover. 6 new patterns + the laz.ing brand
           migration + a surface refactor + iOS-native polish + a new{" "}

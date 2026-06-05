@@ -21,11 +21,20 @@ interface VersionInfo {
   latest?: string | null;
 }
 
+/** localStorage key: the app version whose what's-new the user has already seen. */
+export const WHATS_NEW_SEEN_KEY = "lazyos:whatsnew:seen";
+
 export function UpdateNewsLink({ onClick }: { onClick?: () => void }): React.JSX.Element {
   const [info, setInfo] = useState<VersionInfo | null>(null);
+  const [seen, setSeen] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
+    try {
+      setSeen(localStorage.getItem(WHATS_NEW_SEEN_KEY));
+    } catch {
+      /* localStorage unavailable */
+    }
     void fetch("/api/system/version", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j: VersionInfo | null) => {
@@ -34,12 +43,25 @@ export function UpdateNewsLink({ onClick }: { onClick?: () => void }): React.JSX
       .catch(() => {
         /* offline / unavailable → just show the release-notes link */
       });
+    // Refresh the seen-marker when the what's-new page writes it (same tab).
+    const onSeen = (): void => {
+      try {
+        setSeen(localStorage.getItem(WHATS_NEW_SEEN_KEY));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("lazyos:whatsnew:seen", onSeen);
     return () => {
       alive = false;
+      window.removeEventListener("lazyos:whatsnew:seen", onSeen);
     };
   }, []);
 
   const updateAvailable = info?.updateAvailable === true;
+  // Unseen news = a shipped version whose notes the user hasn't opened yet.
+  const unseenNews = Boolean(info?.version && info.version !== seen);
+  const dot = updateAvailable || unseenNews;
 
   return (
     <Link
@@ -53,9 +75,9 @@ export function UpdateNewsLink({ onClick }: { onClick?: () => void }): React.JSX
       </span>
       <span className="topnav-drawer-tools-label">
         What&apos;s new
-        {updateAvailable ? (
+        {dot ? (
           <span
-            aria-label="update available"
+            aria-label={updateAvailable ? "update available" : "new since your last visit"}
             style={{
               display: "inline-block",
               width: 7,
@@ -70,10 +92,12 @@ export function UpdateNewsLink({ onClick }: { onClick?: () => void }): React.JSX
       </span>
       <span className="topnav-drawer-tools-meta">
         {updateAvailable
-          ? `Update available${info?.latest ? ` (v${info.latest})` : ""} · run ./start`
-          : info?.version
-            ? `v${info.version} · release notes`
-            : "Release notes"}
+          ? `Update available${info?.latest ? ` (v${info.latest})` : ""} · tap to update`
+          : unseenNews
+            ? `What's new in v${info?.version}`
+            : info?.version
+              ? `v${info.version} · release notes`
+              : "Release notes"}
       </span>
     </Link>
   );

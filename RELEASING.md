@@ -45,19 +45,28 @@ client data or German comments is a manual review step.
 ## Cutting a release
 
 The in-app update check (`GET /api/system/version`) and `scripts/lazyos-update.sh`
-compare against the **latest GitHub release tag**, so every release needs a tag:
+compare against the **latest GitHub release tag**, so every release needs a tag.
+
+**One command** (recommended):
 
 ```bash
-# 1. bump version
-#    edit package.json "version" + add a CHANGELOG.md entry (English)
-# 2. verify
-pnpm typecheck            # no NEW errors vs the documented baseline
-pnpm test                 # green (or document known-pre-existing)
-# 3. tag + publish
-git tag -a vX.Y.Z -m "vX.Y.Z"
-git push origin main --tags
+pnpm typecheck                    # no NEW errors vs the documented baseline
+bash scripts/release.sh 0.2.0     # bump package.json → commit → tag v0.2.0 → push
+#   (omit the version to tag the CURRENT package.json version)
+```
+
+Pushing the `v*` tag triggers `.github/workflows/release.yml`, which publishes a
+GitHub Release with auto-generated notes. Until a release exists that is newer
+than a running instance's `package.json`, the in-app "Update available" signal
+stays quiet.
+
+Manual equivalent, if you prefer:
+
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin main --tags
 gh release create vX.Y.Z --generate-notes
 ```
 
-Self-hosters then update with `bash scripts/lazyos-update.sh` (pull → install →
-migrate → guarded build swap → restart, with a DB backup taken first).
+Self-hosters then update either **in-app** (What's new → **Update now**, localhost
+only) or with `bash scripts/lazyos-update.sh` (pull → install → migrate → guarded
+build swap → restart, DB backed up first). Both run the same script.
