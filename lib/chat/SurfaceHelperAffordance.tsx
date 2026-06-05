@@ -230,7 +230,7 @@ export function SurfaceHelperAffordance({
           <span className="srf-helper__btn-glyph" aria-hidden>
             <MagicWandIcon size={16} />
           </span>
-          Surface generieren
+          {busy ? 'Baue…' : 'Surface generieren'}
         </button>
         {showCorrect ? (
           <button

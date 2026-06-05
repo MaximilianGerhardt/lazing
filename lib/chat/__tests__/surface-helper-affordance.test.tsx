@@ -187,7 +187,7 @@ describe('Trigger-Hook (Agent-I-Vertrag)', () => {
         btn?.click();
       });
       expect(replies.length).toBe(1);
-      expect(replies[0]).toContain('✨');
+      expect(replies[0]).toContain('generiere');
       expect(replies[0]).toContain('toast');
     } finally {
       h.unmount();
