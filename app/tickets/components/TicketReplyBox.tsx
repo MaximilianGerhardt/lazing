@@ -43,8 +43,33 @@ interface MentionCandidate {
   kind: 'user' | 'agent' | 'workspace';
 }
 
+/**
+ * SP-11: comments are reframed from a flat "Kommentar" into an actionable
+ * "Anmerkung / Anweisung". The chosen intent rides in the existing `commented`
+ * event payload (free JSON) — no new event type. `note` is the default and is
+ * omitted from the payload so existing comments stay unchanged.
+ */
+type CommentIntent = 'note' | 'instruction' | 'question';
+
+const INTENT_OPTIONS: ReadonlyArray<{
+  value: CommentIntent;
+  label: string;
+  hint: string;
+}> = [
+  { value: 'note', label: 'Anmerkung', hint: 'Notiz festhalten' },
+  { value: 'instruction', label: 'Anweisung', hint: 'Was als Nächstes zu tun ist' },
+  { value: 'question', label: 'Frage', hint: 'Antwort von jemandem einholen' },
+];
+
+const INTENT_PLACEHOLDER: Record<CommentIntent, string> = {
+  note: 'Anmerkung festhalten … @ für Mention',
+  instruction: 'Anweisung — was soll als Nächstes passieren? @agent für Handoff',
+  question: 'Frage stellen … @max oder @agent ansprechen',
+};
+
 export function TicketReplyBox({ ticketId }: Props) {
   const [value, setValue] = useState('');
+  const [intent, setIntent] = useState<CommentIntent>('note');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -115,23 +140,36 @@ export function TicketReplyBox({ ticketId }: Props) {
     setSubmitting(true);
     setError(null);
     try {
+      // Handoff target = first @mention in the note (drops a leading "@").
+      const firstMention = text.match(/@([a-zA-Z0-9_.:-]+)/);
+      const target = firstMention ? firstMention[1].slice(0, 80) : undefined;
+      const body: {
+        text: string;
+        intent?: CommentIntent;
+        target?: string;
+      } = { text };
+      // `note` is the implicit default — omit it so existing payloads are unchanged.
+      if (intent !== 'note') body.intent = intent;
+      if (target) body.target = target;
+
       const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/comment`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(body),
       });
       if (!resp.ok) {
         const data = (await resp.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? `HTTP ${resp.status}`);
       }
       setValue('');
+      setIntent('note');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fehler');
     } finally {
       setSubmitting(false);
     }
-  }, [value, ticketId, submitting, router]);
+  }, [value, intent, ticketId, submitting, router]);
 
   // auto-grow textarea
   useEffect(() => {
@@ -178,6 +216,39 @@ export function TicketReplyBox({ ticketId }: Props) {
         </div>
       ) : null}
 
+      <div
+        role="radiogroup"
+        aria-label="Art der Anmerkung"
+        style={intentRowStyle}
+      >
+        {INTENT_OPTIONS.map((opt) => {
+          const active = intent === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              title={opt.hint}
+              onClick={() => setIntent(opt.value)}
+              style={{
+                ...intentChipStyle,
+                color: active ? intentAccent(opt.value) : 'var(--ink-2)',
+                background: active
+                  ? `color-mix(in oklab, ${intentAccent(opt.value)} 14%, transparent)`
+                  : 'transparent',
+                borderColor: active
+                  ? `color-mix(in oklab, ${intentAccent(opt.value)} 45%, var(--line-2))`
+                  : 'var(--line-2)',
+                fontWeight: active ? 600 : 500,
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div style={inputRowStyle}>
         <textarea
           ref={taRef}
@@ -214,7 +285,7 @@ export function TicketReplyBox({ ticketId }: Props) {
               void submit();
             }
           }}
-          placeholder="Kommentar schreiben … @ für Mention"
+          placeholder={INTENT_PLACEHOLDER[intent]}
           disabled={submitting}
           rows={1}
           style={textareaStyle}
@@ -224,7 +295,13 @@ export function TicketReplyBox({ ticketId }: Props) {
           onClick={() => void submit()}
           disabled={submitting || value.trim().length === 0}
           style={submitBtnStyle}
-          aria-label="Kommentar senden"
+          aria-label={
+            intent === 'instruction'
+              ? 'Anweisung senden'
+              : intent === 'question'
+                ? 'Frage senden'
+                : 'Anmerkung senden'
+          }
         >
           {submitting ? '…' : 'Senden'}
         </button>
@@ -235,7 +312,11 @@ export function TicketReplyBox({ ticketId }: Props) {
         </div>
       ) : null}
       <div style={hintStyle}>
-        Enter senden · Shift+Enter neue Zeile · @ für Mention · @max triggert Push
+        {intent === 'instruction'
+          ? 'Anweisung · @agent für Handoff · Enter senden · Shift+Enter neue Zeile'
+          : intent === 'question'
+            ? 'Frage · @max oder @agent ansprechen · Enter senden'
+            : 'Enter senden · Shift+Enter neue Zeile · @ für Mention · @max triggert Push'}
       </div>
     </div>
   );
@@ -247,7 +328,35 @@ function kindColor(k: 'user' | 'agent' | 'workspace'): string {
   return 'var(--ink-3)';
 }
 
+function intentAccent(i: CommentIntent): string {
+  if (i === 'instruction') return 'var(--a-now)';
+  if (i === 'question') return 'var(--a-warn)';
+  return 'var(--ink-2)';
+}
+
 // ---- styles ----
+
+const intentRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: 6,
+  marginBottom: 10,
+  flexWrap: 'wrap',
+};
+
+const intentChipStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '4px 11px',
+  minHeight: 28,
+  borderRadius: 999,
+  fontSize: 12,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  border: '0.5px solid var(--line-2)',
+  background: 'transparent',
+  letterSpacing: '-0.005em',
+  transition: 'background 120ms ease, border-color 120ms ease, color 120ms ease',
+};
 
 const wrapStyle: CSSProperties = {
   position: 'relative',

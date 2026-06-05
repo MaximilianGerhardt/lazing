@@ -359,6 +359,26 @@ export function IconSubtree({
   );
 }
 
+/**
+ * IconMore — bottom-tab "More" overflow glyph (Phase 2 SP-4, 2026-06-05).
+ * Three stacked horizontal lines that read as a menu/overflow at tab-bar
+ * size, distinct from the three-DOT IconOverflow used in the desktop bar.
+ * Matches BASE_PROPS (24×24, currentColor, 1.6 stroke, round caps) so it
+ * sits cleanly beside the other stacked tab glyphs (Chat/Inbox/Decisions).
+ */
+export function IconMore({
+  size = 24,
+  className,
+}: IconProps): React.JSX.Element {
+  return (
+    <svg width={size} height={size} className={className} {...BASE_PROPS}>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
 /** IconLayers — gestapelte Ebenen (Design-Library / Token & Komponenten). */
 export function IconLayers({
   size = 18,

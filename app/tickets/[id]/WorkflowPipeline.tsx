@@ -30,18 +30,67 @@ import {
   PIPELINE_STATES,
   STATE_HINT,
   STATE_LABEL,
+  transitionForEvent,
+  nextState,
+  DEFAULT_STATE,
   type Transition,
   type WorkflowState,
 } from "@/lib/approvals/fsm";
+import type { LazyEvent } from "@/lib/events/types";
+import {
+  classifyActor,
+  type AnswerRequiredRef,
+} from "@/lib/tickets/handoff";
 
 interface Props {
   ticketId: string;
   state: WorkflowState;
   /** Accent token name for the active pill (without the `var(--...)` wrap). */
   accentVar?: string;
+  /**
+   * Ticket timeline (oldest-first) — used to label each pipeline step with the
+   * actor that performed the transition INTO that step, so the agent↔human
+   * handoff chain is legible at a glance.
+   */
+  events?: LazyEvent[];
+  /** Open answer_required request (blocking question), surfaced as a one-tap CTA. */
+  answerRequired?: AnswerRequiredRef | null;
 }
 
 const STATES = PIPELINE_STATES;
+
+/** Coarse actor kind that landed the ticket in a given pipeline state. */
+type StepActorKind = "user" | "agent" | "system";
+
+/**
+ * Walks the FSM event log (oldest-first) and records, per target state, the
+ * actor of the LAST transition that entered it. Re-entries (rework cycle:
+ * executed → review) overwrite, so the badge always reflects the latest hop.
+ */
+function stepActorsFromEvents(
+  events: ReadonlyArray<LazyEvent>,
+): Partial<Record<WorkflowState, StepActorKind>> {
+  const out: Partial<Record<WorkflowState, StepActorKind>> = {};
+  let cur: WorkflowState = DEFAULT_STATE;
+  for (const ev of events) {
+    const t = transitionForEvent(ev.eventType);
+    if (!t) continue;
+    const to = nextState(cur, t);
+    if (!to) continue;
+    const kind = classifyActor(ev.actor);
+    if (kind === "agent") out[to] = "agent";
+    else if (kind === "user") out[to] = "user";
+    else if (kind === "system") out[to] = "system";
+    cur = to;
+  }
+  return out;
+}
+
+const ACTOR_BADGE: Record<StepActorKind, { label: string; accent: string }> = {
+  agent: { label: "Agent", accent: "var(--a-now)" },
+  user: { label: "Du", accent: "var(--a-warn)" },
+  system: { label: "Auto", accent: "var(--ink-3)" },
+};
 
 interface ActionDef {
   transition: Transition;
@@ -94,6 +143,8 @@ export function WorkflowPipeline({
   ticketId,
   state,
   accentVar = "a-clientb",
+  events,
+  answerRequired,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -106,6 +157,8 @@ export function WorkflowPipeline({
     ? -1
     : STATES.indexOf(state as (typeof STATES)[number]);
   const isClosed = state === "closed";
+
+  const stepActors = stepActorsFromEvents(events ?? []);
 
   async function runTransition(transition: Transition, withComment?: string) {
     setError(null);
@@ -149,6 +202,14 @@ export function WorkflowPipeline({
   }
 
   const accent = `var(--${accentVar})`;
+  // globals.css ships `--gradient-active` (radial in --a-now). For the default
+  // segment accent we reuse that token (DRY); for other segment accents we keep
+  // the SAME formula but substitute the dynamic accent so the per-step accent
+  // stays segment-driven (hard requirement).
+  const activeBg =
+    accentVar === "a-now"
+      ? "var(--gradient-active)"
+      : `radial-gradient(circle at center, color-mix(in oklab, ${accent} 22%, transparent) 0%, var(--card-2) 70%)`;
 
   return (
     <section
@@ -169,16 +230,31 @@ export function WorkflowPipeline({
           const isActive = s === state;
           const isDone = !isRejected && i < activeIdx;
           const isPast = isClosed || isDone;
+          const actorKind = stepActors[s];
+          const badge = actorKind ? ACTOR_BADGE[actorKind] : null;
           return (
             <li
               key={s}
-              style={stepStyle(isActive, isPast, accent)}
+              style={stepStyle(isActive, isPast, accent, activeBg)}
               aria-current={isActive ? "step" : undefined}
             >
               <span style={stepNumStyle(isActive, isPast, accent)}>
                 {i + 1}
               </span>
               <span style={stepLabelStyle(isActive)}>{STATE_LABEL[s]}</span>
+              {badge ? (
+                <span
+                  style={actorBadgeStyle(badge.accent, isActive || isPast)}
+                  title={`${badge.label} hat diesen Schritt ausgelöst`}
+                >
+                  <span aria-hidden style={{ ...badgeDotStyle, background: badge.accent }} />
+                  {badge.label}
+                </span>
+              ) : (
+                // Reserve height so steps stay aligned whether or not a step
+                // has an actor badge yet (avoids vertical jitter).
+                <span aria-hidden style={badgePlaceholderStyle} />
+              )}
             </li>
           );
         })}
@@ -234,10 +310,27 @@ export function WorkflowPipeline({
         </div>
       )}
 
+      {answerRequired ? (
+        <div id="wf-answer-required" style={answerRequiredStyle} role="status">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={answerRequiredEyebrowStyle}>Antwort gefragt</div>
+            <p style={{ margin: "3px 0 0", fontSize: 13, color: "var(--ink)" }}>
+              {answerRequired.preview}
+            </p>
+          </div>
+          {answerRequired.url ? (
+            <a href={answerRequired.url} style={answerRequiredCtaStyle}>
+              Öffnen
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
       <div style={actionRowStyle}>
         {actionsFor(state).map((a) => (
           <button
             key={a.transition}
+            id={`wf-${a.transition}`}
             type="button"
             onClick={() => onActionClick(a)}
             style={btnStyle(a.tone)}
@@ -292,17 +385,18 @@ function stepStyle(
   active: boolean,
   past: boolean,
   accent: string,
+  activeBg: string,
 ): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     gap: 6,
     padding: "10px 6px",
     borderRadius: 10,
     background: active
-      ? `radial-gradient(circle at center, color-mix(in srgb, ${accent} 22%, transparent) 0%, var(--card-2) 70%)`
+      ? activeBg
       : past
         ? "var(--card-2)"
         : "transparent",
@@ -345,6 +439,38 @@ function stepLabelStyle(active: boolean): CSSProperties {
     maxWidth: "100%",
   };
 }
+
+function actorBadgeStyle(accent: string, prominent: boolean): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    padding: "1px 6px",
+    borderRadius: 999,
+    fontSize: 9,
+    fontFamily: "var(--font-mono)",
+    letterSpacing: "0.04em",
+    fontWeight: 600,
+    color: accent,
+    background: `color-mix(in oklab, ${accent} ${prominent ? 16 : 10}%, transparent)`,
+    border: `0.5px solid color-mix(in oklab, ${accent} ${prominent ? 45 : 28}%, transparent)`,
+    maxWidth: "100%",
+    overflow: "hidden",
+  };
+}
+
+const badgeDotStyle: CSSProperties = {
+  width: 4,
+  height: 4,
+  borderRadius: 999,
+  flexShrink: 0,
+};
+
+// Keeps the 5 steps vertically aligned even when some have no actor badge.
+const badgePlaceholderStyle: CSSProperties = {
+  display: "block",
+  height: 13,
+};
 
 const rejectedBannerStyle: CSSProperties = {
   display: "flex",
@@ -430,6 +556,43 @@ const errorStyle: CSSProperties = {
   border: "1px solid color-mix(in srgb, var(--a-danger) 30%, var(--line-2))",
   color: "var(--ink)",
   fontSize: 12,
+};
+
+const answerRequiredStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  padding: "12px 14px",
+  borderRadius: 10,
+  background: "color-mix(in oklab, var(--a-warn) 10%, transparent)",
+  border: "1px solid color-mix(in oklab, var(--a-warn) 38%, var(--line-2))",
+  // Anchored scroll/focus target from WhoIsUpCard — give it breathing room.
+  scrollMarginTop: 80,
+};
+
+const answerRequiredEyebrowStyle: CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 10,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "var(--a-warn)",
+  fontWeight: 600,
+};
+
+const answerRequiredCtaStyle: CSSProperties = {
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 40,
+  padding: "9px 16px",
+  borderRadius: 10,
+  fontSize: 13,
+  fontWeight: 600,
+  textDecoration: "none",
+  color: "var(--sheet)",
+  background: "var(--ink)",
+  border: "1px solid var(--ink)",
 };
 
 export default WorkflowPipeline;

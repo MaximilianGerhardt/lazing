@@ -44,6 +44,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     const event = await addComment(id, {
       text: parsed.data.text,
       actor: (parsed.data.actor ?? undefined) as ActorType | undefined,
+      intent: parsed.data.intent,
+      target: parsed.data.target,
     });
     return NextResponse.json({ event }, { status: 201 });
   } catch (err) {

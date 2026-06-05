@@ -236,17 +236,27 @@ export function useSetWorkspace(
 /**
  * Drawer-state hook. Owns body-scroll lock + ESC binding so callers only
  * worry about rendering.
+ *
+ * Phase 2 SP-5 (2026-06-05): the drawer now has a SINGLE rendered mount
+ * (ScopeTabs). The TopNav hamburger uses this hook ONLY to mirror open/closed
+ * state for its aria-expanded — it does not render a drawer. Passing
+ * `{ ownsLock: false }` opts that mirror-only instance out of the body-scroll
+ * lock, so two instances can never race on restoring `body.style.overflow`
+ * (which would otherwise risk leaving the body scroll-locked). The single
+ * rendering owner (ScopeTabs) keeps the default `ownsLock: true`.
  */
-export function useMobileDrawer(): {
+export function useMobileDrawer(options?: { ownsLock?: boolean }): {
   open: boolean;
   setOpen: (next: boolean) => void;
   toggle: () => void;
 } {
+  const ownsLock = options?.ownsLock ?? true;
   const [open, setOpen] = useState(false);
   const previousOverflow = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
+    if (!ownsLock) return;
     if (open) {
       previousOverflow.current = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
@@ -254,7 +264,7 @@ export function useMobileDrawer(): {
       document.body.style.overflow = previousOverflow.current;
       previousOverflow.current = null;
     }
-  }, [open]);
+  }, [open, ownsLock]);
 
   useEffect(() => {
     if (!open) return;
@@ -268,9 +278,17 @@ export function useMobileDrawer(): {
   // Sub-plan 4: BackgroundActivityIndicator dispatches
   // 'lazyos:drawer:open' when the user clicks the pulse pill.
   // The drawer opens + scrolls to #drawer-section-activity (anchor).
+  //
+  // Phase 2 SP-5 (2026-06-05): the drawer now has a single mount (ScopeTabs,
+  // the global bottom bar). The TopNav hamburger no longer mounts its own
+  // drawer — it dispatches 'lazyos:drawer:open' and mirrors the open state
+  // via 'lazyos:drawer:close', so its aria-expanded stays in sync with the
+  // one true drawer. Every `useMobileDrawer()` instance listens to both
+  // events, so multiple triggers (hamburger, More tab, pulse pill) all drive
+  // the same logical open/closed state without a shared store.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handler = (ev: Event): void => {
+    const onOpen = (ev: Event): void => {
       const detail = (ev as CustomEvent<{ anchor?: string }>).detail;
       setOpen(true);
       if (detail?.anchor) {
@@ -285,12 +303,27 @@ export function useMobileDrawer(): {
       // Trigger refresh of activity-list inside drawer.
       window.dispatchEvent(new CustomEvent('lazyos:activity:refresh'));
     };
-    window.addEventListener('lazyos:drawer:open', handler);
-    return () => window.removeEventListener('lazyos:drawer:open', handler);
+    const onCloseEvent = (): void => setOpen(false);
+    window.addEventListener('lazyos:drawer:open', onOpen);
+    window.addEventListener('lazyos:drawer:close', onCloseEvent);
+    return () => {
+      window.removeEventListener('lazyos:drawer:open', onOpen);
+      window.removeEventListener('lazyos:drawer:close', onCloseEvent);
+    };
   }, []);
 
   const toggle = useCallback(() => setOpen((v) => !v), []);
   return { open, setOpen, toggle };
+}
+
+/**
+ * Dispatches the global drawer-close event so every `useMobileDrawer()`
+ * instance (the single rendered drawer + any trigger mirroring its state,
+ * e.g. the TopNav hamburger) resets to closed together. Phase 2 SP-5.
+ */
+export function closeMobileDrawer(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('lazyos:drawer:close'));
 }
 
 /* ------------------------------------------------------------------ */

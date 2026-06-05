@@ -2,7 +2,6 @@ import { ContextBand } from '@/lib/ui/cbd';
 import { safeProjectDecisions } from '@/lib/events/safe-projection';
 import { listWorkspaces } from '@/lib/workspaces';
 import { toWorkspaceLite } from '@/lib/workspaces/resolve';
-import { ScopeTabs } from '@/lib/nav/ScopeTabs';
 import { DecisionsFilter } from './DecisionsFilter';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +15,6 @@ export default async function DecisionsPage() {
 
   return (
     <main className="sheet page-with-tabbar">
-      <ScopeTabs />
       <section style={{ maxWidth: 1100, marginTop: 'clamp(24px, 5vw, 60px)' }}>
         <ContextBand
           pillVariant="own"

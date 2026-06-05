@@ -38,7 +38,9 @@ import { TicketBody } from '../components/TicketBody';
 import { listWorkProducts } from '@/lib/work-products/service';
 import { TicketDetailTabs } from './TicketDetailTabs';
 import { WorkflowPipeline } from './WorkflowPipeline';
+import { WhoIsUpCard } from './WhoIsUpCard';
 import type { WorkflowState } from '@/lib/approvals/fsm';
+import { deriveTicketHandoff } from '@/lib/tickets/handoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +69,12 @@ export default async function TicketDetailPage({
   const pillVariant: PillVariant = pillVariantForAccent(
     workspace?.accent ?? 'own',
   );
+  const workflowState = toWorkflowState(ticket.workflowState);
+  const accentVar = accentVarForAccent(workspace?.accent ?? 'own');
+  // "Wer ist dran?" — derive the handoff from the FSM state + last actor in
+  // the event log (lib/tickets/handoff). Surfaces an open answer_required as
+  // the top-priority blocking request.
+  const handoff = deriveTicketHandoff(workflowState, timeline);
 
   return (
     <main className="sheet" style={{ paddingBottom: 120 }}>
@@ -126,11 +134,19 @@ export default async function TicketDetailPage({
           </div>
         </div>
 
+        {handoff.responsible !== 'none' || handoff.answerRequired ? (
+          <div style={{ marginTop: 18 }}>
+            <WhoIsUpCard handoff={handoff} accentVar={accentVar} />
+          </div>
+        ) : null}
+
         <div style={{ marginTop: 20 }}>
           <WorkflowPipeline
             ticketId={ticket.id}
-            state={toWorkflowState(ticket.workflowState)}
-            accentVar={accentVarForAccent(workspace?.accent ?? 'own')}
+            state={workflowState}
+            accentVar={accentVar}
+            events={timeline}
+            answerRequired={handoff.answerRequired}
           />
         </div>
 

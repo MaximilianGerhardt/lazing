@@ -88,6 +88,14 @@ export interface ListTicketsInput {
 export interface CommentInput {
   text: string;
   actor?: ActorType;
+  /**
+   * SP-11 — lightweight comment classification carried in the existing
+   * `commented` event payload (free JSON, NO new event type). Lets the
+   * thread render an "Anweisung"/"Frage" affordance instead of a flat comment.
+   */
+  intent?: "note" | "instruction" | "question";
+  /** Optional handoff target (e.g. "agent:senior-dev", "max"). */
+  target?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -336,6 +344,75 @@ export async function getTimeline(id: string): Promise<LazyEvent[]> {
   return getTicketTimeline(id);
 }
 
+/**
+ * Coarse actor kind that performed an FSM transition.
+ * Mirrors the handoff classification (`lib/tickets/handoff.classifyActor`).
+ */
+export type LastFsmActorKind = "user" | "agent" | "system";
+
+/**
+ * Returns, per ticket ID, the coarse actor kind of the LAST FSM transition
+ * (approval_requested / approved / rejected / executed / closed / reopened).
+ *
+ * Why: the list view (`/tickets`) needs a sparing "braucht dich" marker when a
+ * ticket is in review/executed AND an *agent* left it there — but the ticket
+ * projection does not carry the last actor, and fetching each ticket's full
+ * timeline would be an N+1. This does it in a single query over the FSM events,
+ * folding newest-actor-per-entity. No new schema, no projection change.
+ *
+ * Scoped to one workspace when `workspaceId` is given (matches the list filter).
+ */
+export async function getLastFsmActorByTicket(
+  workspaceId?: WorkspaceId,
+): Promise<Map<string, LastFsmActorKind>> {
+  const { getDb } = await import("@/db/client");
+  const { events } = await import("@/db/schema/events");
+  const { and, asc, eq, inArray } = await import("drizzle-orm");
+
+  const FSM_TYPES = [
+    "approval_requested",
+    "approved",
+    "rejected",
+    "executed",
+    "closed",
+    "reopened",
+  ] as const;
+
+  const db = getDb();
+  const base = and(
+    eq(events.entityType, "ticket"),
+    inArray(events.eventType, FSM_TYPES as unknown as string[]),
+  );
+  const where = workspaceId
+    ? and(base, eq(events.segmentId, workspaceId))
+    : base;
+
+  const rows = db
+    .select({
+      entityId: events.entityId,
+      actor: events.actor,
+    })
+    .from(events)
+    .where(where)
+    .orderBy(asc(events.createdAt))
+    .all();
+
+  const out = new Map<string, LastFsmActorKind>();
+  for (const row of rows) {
+    const actor = row.actor;
+    const kind: LastFsmActorKind | null =
+      actor === "system"
+        ? "system"
+        : actor.startsWith("agent:")
+          ? "agent"
+          : actor.startsWith("user:")
+            ? "user"
+            : null;
+    if (kind) out.set(row.entityId, kind); // ascending ⇒ last write wins
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Comment
 // ---------------------------------------------------------------------------
@@ -352,13 +429,19 @@ export async function addComment(
     throw new Error("comment text must not be empty");
   }
 
+  const payload: Record<string, unknown> = { text };
+  // intent/target ride in the existing `commented` payload (free JSON) — N8:
+  // the thread stays evidence, not a new event type.
+  if (input.intent && input.intent !== "note") payload.intent = input.intent;
+  if (input.target) payload.target = input.target;
+
   return emitEvent({
     segmentId: current.segmentId,
     entityType: "ticket",
     entityId: id,
     eventType: "commented",
     actor: input.actor ?? DEFAULT_ACTOR,
-    payload: { text },
+    payload,
     sensitivity: "low",
   });
 }

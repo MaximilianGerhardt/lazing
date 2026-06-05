@@ -10,7 +10,6 @@ import {
   workspaceAccentVariant,
   workspaceLabel,
 } from '@/lib/workspaces/resolve';
-import { ScopeTabs } from '@/lib/nav/ScopeTabs';
 import { MonthGrid } from './MonthGrid';
 import { TodayQuickAction } from './TodayQuickAction';
 
@@ -121,7 +120,6 @@ export default async function CalendarPage() {
 
   return (
     <main className="sheet page-with-tabbar">
-      <ScopeTabs />
       <section style={{ maxWidth: 1100, marginTop: 'clamp(24px, 5vw, 60px)' }}>
         <ContextBand
           pillVariant="own"

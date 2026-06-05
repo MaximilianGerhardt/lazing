@@ -15,9 +15,6 @@ import {
 
 import { Pill } from '@/lib/ui/pil';
 import { ActivityNowSection } from './ActivityNowSection';
-import { PushSettingsSection } from './PushSettingsSection';
-import { AutoModeToggle } from './AutoModeToggle';
-import { CompactButton } from './CompactButton';
 import { NAV_SECTIONS } from './links';
 import {
   setWorkspaceId,
@@ -34,7 +31,6 @@ import {
   IconTerminal,
   IconLayers,
 } from './icons';
-import { LocaleSwitcher } from './LocaleSwitcher';
 import { UpdateNewsLink } from './UpdateNewsLink';
 import type { Organization, Workspace } from './types';
 import { useI18n } from '@/lib/i18n/use-i18n';
@@ -586,8 +582,10 @@ export function MobileDrawer({
                 <span className="topnav-drawer-tools-label">
                   Settings
                 </span>
+                {/* SP-6: the single pointer to /settings, which now hosts the
+                    per-rule push toggles + the LocaleSwitcher. */}
                 <span className="topnav-drawer-tools-meta">
-                  Account · Engines · Notifications
+                  Konto · Engines · Benachrichtigungen
                 </span>
               </Link>
             </li>
@@ -639,57 +637,13 @@ export function MobileDrawer({
           </ul>
         </section>
 
-        <div className="topnav-drawer-sep" role="presentation" />
-
-        {/* Push settings — user wish 2026-05-01: "im Navigation oder so
-            push ein/aus möglich sein". Master toggle + per-rule toggles. */}
-        <PushSettingsSection
-          vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''}
-        />
-
-        <div className="topnav-drawer-sep" role="presentation" />
-
-        {/* 2026-05-03 wave B — settings section for AutoMode + Compact.
-            Moved out of the TopNav right cluster on mobile — the header stays
-            slim, power tools in the drawer. */}
-        <section
-          className="topnav-drawer-section topnav-drawer-settings"
-          aria-label="Einstellungen"
-        >
-          <h2 className="topnav-drawer-heading">Einstellungen</h2>
-          <ul className="topnav-drawer-settings-list" role="list">
-            <li className="topnav-drawer-settings-row">
-              <span className="topnav-drawer-settings-body">
-                <span className="topnav-drawer-settings-label">Auto-Mode</span>
-                <span className="topnav-drawer-settings-hint">
-                  Jede Anfrage wird automatisch zu einem Multi-Agent-Workstream
-                </span>
-              </span>
-              <span className="topnav-drawer-settings-action">
-                <AutoModeToggle />
-              </span>
-            </li>
-            <li className="topnav-drawer-settings-row">
-              <span className="topnav-drawer-settings-body">
-                <span className="topnav-drawer-settings-label">
-                  Snapshot vor Compact
-                </span>
-                <span className="topnav-drawer-settings-hint">
-                  Aktueller Stand ins Plan-File schreiben
-                </span>
-              </span>
-              <span className="topnav-drawer-settings-action">
-                <CompactButton />
-              </span>
-            </li>
-          </ul>
-        </section>
-
-        <div className="topnav-drawer-sep" role="presentation" />
-
-        <section className="topnav-drawer-section" style={{ padding: '0 16px' }}>
-          <LocaleSwitcher />
-        </section>
+        {/* SP-6 declutter (2026-06-05): the per-rule PushSettingsSection, the
+            AutoMode + Compact "Einstellungen" toggles, and the LocaleSwitcher
+            were removed from the drawer. Push per-rule toggles + LocaleSwitcher
+            now live in /settings (SettingsHubClient); AutoMode + Compact +
+            the push master toggle live in the StatusCluster sheet. The drawer
+            keeps ONE pointer row to Settings (System tools, above) and the
+            isolated Logout in the footer. */}
 
         <div className="topnav-drawer-sep" role="presentation" />
 

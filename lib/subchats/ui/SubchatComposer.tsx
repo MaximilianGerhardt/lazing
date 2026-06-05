@@ -75,6 +75,7 @@ export function SubchatComposer({
   onSendUploaded,
   enableVoice = false,
   enableVoiceMessage = false,
+  wrapClassName,
 }: {
   /**
    * Legacy upload path (ExternalSubchat): composer passes text + raw files,
@@ -98,6 +99,15 @@ export function SubchatComposer({
   /** Voice-message recording (raw audio → staged attachment). Default false.
    *  Requires progress mode (uploader + onSendUploaded). Self-gated via getUserMedia/MediaRecorder. */
   enableVoiceMessage?: boolean;
+  /**
+   * Extra class on the composer wrapper (Phase 2 SP-5). The internal sub-chat
+   * passes `subchat-composer--with-tabbar` so its bottom padding clears the
+   * global bottom tab bar; the base `.subchat-composer` class owns the
+   * safe-area padding (external `/c/*` has no bar → base only). The bottom
+   * inset lives in CSS (components.css) so it can honor `body.kb-open`
+   * (no double inset when the keyboard pushes the bar away).
+   */
+  wrapClassName?: string;
 }): React.ReactElement {
   const [draft, setDraft] = useState('');
   const [staged, setStaged] = useState<Staged[]>([]);
@@ -460,7 +470,10 @@ export function SubchatComposer({
   }, [canSend, draft, staged, onSend, progressMode, uploader, onSendUploaded, clearAfterSend]);
 
   return (
-    <div style={s.composerWrap}>
+    <div
+      className={`subchat-composer${wrapClassName ? ` ${wrapClassName}` : ''}`}
+      style={s.composerWrap}
+    >
       {topSlot}
 
       {staged.length > 0 ? (

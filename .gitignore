@@ -92,3 +92,8 @@ STARTSCHUSS.md
 # Internal planning + marketing playbook (never publish)
 docs/plans/
 docs/marketing/
+
+# build-swap backups + temp dist dirs (SP deploy)
+.next.*-bak
+.next-rebuild/
+.next-verify/

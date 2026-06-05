@@ -202,12 +202,17 @@ export const centered: CSSProperties = {
   fontSize: 14,
 };
 
-/* ---- Composer ---- */
+/* ---- Composer ----
+ * NOTE (Phase 2 SP-5): the bottom inset is intentionally NOT set here. It is
+ * owned by the `.subchat-composer` CSS class (app/components.css) so it can be
+ * raised to clear the global bottom tab bar on the internal sub-chat
+ * (`.subchat-composer--with-tabbar`) and reset under `body.kb-open` — neither
+ * of which an inline style can express. The base class restores the same
+ * `max(8px, env(safe-area-inset-bottom))` the external view always had. */
 export const composerWrap: CSSProperties = {
   flexShrink: 0,
   borderTop: '0.5px solid var(--line-2)',
   padding: '8px 10px',
-  paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
   background: 'color-mix(in oklab, var(--sheet) 85%, transparent)',
 };
 

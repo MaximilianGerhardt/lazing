@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
 import { TopNav } from "@/lib/nav/TopNav";
+import { ScopeTabs } from "@/lib/nav/ScopeTabs";
 import { CmdPalette } from "@/lib/cmd-palette/CmdPalette";
 import { SwNavigationBridge } from "@/lib/pwa/SwNavigationBridge";
 import { ToastProvider } from "@/lib/ui/tst/ToastProvider";
@@ -107,6 +108,11 @@ export default async function RootLayout({
         <ToastProvider>
           <TopNav />
           {children}
+          {/* Global iOS bottom tab bar (Phase 2 SP-4) — self-decides
+              visibility (hidden ≥768px via CSS, not mounted on chat `/` or
+              external sub-chats `/c/*`). Hosts the MobileDrawer mount for
+              bar-visible routes (incl. /subchats/* where TopNav is null). */}
+          <ScopeTabs />
           <CmdPalette />
           <SwNavigationBridge />
         </ToastProvider>

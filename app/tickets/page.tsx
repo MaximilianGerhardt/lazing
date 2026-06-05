@@ -17,6 +17,12 @@ import type { Workspace as NavWorkspace, WorkspaceAccent } from '@/lib/nav/types
 
 import { TicketsFilterBar } from './components/TicketsFilterBar';
 import { QuickCreateDrawer } from './components/QuickCreateDrawer';
+import {
+  getLastFsmActorByTicket,
+  type LastFsmActorKind,
+} from '@/lib/tickets/service';
+import { ticketNeedsOperator } from '@/lib/tickets/handoff';
+import type { WorkflowState } from '@/lib/approvals/fsm';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,9 +47,14 @@ export default async function TicketsPage({
     query: typeof sp.query === 'string' ? sp.query : undefined,
   };
 
-  const [rawWorkspaces, tickets] = await Promise.all([
+  const [rawWorkspaces, tickets, lastFsmActor] = await Promise.all([
     safeListWorkspaces(),
     safeProjectTickets(filters.workspaceId),
+    // "braucht dich" marker source — last FSM actor per ticket (single query,
+    // no N+1). Fail-soft: an empty map just means no markers.
+    getLastFsmActorByTicket(filters.workspaceId).catch(
+      () => new Map<string, LastFsmActorKind>(),
+    ),
   ]);
   const workspaces = rawWorkspaces;
   const filtered = applyFilters(tickets, filters);
@@ -114,6 +125,10 @@ export default async function TicketsPage({
                   workspaceAccent={
                     workspaces.find((w) => w.id === t.segmentId)?.accent ?? 'own'
                   }
+                  needsOperator={ticketNeedsOperator(
+                    t.workflowState as WorkflowState | undefined,
+                    lastFsmActor.get(t.id) ?? null,
+                  )}
                 />
               ))}
             </ul>
@@ -137,10 +152,13 @@ function TicketRow({
   ticket,
   workspaceLabel,
   workspaceAccent,
+  needsOperator = false,
 }: {
   ticket: TicketProjection;
   workspaceLabel: string;
   workspaceAccent: WorkspaceAccent;
+  /** SP-11: agent left this in review/executed and is waiting on the operator. */
+  needsOperator?: boolean;
 }) {
   return (
     <li>
@@ -159,8 +177,12 @@ function TicketRow({
             gap: 12,
             padding: '14px 16px 14px 14px',
             borderRadius: 14,
-            border: '0.5px solid var(--line-2)',
-            background: 'var(--sheet-2)',
+            border: needsOperator
+              ? '0.5px solid color-mix(in oklab, var(--a-warn) 45%, var(--line-2))'
+              : '0.5px solid var(--line-2)',
+            background: needsOperator
+              ? 'color-mix(in oklab, var(--a-warn) 6%, var(--sheet-2))'
+              : 'var(--sheet-2)',
             position: 'relative',
             overflow: 'hidden',
           }}
@@ -191,20 +213,24 @@ function TicketRow({
           </div>
 
           <div style={{ minWidth: 0 }}>
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 15,
-                fontWeight: 500,
-                color: 'var(--ink)',
-                letterSpacing: '-0.005em',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {ticket.title}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  fontWeight: 500,
+                  color: 'var(--ink)',
+                  letterSpacing: '-0.005em',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0,
+                }}
+              >
+                {ticket.title}
+              </h3>
+              {needsOperator ? <NeedsYouPill /> : null}
+            </div>
             <div
               style={{
                 marginTop: 4,
@@ -246,6 +272,47 @@ function TicketRow({
         </article>
       </Link>
     </li>
+  );
+}
+
+/**
+ * Sparing "braucht dich" marker — only shown when an agent left the ticket in
+ * review/executed and is waiting on the operator (SP-11 §3). Deliberately one
+ * small pill (not a loud banner) so the list stays scannable; uses the warm
+ * user-attention accent (--a-warn), matching the detail-page handoff banner.
+ */
+function NeedsYouPill() {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 7px',
+        borderRadius: 999,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 9,
+        fontWeight: 600,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        color: 'var(--a-warn)',
+        background: 'color-mix(in oklab, var(--a-warn) 14%, transparent)',
+        border: '0.5px solid color-mix(in oklab, var(--a-warn) 45%, transparent)',
+      }}
+      title="Ein Agent wartet auf dich"
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 4,
+          height: 4,
+          borderRadius: 999,
+          background: 'var(--a-warn)',
+        }}
+      />
+      braucht dich
+    </span>
   );
 }
 

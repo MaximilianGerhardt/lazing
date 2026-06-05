@@ -28,6 +28,8 @@ import Link from "next/link";
 
 import { usePushSubscription } from "@/lib/pwa/usePushSubscription";
 import { SystemPermissionsCard } from "@/lib/permissions/SystemPermissionsCard";
+import { PushSettingsSection } from "@/lib/nav/PushSettingsSection";
+import { LocaleSwitcher } from "@/lib/nav/LocaleSwitcher";
 
 // ─── Types (mirror page.tsx prop-shape) ─────────────────────────────────
 
@@ -183,17 +185,11 @@ export default function SettingsHubClient({
   }, []);
 
   // ─── Push section state (browser only) ───────────────────────────
+  // `sub` drives only the section-status pill + the test-push gate here; the
+  // master/per-rule toggles live in the embedded PushSettingsSection (SP-6).
   const sub = usePushSubscription({ vapidPublicKey: push.vapidPublicKey });
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
-
-  const togglePush = useCallback(async () => {
-    if (sub.state === "subscribed") {
-      await sub.unsubscribe();
-    } else if (sub.state === "idle" || sub.state === "error") {
-      await sub.subscribe();
-    }
-  }, [sub]);
 
   const sendTestPush = useCallback(async () => {
     setSendingTest(true);
@@ -399,6 +395,11 @@ export default function SettingsHubClient({
               {signingOut ? "Melde ab …" : "Abmelden"}
             </button>
           </div>
+          {/* SP-6: the LocaleSwitcher moved out of the MobileDrawer into
+              Settings — language is an account-level preference. */}
+          <div className="settings-hub-locale">
+            <LocaleSwitcher />
+          </div>
         </SectionCard>
 
         {/* System permissions — permission broker (OSS requests rights itself) */}
@@ -549,30 +550,15 @@ export default function SettingsHubClient({
                 : "Aktiviere Push, um Tickets, Approvals und Worker-Errors live zu sehen."}
             </p>
           )}
+          {/* SP-6 (2026-06-05): the per-rule push toggles moved OUT of the
+              MobileDrawer into Settings. Reuses lib/nav/PushSettingsSection,
+              which renders the master switch + the per-rule granularity (P0
+              tickets, approvals, workspace-stale, …). It self-loads the rules
+              once subscribed; it is harmless when VAPID is missing. */}
+          {push.vapidPublicKey ? (
+            <PushSettingsSection vapidPublicKey={push.vapidPublicKey} />
+          ) : null}
           <div className="settings-hub-actions">
-            <button
-              type="button"
-              onClick={togglePush}
-              disabled={
-                !push.vapidPublicKey ||
-                sub.state === "unsupported" ||
-                sub.state === "denied" ||
-                sub.state === "working" ||
-                sub.state === "loading"
-              }
-              data-testid="settings-push-toggle"
-              className={`settings-hub-btn ${
-                sub.state === "subscribed"
-                  ? "settings-hub-btn--ghost"
-                  : "settings-hub-btn--primary"
-              }`}
-            >
-              {sub.state === "subscribed"
-                ? "Push deaktivieren"
-                : sub.state === "working"
-                  ? "Schalte um …"
-                  : "Push aktivieren"}
-            </button>
             {sub.state === "subscribed" && (
               <button
                 type="button"

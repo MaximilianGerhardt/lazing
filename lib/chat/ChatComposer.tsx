@@ -28,7 +28,8 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { IconArrowUp, IconMic, IconMicActive, IconPaperclip } from './icons';
+import { IconArrowUp, IconMic, IconMicActive } from './icons';
+import { ComposerPlusMenu, type ComposerPlusPick } from './ComposerPlusMenu';
 import type { ChatSuggestion } from './useChatSuggestions';
 import { useDraftPersistence } from './draft';
 import { useHaptic } from '@/lib/hooks/useHaptic';
@@ -99,6 +100,11 @@ export interface ChatComposerProps {
   queueLength?: number;
 }
 
+// SP-7: the general document-picker accept list (Foto temporarily narrows to
+// image/* on top of this). Kept in sync with the camera input below.
+const FILE_INPUT_ACCEPT =
+  'image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,.zip';
+
 export function ChatComposer({
   value,
   onChange,
@@ -126,7 +132,13 @@ export function ChatComposer({
   // UX-1 (2026-05-26): auto-grow `<textarea>` instead of single-line `<input>`.
   // Grows up to ~7 lines, then internal scroll, shrinks back on delete.
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // SP-7: three hidden inputs behind the „+" menu.
+  //   - fileInputRef: documents (image/* + office/pdf/text) → „Dokument" / „Foto".
+  //   - cameraInputRef: capture="environment" → „Kamera" (coarse pointers only).
+  // Foto and Dokument both target the general file picker; Foto pre-narrows to
+  // images via a one-shot accept swap so the OS shows the photo library first.
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const hasSuggestions = suggestions.length > 0;
   const [isDragOver, setIsDragOver] = useState(false);
   // Wave 5 (2026-05-01): native iOS haptic on the send button.
@@ -172,6 +184,23 @@ export function ChatComposer({
     },
     [onUploadFiles],
   );
+
+  // SP-7: the „+" menu rows route here. Each kind clicks the matching hidden
+  // input — the selected files then flow through the EXISTING onUploadFiles
+  // chain (useChatCloudUpload → StagedAttachmentsBar → attachment-message).
+  // „Foto" narrows the general file input to image/* for this one open so the
+  // OS surfaces the photo library; the accept is restored on change/cancel.
+  const handlePlusPick = useCallback((kind: ComposerPlusPick) => {
+    if (kind === 'camera') {
+      cameraInputRef.current?.click();
+      return;
+    }
+    const el = fileInputRef.current;
+    if (!el) return;
+    if (kind === 'photo') el.setAttribute('accept', 'image/*');
+    else el.setAttribute('accept', FILE_INPUT_ACCEPT);
+    el.click();
+  }, []);
 
   // Phase Reload-Recovery V2 · 2026-04-27.
   // Draft persistence per workspace. The hook is a no-op when workspaceId
@@ -410,6 +439,47 @@ export function ChatComposer({
         }
         role="presentation"
       >
+        {/* SP-7: hidden inputs — driven by the „+" menu (and kept here so the
+            existing upload chain via onUploadFiles is untouched). The general
+            document input + a dedicated capture-camera input. */}
+        {onUploadFiles ? (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={FILE_INPUT_ACCEPT}
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                  // Restore the general accept after a one-shot „Foto" narrow.
+                  fileInputRef.current.setAttribute('accept', FILE_INPUT_ACCEPT);
+                }
+              }}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                if (cameraInputRef.current) cameraInputRef.current.value = '';
+              }}
+            />
+          </>
+        ) : null}
+
+        {/* SP-7: the single „+" affordance at the LEFT of the row. Opens the
+            Apple-style attachment menu (Foto / Dokument / Kamera). Replaces the
+            old right-side paperclip. */}
+        {onUploadFiles ? (
+          <ComposerPlusMenu onPick={handlePlusPick} uploading={uploading} />
+        ) : null}
+
         <div className="lazyos-composer__field">
           {/* UX-1 (2026-05-26): auto-grow textarea (rows=1, up to 7 lines).
               Enter=submit (handleKeyDown), Shift+Enter=newline (falls through,
@@ -441,49 +511,6 @@ export function ChatComposer({
         </div>
 
         <div className="lazyos-composer__actions">
-          {onUploadFiles ? (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,.zip"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  handleFiles(e.target.files);
-                  if (fileInputRef.current) fileInputRef.current.value = '';
-                }}
-              />
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (uploading) return;
-                  fileInputRef.current?.click();
-                }}
-                aria-label={uploading ? 'Lade hoch' : 'Datei anhängen'}
-                aria-busy={uploading}
-                title={uploading ? 'Lade hoch …' : 'Datei anhängen'}
-                disabled={uploading}
-                className="lazyos-composer__upload"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: 44,
-                  minHeight: 44,
-                }}
-              >
-                <IconPaperclip size={18} />
-              </button>
-            </>
-          ) : null}
-
           <button
             type="button"
             onMouseDown={(e) => {

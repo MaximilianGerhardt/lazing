@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { TOP_LINKS } from './links';
 import { useCurrentWorkspace, useMobileDrawer } from './hooks';
-import { MobileDrawer } from './MobileDrawer';
+import { isTopNavHidden } from './topnav-visibility';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { IconHamburger } from './icons';
 import { TerminalModal } from '@/lib/terminal/TerminalModal';
@@ -49,7 +49,11 @@ import { AccountAvatar } from './AccountAvatar';
  */
 export function TopNav(): React.JSX.Element {
   const pathname = usePathname() ?? '/';
-  const drawer = useMobileDrawer();
+  // SP-5: mirror-only instance (the drawer is rendered by ScopeTabs). It tracks
+  // open/closed via the shared events for aria-expanded, but must NOT manage
+  // the body-scroll lock — that single owner is ScopeTabs (avoids a restore
+  // race that could leave the body scroll-locked).
+  const drawer = useMobileDrawer({ ownsLock: false });
   const navRef = useRef<HTMLElement>(null);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const currentWorkspace = useCurrentWorkspace();
@@ -99,25 +103,9 @@ export function TopNav(): React.JSX.Element {
   // there's a confusion risk with the chat workspace.
   // 2026-05-23 — remove the top bar in the OSS onboarding wizard (Jobs/Rams: one
   // primary task per screen, no chrome outside the 5-step journey).
-  const HIDE_TOPNAV_PATHS = [
-    '/design',
-    '/how',
-    '/innovate',
-    '/oss-onboarding',
-    '/onboarding',
-    '/login',
-    // External sub-chat page (gathering intelligence, 2026-06-02): customers
-    // without an account must NOT see any app chrome (org/workspace switcher) —
-    // standalone fullscreen chat.
-    '/c',
-  ];
-  const hideTopNav =
-    HIDE_TOPNAV_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/')) ||
-    // Sub-chat views (internal as well as external) are fullscreen-standalone with their own
-    // header (gathering intelligence, 2026-06-02). Hide the TopNav here — otherwise
-    // the OrgSwitcher mounts, whose org normalization on /workspaces/[id]/*
-    // triggers a hard redirect to the chat and leaves the page.
-    /\/subchats(?:\/|$)/.test(pathname);
+  // Path list + sub-chat rule live in `topnav-visibility.ts` (shared with
+  // ScopeTabs, so the bottom bar knows when IT must own the drawer mount).
+  const hideTopNav = isTopNavHidden(pathname);
   if (hideTopNav) {
     if (typeof document !== 'undefined') {
       document.documentElement.style.setProperty('--topnav-h', '0px');
@@ -129,11 +117,23 @@ export function TopNav(): React.JSX.Element {
     <>
       <nav ref={navRef} className="topnav" aria-label="Primär-Navigation">
         <div className="topnav-inner">
-          {/* ---------- MOBILE: hamburger trigger ---------- */}
+          {/* ---------- MOBILE: hamburger trigger ----------
+              SP-5 (2026-06-05): the drawer is now mounted ONCE in the global
+              bottom bar (ScopeTabs), so the hamburger only DISPATCHES the
+              open/close events. `drawer.open` here mirrors the one true drawer
+              state via the 'lazyos:drawer:open'/'…:close' listeners in
+              useMobileDrawer — so aria-expanded stays accurate. */}
           <button
             type="button"
             className="topnav-hamburger"
-            onClick={drawer.toggle}
+            onClick={() => {
+              if (typeof window === 'undefined') return;
+              window.dispatchEvent(
+                new Event(
+                  drawer.open ? 'lazyos:drawer:close' : 'lazyos:drawer:open',
+                ),
+              );
+            }}
             aria-label="Menü öffnen"
             aria-expanded={drawer.open}
             aria-controls="topnav-drawer"
@@ -208,7 +208,8 @@ export function TopNav(): React.JSX.Element {
         </div>
       </nav>
 
-      <MobileDrawer open={drawer.open} onClose={() => drawer.setOpen(false)} />
+      {/* MobileDrawer mount moved to ScopeTabs (SP-5) — one drawer globally,
+          reachable on /subchats/* where TopNav returns null. */}
 
       {terminalOpen ? (
         <TerminalModal

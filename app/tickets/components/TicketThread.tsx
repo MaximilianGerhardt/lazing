@@ -67,6 +67,13 @@ function CommentEntry({ ev }: { ev: LazyEvent }) {
   const text = typeof ev.payload?.text === 'string' ? ev.payload.text : '';
   const actor = ev.actor ?? 'system';
   const { label: actorLabel, avatar, accent } = actorMeta(actor);
+  // SP-11: intent/target ride in the existing `commented` payload (free JSON).
+  const intent =
+    ev.payload?.intent === 'instruction' || ev.payload?.intent === 'question'
+      ? ev.payload.intent
+      : null;
+  const target =
+    typeof ev.payload?.target === 'string' ? ev.payload.target : null;
 
   return (
     <li style={commentItemStyle}>
@@ -81,6 +88,7 @@ function CommentEntry({ ev }: { ev: LazyEvent }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={bubbleHeaderStyle}>
           <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{actorLabel}</span>
+          {intent ? <IntentBadge intent={intent} target={target} /> : null}
           <span style={timestampStyle}>{formatTime(ev.createdAt)}</span>
         </div>
         <div style={bubbleStyle}>
@@ -88,6 +96,44 @@ function CommentEntry({ ev }: { ev: LazyEvent }) {
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * SP-11: shows whether a comment is an "Anweisung" (instruction) or "Frage"
+ * (question) — the handoff signal carried in the `commented` payload. A plain
+ * note renders no badge (default). Optionally names the handoff target.
+ */
+function IntentBadge({
+  intent,
+  target,
+}: {
+  intent: 'instruction' | 'question';
+  target: string | null;
+}) {
+  const isInstruction = intent === 'instruction';
+  const accent = isInstruction ? 'var(--a-now)' : 'var(--a-warn)';
+  const label = isInstruction ? 'Anweisung' : 'Frage';
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '1px 7px',
+        borderRadius: 999,
+        fontSize: 10,
+        fontFamily: 'var(--font-mono)',
+        fontWeight: 600,
+        letterSpacing: '0.04em',
+        color: accent,
+        background: `color-mix(in oklab, ${accent} 14%, transparent)`,
+        border: `0.5px solid color-mix(in oklab, ${accent} 40%, transparent)`,
+      }}
+    >
+      {label}
+      {target ? <span style={{ opacity: 0.7 }}>→ @{target}</span> : null}
+    </span>
   );
 }
 
@@ -137,25 +183,37 @@ function renderInlineExtra(ev: LazyEvent): ReactNode {
 
 function CommentBody({ text }: { text: string }) {
   if (!text) return null;
-  // 2026-04-26 fix: previously pre-wrap raw — tier-spawn outputs are Markdown
-  // (## headlines, lists, ```code blocks, **bold**), which looked like a wall of
-  // text. Now rendered through markdown-mini. Mentions are pre-processed via
-  // mark-replace so they don't get lost through the Markdown parser.
-  // Pragmatic: mentions come through as `@max` inline code, less fancy
-  // than the old pills, but easier to read.
-  const escaped = text.replace(/(@(?:agent:[a-z0-9_-]+|max|chairman|claude|codex))/gi, '`$1`');
+  // SP-11: @mentions are the human↔agent handoff channel — render them as pills
+  // (reactivating MentionPill + parseMentions), not escaped inline code. We
+  // split the body on mention tokens; non-mention segments keep full Markdown
+  // (## headlines, lists, ```code, **bold**) via markdown-mini, mention tokens
+  // become pills. (Block-level Markdown across a mention boundary is rare in
+  // conversational notes; legible mentions win — task SP-11 §6.)
+  const parts = parseMentions(text);
+  // Fast path: no mentions ⇒ single Markdown render (unchanged behaviour).
+  if (parts.every((p) => p.kind === 'text')) {
+    return (
+      <div style={commentBodyStyle}>{renderMarkdown(text, 'cmt')}</div>
+    );
+  }
   return (
-    <div
-      style={{
-        fontSize: 14,
-        lineHeight: 1.55,
-        color: 'var(--ink)',
-      }}
-    >
-      {renderMarkdown(escaped, 'cmt')}
+    <div style={commentBodyStyle}>
+      {parts.map((part, i) =>
+        part.kind === 'mention' ? (
+          <MentionPill key={`m-${i}`} raw={part.text} />
+        ) : (
+          <span key={`t-${i}`}>{renderMarkdown(part.text, `cmt-${i}`)}</span>
+        ),
+      )}
     </div>
   );
 }
+
+const commentBodyStyle: CSSProperties = {
+  fontSize: 14,
+  lineHeight: 1.55,
+  color: 'var(--ink)',
+};
 
 function MentionPill({ raw }: { raw: string }) {
   const accent = raw.startsWith('@agent:')

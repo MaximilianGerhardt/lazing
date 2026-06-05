@@ -36,8 +36,7 @@ import { MilestoneCard } from './MilestoneCard';
 import { LiveWorkflowSurface } from './LiveWorkflowSurface';
 import { CredentialPromptCard } from './CredentialPromptCard';
 import { FormPromptCard, type FormSchema } from './FormPromptCard';
-import { OpenQuestionsSurface } from './OpenQuestionsSurface';
-import { ChatInlineOpenQuestions } from './ChatInlineOpenQuestions';
+import { OpenQuestionsInlineRef } from './ChatInlineOpenQuestions';
 import { BugFixSwarmCard } from './BugFixSwarmCard';
 import { LoopPhaseCard, type LoopPhaseKind } from './LoopPhaseCard';
 import { IterateRoastCard } from './IterateRoastCard';
@@ -2049,16 +2048,17 @@ function renderFolder(data: unknown): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// open-questions — Sub-Plan D (2026-04-30). QuickChoice buttons in the chat.
+// open-questions — Sub-Plan D (2026-04-30). Pointer to the bottom answer pill.
 // ---------------------------------------------------------------------------
-// 2026-05-25 bug-fix UX1: now renders ChatInlineOpenQuestions (stepper) instead of
-// OpenQuestionsSurface. The old variant immediately sent every answer click as a
-// separate chat turn via /inject. The stepper holds all answers
-// locally (answers/drafts) and sends ONCE with reply() when the user clicks "Antworten
-// absenden". workstreamId is not required for the stepper —
-// reply() in the SurfaceActionContext handles the final send.
-// OpenQuestionsSurface remains for the workspace mode (workspaceId polling path)
-// as an alternate path; the workspace mode has no active in-chat call sites.
+// SP-8 (2026-06): UNIFIED to ONE answer surface. A `<surface:open-questions>`
+// tag in the stream used to mount the INTERACTIVE in-bubble stepper
+// (ChatInlineOpenQuestions) — a second, competing reply() path that broke with
+// the design (box-in-box, double-send risk). It now renders the SAME compact,
+// NON-interactive `OpenQuestionsInlineRef` pointer that the `## Offene Fragen`
+// markdown section already uses (surface-text-render.tsx). The single answer
+// surface is the bottom pill (ChatOpenQuestionsPill via ActionDeck) — one
+// reply() path, no in-feed stepper. We still parse the payload here so an
+// empty/invalid set renders nothing (null) and the count is exact.
 
 function renderOpenQuestions(data: unknown): ReactNode {
   if (!isObject(data)) return null;
@@ -2070,22 +2070,11 @@ function renderOpenQuestions(data: unknown): ReactNode {
       const id = str(q.id) ?? '';
       // The surface payload uses `q` as the field name; PlanQuestion expects `text`.
       const text = str(q.q) ?? str(q.text) ?? '';
-      const options = Array.isArray(q.options)
-        ? q.options
-            .filter((o): o is string => typeof o === 'string')
-            .map((o) => o.trim())
-            .filter((o) => o.length > 0)
-            .slice(0, 5)
-        : undefined;
-      return {
-        id,
-        text,
-        options: options && options.length > 0 ? options : undefined,
-      };
+      return { id, text };
     })
     .filter((q) => q.id.length > 0 && q.text.length > 0);
   if (questions.length === 0) return null;
-  return <ChatInlineOpenQuestions questions={questions} />;
+  return <OpenQuestionsInlineRef count={questions.length} />;
 }
 
 // ---------------------------------------------------------------------------

@@ -134,14 +134,27 @@ export const ListTicketsQuerySchema = z
 
 export type ListTicketsQuery = z.infer<typeof ListTicketsQuerySchema>;
 
+/**
+ * Note/instruction intent (SP-11): comments are reframed as actionable
+ * "Anmerkung / Anweisung". The optional `intent` rides in the existing
+ * `commented` event payload (free JSON) — NO new event type. `target`
+ * optionally names a handoff recipient (e.g. an @mentioned agent/user).
+ */
+export const CommentIntentSchema = z.enum(["note", "instruction", "question"]);
+
 export const CommentBodySchema = z
   .object({
     text: z.string().min(1, "text required").max(4000),
     actor: ActorSchema.optional(),
+    /** Lightweight comment classification — note · instruction · question. */
+    intent: CommentIntentSchema.optional(),
+    /** Optional handoff target (e.g. "agent:senior-dev", "max"). */
+    target: z.string().min(1).max(80).optional(),
   })
   .strict();
 
 export type CommentBody = z.infer<typeof CommentBodySchema>;
+export type CommentIntent = z.infer<typeof CommentIntentSchema>;
 
 // ---------------------------------------------------------------------------
 // Helpers

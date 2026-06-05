@@ -155,6 +155,34 @@ export function IconPaperclip({ size = 18, className }: IconProps): JSX.Element 
   );
 }
 
+export function IconPlus({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg width={size} height={size} className={className} {...BASE_PROPS}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+export function IconImage({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg width={size} height={size} className={className} {...BASE_PROPS}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="M21 16l-5-5-6 6" />
+    </svg>
+  );
+}
+
+export function IconCamera({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg width={size} height={size} className={className} {...BASE_PROPS}>
+      <path d="M4 8a2 2 0 0 1 2-2h1.5l1-2h5l1 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+
 export function IconArrowUp({ size = 16, className }: IconProps): JSX.Element {
   // Apple-Messages-style send-arrow: clean, rounded.
   return (

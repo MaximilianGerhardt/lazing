@@ -281,7 +281,7 @@ export const FEATURE_CATALOG: readonly Feature[] = [
       'Sniper-Pause: User-Correction-Inject während Iteration ohne Surface-Spam.',
     ],
     refs: [
-      { label: 'OpenQuestionsSurface', path: 'lib/chat/OpenQuestionsSurface.tsx' },
+      { label: 'OpenQuestionsInlineRef', path: 'lib/chat/ChatInlineOpenQuestions.tsx' },
       { label: 'ChatOpenQuestionsPill', path: 'lib/chat/ChatOpenQuestionsPill.tsx' },
       { label: 'PlanOpenQuestionsCard', path: 'lib/chat/PlanOpenQuestionsCard.tsx' },
       { label: 'lifecycle', path: 'lib/chat/open-questions-lifecycle.ts' },

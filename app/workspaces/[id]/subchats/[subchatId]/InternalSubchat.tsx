@@ -356,6 +356,23 @@ export function InternalSubchat({
         </a>
         <div style={s.headerTitle}>{title}</div>
         <div style={s.headerSub}>Team-Sicht</div>
+        {/* SP-5: menu access INSIDE the sub-chat — opens the global sandwich
+            drawer (the TopNav is null here), killing the old
+            "back → list → back" detour to reach navigation. */}
+        <button
+          type="button"
+          style={subchatMenuBtn}
+          aria-label="Menü öffnen"
+          aria-haspopup="dialog"
+          aria-controls="topnav-drawer"
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('lazyos:drawer:open'));
+            }
+          }}
+        >
+          <IconMenu />
+        </button>
       </header>
 
       {/* D2 (2026-06-03): clear channel hint — subchats are customer↔team
@@ -396,6 +413,10 @@ export function InternalSubchat({
       <SubchatComposer
         placeholder="Antwort an den Kunden"
         busy={busy}
+        // SP-5: the global bottom tab bar overlays the composer on
+        // /subchats/* — raise the bottom inset to clear it (CSS honors
+        // body.kb-open so the keyboard does not double-inset).
+        wrapClassName="subchat-composer--with-tabbar"
         topSlot={
           <>
             <SubchatQuestionsPill
@@ -428,6 +449,48 @@ export function InternalSubchat({
     </div>
   );
 }
+
+/**
+ * SP-5 menu glyph — three stacked lines (overflow/menu), 1.6 stroke,
+ * currentColor, no emoji. Local to the internal sub-chat header (the shared
+ * subchat icon set uses 1.8 stroke; this honors the Phase 2 1.6 directive).
+ */
+function IconMenu(): React.JSX.Element {
+  return (
+    <svg
+      width={22}
+      height={22}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable={false}
+    >
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
+const subchatMenuBtn: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 44,
+  height: 44,
+  marginRight: -12,
+  borderRadius: 999,
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--ink-2)',
+  cursor: 'pointer',
+  padding: 0,
+  flexShrink: 0,
+};
 
 const suggestRow: CSSProperties = {
   display: 'flex',

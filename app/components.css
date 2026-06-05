@@ -6486,6 +6486,189 @@ body.segment-private .topnav-brand-mark {
   flex-shrink: 0;
 }
 
+/* SP-7: the „+" attachment trigger at the LEFT of the row. Cloned from
+   .lazyos-composer__mic (same 40×40 ghost button, same press/focus feel) so it
+   reads as part of the same control family. The glyph rotates 45°→× when the
+   menu opens (motion conveys the open/close cause-effect; HIG). */
+.lazyos-composer__plus {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  border-radius: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-self: flex-end;
+  transition:
+    background var(--dur-quick) var(--spring-precise),
+    color var(--dur-quick) var(--spring-precise),
+    transform var(--dur-instant) var(--spring-precise);
+  -webkit-tap-highlight-color: transparent;
+}
+.lazyos-composer__plus:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+.lazyos-composer__plus:active {
+  transform: scale(var(--press-scale));
+}
+.lazyos-composer__plus:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--a-now) 50%, transparent);
+  outline-offset: 2px;
+}
+.lazyos-composer__plus[data-open='true'] {
+  color: var(--ink);
+  background: var(--line);
+}
+.lazyos-composer__plus-glyph {
+  display: inline-flex;
+  transition: transform var(--dur-base) var(--spring-snappy);
+}
+.lazyos-composer__plus[data-open='true'] .lazyos-composer__plus-glyph {
+  transform: rotate(45deg);
+}
+
+/* ---- SP-7: desktop popover (opens UPWARD, cloned from the suggestion
+   dropdown's blurred sheet language). --------------------------------------- */
+.composer-plus-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 6px;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--sheet-2) 96%, transparent);
+  border: 0.5px solid var(--line-2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: composer-plus-pop var(--dur-quick) var(--spring-snappy) both;
+  transform-origin: bottom left;
+}
+@keyframes composer-plus-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---- SP-7: shared menu rows (popover + sheet). --------------------------- */
+.composer-plus-row {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  transition: background var(--dur-quick) var(--spring-precise);
+  -webkit-tap-highlight-color: transparent;
+}
+.composer-plus-row:hover,
+.composer-plus-row:focus-visible {
+  background: color-mix(in oklab, var(--a-now) 10%, transparent);
+  outline: none;
+}
+.composer-plus-row:focus-visible {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--a-now) 45%, transparent);
+}
+.composer-plus-row:disabled {
+  opacity: 0.45;
+  cursor: progress;
+}
+.composer-plus-row-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ink-2);
+}
+.composer-plus-row:hover .composer-plus-row-glyph,
+.composer-plus-row:focus-visible .composer-plus-row-glyph {
+  color: var(--a-now);
+}
+.composer-plus-row-label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- SP-7: mobile bottom sheet + scrim. --------------------------------- */
+.composer-plus-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  animation: composer-plus-scrim-in var(--dur-quick) var(--spring-precise) both;
+}
+@keyframes composer-plus-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.composer-plus-sheet {
+  width: 100%;
+  background: var(--sheet-2);
+  border-top: 0.5px solid var(--line-2);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 8px 12px calc(12px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+  animation: composer-plus-sheet-in var(--dur-base) var(--spring-smooth) both;
+}
+@keyframes composer-plus-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.composer-plus-grab {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--line-2);
+  margin: 6px auto 10px;
+  flex-shrink: 0;
+}
+.composer-plus-sheet .composer-plus-row {
+  min-height: 48px;
+  font-size: 16px;
+}
+
 .lazyos-composer__mic {
   width: 40px;
   height: 40px;
@@ -6595,6 +6778,7 @@ body.segment-private .topnav-brand-mark {
   .lazyos-composer__shell--listening {
     border-color: color-mix(in oklab, var(--a-now) 65%, var(--line-2));
   }
+  .lazyos-composer__plus,
   .lazyos-composer__mic,
   .lazyos-composer__send {
     width: 44px;
@@ -7269,336 +7453,11 @@ body.segment-private .topnav-brand-mark {
   }
 }
 
-/* ===== OpenQuestionsSurface — Sub-Plan 02 ===== */
-.open-q {
-  position: sticky;
-  top: 90px;
-  z-index: 4;
-  margin: 8px 12px 0;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 0.5px solid var(--a-now);
-  background: color-mix(in oklab, var(--a-now) 8%, var(--sheet-2) 92%);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 2px 12px color-mix(in oklab, var(--a-now) 24%, transparent);
-}
-.open-q-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.open-q-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--a-now);
-}
-.open-q-collapse-btn {
-  margin-left: auto;
-  appearance: none;
-  background: transparent;
-  border: none;
-  color: var(--ink-3);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-}
-.open-q-body {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-}
-.open-q-text {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 1.45;
-  color: var(--ink);
-  padding: 6px 0;
-}
-.open-q-answered {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--a-now);
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 0.5px solid var(--a-now);
-}
-.open-q-chev {
-  appearance: none;
-  width: 32px;
-  border-radius: 8px;
-  border: 0.5px solid var(--line-2);
-  background: transparent;
-  color: var(--ink-2);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  transition: border-color 160ms, color 160ms;
-}
-.open-q-chev:hover:not(:disabled),
-.open-q-chev:focus-visible:not(:disabled) {
-  color: var(--ink);
-  border-color: var(--ink-3);
-}
-.open-q-chev:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-.open-q-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-.open-q-textarea {
-  flex: 1;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 0.5px solid var(--line-2);
-  background: var(--sheet-2);
-  color: var(--ink);
-  resize: vertical;
-  min-height: 38px;
-  max-height: 200px;
-}
-.open-q-textarea:focus {
-  outline: none;
-  border-color: var(--a-now);
-}
-.open-q-submit {
-  appearance: none;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: 0.5px solid var(--a-now);
-  background: color-mix(in oklab, var(--a-now) 22%, transparent);
-  color: var(--ink);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background var(--dur-quick) var(--spring-snappy);
-}
-.open-q-submit:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--a-now) 32%, transparent);
-}
-.open-q-submit:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.open-q-error {
-  font-size: 12px;
-  color: var(--a-warn, #d97706);
-  font-family: var(--font-mono);
-}
-.open-q-success {
-  font-size: 12px;
-  color: var(--a-now);
-  font-family: var(--font-mono);
-}
-.open-q-collapsed {
-  display: flex;
-  justify-content: center;
-  margin: 8px 0 0;
-}
-.open-q-collapsed-btn {
-  appearance: none;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 0.5px solid var(--a-now);
-  background: color-mix(in oklab, var(--a-now) 14%, transparent);
-  color: var(--ink);
-  cursor: pointer;
-}
-@media (max-width: 540px) {
-  .open-q {
-    margin: 6px 8px 0;
-    padding: 10px 12px;
-  }
-}
-
-/* Chat-Inline Open-Questions (2026-05-23) — klickbare „Offene Fragen"
-   direkt in der Assistant-Bubble. Anders als .open-q NICHT sticky: lebt
-   inline im Message-Flow. Klick spielt via SurfaceAction.reply() zurück. */
-.open-q-inline {
-  margin: 10px 0 2px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 0.5px solid var(--a-now);
-  background: color-mix(in oklab, var(--a-now) 7%, var(--sheet-2) 93%);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.open-q-inline-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--a-now);
-}
-.open-q-inline-q {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.open-q-inline-text {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 1.45;
-  color: var(--ink);
-}
-/* Inline darf die volle Bubble-Breite nutzen (Surface-QuickChoice cappt
-   sonst bei 480px). Optionen wrappen im 3-Spalten-Grid. */
-.open-q-inline .qc {
-  max-width: none;
-}
-
-/* ------------------------------------------------------------------
-   Stepper-Erweiterung (2026-05-23, v2) — CODEX-artiger One-at-a-time
-   Stepper für ChatInlineOpenQuestions. Neue Klassen:
-     open-q-stepper-header    — Kopfzeile: Label + Fortschritt
-     open-q-stepper-progress  — „n / total"-Badge
-     open-q-stepper-opts      — Options-Grid (eigene Buttons, da
-                                 QuickChoice kein selected-Konzept hat)
-     open-q-opt               — einzelner Options-Button
-     open-q-opt--sel          — ausgewählt (aria-pressed=true), noch
-                                 kein Submit
-     open-q-stepper-footer    — Footer-Zeile: Nav + Absenden
-     open-q-stepper-nav       — Vor/Zurück Chevrons
-     open-q-stepper-send-group — Hinweis + Absenden-Button
-     open-q-stepper-hint      — „n Fragen offen" Warnung
-     open-q-stepper-send      — finaler Absenden-Button
-     open-q-inline--done      — Bestätigungs-Zustand nach Submit
-   ------------------------------------------------------------------ */
-
-.open-q-stepper-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.open-q-stepper-progress {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-}
-
-/* Options-Grid: bis 3 Spalten, danach wrappen */
-.open-q-stepper-opts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.open-q-opt {
-  appearance: none;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 0.5px solid var(--line-2);
-  background: transparent;
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: border-color var(--dur-quick) var(--spring-snappy), background var(--dur-quick) var(--spring-snappy), color var(--dur-quick) var(--spring-snappy);
-  line-height: 1.4;
-}
-
-.open-q-opt:hover:not([aria-pressed='true']) {
-  border-color: var(--ink-3);
-  color: var(--ink);
-}
-
-/* Ausgewählter Options-Button (kein Submit, nur Markierung) */
-.open-q-opt--sel,
-.open-q-opt[aria-pressed='true'] {
-  border-color: var(--a-now);
-  background: color-mix(in oklab, var(--a-now) 18%, transparent);
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.open-q-opt--sel:hover,
-.open-q-opt[aria-pressed='true']:hover {
-  background: color-mix(in oklab, var(--a-now) 26%, transparent);
-}
-
-/* Footer: Navigation links, Absenden rechts */
-.open-q-stepper-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.open-q-stepper-nav {
-  display: flex;
-  gap: 4px;
-}
-
-.open-q-stepper-send-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.open-q-stepper-hint {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
-}
-
-/* Finaler Absenden-Button — ähnlich open-q-submit aber prominenter */
-.open-q-stepper-send {
-  appearance: none;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  padding: 6px 16px;
-  border-radius: 8px;
-  border: 0.5px solid var(--a-now);
-  background: color-mix(in oklab, var(--a-now) 22%, transparent);
-  color: var(--ink);
-  cursor: pointer;
-  transition: background 160ms;
-  white-space: nowrap;
-}
-
-.open-q-stepper-send:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--a-now) 34%, transparent);
-}
-
-.open-q-stepper-send:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* Bestätigungs-Zustand nach finalem Submit */
-.open-q-inline--done {
-  opacity: 0.65;
-  pointer-events: none;
-}
+/* SP-8 (2026-06): the `.open-q*` (OpenQuestionsSurface) and
+   `.open-q-inline*` / `.open-q-stepper*` (ChatInlineOpenQuestions stepper)
+   blocks were removed together with their components. The single answer
+   surface is the bottom Q/A pill (`.oq-pill*`); the stream only shows the
+   non-interactive `.open-q-ref` pointer (defined further below). */
 
 /* ==========================================================
    UX-1 (2026-05-26) — Q/A-Pill ÜBER dem Composer (Bottom-Action-UX).
@@ -10337,6 +10196,14 @@ button:active,
   gap: 10px;
 }
 
+/* SP-6 (2026-06-05): LocaleSwitcher relocated from the MobileDrawer into the
+ * Settings Account card — a hairline-separated preference row. */
+.settings-hub-locale {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--line);
+}
+
 /* BUTTONS */
 .settings-hub-btn {
   display: inline-flex;
@@ -10874,6 +10741,34 @@ body.kb-open .lazyos-tabbar {
 @media (min-width: 768px) {
   .page-with-tabbar {
     padding-bottom: 40px;
+  }
+}
+
+/* =========================================================================
+ * Sub-chat composer bottom inset (Phase 2 SP-5, 2026-06-05)
+ * The bottom padding moved out of the inline composerWrap style so it can
+ * react to the global bottom tab bar and the keyboard:
+ *   - base .subchat-composer keeps the safe-area inset (external `/c/*`,
+ *     which has NO bar);
+ *   - .subchat-composer--with-tabbar (internal `/subchats/*`) lifts the
+ *     composer above the fixed 49px tab bar so the bar never covers it;
+ *   - body.kb-open removes the +49px again — the bar slides away
+ *     (translateY 110%) when the keyboard is open, so no double inset.
+ * ========================================================================= */
+.subchat-composer {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.subchat-composer--with-tabbar {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 49px + 8px);
+}
+body.kb-open .subchat-composer--with-tabbar {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+/* Desktop: the bottom bar is hidden (≥768px) → the internal composer needs
+ * no bar offset there either. */
+@media (min-width: 768px) {
+  .subchat-composer--with-tabbar {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 }
 
