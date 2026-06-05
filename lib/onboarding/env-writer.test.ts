@@ -53,6 +53,7 @@ describe("allowlist", () => {
     expect([...WRITABLE_ENV_KEYS]).toEqual([
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
+      "XAI_API_KEY",
       "LAZYOS_PII_VAULT",
       "LAZYOS_PII_NER",
     ]);

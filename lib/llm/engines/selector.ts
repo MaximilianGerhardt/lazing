@@ -16,6 +16,7 @@
 
 import { claudeCli } from './claude-cli';
 import { codexCli } from './codex';
+import { grok } from './grok';
 import { ollama } from './ollama';
 import type {
   ChatEngine,
@@ -24,10 +25,13 @@ import type {
   EngineSelection,
 } from './types';
 
-const ENGINE_ORDER: ChatEngine[] = [claudeCli, codexCli, ollama];
+// Preference/fallback order: MAX-plan claude → paid clouds (codex, grok) → local
+// ollama as the free fallback.
+const ENGINE_ORDER: ChatEngine[] = [claudeCli, codexCli, grok, ollama];
 const ENGINES_BY_ID: Record<EngineId, ChatEngine> = {
   'claude-cli': claudeCli,
   'codex-cli': codexCli,
+  grok,
   ollama,
 };
 

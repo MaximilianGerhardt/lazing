@@ -27,7 +27,7 @@
  * MAX-Plan-OAuth-Pfad ueber claude-cli covert den Use-Case zero-cost.
  */
 
-export type EngineId = 'claude-cli' | 'codex-cli' | 'ollama';
+export type EngineId = 'claude-cli' | 'codex-cli' | 'ollama' | 'grok';
 
 export interface EngineMessage {
   role: 'system' | 'user' | 'assistant';

@@ -19,6 +19,7 @@ export type {
 } from './types';
 export { claudeCli } from './claude-cli';
 export { codexCli } from './codex';
+export { grok } from './grok';
 export { ollama } from './ollama';
 export { clearEngineCache, detectEngines, getEngine, pickEngine } from './selector';
 

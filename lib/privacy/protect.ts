@@ -156,7 +156,7 @@ export function tokenizeStringForExternal(workspaceId: string, text: string): st
 }
 
 /** Cloud engines whose `.chat()` egress must be tokenized; local ollama is exempt. */
-const CLOUD_ENGINE_IDS = new Set<EngineId>(["claude-cli", "codex-cli"]);
+const CLOUD_ENGINE_IDS = new Set<EngineId>(["claude-cli", "codex-cli", "grok"]);
 
 /**
  * Wrap a CLOUD `ChatEngine` so every `.chat()` tokenizes the outbound messages and

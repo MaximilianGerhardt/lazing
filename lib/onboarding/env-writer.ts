@@ -20,6 +20,8 @@ import path from "node:path";
 export const WRITABLE_ENV_KEYS = Object.freeze([
   "OPENAI_API_KEY",
   "ANTHROPIC_API_KEY",
+  // xAI Grok engine key (cloud — egress is tokenized by the PII vault).
+  "XAI_API_KEY",
   // Privacy / PII vault toggles (booleans). Append-only like the keys above.
   "LAZYOS_PII_VAULT",
   "LAZYOS_PII_NER",

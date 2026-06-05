@@ -77,7 +77,7 @@ describe("PII vault — cloud-egress source guard (N6)", () => {
         "tokenizes the task at entry + the diffs before review (C-NEW-1/C-NEW-2)",
       ],
     ]);
-    const cloudDirect = /getEngine\(\s*["']claude-cli["']\s*\)/;
+    const cloudDirect = /getEngine\(\s*["'](?:claude-cli|grok)["']\s*\)/;
 
     const offenders = sourceFiles()
       .filter((f) => {

@@ -34,7 +34,7 @@ import { SystemPermissionsCard } from "@/lib/permissions/SystemPermissionsCard";
 type StatusKind = "ready" | "setup" | "off";
 
 interface EngineProbe {
-  engine: "claude-cli" | "codex-cli" | "ollama";
+  engine: "claude-cli" | "codex-cli" | "ollama" | "grok";
   available: boolean;
   reason: string;
   probeMs?: number;
