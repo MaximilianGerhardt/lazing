@@ -18,8 +18,28 @@
  * helper only acts as a fallback. N6: purely deterministic, no I/O.
  */
 
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+/**
+ * Suggested default main folder when `LAZYOS_PROJECTS_ROOT` is unset. On a Mac
+ * (and any home with a `Documents` folder) this is `~/Documents/lazing` — the
+ * folder onboarding offers to create and operate within; otherwise `~/lazing`.
+ * The onboarding "main folder" step persists the chosen value to
+ * `LAZYOS_PROJECTS_ROOT`, so this is only the first-run suggestion / fallback.
+ */
+export function defaultProjectsRoot(): string {
+  const home = os.homedir();
+  try {
+    if (existsSync(path.join(home, "Documents"))) {
+      return path.join(home, "Documents", "lazing");
+    }
+  } catch {
+    /* fall through */
+  }
+  return path.join(home, "lazing");
+}
 
 /** Default projects root (env-configurable, cross-platform fallback). */
 export function projectsRoot(): string {
@@ -29,7 +49,7 @@ export function projectsRoot(): string {
     // slashes.
     return raw.replace(/\/+$/, "");
   }
-  return path.join(os.homedir(), "lazyos-workspaces");
+  return defaultProjectsRoot();
 }
 
 /**

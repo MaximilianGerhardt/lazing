@@ -1043,6 +1043,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
           <section style={panelStyle} data-test="step-workspace">
             <h1 style={titleStyle}>Where should lazyOS work?</h1>
             <p style={leadStyle}>Give your workspace a name. lazyOS keeps every file, chat, and decision scoped to it.</p>
+            <MainFolderField />
             <div style={fieldGroupStyle}>
               <label style={labelStyle} htmlFor="ws-name">Workspace name</label>
               <input id="ws-name" type="text" value={wsName} onChange={(e) => setWsName(e.target.value)} placeholder="My Workspace" maxLength={120} style={inputStyle} disabled={busy} data-test="ws-name" autoFocus />
@@ -1398,6 +1399,103 @@ function PairPhonePanel(): React.JSX.Element {
         Remote access uses a Cloudflare quick-tunnel (or Tailscale via{" "}
         <code>pnpm public:stable</code>). Nothing is exposed until you start it.
       </p>
+    </div>
+  );
+}
+
+// ---- Main folder (workspace step) ----------------------------------------
+
+function MainFolderField(): React.JSX.Element {
+  const [pathVal, setPathVal] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/onboarding/main-folder", { credentials: "same-origin" });
+        const j = (await res.json().catch(() => null)) as
+          | { current: string | null; suggestion: string }
+          | null;
+        if (alive && j) {
+          setPathVal(j.current ?? j.suggestion);
+          if (j.current) setSaved(j.current);
+        }
+      } catch {
+        /* non-fatal */
+      } finally {
+        if (alive) setLoaded(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const save = useCallback(async (): Promise<void> => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/onboarding/main-folder", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ path: pathVal.trim() }),
+      });
+      const j = (await res.json().catch(() => null)) as { ok?: boolean; path?: string } | null;
+      if (j?.ok && j.path) {
+        setSaved(j.path);
+        setPathVal(j.path);
+      }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setBusy(false);
+    }
+  }, [pathVal]);
+
+  const wrapStyle: React.CSSProperties = {
+    border: "1px solid color-mix(in oklab, var(--ink, #f5f5f5) 10%, transparent)",
+    borderRadius: 10,
+    padding: 14,
+    margin: "4px 0 8px",
+    background: "color-mix(in oklab, #ffffff 2%, transparent)",
+  };
+
+  return (
+    <div style={wrapStyle} data-test="main-folder">
+      <strong style={{ fontSize: 13 }}>Main folder for laz.ing</strong>
+      <p style={{ fontSize: 13, opacity: 0.8, margin: "6px 0 10px" }}>
+        The one folder laz.ing keeps all its work in. New workspaces and repos are
+        created under it. On a Mac, <code>~/Documents/lazing</code> is a good home.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input
+          type="text"
+          value={pathVal}
+          onChange={(e) => setPathVal(e.target.value)}
+          placeholder="~/Documents/lazing"
+          spellCheck={false}
+          style={{ ...inputStyle, flex: 1, minWidth: 220 }}
+          disabled={busy || !loaded}
+          data-test="main-folder-input"
+        />
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={busy || !loaded || pathVal.trim().length === 0}
+          style={{ ...ctaStyle, fontSize: 13, padding: "10px 18px", marginTop: 0 }}
+          data-test="main-folder-save"
+        >
+          {busy ? "Creating…" : saved === pathVal.trim() ? "Saved ✓" : "Create & use"}
+        </button>
+      </div>
+      {saved ? (
+        <p style={{ fontSize: 12, opacity: 0.75, margin: "8px 0 0" }} data-test="main-folder-saved">
+          laz.ing operates in <code>{saved}</code> — created and set as the default.
+        </p>
+      ) : null}
     </div>
   );
 }
