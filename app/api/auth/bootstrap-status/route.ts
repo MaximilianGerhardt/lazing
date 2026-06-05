@@ -21,6 +21,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getDb } from "@/db/client";
+import { isEmailConfigured } from "@/lib/email/send";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,10 @@ export async function GET(req: NextRequest): Promise<Response> {
   const accessCode = process.env.LAZYOS_ACCESS_CODE?.trim();
   const hasCode = Boolean(accessCode && accessCode.length >= 16);
   const localFirstRun = isLoopback(req);
+  // Whether a deliverable mail provider is configured. When false the login UI
+  // hides the magic-link form (it cannot send a mail) and shows email +
+  // password instead.
+  const emailConfigured = isEmailConfigured();
 
   try {
     const db = getDb();
@@ -61,6 +66,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         available: false,
         reason: "founder-exists",
         masterLoginAvailable: hasCode,
+        emailConfigured,
       });
     }
     // No founder yet → first-run bootstrap is available. On localhost it is
@@ -71,6 +77,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         available: true,
         codeless: true,
         masterLoginAvailable: false,
+        emailConfigured,
       });
     }
     if (hasCode) {
@@ -78,10 +85,19 @@ export async function GET(req: NextRequest): Promise<Response> {
         available: true,
         codeless: false,
         masterLoginAvailable: false,
+        emailConfigured,
       });
     }
-    return NextResponse.json({ available: false, reason: "no-access-code" });
+    return NextResponse.json({
+      available: false,
+      reason: "no-access-code",
+      emailConfigured,
+    });
   } catch {
-    return NextResponse.json({ available: false, reason: "db-error" });
+    return NextResponse.json({
+      available: false,
+      reason: "db-error",
+      emailConfigured,
+    });
   }
 }

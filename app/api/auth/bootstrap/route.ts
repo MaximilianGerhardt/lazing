@@ -39,6 +39,11 @@ import {
   DEFAULT_ORG_NAME,
 } from "@/lib/orgs/constants";
 import { timingSafeEqual } from "@/lib/security/crypto";
+import {
+  hashPassword,
+  isStrongEnough,
+  MIN_PASSWORD_LENGTH,
+} from "@/lib/security/password";
 import { logAuthAttempt } from "@/lib/security/log";
 import {
   issueSessionCookieValue,
@@ -57,6 +62,10 @@ const BootstrapSchema = z.object({
   email: z.string().max(254).optional(),
   displayName: z.string().max(120).optional(),
   accessCode: z.string().max(256).optional(),
+  // Optional: set a password during first-run so the owner has email + password
+  // credentials immediately. When omitted, recovery is via the master access
+  // code or `scripts/admin.ts set-password`.
+  password: z.string().max(512).optional(),
 });
 
 function sameOrigin(req: Request): boolean {
@@ -189,6 +198,19 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
+  // Optional first-run password. Reject only if provided AND too weak — an
+  // omitted password keeps the one-click flow working.
+  const rawPassword =
+    typeof parsed.data.password === "string" ? parsed.data.password : "";
+  if (rawPassword.length > 0 && !isStrongEnough(rawPassword)) {
+    await delayRandom(500, 1000);
+    return NextResponse.json(
+      { error: "weak_password", hint: `min ${MIN_PASSWORD_LENGTH} characters` },
+      { status: 400 },
+    );
+  }
+  const passwordHash = rawPassword.length > 0 ? hashPassword(rawPassword) : null;
+
   // Sensible defaults so a one-click "Get started" works: e-mail falls back to
   // LAZYOS_OWNER_EMAIL (or owner@localhost), name to "Owner".
   const rawEmail = parsed.data.email?.trim();
@@ -239,6 +261,13 @@ export async function POST(req: Request): Promise<Response> {
     .all();
   if (existingUser.length > 0) {
     userId = existingUser[0].id;
+    if (passwordHash) {
+      // Existing user (rare race) opted to set a password during bootstrap.
+      db.update(users)
+        .set({ passwordHash, updatedAt: now })
+        .where(eq(users.id, userId))
+        .run();
+    }
   } else {
     userId = `usr_${ulid()}`;
     db.insert(users)
@@ -246,6 +275,7 @@ export async function POST(req: Request): Promise<Response> {
         id: userId,
         email,
         displayName,
+        passwordHash,
         locale: "de-DE",
         status: "active",
         emailVerifiedAt: now,

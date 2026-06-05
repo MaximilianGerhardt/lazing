@@ -1,16 +1,24 @@
 "use client";
 
 /**
- * Phase AU.1.1 — magic-link-first login.
+ * Email + password-first login.
  *
- * Default form: email + "send login link". POST /api/auth/magic/issue.
+ * Primary form: email + password. POST /api/auth/password/login.
+ *
+ * Passwordless magic-link is shown only as a secondary option, and only when a
+ * mail provider is configured (`emailConfigured` from /api/auth/bootstrap-status)
+ * — without deliverable mail a login link is a dead end, so it stays hidden.
+ *
+ * First-run (codeless, localhost): a "Get started" form that also lets the owner
+ * set email + password right away, so they can sign back in. POST
+ * /api/auth/bootstrap.
  *
  * Operator bootstrap section (collapsible): email + display name + access code.
  * Only shown when /api/auth/bootstrap-status returns `available=true`
  * (LAZYOS_ACCESS_CODE set AND the DB has no founder yet).
  *
- * After a successful bootstrap → redirect /onboarding.
- * After a successful magic mail → inline success "mail on its way to xx@yy.zz".
+ * Recovery without mail: the master access code (LAZYOS_ACCESS_CODE) and
+ * `scripts/admin.ts set-password`.
  */
 
 import { useEffect, useState, useTransition, type CSSProperties } from "react";
@@ -53,12 +61,21 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
   const [masterError, setMasterError] = useState<string | null>(null);
   const [masterPending, startMasterTransition] = useTransition();
 
-  // Email + password login (classic user management)
-  const [pwOpen, setPwOpen] = useState(false);
+  // Email + password login (classic user management — the primary path)
   const [pwEmail, setPwEmail] = useState("");
   const [pwPassword, setPwPassword] = useState("");
   const [pwError, setPwError] = useState<string | null>(null);
   const [pwPending, startPwTransition] = useTransition();
+
+  // Magic-link is only offered when a real mail provider is configured;
+  // otherwise sending a link is a dead end, so we hide it (collapsible).
+  const [emailConfigured, setEmailConfigured] = useState(false);
+  const [magicOpen, setMagicOpen] = useState(false);
+
+  // Optional email + password set during the codeless first-run, so the owner
+  // has real email + password credentials to sign back in with.
+  const [getEmail, setGetEmail] = useState("");
+  const [getPassword, setGetPassword] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -69,11 +86,13 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
           available?: boolean;
           codeless?: boolean;
           masterLoginAvailable?: boolean;
+          emailConfigured?: boolean;
         }) => {
           if (cancelled) return;
           setBootstrapAvailable(data.available === true);
           setCodeless(data.codeless === true);
           setMasterAvailable(data.masterLoginAvailable === true);
+          setEmailConfigured(data.emailConfigured === true);
         },
       )
       .catch(() => {
@@ -172,15 +191,33 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
   const submitCodeless = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     setGetError(null);
+    if (getEmail.trim().length > 0 && !EMAIL_RE.test(getEmail.trim())) {
+      setGetError("Please enter a valid email (or leave it blank).");
+      return;
+    }
+    if (getPassword.length > 0 && getPassword.length < 10) {
+      setGetError("Password too short (at least 10 characters).");
+      return;
+    }
+    if (getPassword.length > 0 && getEmail.trim().length === 0) {
+      setGetError("Enter an email to go with your password.");
+      return;
+    }
     startGetTransition(async () => {
       try {
+        const payload: {
+          displayName?: string;
+          email?: string;
+          password?: string;
+        } = {};
+        if (getName.trim().length > 0) payload.displayName = getName.trim();
+        if (getEmail.trim().length > 0) payload.email = getEmail.trim();
+        if (getPassword.length > 0) payload.password = getPassword;
         const res = await fetch("/api/auth/bootstrap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify(
-            getName.trim().length > 0 ? { displayName: getName.trim() } : {},
-          ),
+          body: JSON.stringify(payload),
         });
         if (res.status === 410) {
           setGetError("Already set up — use the sign-in options below.");
@@ -354,6 +391,39 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
             placeholder="Owner"
             style={inputStyle}
           />
+          <label htmlFor="get-email" style={{ ...labelStyle, marginTop: 12 }}>
+            Email (recommended)
+          </label>
+          <input
+            id="get-email"
+            name="get-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            disabled={getPending}
+            value={getEmail}
+            onChange={(e) => setGetEmail(e.target.value)}
+            placeholder="you@example.com"
+            style={inputStyle}
+          />
+          <label htmlFor="get-pass" style={{ ...labelStyle, marginTop: 12 }}>
+            Set a password (recommended)
+          </label>
+          <input
+            id="get-pass"
+            name="get-pass"
+            type="password"
+            autoComplete="new-password"
+            disabled={getPending}
+            value={getPassword}
+            onChange={(e) => setGetPassword(e.target.value)}
+            placeholder="at least 10 characters"
+            style={inputStyle}
+          />
+          <p style={{ ...bootHintStyle, marginTop: 8, marginBottom: 0 }}>
+            You&apos;ll sign in with this email + password next time. You can
+            skip it and set one later in Settings.
+          </p>
           <button
             type="submit"
             disabled={getPending}
@@ -385,93 +455,103 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
 
       {!codeless || otherOpen ? (
       <>
-      <form onSubmit={submitMagic} noValidate>
-        <label htmlFor="login-email" style={labelStyle}>
+      {/* PRIMARY: email + password. */}
+      <form onSubmit={submitPassword} noValidate>
+        <label htmlFor="pw-email" style={labelStyle}>
           Email address
         </label>
         <input
-          id="login-email"
-          name="email"
+          id="pw-email"
+          name="pw-email"
           type="email"
           inputMode="email"
           autoComplete="email"
           autoFocus
-          required
-          disabled={magicPending}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your.name@example.com"
+          disabled={pwPending}
+          value={pwEmail}
+          onChange={(e) => setPwEmail(e.target.value)}
+          placeholder="you@example.com"
+          style={inputStyle}
+        />
+        <label htmlFor="pw-pass" style={{ ...labelStyle, marginTop: 12 }}>
+          Password
+        </label>
+        <input
+          id="pw-pass"
+          name="pw-pass"
+          type="password"
+          autoComplete="current-password"
+          disabled={pwPending}
+          value={pwPassword}
+          onChange={(e) => setPwPassword(e.target.value)}
           style={inputStyle}
         />
         <button
           type="submit"
-          disabled={magicPending || email.length === 0}
-          style={primaryBtnStyle(magicPending, email.length === 0)}
+          disabled={pwPending || pwEmail.length === 0 || pwPassword.length === 0}
+          style={primaryBtnStyle(
+            pwPending,
+            pwEmail.length === 0 || pwPassword.length === 0,
+          )}
         >
-          {magicPending ? "Sending…" : "Send login link by email"}
+          {pwPending ? "Signing in…" : "Sign in"}
         </button>
-        {magicError ? (
+        {pwError ? (
           <p role="alert" style={errorStyle}>
-            {magicError}
+            {pwError}
           </p>
         ) : null}
       </form>
 
-      <div style={dividerStyle}>
-        <button
-          type="button"
-          onClick={() => setPwOpen((v) => !v)}
-          style={collapsibleBtnStyle}
-        >
-          {pwOpen
-            ? "Hide password sign-in"
-            : "→ Sign in with email + password"}
-        </button>
-        {pwOpen ? (
-          <form onSubmit={submitPassword} noValidate style={bootFormStyle}>
-            <label htmlFor="pw-email" style={labelStyle}>
-              Email
-            </label>
-            <input
-              id="pw-email"
-              name="pw-email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              disabled={pwPending}
-              value={pwEmail}
-              onChange={(e) => setPwEmail(e.target.value)}
-              placeholder="you@example.com"
-              style={inputStyle}
-            />
-            <label htmlFor="pw-pass" style={{ ...labelStyle, marginTop: 12 }}>
-              Password
-            </label>
-            <input
-              id="pw-pass"
-              name="pw-pass"
-              type="password"
-              autoComplete="current-password"
-              disabled={pwPending}
-              value={pwPassword}
-              onChange={(e) => setPwPassword(e.target.value)}
-              style={inputStyle}
-            />
-            <button
-              type="submit"
-              disabled={pwPending}
-              style={{ ...primaryBtnStyle(pwPending, false), marginTop: 16 }}
-            >
-              {pwPending ? "Signing in…" : "Sign in"}
-            </button>
-            {pwError ? (
-              <p role="alert" style={errorStyle}>
-                {pwError}
-              </p>
-            ) : null}
-          </form>
-        ) : null}
-      </div>
+      {/* SECONDARY: passwordless magic link — only when a mail provider is
+          configured (otherwise it can't deliver, so we hide it). */}
+      {emailConfigured ? (
+        <div style={dividerStyle}>
+          <button
+            type="button"
+            onClick={() => setMagicOpen((v) => !v)}
+            style={collapsibleBtnStyle}
+          >
+            {magicOpen
+              ? "Hide email-link sign-in"
+              : "→ Email me a login link instead"}
+          </button>
+          {magicOpen ? (
+            <form onSubmit={submitMagic} noValidate style={bootFormStyle}>
+              <label htmlFor="login-email" style={labelStyle}>
+                Email address
+              </label>
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                disabled={magicPending}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.name@example.com"
+                style={inputStyle}
+              />
+              <button
+                type="submit"
+                disabled={magicPending || email.length === 0}
+                style={{
+                  ...primaryBtnStyle(magicPending, email.length === 0),
+                  marginTop: 16,
+                }}
+              >
+                {magicPending ? "Sending…" : "Send login link by email"}
+              </button>
+              {magicError ? (
+                <p role="alert" style={errorStyle}>
+                  {magicError}
+                </p>
+              ) : null}
+            </form>
+          ) : null}
+        </div>
+      ) : null}
 
       {bootstrapAvailable && !codeless ? (
         <div style={dividerStyle}>

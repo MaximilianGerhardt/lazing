@@ -37,8 +37,6 @@
     "**/*.mts",
     ".next-dev/types/**/*.ts",
     ".next-dev/dev/types/**/*.ts",
-    ".next-verify/types/**/*.ts",
-    ".next-verify/dev/types/**/*.ts",
     ".next.predeploy/types/**/*.ts",
     ".next.predeploy/dev/types/**/*.ts"
   ],

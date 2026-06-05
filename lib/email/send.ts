@@ -85,6 +85,24 @@ export async function sendEmail(
   return provider.send(augmented as EmailSendInput);
 }
 
+/**
+ * Is a real mail provider configured (i.e. can we actually deliver email)?
+ *
+ * True only when the provider is `resend` AND an API key is present. The `null`
+ * / `console` provider does not deliver — it only logs — so it counts as "not
+ * configured". The login UI uses this to decide whether to show the magic-link
+ * form: with no deliverable mail, passwordless login is a dead end, so we hide
+ * it and show email + password instead.
+ */
+export function isEmailConfigured(): boolean {
+  const choice = (process.env.LAZYOS_EMAIL_PROVIDER ?? "null").toLowerCase();
+  if (choice !== "resend") return false;
+  const key =
+    process.env.RESEND_API_KEY?.trim() ||
+    process.env.LAZYOS_RESEND_API_KEY?.trim();
+  return Boolean(key);
+}
+
 /** Test helper: allows a provider override in unit tests. */
 let providerOverride: EmailProvider | null = null;
 export function setEmailProviderForTests(p: EmailProvider | null): void {
