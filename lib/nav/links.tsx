@@ -20,7 +20,6 @@ import {
   IconInbox,
   IconObservatory,
   IconOrgActive,
-  IconOrgManage,
   IconRoutines,
   IconSessions,
   IconSkills,
@@ -61,44 +60,38 @@ export const TOP_LINKS: readonly NavLink[] = [
 ] as const;
 
 /**
- * Sandwich drawer — segmented. Order: what I do daily →
- * where it happens (org/infra) → system help.
+ * Sandwich drawer — two calm groups instead of three crowded ones:
+ *   Work  = the five daily destinations (what you open every day).
+ *   More  = everything occasional/admin, clearly secondary.
+ * (2026-06-05 declutter: merged the two Organization entries into one, dropped
+ *  the marketing "Features catalog" from the daily menu, English-first labels.)
  */
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
     id: 'work',
-    label: 'Arbeiten',
+    label: 'Work',
     i18nKey: 'nav.section.work',
     links: [
       { href: '/', label: 'Chat', i18nKey: 'nav.chat', icon: <IconChat size={18} /> },
       { href: '/inbox', label: 'Inbox', i18nKey: 'nav.inbox', icon: <IconInbox size={18} /> },
-      { href: '/decisions', label: 'Decisions', i18nKey: 'nav.decisions', icon: <IconCheck size={18} /> },
       { href: '/workstreams', label: 'Workstreams', i18nKey: 'nav.workstreams', icon: <IconWorkstreams size={18} /> },
+      { href: '/decisions', label: 'Decisions', i18nKey: 'nav.decisions', icon: <IconCheck size={18} /> },
+      { href: '/calendar', label: 'Calendar', i18nKey: 'nav.calendar', icon: <IconCalendar size={18} /> },
+    ],
+  },
+  {
+    id: 'more',
+    label: 'More',
+    i18nKey: 'nav.section.more',
+    links: [
       { href: '/tickets', label: 'Tickets', i18nKey: 'nav.tickets', icon: <IconTickets size={18} /> },
-    ],
-  },
-  {
-    id: 'org',
-    label: 'Organisation',
-    i18nKey: 'nav.section.org',
-    links: [
-      { href: '/orgs', label: 'Aktive Organisation', i18nKey: 'nav.orgs.active', icon: <IconOrgActive size={18} /> },
-      { href: '/orgs/manage', label: 'Organisationen verwalten', i18nKey: 'nav.orgs.manage', icon: <IconOrgManage size={18} /> },
-      { href: '/skills', label: 'Skills', i18nKey: 'nav.skills', icon: <IconSkills size={18} /> },
-      { href: '/agents', label: 'Mitarbeiter', i18nKey: 'nav.agents', icon: <IconSkills size={18} /> },
-      { href: '/sessions', label: 'Sessions', i18nKey: 'nav.sessions', icon: <IconSessions size={18} /> },
-    ],
-  },
-  {
-    id: 'system',
-    label: 'System',
-    i18nKey: 'nav.section.system',
-    links: [
       { href: '/routines', label: 'Routines', i18nKey: 'nav.routines', icon: <IconRoutines size={18} /> },
+      { href: '/skills', label: 'Skills', i18nKey: 'nav.skills', icon: <IconSkills size={18} /> },
+      { href: '/agents', label: 'Agents', i18nKey: 'nav.agents', icon: <IconSkills size={18} /> },
+      { href: '/orgs', label: 'Organization', i18nKey: 'nav.orgs', icon: <IconOrgActive size={18} /> },
+      { href: '/sessions', label: 'Sessions', i18nKey: 'nav.sessions', icon: <IconSessions size={18} /> },
       { href: '/observatory', label: 'Observatory', i18nKey: 'nav.observatory', icon: <IconObservatory size={18} /> },
-      { href: '/calendar', label: 'Kalender', i18nKey: 'nav.calendar', icon: <IconCalendar size={18} /> },
-      { href: '/how', label: 'How · Doku', i18nKey: 'nav.how', icon: <IconHow size={18} /> },
-      { href: '/features', label: 'Features · Katalog', i18nKey: 'nav.features', icon: <IconHow size={18} /> },
+      { href: '/how', label: 'Guide', i18nKey: 'nav.how', icon: <IconHow size={18} /> },
     ],
   },
 ] as const;

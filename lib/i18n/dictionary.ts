@@ -56,6 +56,7 @@ const de: Dict = {
   'nav.how': 'Anleitung',
   'nav.logout': 'Abmelden',
   'nav.skills': 'Skills',
+  'nav.agents': 'Mitarbeiter',
   'nav.sessions': 'Sessions',
   'nav.calendar': 'Kalender',
   'nav.menu': 'Menü öffnen',
@@ -69,6 +70,7 @@ const de: Dict = {
   'nav.section.work': 'Arbeiten',
   'nav.section.org': 'Organisation',
   'nav.section.system': 'System',
+  'nav.section.more': 'Mehr',
 
   // Org-List
   'org.list.title': 'Organisationen',
@@ -198,6 +200,7 @@ const en: Dict = {
   'nav.how': 'Guide',
   'nav.logout': 'Sign out',
   'nav.skills': 'Skills',
+  'nav.agents': 'Agents',
   'nav.sessions': 'Sessions',
   'nav.calendar': 'Calendar',
   'nav.menu': 'Open menu',
@@ -211,6 +214,7 @@ const en: Dict = {
   'nav.section.work': 'Work',
   'nav.section.org': 'Organization',
   'nav.section.system': 'System',
+  'nav.section.more': 'More',
 
   // Org-List
   'org.list.title': 'Organizations',

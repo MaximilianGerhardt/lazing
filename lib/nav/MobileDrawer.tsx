@@ -35,6 +35,7 @@ import {
   IconLayers,
 } from './icons';
 import { LocaleSwitcher } from './LocaleSwitcher';
+import { UpdateNewsLink } from './UpdateNewsLink';
 import type { Organization, Workspace } from './types';
 import { useI18n } from '@/lib/i18n/use-i18n';
 import { BRAND_NAME } from '@/lib/brand';
@@ -583,12 +584,15 @@ export function MobileDrawer({
                   <IconGear size={18} />
                 </span>
                 <span className="topnav-drawer-tools-label">
-                  Einstellungen
+                  Settings
                 </span>
                 <span className="topnav-drawer-tools-meta">
-                  Konto · Engines · Benachrichtigungen
+                  Account · Engines · Notifications
                 </span>
               </Link>
+            </li>
+            <li>
+              <UpdateNewsLink onClick={onClose} />
             </li>
             <li>
               <button
