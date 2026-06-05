@@ -28,22 +28,30 @@ import { OrgCoreEditor } from "./OrgCoreEditor";
 import { OrgMembersTab } from "./MembersTab";
 import { OrgBrandingTab } from "./BrandingTab";
 import { OrgGithubPanel } from "./OrgGithubPanel";
+import { OrgConnectionsTab } from "./OrgConnectionsTab";
 import { AttachWorkspaceCard } from "./AttachWorkspaceCard";
 import { CreateWorkspaceCard } from "./CreateWorkspaceCard";
 import { SECTION_DEFS, pickSectionKey } from "@/lib/orgs/sections";
 
 export const dynamic = "force-dynamic";
 
-type Tab = "workspaces" | "overview" | "members" | "branding" | "github";
+type Tab =
+  | "workspaces"
+  | "overview"
+  | "members"
+  | "branding"
+  | "github"
+  | "connections";
 
 // Phase IA.2 — the default tab is now `workspaces`. The tab order reflects
 // this: workspaces first, then overview/members/branding.
 const TAB_LABELS: Record<Tab, string> = {
   workspaces: "Workspaces",
-  overview: "Übersicht",
-  members: "Mitglieder",
+  overview: "Overview",
+  members: "Members",
   branding: "Branding",
   github: "GitHub",
+  connections: "Connections",
 };
 
 export default async function OrgDetailPage({
@@ -60,7 +68,8 @@ export default async function OrgDetailPage({
     sp.tab === "overview" ||
     sp.tab === "members" ||
     sp.tab === "branding" ||
-    sp.tab === "github"
+    sp.tab === "github" ||
+    sp.tab === "connections"
       ? sp.tab
       : "workspaces";
 
@@ -150,6 +159,9 @@ export default async function OrgDetailPage({
         ) : null}
         {tab === "github" ? (
           <OrgGithubPanel orgId={id} isAdmin={isAdminOrFounder} />
+        ) : null}
+        {tab === "connections" ? (
+          <OrgConnectionsTab orgId={id} isAdmin={isAdminOrFounder} />
         ) : null}
       </section>
     </main>
