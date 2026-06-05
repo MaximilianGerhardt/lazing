@@ -31,6 +31,7 @@
     "public:domain": "node scripts/lazyos-tunnel.mjs up --named --hostname",
     "public:status": "node scripts/lazyos-tunnel.mjs status",
     "public:stop": "node scripts/lazyos-tunnel.mjs down",
+    "pair": "node scripts/pair.mjs",
     "lint:design": "pnpm lint:surfaces && pnpm lint:tokens && pnpm lint:hex && pnpm lint:emoji",
     "lint:all": "tsc --noEmit && tsx scripts/audit-inline-styles.ts",
     "typecheck": "tsc --noEmit",

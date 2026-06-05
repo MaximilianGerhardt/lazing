@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# laz.ing — one-command launcher.
+#
+#   ./start
+#
+# Idempotent first run + every run after: ensures setup (deps, auto-generated
+# secrets, DB migrations, default org/workspace/owner), boots the web app (:4200)
+# and the agent server (:4201), waits until the web app is up, and opens your
+# browser on the first-run onboarding wizard. Ctrl-C stops everything.
+
+set -euo pipefail
+cd "$(dirname "$0")"
+
+color() { printf "\033[%sm%s\033[0m\n" "$1" "$2"; }
+
+open_url() {
+  case "$(uname)" in
+    Darwin) open "$1" >/dev/null 2>&1 || true ;;
+    *) command -v xdg-open >/dev/null 2>&1 && xdg-open "$1" >/dev/null 2>&1 || true ;;
+  esac
+}
+
+PORT="${LAZYOS_PORT:-4200}"
+WEB_URL="http://localhost:${PORT}"
+
+# 1. Setup — idempotent (deps, secrets, migrations, seed). Prints the login code.
+color "1;34" "▶ Setting up (idempotent) …"
+bash scripts/setup.sh
+
+# 2. Agent-server dependencies (separate package) — install once.
+if [ ! -d server/node_modules ]; then
+  color "1;34" "▶ Installing agent-server dependencies …"
+  ( cd server && pnpm install )
+fi
+
+# 3. Boot the agent server in the background (logs to a file; it is optional).
+color "1;34" "▶ Booting agent server (:4201) …"
+( cd server && pnpm start ) > /tmp/lazing-agent.log 2>&1 &
+AGENT_PID=$!
+
+# 4. When the web app comes up, open the browser (runs in the background while
+#    `pnpm dev` streams its logs in the foreground).
+(
+  for _ in $(seq 1 90); do
+    if curl -fsS "$WEB_URL" >/dev/null 2>&1; then
+      color "1;32" ""
+      color "1;32" "✓ laz.ing is up → ${WEB_URL}  (opening browser: first-run onboarding)"
+      color "0"    "  Agent server: http://localhost:4201   ·   agent logs: /tmp/lazing-agent.log"
+      color "0"    "  Press Ctrl-C to stop everything."
+      open_url "$WEB_URL"
+      break
+    fi
+    sleep 1
+  done
+) &
+OPENER_PID=$!
+
+cleanup() { kill "$AGENT_PID" "$OPENER_PID" 2>/dev/null || true; }
+trap cleanup INT TERM EXIT
+
+# 5. Web app in the foreground (live logs; Ctrl-C stops it → trap cleans up).
+color "1;34" "▶ Booting web app (:${PORT}) …"
+pnpm dev

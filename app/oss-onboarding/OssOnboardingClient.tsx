@@ -1136,6 +1136,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
               </div>
             ) : null}
             <PrivacyVaultToggle />
+            {finalizeResult ? <PairPhonePanel /> : null}
             <div style={btnRowStyle}>
               {finalizeResult ? (
                 <button type="button" onClick={enterLazyos} style={ctaStyle} data-test="cta-enter">Enter lazyOS</button>
@@ -1251,6 +1252,151 @@ function PrivacyVaultToggle() {
       <p style={{ fontSize: 11, opacity: 0.6, margin: "8px 0 0" }}>
         An early step toward GDPR / EU AI Act readiness — see docs/privacy.md and
         docs/compliance.md. Not legal advice.
+      </p>
+    </div>
+  );
+}
+
+// ---- Pair your phone (finalize step) -------------------------------------
+
+interface PairInfo {
+  best: string;
+  publicUrl: string | null;
+  lanUrl: string | null;
+  reach: "anywhere" | "same-network" | "this-machine-only";
+  qr: string | null;
+  pwa: boolean;
+}
+
+function PairPhonePanel(): React.JSX.Element {
+  const [info, setInfo] = useState<PairInfo | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [tunnelBusy, setTunnelBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  const load = useCallback(async (): Promise<PairInfo | null> => {
+    try {
+      const res = await fetch("/api/onboarding/pair", { credentials: "same-origin" });
+      const j = (await res.json().catch(() => null)) as PairInfo | null;
+      if (j && typeof j.best === "string") {
+        setInfo(j);
+        return j;
+      }
+    } catch {
+      /* non-fatal */
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    setBusy(true);
+    void load().finally(() => setBusy(false));
+  }, [load]);
+
+  const startTunnel = useCallback(async (): Promise<void> => {
+    setTunnelBusy(true);
+    setNote("Starting a Cloudflare tunnel — this can take 5–15s …");
+    try {
+      await fetch("/api/onboarding/pair", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "start-tunnel", provider: "cloudflare" }),
+      });
+      // Poll until the public URL appears.
+      for (let i = 0; i < 20; i += 1) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const j = await load();
+        if (j?.publicUrl) {
+          setNote("Tunnel up — your phone can now reach laz.ing from anywhere.");
+          setTunnelBusy(false);
+          return;
+        }
+      }
+      setNote("Tunnel is still coming up. Re-open this step in a moment, or run `pnpm pair --tunnel`.");
+    } catch {
+      setNote("Could not start the tunnel automatically — run `pnpm public` in a terminal.");
+    } finally {
+      setTunnelBusy(false);
+    }
+  }, [load]);
+
+  const reachLabel =
+    info?.reach === "anywhere"
+      ? "reachable anywhere (tunnel)"
+      : info?.reach === "same-network"
+        ? "reachable on your Wi-Fi"
+        : "this machine only";
+
+  const wrapStyle: React.CSSProperties = {
+    border: "1px solid color-mix(in oklab, var(--ink, #f5f5f5) 10%, transparent)",
+    borderRadius: 10,
+    padding: 14,
+    margin: "14px 0",
+    background: "color-mix(in oklab, #ffffff 2%, transparent)",
+  };
+
+  return (
+    <div style={wrapStyle} data-test="pair-phone">
+      <strong style={{ fontSize: 13 }}>Use it on your phone</strong>
+      <p style={{ fontSize: 13, opacity: 0.8, margin: "6px 0 10px" }}>
+        Scan to open laz.ing on your phone, then use your browser&apos;s{" "}
+        <em>Add to Home Screen</em> to install it as a PWA — the best, native-feeling
+        experience.
+      </p>
+
+      {busy && !info ? (
+        <p style={{ fontSize: 13, opacity: 0.7 }}>Preparing pairing…</p>
+      ) : info?.qr ? (
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={info.qr}
+            alt="QR code to open laz.ing on your phone"
+            width={160}
+            height={160}
+            style={{ borderRadius: 8, background: "#fff", padding: 6 }}
+            data-test="pair-qr"
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 200 }}>
+            <span style={{ fontSize: 12, opacity: 0.7 }}>{reachLabel}</span>
+            <code style={{ fontSize: 12, wordBreak: "break-all" }} data-test="pair-url">
+              {info.best}
+            </code>
+            {info.reach !== "anywhere" ? (
+              <button
+                type="button"
+                onClick={() => void startTunnel()}
+                disabled={tunnelBusy}
+                style={{
+                  marginTop: 6,
+                  alignSelf: "flex-start",
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  borderRadius: 8,
+                  border: "1px solid color-mix(in oklab, var(--ink, #f5f5f5) 18%, transparent)",
+                  background: "transparent",
+                  color: "var(--ink, #f5f5f5)",
+                  cursor: "pointer",
+                }}
+                data-test="pair-tunnel"
+              >
+                {tunnelBusy ? "Starting tunnel…" : "Make reachable anywhere (Cloudflare)"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <p style={{ fontSize: 13, opacity: 0.7 }}>
+          Pairing unavailable right now. From a terminal: <code>pnpm pair</code>{" "}
+          (same Wi-Fi) or <code>pnpm pair --tunnel</code> (anywhere).
+        </p>
+      )}
+
+      {note ? <p style={{ fontSize: 12, opacity: 0.8, margin: "10px 0 0" }}>{note}</p> : null}
+      <p style={{ fontSize: 11, opacity: 0.6, margin: "8px 0 0" }}>
+        Remote access uses a Cloudflare quick-tunnel (or Tailscale via{" "}
+        <code>pnpm public:stable</code>). Nothing is exposed until you start it.
       </p>
     </div>
   );

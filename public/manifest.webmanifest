@@ -1,7 +1,7 @@
 {
   "name": "laz.ing",
   "short_name": "laz.ing",
-  "description": "Surface-First OS für 1-Mann-Agenturen.",
+  "description": "Surface-first AI agent OS for solo operators and small teams.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

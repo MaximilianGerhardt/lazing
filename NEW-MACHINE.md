@@ -28,17 +28,26 @@ git --version
 
 ---
 
-## 1. Get it running (one command + start)
+## 1. Get it running — one command
 
 ```bash
 git clone https://github.com/MaximilianGerhardt/lazing.git
 cd lazing
-
-pnpm install
-bash scripts/setup.sh          # auto-generates secrets, migrates the DB,
-                               # seeds the default org/workspace/owner
-pnpm dev                       # web app → http://localhost:4200
+./start
 ```
+
+`./start` does everything: installs deps, auto-generates secrets, migrates the
+DB, seeds the default org/workspace/owner, boots the web app (:4200) **and** the
+agent server (:4201), waits until they're up, and **opens your browser** on the
+first-run onboarding wizard. Ctrl-C stops everything.
+
+> Prefer to drive it yourself? The equivalent manual steps:
+> ```bash
+> pnpm install
+> bash scripts/setup.sh        # auto-secrets + migrations + seed
+> pnpm dev                     # web → http://localhost:4200
+> cd server && pnpm install && pnpm start   # agent server (separate terminal)
+> ```
 
 `setup.sh` is idempotent and self-configuring:
 
@@ -109,16 +118,28 @@ curl -s http://localhost:4201/health | head               # agent server (if sta
 
 ---
 
-## 4. Test from your phone (optional)
+## 4. Pair your phone (QR) + install as a PWA
 
-To reach the dev instance from a phone on the same network or over a tunnel, set
-`LAZYOS_PREVIEW_BASE_URL` and use the tunnel helper:
+The **finalize** step of the onboarding wizard shows a **QR code** — scan it to
+open laz.ing on your phone. For the best, native-feeling experience, use your
+mobile browser's **Add to Home Screen** to install it as a **PWA**.
+
+- **Same Wi-Fi** → works instantly (the QR points at this machine's LAN address).
+- **Anywhere** → click **“Make reachable anywhere”** in the finalize step (brings
+  up a Cloudflare quick-tunnel and refreshes the QR), or from a terminal:
 
 ```bash
-pnpm public            # opens a public tunnel and prints the URL
+pnpm pair              # QR in the terminal for the best URL (LAN, or tunnel if up)
+pnpm pair --tunnel     # bring up a Cloudflare tunnel first, then show the QR
+pnpm pair --tailscale  # use Tailscale instead of Cloudflare
+
+pnpm public            # just bring a public tunnel up/keep it alive
 pnpm public:status     # show the active tunnel
 pnpm public:stop       # tear it down
 ```
+
+The tunnel auto-installs `cloudflared` if missing. Nothing is exposed until you
+start it.
 
 ---
 
