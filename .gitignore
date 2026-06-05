@@ -88,3 +88,7 @@ node_modules
 HANDOVER.md
 STARTSCHUSS.md
 .handover/
+
+# Internal planning + marketing playbook (never publish)
+docs/plans/
+docs/marketing/
