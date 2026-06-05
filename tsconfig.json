@@ -40,7 +40,9 @@
     ".next-verify/types/**/*.ts",
     ".next-verify/dev/types/**/*.ts",
     ".next.predeploy/types/**/*.ts",
-    ".next.predeploy/dev/types/**/*.ts"
+    ".next.predeploy/dev/types/**/*.ts",
+    ".next-build-check/types/**/*.ts",
+    ".next-build-check/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

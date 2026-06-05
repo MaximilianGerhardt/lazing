@@ -85,16 +85,11 @@ ok "Setup script done."
 
 # -------- final hint --------------------------------------------------
 
-ACCESS_CODE="$(grep -E '^LAZYOS_ACCESS_CODE=' .env.local | head -1 | cut -d= -f2- | tr -d '"'"'"'"')"
-
 color "1;36" ""
-color "1;36" "laz.ing is ready. Start it with:"
-color "0"    "  pnpm dev               # web on http://localhost:4200"
-color "0"    "  pnpm dev:agent         # agent server (separate terminal, optional)"
+color "1;36" "laz.ing is ready."
+color "0"    "Just run  ./start  — it boots everything and opens your browser."
 color "1;36" ""
-color "0"    "Then open  http://localhost:4200  → the first-run onboarding wizard"
-color "0"    "starts automatically (system check · install engines · connect Claude/Codex)."
-color "1;36" ""
-color "0"    "Login (solo self-host, no e-mail needed): on /login pick 'Solo self-host'"
-color "0"    "and paste this code (also stored in .env.local as LAZYOS_ACCESS_CODE):"
-color "1;32" "    ${ACCESS_CODE}"
+color "0"    "In the browser: click \"Get started\" (you're the owner of this machine —"
+color "0"    "no code needed), then the onboarding wizard takes over (system check ·"
+color "0"    "install engines · connect Claude/Codex · pair your phone)."
+color "0"    "(Backup code for remote login lives in .env.local as LAZYOS_ACCESS_CODE.)"

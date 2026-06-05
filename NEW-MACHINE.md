@@ -28,18 +28,24 @@ git --version
 
 ---
 
-## 1. Get it running — one command
+## 1. Get it running — one line
+
+Paste this into Terminal:
 
 ```bash
-git clone https://github.com/MaximilianGerhardt/lazing.git
-cd lazing
-./start
+curl -fsSL https://raw.githubusercontent.com/MaximilianGerhardt/lazing/main/install.sh | bash
 ```
 
-`./start` does everything: installs deps, auto-generates secrets, migrates the
-DB, seeds the default org/workspace/owner, boots the web app (:4200) **and** the
-agent server (:4201), waits until they're up, and **opens your browser** on the
-first-run onboarding wizard. Ctrl-C stops everything.
+It enables pnpm, clones laz.ing into `~/lazing` (override with `LAZYOS_DIR=…`),
+runs setup (auto-generated secrets, DB migrations, owner), boots the web app
+(:4200) **and** the agent server (:4201), waits until they're up, and **opens
+your browser** on the first-run setup. Ctrl-C stops everything.
+
+Already cloned? Just run the launcher:
+
+```bash
+cd lazing && ./start
+```
 
 > Prefer to drive it yourself? The equivalent manual steps:
 > ```bash
@@ -73,31 +79,26 @@ cd server && pnpm install && pnpm start    # agent server → http://localhost:4
 
 ---
 
-## 2. First run in the browser
+## 2. First run in the browser — no terminal, no code
 
-Open **<http://localhost:4200>**. On a fresh install you are taken straight into
-the **onboarding wizard** (`/oss-onboarding`):
+`./start` opens the browser for you. On a fresh install you see **“Get started”**:
+because you're on the machine that's running laz.ing, you're the owner — **one
+click, no access code, nothing to copy from the terminal** (optionally type your
+name first). That signs you in and drops you into the **onboarding wizard**:
 
 1. **welcome** → 2. **full access** (macOS permissions, guided) →
 3. **system check** (detects what's installed, offers safe one-click fixes) →
 4. **install** (consented, streamed install of any missing engines) →
 5. **engine** / 6. **connect** (Claude Code + Codex via terminal login or pasted
-   key; Ollama optional) → 7. **purpose** → 8. **workspace** → 9. **github**
-   (optional) → 10. **finalize** (boots services, verifies ports).
+   key; Ollama optional) → 7. **purpose** → 8. **workspace** (incl. the **main
+   folder** laz.ing works in, default `~/Documents/lazing`) → 9. **github**
+   (optional) → 10. **finalize** (boots services, verifies ports, **phone QR +
+   PWA**).
 
-### Logging in
-
-Pick **“Solo self-host”** on the login page and paste the access code. It was:
-
-- printed by `setup.sh` at the end, and
-- stored in `.env.local` — retrieve it any time with:
-
-  ```bash
-  grep LAZYOS_ACCESS_CODE .env.local
-  ```
-
-(With e-mail configured via `RESEND_API_KEY`, use the magic-link flow instead;
-without it, the magic link is printed to the `pnpm dev` console.)
+> **Remote / other people:** the codeless owner-setup only works from the local
+> machine. Anyone reaching the instance over a tunnel uses the access code or an
+> e-mail magic-link instead — see “Other ways to sign in” on the login page. The
+> backup code lives in `.env.local` (`grep LAZYOS_ACCESS_CODE .env.local`).
 
 ---
 

@@ -32,6 +32,13 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
   const [bootstrapAvailable, setBootstrapAvailable] = useState<boolean | null>(
     null,
   );
+  // Codeless first-run (localhost): the local operator is the owner — one click,
+  // no access code, no terminal.
+  const [codeless, setCodeless] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [getName, setGetName] = useState("");
+  const [getError, setGetError] = useState<string | null>(null);
+  const [getPending, startGetTransition] = useTransition();
   const [bootstrapOpen, setBootstrapOpen] = useState(false);
   const [bootEmail, setBootEmail] = useState("");
   const [bootName, setBootName] = useState("");
@@ -53,10 +60,12 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
       .then(
         (data: {
           available?: boolean;
+          codeless?: boolean;
           masterLoginAvailable?: boolean;
         }) => {
           if (cancelled) return;
           setBootstrapAvailable(data.available === true);
+          setCodeless(data.codeless === true);
           setMasterAvailable(data.masterLoginAvailable === true);
         },
       )
@@ -115,6 +124,41 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
     });
   };
 
+  // Codeless first-run: one click, no access code (localhost only — the server
+  // enforces loopback). E-mail/name fall back to server defaults if left blank.
+  const submitCodeless = (e: React.FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    setGetError(null);
+    startGetTransition(async () => {
+      try {
+        const res = await fetch("/api/auth/bootstrap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(
+            getName.trim().length > 0 ? { displayName: getName.trim() } : {},
+          ),
+        });
+        if (res.status === 410) {
+          setGetError("Already set up — use the sign-in options below.");
+          setCodeless(false);
+          return;
+        }
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          setGetError(j.error ?? "Setup failed.");
+          return;
+        }
+        const body = (await res.json()) as { redirectTo?: string };
+        window.location.href = body.redirectTo ?? from;
+      } catch (err) {
+        setGetError(
+          "Network error: " + (err instanceof Error ? err.message : String(err)),
+        );
+      }
+    });
+  };
+
   const submitBootstrap = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     setBootError(null);
@@ -164,7 +208,7 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
         window.location.href = body.redirectTo ?? from;
       } catch (err) {
         setBootError(
-          "Netzwerkfehler: " +
+          "Network error: " +
             (err instanceof Error ? err.message : String(err)),
         );
       }
@@ -211,7 +255,7 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
         window.location.href = body.redirectTo ?? from;
       } catch (err) {
         setMasterError(
-          "Netzwerkfehler: " +
+          "Network error: " +
             (err instanceof Error ? err.message : String(err)),
         );
       }
@@ -246,6 +290,58 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
 
   return (
     <div>
+      {codeless && !magicSent ? (
+        <form onSubmit={submitCodeless} noValidate style={{ marginBottom: 4 }}>
+          <p style={{ ...bootHintStyle, marginBottom: 16 }}>
+            You&apos;re setting up laz.ing on this machine — so you&apos;re the
+            owner. No code needed.
+          </p>
+          <label htmlFor="get-name" style={labelStyle}>
+            Your name (optional)
+          </label>
+          <input
+            id="get-name"
+            name="get-name"
+            type="text"
+            autoComplete="name"
+            autoFocus
+            disabled={getPending}
+            value={getName}
+            onChange={(e) => setGetName(e.target.value)}
+            placeholder="Owner"
+            style={inputStyle}
+          />
+          <button
+            type="submit"
+            disabled={getPending}
+            style={primaryBtnStyle(getPending, false)}
+          >
+            {getPending ? "Setting up…" : "Get started →"}
+          </button>
+          {getError ? (
+            <p role="alert" style={errorStyle}>
+              {getError}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
+
+      {codeless && !magicSent ? (
+        <div style={dividerStyle}>
+          <button
+            type="button"
+            onClick={() => setOtherOpen((v) => !v)}
+            style={collapsibleBtnStyle}
+          >
+            {otherOpen
+              ? "Hide other sign-in options"
+              : "→ Other ways to sign in (email / access code)"}
+          </button>
+        </div>
+      ) : null}
+
+      {!codeless || otherOpen ? (
+      <>
       <form onSubmit={submitMagic} noValidate>
         <label htmlFor="login-email" style={labelStyle}>
           Email address
@@ -278,7 +374,7 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
         ) : null}
       </form>
 
-      {bootstrapAvailable ? (
+      {bootstrapAvailable && !codeless ? (
         <div style={dividerStyle}>
           <button
             type="button"
@@ -415,6 +511,8 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
             </form>
           ) : null}
         </div>
+      ) : null}
+      </>
       ) : null}
     </div>
   );

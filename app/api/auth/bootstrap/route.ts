@@ -50,10 +50,13 @@ import { ulid } from "@/lib/ulid";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// All fields optional: a first run from localhost needs no access code, and the
+// owner e-mail/name fall back to sensible defaults — the browser flow collects
+// everything, no terminal step.
 const BootstrapSchema = z.object({
-  email: z.string().min(3).max(254).email(),
-  displayName: z.string().min(1).max(120),
-  accessCode: z.string().min(1).max(256),
+  email: z.string().max(254).optional(),
+  displayName: z.string().max(120).optional(),
+  accessCode: z.string().max(256).optional(),
 });
 
 function sameOrigin(req: Request): boolean {
@@ -65,6 +68,27 @@ function sameOrigin(req: Request): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Is this the first run, accessed from the local machine itself? The person who
+ * started laz.ing on this box IS the owner, so the very first bootstrap from
+ * loopback needs no access code. Remote/proxied/tunneled requests (a forwarded
+ * host header) still must present the code.
+ */
+function isLoopbackFirstRun(req: Request): boolean {
+  const host = (req.headers.get("host") ?? "")
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+  const loopback =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]";
+  const proxied = Boolean(
+    req.headers.get("x-forwarded-for") || req.headers.get("x-forwarded-host"),
+  );
+  return loopback && !proxied;
 }
 
 function delayRandom(minMs: number, maxMs: number): Promise<void> {
@@ -107,7 +131,7 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json(
       {
         error: "bootstrap-closed",
-        hint: "Operator-Bootstrap ist für diese Instanz bereits abgeschlossen. Nutze Email-Login.",
+        hint: "Operator bootstrap is already complete for this instance. Use e-mail login.",
       },
       { status: 410 },
     );
@@ -136,30 +160,44 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const accessCode = process.env.LAZYOS_ACCESS_CODE?.trim();
-  if (!accessCode || accessCode.length < 16) {
-    return NextResponse.json(
-      {
-        error: "server_not_configured",
-        hint: "LAZYOS_ACCESS_CODE muss mindestens 16 Zeichen lang sein.",
-      },
-      { status: 500 },
-    );
+  const providedCode = parsed.data.accessCode?.trim() ?? "";
+  const localFirstRun = isLoopbackFirstRun(req);
+
+  // Remote/proxied first run → the access code is REQUIRED. On localhost the
+  // local operator is the owner, so the first bootstrap needs NO code (the code
+  // remains the gate for remote logins once onboarding opens a tunnel).
+  if (!localFirstRun) {
+    if (!accessCode || accessCode.length < 16) {
+      return NextResponse.json(
+        {
+          error: "server_not_configured",
+          hint: "LAZYOS_ACCESS_CODE must be at least 16 characters.",
+        },
+        { status: 500 },
+      );
+    }
+    if (!providedCode || !timingSafeEqual(providedCode, accessCode)) {
+      await delayRandom(500, 1000);
+      await logAuthAttempt({
+        outcome: "fail",
+        ip,
+        userAgent,
+        path: "/api/auth/bootstrap",
+        reason: "bad_access_code",
+      });
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
   }
 
-  if (!timingSafeEqual(parsed.data.accessCode, accessCode)) {
-    await delayRandom(500, 1000);
-    await logAuthAttempt({
-      outcome: "fail",
-      ip,
-      userAgent,
-      path: "/api/auth/bootstrap",
-      reason: "bad_access_code",
-    });
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  const email = parsed.data.email.trim().toLowerCase();
-  const displayName = parsed.data.displayName.trim();
+  // Sensible defaults so a one-click "Get started" works: e-mail falls back to
+  // LAZYOS_OWNER_EMAIL (or owner@localhost), name to "Owner".
+  const rawEmail = parsed.data.email?.trim();
+  const email = (
+    rawEmail && rawEmail.length > 0
+      ? rawEmail
+      : process.env.LAZYOS_OWNER_EMAIL?.trim() || "owner@localhost"
+  ).toLowerCase();
+  const displayName = parsed.data.displayName?.trim() || "Owner";
 
   const db = getDb();
   const now = new Date();
@@ -181,7 +219,7 @@ export async function POST(req: Request): Promise<Response> {
         parentId: null,
         paletteIndex: 0,
         description:
-          "Default-Organisation der lazyOS-Instanz. Sie hält den oder die ersten Workspaces.",
+          "Default organization of the laz.ing instance. It holds the first workspace(s).",
         archived: false,
         createdAt: now,
         updatedAt: now,
@@ -231,7 +269,7 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json(
       {
         error: "bootstrap-closed",
-        hint: "Bootstrap wurde gerade von einem anderen Request abgeschlossen.",
+        hint: "Bootstrap was just completed by another request.",
       },
       { status: 410 },
     );
@@ -273,10 +311,13 @@ export async function POST(req: Request): Promise<Response> {
     userAgent,
   });
 
+  const ossMode = ["1", "true", "on"].includes(
+    (process.env.LAZYOS_OSS_MODE ?? "").trim().toLowerCase(),
+  );
   const res = NextResponse.json({
     ok: true,
     userId,
-    redirectTo: "/onboarding",
+    redirectTo: ossMode ? "/oss-onboarding" : "/onboarding",
   });
   res.headers.set("Set-Cookie", sessionSetCookieHeader(cookieValue));
   return res;

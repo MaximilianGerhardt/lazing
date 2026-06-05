@@ -57,40 +57,56 @@ feature bolted on afterwards.
 
 ## Quickstart
 
+**One line** (needs git + Node ≥ 20; enables pnpm for you, clones, launches,
+opens your browser):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MaximilianGerhardt/lazing/main/install.sh | bash
+```
+
+That's it — the browser opens on **“Get started”** (you're the owner of this
+machine: one click, no access code), then the onboarding wizard takes over.
+
+Already have the repo? Just run the launcher:
+
+```bash
+git clone https://github.com/MaximilianGerhardt/lazing.git && cd lazing && ./start
+```
+
+`./start` runs `scripts/setup.sh` (creates `.env.local` and **auto-generates** the
+required secrets `LAZYOS_AUTH_SECRET` / `LAZYOS_CREDENTIAL_KEY` /
+`LAZYOS_ACCESS_CODE`; owner e-mail defaults to `owner@localhost`; real values are
+never overwritten), boots the web app (:4200) **and** the agent server (:4201),
+and opens your browser. Everything else is configured **in the browser** — no
+`.env` editing, no copying codes from the terminal.
+
+<details>
+<summary>Prefer to run the steps yourself?</summary>
+
 ```bash
 git clone https://github.com/MaximilianGerhardt/lazing.git
 cd lazing
-
 pnpm install
-
-bash scripts/setup.sh   # auto-generates the required secrets, runs migrations,
-                        # seeds the default org/workspace/owner. Idempotent.
-
-pnpm dev                # web app on http://localhost:4200
+bash scripts/setup.sh                       # secrets + migrations + seed (idempotent)
+pnpm dev                                     # web app on http://localhost:4200
+cd server && pnpm install && pnpm start      # agent server on :4201 (separate terminal)
 ```
+</details>
 
-`setup.sh` creates `.env.local` and **auto-generates** the three required secrets
-(`LAZYOS_AUTH_SECRET`, `LAZYOS_CREDENTIAL_KEY`, `LAZYOS_ACCESS_CODE`); the owner
-e-mail defaults to `owner@localhost`. To use your own values, set them first
-(edit `.env.local` or `export LAZYOS_OWNER_EMAIL=…`) — real values are never
-overwritten. It prints your solo-self-host login code at the end.
-
-Optionally, in a second terminal, start the long-running agent server for
-real CLI agent sessions (it lives in `server/` with its own dependencies):
+Even simpler, `./start` does setup + boots both servers + opens your browser:
 
 ```bash
-cd server && pnpm install && pnpm start   # agent server on http://localhost:4201
+git clone https://github.com/MaximilianGerhardt/lazing.git && cd lazing && ./start
 ```
 
-Then open `http://localhost:4200`. On a fresh install you are taken through the
-**first-run onboarding wizard** at [`/oss-onboarding`](http://localhost:4200/oss-onboarding):
-it walks you through the owner profile, the first organization and the first
-workspace.
+On a fresh install the browser shows **“Get started”** — because you're on the
+machine running laz.ing, you're the owner: **one click, no access code**. That
+signs you in and runs the **first-run onboarding wizard** (system check ·
+one-click engine install · connect Claude/Codex · main folder · phone QR + PWA).
 
-**Logging in without e-mail:** set `LAZYOS_ACCESS_CODE`, choose the
-solo-self-host option on the login page, and paste the code. With e-mail
-configured (Resend), use the magic-link flow instead; without it, the magic link
-is printed to the server console.
+**Remote / other users:** the codeless owner-setup is localhost-only. Over a
+tunnel, sign in with the access code (`LAZYOS_ACCESS_CODE`, in `.env.local`) or an
+e-mail magic-link — both under “Other ways to sign in”.
 
 More detailed guides live under [`docs/install/`](docs/install/) —
 [local](docs/install/local.md), [Docker](docs/install/docker.md) and
