@@ -558,6 +558,8 @@ const MIGRATIONS = [
   // merely reproducible. Additive, NULL = today's behavior.
   path.join(process.cwd(), "db", "migrations", "0130_flow_params.sql"),
   path.join(process.cwd(), "db", "migrations", "0131_pii_vault.sql"),
+  // 0132 (2026-06-05) — optional email+password login (users.password_hash).
+  path.join(process.cwd(), "db", "migrations", "0132_user_password.sql"),
 ];
 
 let cached: LazyDb | null = null;

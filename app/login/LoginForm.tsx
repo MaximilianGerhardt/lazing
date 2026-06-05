@@ -53,6 +53,13 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
   const [masterError, setMasterError] = useState<string | null>(null);
   const [masterPending, startMasterTransition] = useTransition();
 
+  // Email + password login (classic user management)
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwEmail, setPwEmail] = useState("");
+  const [pwPassword, setPwPassword] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwPending, startPwTransition] = useTransition();
+
   useEffect(() => {
     let cancelled = false;
     void fetch("/api/auth/bootstrap-status", { credentials: "same-origin" })
@@ -120,6 +127,42 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
           "Network error: " +
             (err instanceof Error ? err.message : String(err)),
         );
+      }
+    });
+  };
+
+  const submitPassword = (e: React.FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    setPwError(null);
+    if (!EMAIL_RE.test(pwEmail.trim())) {
+      setPwError("Please enter a valid email.");
+      return;
+    }
+    if (pwPassword.length === 0) {
+      setPwError("Enter your password.");
+      return;
+    }
+    startPwTransition(async () => {
+      try {
+        const res = await fetch("/api/auth/password/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ email: pwEmail.trim(), password: pwPassword }),
+        });
+        if (res.status === 401) {
+          setPwError("Wrong email or password.");
+          return;
+        }
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          setPwError(j.error ?? "Login failed.");
+          return;
+        }
+        const body = (await res.json()) as { redirectTo?: string };
+        window.location.href = body.redirectTo ?? from;
+      } catch (err) {
+        setPwError("Network error: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
@@ -373,6 +416,62 @@ export function LoginForm({ from }: LoginFormProps): React.JSX.Element {
           </p>
         ) : null}
       </form>
+
+      <div style={dividerStyle}>
+        <button
+          type="button"
+          onClick={() => setPwOpen((v) => !v)}
+          style={collapsibleBtnStyle}
+        >
+          {pwOpen
+            ? "Hide password sign-in"
+            : "→ Sign in with email + password"}
+        </button>
+        {pwOpen ? (
+          <form onSubmit={submitPassword} noValidate style={bootFormStyle}>
+            <label htmlFor="pw-email" style={labelStyle}>
+              Email
+            </label>
+            <input
+              id="pw-email"
+              name="pw-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              disabled={pwPending}
+              value={pwEmail}
+              onChange={(e) => setPwEmail(e.target.value)}
+              placeholder="you@example.com"
+              style={inputStyle}
+            />
+            <label htmlFor="pw-pass" style={{ ...labelStyle, marginTop: 12 }}>
+              Password
+            </label>
+            <input
+              id="pw-pass"
+              name="pw-pass"
+              type="password"
+              autoComplete="current-password"
+              disabled={pwPending}
+              value={pwPassword}
+              onChange={(e) => setPwPassword(e.target.value)}
+              style={inputStyle}
+            />
+            <button
+              type="submit"
+              disabled={pwPending}
+              style={{ ...primaryBtnStyle(pwPending, false), marginTop: 16 }}
+            >
+              {pwPending ? "Signing in…" : "Sign in"}
+            </button>
+            {pwError ? (
+              <p role="alert" style={errorStyle}>
+                {pwError}
+              </p>
+            ) : null}
+          </form>
+        ) : null}
+      </div>
 
       {bootstrapAvailable && !codeless ? (
         <div style={dividerStyle}>

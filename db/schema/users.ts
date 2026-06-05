@@ -39,6 +39,8 @@ export const users = sqliteTable(
     email: text("email").notNull().unique(),
     /** When the magic link confirmed that the email works. */
     emailVerifiedAt: integer("email_verified_at", { mode: "timestamp_ms" }),
+    /** Optional scrypt password hash (email+password login). NULL = magic-link only. */
+    passwordHash: text("password_hash"),
     /** Display name. */
     displayName: text("display_name").notNull(),
     avatarUrl: text("avatar_url"),
