@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BRAND_NAME } from "@/lib/brand";
 import { TicketSurface, type TicketReviewFeedback } from "@/lib/ui/tck";
 
 interface ApiResult {
@@ -120,8 +121,8 @@ export function DesignReviewTicket() {
       status="open"
       prio="REVIEW"
       title="Phase 1 · Component-Library · Sichtprüfung"
-      body="Alle 16 LazyOS-Kategorien rendern auf dieser Seite. Bitte prüf die Punkte unten oder klick direkt Ok/Anpassen/Verwerfen."
-      segment="lazyOS · Eigene"
+      body={`Alle 16 ${BRAND_NAME}-Kategorien rendern auf dieser Seite. Bitte prüf die Punkte unten oder klick direkt Ok/Anpassen/Verwerfen.`}
+      segment={`${BRAND_NAME} · Eigene`}
       assignee="senior-dev (×10)"
       due="jetzt"
       reviewChecklist={[

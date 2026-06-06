@@ -8,6 +8,7 @@
 
 import type { CSSProperties } from "react";
 
+import { BRAND_NAME } from "@/lib/brand";
 import { resolveAndConsumeShare, ShareError } from "@/lib/cloud/share";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,7 @@ export default async function PublicSharePage({
   return (
     <main style={containerStyle}>
       <div style={panelStyle}>
-        <div style={brandStyle}>lazyOS · Geteilt</div>
+        <div style={brandStyle}>{BRAND_NAME} · Geteilt</div>
 
         {state.kind === "ok" ? (
           <>

@@ -17,13 +17,17 @@
  *   1  welcome      — "lazyOS is a local-first AI runtime, here is your setup"
  *   2  fullaccess   — Guided + detected OS permissions (NOT a hard gate)
  *   3  systemcheck  — Live preflight probe + safe one-click self-healing
- *   4  install      — Consented, streamed one-click install of missing tools
- *   5  engine       — Live availability probe (claude-cli / codex / ollama)
- *   6  connect      — Robust per-engine connect (terminal OAuth + paste key/JSON)
- *   7  purpose      — Usage purpose pick → pre-seeds the workspace step
- *   8  workspace    — Local-folder picker + quick defaults (name, sensitivity)
- *   9  github       — Optional GitHub connect (OAuth primary, PAT fallback)
- *  10  finalize     — Boot the agent server, verify ports, mark completion
+ *   4  engines      — Detect-first engines step: each engine shows its detected
+ *                     status (✓ installed + version, or ✗ missing + one Install
+ *                     action), plus a single Ollama default-model picker that
+ *                     only appears when Ollama is present. (Merged the old
+ *                     `install` + `engine` steps — they were redundant: both
+ *                     probed the same three engines.)
+ *   5  connect      — Robust per-engine connect (terminal OAuth + paste key/JSON)
+ *   6  purpose      — Usage purpose pick → pre-seeds the workspace step
+ *   7  workspace    — Local-folder picker + quick defaults (name, sensitivity)
+ *   8  github       — Optional GitHub connect (OAuth primary, PAT fallback)
+ *   9  finalize     — Boot the agent server, verify ports, mark completion
  *   done            — Sentinel state, signals "wizard complete"
  */
 
@@ -31,8 +35,7 @@ export const OSS_ONBOARDING_STEPS = [
   "welcome",
   "fullaccess",
   "systemcheck",
-  "install",
-  "engine",
+  "engines",
   "connect",
   "purpose",
   "workspace",

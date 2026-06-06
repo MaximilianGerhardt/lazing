@@ -39,6 +39,7 @@ import {
   DEFAULT_ORG_NAME,
 } from "@/lib/orgs/constants";
 import { timingSafeEqual } from "@/lib/security/crypto";
+import { isLoopbackFirstRun } from "@/lib/security/loopback";
 import {
   hashPassword,
   isStrongEnough,
@@ -85,21 +86,6 @@ function sameOrigin(req: Request): boolean {
  * loopback needs no access code. Remote/proxied/tunneled requests (a forwarded
  * host header) still must present the code.
  */
-function isLoopbackFirstRun(req: Request): boolean {
-  const host = (req.headers.get("host") ?? "")
-    .toLowerCase()
-    .replace(/:\d+$/, "");
-  const loopback =
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "[::1]";
-  const proxied = Boolean(
-    req.headers.get("x-forwarded-for") || req.headers.get("x-forwarded-host"),
-  );
-  return loopback && !proxied;
-}
-
 function delayRandom(minMs: number, maxMs: number): Promise<void> {
   const span = Math.max(0, maxMs - minMs);
   const ms = minMs + Math.floor(Math.random() * span);
@@ -170,7 +156,7 @@ export async function POST(req: Request): Promise<Response> {
 
   const accessCode = process.env.LAZYOS_ACCESS_CODE?.trim();
   const providedCode = parsed.data.accessCode?.trim() ?? "";
-  const localFirstRun = isLoopbackFirstRun(req);
+  const localFirstRun = isLoopbackFirstRun(req.headers);
 
   // Remote/proxied first run → the access code is REQUIRED. On localhost the
   // local operator is the owner, so the first bootstrap needs NO code (the code

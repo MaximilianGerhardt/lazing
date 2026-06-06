@@ -16,6 +16,7 @@
  */
 
 import os from "node:os";
+import { BRAND_NAME } from "@/lib/brand";
 
 export type InstallPlatform = "darwin" | "linux" | "win32";
 
@@ -54,7 +55,7 @@ export const INSTALL_TARGETS: Readonly<Record<string, InstallTarget>> = Object.f
   node: {
     id: "node",
     label: "Node.js",
-    description: "Node.js is required to run lazyOS. Install it from nodejs.org or your package manager.",
+    description: `Node.js is required to run ${BRAND_NAME}. Install it from nodejs.org or your package manager.`,
     // Node is a prerequisite of the running server, so there is no safe
     // in-process installer; we surface guidance only (no exec spec).
     byPlatform: {},

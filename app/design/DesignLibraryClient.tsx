@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
+import { BRAND_NAME } from "@/lib/brand";
 import { CmdBar, CmdSuggest, type CmdSuggestion } from "@/lib/ui/cmd";
 import { Chat, MsgUser, MsgAssistant, MsgCard } from "@/lib/ui/cht";
 import { Decision } from "@/lib/ui/dec";
@@ -76,7 +77,7 @@ export default function DesignLibraryClient() {
             color: "var(--ink-2)",
           }}
         >
-          Alle Komponenten rendern gegen das LazyOS v1.0 Token-System. Jede Kategorie mit ID
+          Alle Komponenten rendern gegen das {BRAND_NAME} v1.0 Token-System. Jede Kategorie mit ID
           referenzierbar. Unten: Review-Ticket — Checkliste, direkter Test-Link, Feedback-Feld.
         </p>
       </header>

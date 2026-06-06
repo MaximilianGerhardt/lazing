@@ -22,25 +22,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getDb } from "@/db/client";
 import { isEmailConfigured } from "@/lib/email/send";
+import { isLoopbackFirstRun } from "@/lib/security/loopback";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** First run from the local machine itself (loopback, not proxied/tunneled). */
-function isLoopback(req: NextRequest): boolean {
-  const host = (req.headers.get("host") ?? "").toLowerCase().replace(/:\d+$/, "");
-  const loopback =
-    host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
-  const proxied = Boolean(
-    req.headers.get("x-forwarded-for") || req.headers.get("x-forwarded-host"),
-  );
-  return loopback && !proxied;
-}
-
 export async function GET(req: NextRequest): Promise<Response> {
   const accessCode = process.env.LAZYOS_ACCESS_CODE?.trim();
   const hasCode = Boolean(accessCode && accessCode.length >= 16);
-  const localFirstRun = isLoopback(req);
+  const localFirstRun = isLoopbackFirstRun(req.headers);
   // Whether a deliverable mail provider is configured. When false the login UI
   // hides the magic-link form (it cannot send a mail) and shows email +
   // password instead.

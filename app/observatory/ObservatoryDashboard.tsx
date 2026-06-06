@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { BRAND_NAME } from "@/lib/brand";
 import { Engine } from "@/lib/ui/eng/Engine";
 import { HeartbeatPulse } from "@/lib/ui/hbt/HeartbeatPulse";
 import { Pipeline } from "@/lib/ui/pip/Pipeline";
@@ -264,7 +265,7 @@ export function ObservatoryDashboard(): React.JSX.Element {
       <section style={{ marginBottom: 32 }}>
         <Engine
           type="local"
-          name="lazyOS Server"
+          name={`${BRAND_NAME} Server`}
           status={serverStatus}
           statusLabel={serverStatusLabel}
           meta={

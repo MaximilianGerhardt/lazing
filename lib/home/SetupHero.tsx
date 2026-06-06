@@ -35,6 +35,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { BRAND_NAME } from '@/lib/brand';
 
 interface SetupStatus {
   engines: { ready: number; total: number };
@@ -267,7 +268,7 @@ export function SetupHero({ hidden }: SetupHeroProps = {}): React.JSX.Element | 
           <SetupCard
             id="github"
             title="GitHub verbinden (optional)"
-            desc="lazyOS läuft auch ohne GitHub. Verbinde nur, wenn du Repo-gebundene Workspaces willst."
+            desc={`${BRAND_NAME} läuft auch ohne GitHub. Verbinde nur, wenn du Repo-gebundene Workspaces willst.`}
             ready={githubReady}
             href="/settings#github"
             testId="setup-card-github"

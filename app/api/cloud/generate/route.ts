@@ -14,6 +14,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { BRAND_NAME } from "@/lib/brand";
 import { resolveActor } from "@/lib/cloud/actor";
 import {
   CloudError,
@@ -204,7 +205,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         markdown,
         footer:
           body.footer ??
-          `${brand.orgName ?? "lazyOS"} · ${workspace} · ${new Date().toISOString().slice(0, 10)}`,
+          `${brand.orgName ?? BRAND_NAME} · ${workspace} · ${new Date().toISOString().slice(0, 10)}`,
         brand: {
           orgName: brand.orgName,
           workspaceLabel: brand.workspaceLabel,

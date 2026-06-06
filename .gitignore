@@ -97,3 +97,6 @@ docs/marketing/
 .next.*-bak
 .next-rebuild/
 .next-verify/
+
+# alle .next* build-Artefakte (inkl. ".next 3" Finder-Dupes, .next-rebuild, .next.*-bak)
+.next*

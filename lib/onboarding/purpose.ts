@@ -7,6 +7,7 @@
  * the workspace form from this; the user can still edit every field.
  */
 
+import { BRAND_NAME } from "@/lib/brand";
 import type { UsagePurpose } from "./oss-state";
 
 export interface WorkspaceSeed {
@@ -35,8 +36,8 @@ export const PURPOSE_OPTIONS: ReadonlyArray<{
   },
   {
     id: "contributor",
-    title: "Contributing to lazyOS",
-    blurb: "Hack on lazyOS itself. A dev workspace pointing at this checkout.",
+    title: `Contributing to ${BRAND_NAME}`,
+    blurb: `Hack on ${BRAND_NAME} itself. A dev workspace pointing at this checkout.`,
   },
 ]);
 
@@ -53,9 +54,9 @@ const SEED_MAP: Readonly<Record<UsagePurpose, WorkspaceSeed>> = Object.freeze({
     segmentsHint: "A single workspace for your own projects — add more any time.",
   },
   contributor: {
-    workspaceLabel: "lazyOS Dev",
+    workspaceLabel: `${BRAND_NAME} Dev`,
     sensitivity: "low",
-    segmentsHint: "A development workspace pointed at your lazyOS checkout.",
+    segmentsHint: `A development workspace pointed at your ${BRAND_NAME} checkout.`,
   },
 });
 

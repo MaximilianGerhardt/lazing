@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * OSS onboarding wizard — Track B (Robust-v1), 10-step flow.
+ * OSS onboarding wizard — Track B (Robust-v1), 9-step flow.
  *
- * Step order: welcome -> fullaccess -> systemcheck -> install -> engine ->
- * connect -> purpose -> workspace -> github -> finalize -> done.
+ * Step order: welcome -> fullaccess -> systemcheck -> engines -> connect ->
+ * purpose -> workspace -> github -> finalize -> done.
  *
  * Visual language (unchanged from the prior Jobs/Rams pass):
  *   - Pitch-Black #070707 canvas + 3 radial glows
@@ -15,7 +15,10 @@
  *
  * Every capability is delivered via ROBUST mechanics:
  *   - systemcheck: live preflight + one "Fix safe issues" button (B1)
- *   - install: per-tool consented streamed install with a live log (B2)
+ *   - engines (B2+old engine step, merged): detect-first — each engine shows
+ *     ✓ "installed (version)" or ✗ missing + one consented streamed Install
+ *     action; the single Ollama default-model picker appears only when Ollama
+ *     is present. Connect/auth happens in the next `connect` step.
  *   - connect: terminal-OAuth auto-verify OR paste key/JSON, equal paths (B3)
  *   - fullaccess: guided deep-links + detected probe, never a gate (B4)
  *   - purpose -> workspace pre-seed, finalize boots + verifies ports (B5)
@@ -127,8 +130,7 @@ const STEP_TITLES: Record<OssOnboardingStep, string> = {
   welcome: "Welcome",
   fullaccess: "Full Access",
   systemcheck: "System Check",
-  install: "Install",
-  engine: "Engine",
+  engines: "Engines",
   connect: "Connect",
   purpose: "Purpose",
   workspace: "Workspace",
@@ -137,13 +139,34 @@ const STEP_TITLES: Record<OssOnboardingStep, string> = {
   done: "Ready",
 };
 
-/** Tools the install step offers, mapped to allowlist target ids (B2). */
-const INSTALL_TOOLS: Array<{ id: string; label: string; command: string; shell?: boolean }> = [
-  { id: "claude", label: "Claude Code CLI", command: "npm i -g @anthropic-ai/claude-code" },
-  { id: "codex", label: "OpenAI Codex CLI", command: "npm i -g @openai/codex" },
-  { id: "ollama", label: "Ollama", command: "curl -fsSL https://ollama.com/install.sh | sh", shell: true },
-  { id: "ollama-model", label: "Default Ollama model", command: "ollama pull nomic-embed-text" },
+/**
+ * Engine descriptors for the merged `engines` step. Each maps a live
+ * `/api/engine/detect` probe kind to its install allowlist target id (B2) and
+ * the exact command the Install action would run (shown verbatim on the row).
+ *
+ * The Ollama default-model is intentionally NOT an engine row — it is rendered
+ * exactly once, beneath the Ollama row, and only when Ollama is detected.
+ */
+const ENGINE_TOOLS: Array<{
+  /** Probe kind from /api/engine/detect. */
+  probeKind: "claude-cli" | "codex" | "ollama";
+  /** Install allowlist target id (lib/onboarding/installers.ts). */
+  installId: string;
+  label: string;
+  installCommand: string;
+  shell?: boolean;
+}> = [
+  { probeKind: "claude-cli", installId: "claude", label: "Claude Code CLI", installCommand: "npm i -g @anthropic-ai/claude-code" },
+  { probeKind: "codex", installId: "codex", label: "OpenAI Codex CLI", installCommand: "npm i -g @openai/codex" },
+  { probeKind: "ollama", installId: "ollama", label: "Ollama", installCommand: "curl -fsSL https://ollama.com/install.sh | sh", shell: true },
 ];
+
+/** The single Ollama default-model control (shown once, only when Ollama is present). */
+const OLLAMA_MODEL_TOOL = {
+  installId: "ollama-model",
+  label: "Default Ollama model",
+  installCommand: "ollama pull nomic-embed-text",
+} as const;
 
 function slugifyWorkspace(name: string): string {
   const cleaned = name
@@ -288,7 +311,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    if ((step !== "engine" && step !== "connect") || probes !== null || probing) return;
+    if ((step !== "engines" && step !== "connect") || probes !== null || probing) return;
     setProbing(true);
     void runEngineProbe(false).finally(() => setProbing(false));
   }, [step, probes, probing, runEngineProbe]);
@@ -646,7 +669,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
 
         {step === "welcome" ? (
           <section style={panelStyle} data-test="step-welcome">
-            <h1 style={titleStyle}>Welcome to lazyOS.</h1>
+            <h1 style={titleStyle}>Welcome to laz.ing.</h1>
             <p style={leadStyle}>
               A local-first AI runtime. Your data, your engine, your machine.
             </p>
@@ -681,7 +704,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
             <p style={leadStyle}>
               {fullAccess?.platform === "darwin"
                 ? "On macOS, some capabilities need a one-time permission in System Settings. This is guided — never forced. You can continue without it."
-                : "No special OS permissions are required on this platform. lazyOS works with standard file access."}
+                : "No special OS permissions are required on this platform. laz.ing works with standard file access."}
             </p>
 
             {fullAccess?.platform === "darwin" && fullAccess.deeplinks ? (
@@ -826,63 +849,56 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
           </section>
         ) : null}
 
-        {step === "install" ? (
-          <section style={panelStyle} data-test="step-install">
-            <h1 style={titleStyle}>Install the tools.</h1>
-            <p style={leadStyle}>
-              Optional. Install any missing CLI with one click. Each runs the exact
-              command shown, streamed live. Nothing runs without your tap.
-            </p>
-            <div style={installListStyle}>
-              {INSTALL_TOOLS.map((tool) => (
-                <InstallRow
-                  key={tool.id}
-                  tool={tool}
-                  state={installState[tool.id] ?? "idle"}
-                  log={installLogs[tool.id] ?? []}
-                  onRun={() => runInstall(tool.id, tool.shell === true)}
-                  onAbort={() => abortInstall(tool.id)}
-                />
-              ))}
-            </div>
-            <div style={btnRowStyle}>
-              <button
-                type="button"
-                onClick={() => {
-                  const okIds = Object.entries(installState).filter(([, v]) => v === "ok").map(([k]) => k);
-                  goNext("install", { installSummary: okIds.length > 0 ? `Installed: ${okIds.join(", ")}` : "No tools installed" });
-                }}
-                disabled={busy}
-                style={ctaStyle}
-                data-test="cta-install"
-              >
-                Continue
-              </button>
-              <button type="button" onClick={() => goNext("install", { installSummary: "Skipped" }, true)} disabled={busy} style={skipBtnStyle} data-test="skip-install">
-                Skip
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        {step === "engine" ? (
-          <section style={panelStyle} data-test="step-engine">
+        {step === "engines" ? (
+          <section style={panelStyle} data-test="step-engines">
             <h1 style={titleStyle}>Engines on this machine.</h1>
             <p style={leadStyle}>
-              lazyOS runs <strong>all available engines in parallel</strong> by default.
-              Below is a live availability probe — connecting them is the next step.
+              laz.ing runs <strong>all available engines in parallel</strong> by default.
+              We detected what is already on your machine — anything already
+              installed is ready to go. Only missing tools offer a one-click,
+              streamed install. Signing in happens in the next step.
             </p>
-            {probing ? <div style={probeStatusStyle}>Probing claude-cli, codex, ollama…</div> : null}
+            {probing && probes === null ? (
+              <div style={probeStatusStyle} data-test="engines-probing">
+                Detecting claude-cli, codex, ollama…
+              </div>
+            ) : null}
             {probes ? (
-              <div style={engineGridStyle} data-test="engine-status-grid">
-                {probes.probes.map((p) => (
-                  <EngineStatusCard key={p.kind} kind={p.kind} found={p.found} versionHint={p.versionHint} />
-                ))}
+              <div style={installListStyle} data-test="engines-list">
+                {ENGINE_TOOLS.map((tool) => {
+                  const probe = probes.probes.find((p) => p.kind === tool.probeKind) ?? null;
+                  const found = probe?.found === true;
+                  // Present = detected OR installed in this very session.
+                  const present = found || installState[tool.installId] === "ok";
+                  return (
+                    <div key={tool.probeKind}>
+                      <EngineToolRow
+                        label={tool.label}
+                        found={found}
+                        versionHint={probe?.versionHint ?? null}
+                        installCommand={tool.installCommand}
+                        installState={installState[tool.installId] ?? "idle"}
+                        installLog={installLogs[tool.installId] ?? []}
+                        onInstall={() => runInstall(tool.installId, tool.shell === true)}
+                        onAbort={() => abortInstall(tool.installId)}
+                        testId={tool.probeKind}
+                      />
+                      {tool.probeKind === "ollama" && present ? (
+                        <OllamaModelControl
+                          installState={installState[OLLAMA_MODEL_TOOL.installId] ?? "idle"}
+                          installLog={installLogs[OLLAMA_MODEL_TOOL.installId] ?? []}
+                          onPull={() => runInstall(OLLAMA_MODEL_TOOL.installId, false)}
+                          onAbort={() => abortInstall(OLLAMA_MODEL_TOOL.installId)}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
             <div style={btnRowStyle}>
-              <button type="button" onClick={() => { void runEngineProbe(true); }} style={recheckBtnStyle} data-test="engine-reprobe">
-                Re-probe
+              <button type="button" onClick={() => { void runEngineProbe(true); }} disabled={probing} style={recheckBtnStyle} data-test="engines-reprobe">
+                Re-detect
               </button>
             </div>
             <div style={btnRowStyle}>
@@ -893,15 +909,20 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
                   const engine: DetectedEngine | null = firstFound
                     ? { kind: firstFound.kind, location: firstFound.location, versionHint: firstFound.versionHint, autoDetected: true }
                     : null;
-                  goNext("engine", { engine, preferredEngine: "parallel-all" });
+                  const okIds = Object.entries(installState).filter(([, v]) => v === "ok").map(([k]) => k);
+                  goNext("engines", {
+                    engine,
+                    preferredEngine: "parallel-all",
+                    installSummary: okIds.length > 0 ? `Installed: ${okIds.join(", ")}` : null,
+                  });
                 }}
-                disabled={busy || probing}
+                disabled={busy || (probing && probes === null)}
                 style={ctaStyle}
-                data-test="cta-engine"
+                data-test="cta-engines"
               >
                 Continue
               </button>
-              <button type="button" onClick={() => goNext("engine", { engine: null }, true)} disabled={busy} style={skipBtnStyle} data-test="skip-engine">
+              <button type="button" onClick={() => goNext("engines", { engine: null }, true)} disabled={busy} style={skipBtnStyle} data-test="skip-engines">
                 Skip
               </button>
             </div>
@@ -981,7 +1002,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
 
         {step === "purpose" ? (
           <section style={panelStyle} data-test="step-purpose">
-            <h1 style={titleStyle}>How will you use lazyOS?</h1>
+            <h1 style={titleStyle}>How will you use laz.ing?</h1>
             <p style={leadStyle}>This pre-fills sensible defaults for your first workspace. You can change everything next.</p>
             <div style={radioGroupStyle}>
               {PURPOSE_OPTIONS.map((opt) => (
@@ -1019,7 +1040,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
                   const seed = purpose ? PURPOSE_OPTIONS.find((o) => o.id === purpose) : null;
                   if (purpose) {
                     // Pre-seed workspace fields from the purpose map.
-                    const label = purpose === "agency" ? "Client Work" : purpose === "contributor" ? "lazyOS Dev" : "My Workspace";
+                    const label = purpose === "agency" ? "Client Work" : purpose === "contributor" ? "laz.ing Dev" : "My Workspace";
                     setWsName(label);
                     setWsSens(purpose === "agency" ? "normal" : "low");
                   }
@@ -1041,8 +1062,8 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
 
         {step === "workspace" ? (
           <section style={panelStyle} data-test="step-workspace">
-            <h1 style={titleStyle}>Where should lazyOS work?</h1>
-            <p style={leadStyle}>Give your workspace a name. lazyOS keeps every file, chat, and decision scoped to it.</p>
+            <h1 style={titleStyle}>Where should laz.ing work?</h1>
+            <p style={leadStyle}>Give your workspace a name. laz.ing keeps every file, chat, and decision scoped to it.</p>
             <MainFolderField />
             <div style={fieldGroupStyle}>
               <label style={labelStyle} htmlFor="ws-name">Workspace name</label>
@@ -1079,7 +1100,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
         {step === "github" ? (
           <section style={panelStyle} data-test="step-github">
             <h1 style={titleStyle}>Connect GitHub.</h1>
-            <p style={leadStyle}>Optional. Lets lazyOS open PRs, read issues, and sync branches across your repos.</p>
+            <p style={leadStyle}>Optional. Lets laz.ing open PRs, read issues, and sync branches across your repos.</p>
             {githubOAuthReady ? (
               <>
                 <div style={btnRowStyle}>
@@ -1118,7 +1139,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
           <section style={panelStyle} data-test="step-finalize">
             <h1 style={titleStyle}>Finalize.</h1>
             <p style={leadStyle}>
-              lazyOS will boot the agent server and verify the web and agent ports.
+              laz.ing will boot the agent server and verify the web and agent ports.
               This is the last step.
             </p>
             {finalizeResult ? (
@@ -1140,7 +1161,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
             {finalizeResult ? <PairPhonePanel /> : null}
             <div style={btnRowStyle}>
               {finalizeResult ? (
-                <button type="button" onClick={enterLazyos} style={ctaStyle} data-test="cta-enter">Enter lazyOS</button>
+                <button type="button" onClick={enterLazyos} style={ctaStyle} data-test="cta-enter">Enter laz.ing</button>
               ) : (
                 <button type="button" onClick={() => void runFinalize()} disabled={finalizeBusy} style={ctaStyle} data-test="cta-finalize">
                   {finalizeBusy ? "Booting…" : "Boot and finish"}
@@ -1161,7 +1182,7 @@ export function OssOnboardingClient({ initial }: Props): React.JSX.Element {
               <li><span style={summaryKeyStyle}>Services</span><span style={summaryValStyle}>{data?.finalizeStatus ?? "—"}</span></li>
             </ul>
             <div style={btnRowStyle}>
-              <button type="button" onClick={enterLazyos} disabled={busy} style={ctaStyle} data-test="cta-done">Enter lazyOS</button>
+              <button type="button" onClick={enterLazyos} disabled={busy} style={ctaStyle} data-test="cta-done">Enter laz.ing</button>
             </div>
           </section>
         ) : null}
@@ -1592,38 +1613,140 @@ function CopyButton({ text }: { text: string }): React.JSX.Element {
   );
 }
 
-// ---- Install row (B2) -----------------------------------------------------
+// ---- Engine tool row (merged engines step, B2) ----------------------------
 
-function InstallRow({
-  tool,
-  state,
-  log,
-  onRun,
-  onAbort,
-}: {
-  tool: { id: string; label: string; command: string };
-  state: "idle" | "running" | "ok" | "failed";
-  log: string[];
-  onRun: () => void;
-  onAbort: () => void;
-}): React.JSX.Element {
+/** Small inline SVG icons — no emoji (ui-ux-pro-max §4 no-emoji-icons). */
+function CheckIcon(): React.JSX.Element {
   return (
-    <div style={installRowStyle} data-test={`install-${tool.id}`} data-state={state}>
+    <svg aria-hidden width={14} height={14} viewBox="0 0 16 16" style={{ display: "block" }}>
+      <path fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M3.5 8.5l3 3 6-7" />
+    </svg>
+  );
+}
+function DownloadIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden width={14} height={14} viewBox="0 0 16 16" style={{ display: "block" }}>
+      <path fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" d="M8 2v8m0 0l-3-3m3 3l3-3M3 13h10" />
+    </svg>
+  );
+}
+
+/**
+ * One engine on the merged `engines` step. Detect-first:
+ *   - found  → ✓ "installed" + version, NO Install button.
+ *   - missing → ✗ "not installed" + ONE consented streamed Install action.
+ */
+function EngineToolRow({
+  label,
+  found,
+  versionHint,
+  installCommand,
+  installState,
+  installLog,
+  onInstall,
+  onAbort,
+  testId,
+}: {
+  label: string;
+  found: boolean;
+  versionHint: string | null;
+  installCommand: string;
+  installState: "idle" | "running" | "ok" | "failed";
+  installLog: string[];
+  onInstall: () => void;
+  onAbort: () => void;
+  testId: string;
+}): React.JSX.Element {
+  // A just-installed-this-session tool also counts as present.
+  const present = found || installState === "ok";
+  return (
+    <div
+      style={{ ...installRowStyle, borderColor: present ? "color-mix(in oklab, var(--a-now, #c9ff4d) 30%, transparent)" : undefined }}
+      data-test={`engine-${testId}`}
+      data-present={present ? "true" : "false"}
+      data-state={installState}
+    >
       <div style={statusHeaderStyle}>
-        <div>
-          <div style={statusTitleStyle}>{tool.label}</div>
-          <code style={{ ...codeStyle, fontSize: 11 }}>{tool.command}</code>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+          <div style={statusTitleStyle}>{label}</div>
+          {present ? (
+            <div style={{ ...engineStatusLineStyle, color: "var(--a-now, #c9ff4d)" }} data-test={`engine-status-${testId}`}>
+              <CheckIcon />
+              <span>
+                installed
+                {versionHint ? <span style={engineVersionStyle}> · {versionHint}</span> : null}
+              </span>
+            </div>
+          ) : (
+            <div style={{ ...engineStatusLineStyle, color: "var(--a-warn, #ffb84d)" }} data-test={`engine-status-${testId}`}>
+              <span aria-hidden style={engineMissingGlyphStyle}>✕</span>
+              <span>not installed</span>
+            </div>
+          )}
         </div>
-        {state === "running" ? (
-          <button type="button" onClick={onAbort} style={ghostLinkBtnStyle} data-test={`install-abort-${tool.id}`}>Abort</button>
+        {present ? (
+          <span style={engineReadyBadgeStyle} data-test={`engine-ready-${testId}`}>Ready</span>
+        ) : installState === "running" ? (
+          <button type="button" onClick={onAbort} style={ghostLinkBtnStyle} data-test={`engine-abort-${testId}`}>Abort</button>
         ) : (
-          <button type="button" onClick={onRun} disabled={state === "ok"} style={{ ...ghostLinkBtnStyle, borderColor: state === "ok" ? "var(--a-now, #c9ff4d)" : undefined }} data-test={`install-run-${tool.id}`}>
-            {state === "ok" ? "Installed" : state === "failed" ? "Retry" : `Install`}
+          <button
+            type="button"
+            onClick={onInstall}
+            style={{ ...ghostLinkBtnStyle, display: "inline-flex", alignItems: "center", gap: 6 }}
+            data-test={`engine-install-${testId}`}
+          >
+            <DownloadIcon />
+            {installState === "failed" ? "Retry install" : "Install"}
           </button>
         )}
       </div>
-      {log.length > 0 ? (
-        <pre style={installLogStyle} data-test={`install-log-${tool.id}`}>{log.slice(-40).join("\n")}</pre>
+      {/* The exact command is shown only when an install is actually offered. */}
+      {!present ? <code style={{ ...codeStyle, fontSize: 11, alignSelf: "flex-start" }}>{installCommand}</code> : null}
+      {installLog.length > 0 ? (
+        <pre style={installLogStyle} data-test={`engine-log-${testId}`}>{installLog.slice(-40).join("\n")}</pre>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The single Ollama default-model control — rendered exactly once, only when
+ * Ollama is detected. (Fixes the "Default Ollama Model 2 Mal" duplication.)
+ */
+function OllamaModelControl({
+  installState,
+  installLog,
+  onPull,
+  onAbort,
+}: {
+  installState: "idle" | "running" | "ok" | "failed";
+  installLog: string[];
+  onPull: () => void;
+  onAbort: () => void;
+}): React.JSX.Element {
+  const pulled = installState === "ok";
+  return (
+    <div style={ollamaModelRowStyle} data-test="ollama-model" data-state={installState}>
+      <div style={statusHeaderStyle}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+          <div style={ollamaModelTitleStyle}>Default Ollama model</div>
+          <code style={{ ...codeStyle, fontSize: 11, alignSelf: "flex-start" }}>{OLLAMA_MODEL_TOOL.installCommand}</code>
+        </div>
+        {pulled ? (
+          <span style={{ ...engineStatusLineStyle, color: "var(--a-now, #c9ff4d)" }} data-test="ollama-model-pulled">
+            <CheckIcon />
+            <span>pulled</span>
+          </span>
+        ) : installState === "running" ? (
+          <button type="button" onClick={onAbort} style={ghostLinkBtnStyle} data-test="ollama-model-abort">Abort</button>
+        ) : (
+          <button type="button" onClick={onPull} style={ghostLinkBtnStyle} data-test="ollama-model-pull">
+            {installState === "failed" ? "Retry pull" : "Pull model"}
+          </button>
+        )}
+      </div>
+      {installLog.length > 0 ? (
+        <pre style={installLogStyle} data-test="ollama-model-log">{installLog.slice(-40).join("\n")}</pre>
       ) : null}
     </div>
   );
@@ -1664,26 +1787,6 @@ function SystemCheckInfoRow({ label, value, mono }: { label: string; value: stri
   );
 }
 
-// ---- Engine status card (engine step) ------------------------------------
-
-function EngineStatusCard({ kind, found, versionHint }: { kind: EngineKind; found: boolean; versionHint: string | null }): React.JSX.Element {
-  const connectHint =
-    kind === "claude-cli" ? "Install via `npm i -g @anthropic-ai/claude-code` + run `claude login`"
-      : kind === "codex" ? "Install via `npm i -g @openai/codex` + run `codex login`"
-        : kind === "ollama" ? "Install Ollama.app and run `ollama serve`"
-          : "—";
-  return (
-    <div style={{ ...statusCardStyle, borderColor: found ? "var(--a-now, #c9ff4d)" : "color-mix(in oklab, var(--ink, #f5f5f5) 8%, transparent)" }} data-test={`engine-status-${kind}`} data-available={found ? "true" : "false"}>
-      <div style={statusHeaderStyle}>
-        <span style={statusTitleStyle}>{engineLabel(kind)}</span>
-        <span style={{ ...statusBadgeStyle, color: found ? "var(--a-now, #c9ff4d)" : "var(--a-warn, #ffb84d)" }} data-test={`engine-badge-${kind}`}>
-          {found ? "available" : "not found"}
-        </span>
-      </div>
-      <div style={statusHintStyle}>{found ? versionHint ?? "ready" : connectHint}</div>
-    </div>
-  );
-}
 
 function PatFallback({ pat, onChange, onSubmit, busy }: { pat: string; onChange: (v: string) => void; onSubmit: () => void; busy: boolean }): React.JSX.Element {
   return (
@@ -1692,7 +1795,7 @@ function PatFallback({ pat, onChange, onSubmit, busy }: { pat: string; onChange:
       <input id="gh-pat" type="password" value={pat} onChange={(e) => onChange(e.target.value)} placeholder="ghp_…" autoComplete="off" spellCheck={false} style={inputStyle} disabled={busy} data-test="gh-pat-input" />
       <p style={hintStyle}>
         Create one at{" "}
-        <a href="https://github.com/settings/tokens/new?scopes=repo,read:user,user:email&description=lazyOS" target="_blank" rel="noopener noreferrer" style={linkStyle}>github.com/settings/tokens</a>{" "}
+        <a href="https://github.com/settings/tokens/new?scopes=repo,read:user,user:email&description=laz.ing" target="_blank" rel="noopener noreferrer" style={linkStyle}>github.com/settings/tokens</a>{" "}
         with <code style={codeStyle}>repo</code> + <code style={codeStyle}>read:user</code>.
       </p>
       <div style={btnRowStyle}>
@@ -1736,12 +1839,17 @@ function engineLabel(k: EngineKind): string {
 const EASE = "cubic-bezier(0.25, 0.1, 0.25, 1)";
 const T = `240ms ${EASE}`;
 
-const engineGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, maxWidth: 640 };
-const statusCardStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px", borderRadius: 12, border: "0.5px solid color-mix(in oklab, var(--ink, #f5f5f5) 8%, transparent)", background: "color-mix(in oklab, #ffffff 2%, transparent)", transition: `border-color ${T}, background 240ms` };
 const statusHeaderStyle: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 };
 const statusTitleStyle: CSSProperties = { fontSize: 13, fontWeight: 600, color: "var(--ink, #f5f5f5)", letterSpacing: "-0.005em" };
 const statusBadgeStyle: CSSProperties = { fontFamily: "var(--font-mono, ui-monospace)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase" };
-const statusHintStyle: CSSProperties = { fontSize: 11, lineHeight: 1.45, color: "var(--ink-3, #6b6b6b)", fontFamily: "var(--font-mono, ui-monospace)" };
+
+// Merged engines-step styles
+const engineStatusLineStyle: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, fontFamily: "var(--font-sans, 'SF Pro Display', system-ui)" };
+const engineVersionStyle: CSSProperties = { fontFamily: "var(--font-mono, ui-monospace)", fontSize: 11, color: "color-mix(in oklab, var(--ink, #f5f5f5) 65%, transparent)" };
+const engineMissingGlyphStyle: CSSProperties = { fontSize: 12, lineHeight: 1, width: 14, textAlign: "center", display: "inline-block" };
+const engineReadyBadgeStyle: CSSProperties = { fontFamily: "var(--font-mono, ui-monospace)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--a-now, #c9ff4d)", padding: "4px 10px", borderRadius: 999, border: "0.5px solid color-mix(in oklab, var(--a-now, #c9ff4d) 35%, transparent)", whiteSpace: "nowrap" };
+const ollamaModelRowStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 8, padding: "10px 14px", marginTop: 8, marginLeft: 16, borderRadius: 12, borderLeft: "1.5px solid color-mix(in oklab, var(--ink, #f5f5f5) 14%, transparent)", border: "0.5px solid color-mix(in oklab, var(--ink, #f5f5f5) 8%, transparent)", background: "color-mix(in oklab, #ffffff 1.5%, transparent)" };
+const ollamaModelTitleStyle: CSSProperties = { fontSize: 12, fontWeight: 600, color: "color-mix(in oklab, var(--ink, #f5f5f5) 85%, transparent)", letterSpacing: "-0.005em" };
 
 const containerStyle: CSSProperties = { maxWidth: 640, margin: "clamp(48px, 10vw, 128px) auto 96px", padding: "0 28px", position: "relative", zIndex: 1 };
 const glowWrapStyle: CSSProperties = { position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" };

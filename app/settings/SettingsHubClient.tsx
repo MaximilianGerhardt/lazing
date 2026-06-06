@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import { BRAND_NAME } from "@/lib/brand";
 import { usePushSubscription } from "@/lib/pwa/usePushSubscription";
 import { SystemPermissionsCard } from "@/lib/permissions/SystemPermissionsCard";
 import { PushSettingsSection } from "@/lib/nav/PushSettingsSection";
@@ -468,7 +469,7 @@ export default function SettingsHubClient({
         <SectionCard
           id="github"
           title="GitHub (Optional)"
-          description="lazyOS works fully without GitHub. Connect only for repo-linked workspaces, PR opening, issue read, and branch sync."
+          description={`${BRAND_NAME} works fully without GitHub. Connect only for repo-linked workspaces, PR opening, issue read, and branch sync.`}
           status={sections[2].status}
           statusText={sections[2].statusText}
         >
@@ -497,7 +498,7 @@ export default function SettingsHubClient({
           ) : (
             <>
               <p className="settings-hub-muted">
-                <strong>lazyOS works fully without GitHub.</strong> Connect for
+                <strong>{BRAND_NAME} works fully without GitHub.</strong> Connect for
                 repo-linked workspaces. Tokens werden mit AES-256-GCM
                 verschlüsselt gespeichert.
               </p>

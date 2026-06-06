@@ -7,6 +7,7 @@
  *   Abgelaufene Subscriptions (410/404) werden serverseitig entfernt.
  */
 import { NextResponse, type NextRequest } from "next/server";
+import { BRAND_NAME } from "@/lib/brand";
 import { list, remove } from "@/lib/pwa/store";
 import { getPushClient } from "@/lib/pwa/pushServer";
 import { verifyBearer } from "@/lib/security/bearer";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
-  const title = typeof payload.title === "string" && payload.title.length > 0 ? payload.title : "lazyOS";
+  const title = typeof payload.title === "string" && payload.title.length > 0 ? payload.title : BRAND_NAME;
   const body = typeof payload.body === "string" ? payload.body : "";
   const url = typeof payload.url === "string" && payload.url.startsWith("/") ? payload.url : "/";
   const tag = typeof payload.tag === "string" ? payload.tag : undefined;

@@ -128,7 +128,7 @@ async function main(): Promise<void> {
         parentId: null,
         paletteIndex: 0,
         description:
-          "Default-Organisation der lazyOS-Instanz. Sie hält den oder die ersten Workspaces.",
+          "Default-Organisation der laz.ing-Instanz. Sie hält den oder die ersten Workspaces.",
         archived: false,
         createdAt: now,
         updatedAt: now,

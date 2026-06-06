@@ -10,6 +10,7 @@
 
 import type { CSSProperties } from "react";
 
+import { BRAND_NAME } from "@/lib/brand";
 import { isValidHex, parseHex } from "@/lib/util/color";
 
 interface BrandPreviewProps {
@@ -41,7 +42,7 @@ export function BrandPreview({ colors }: BrandPreviewProps): React.JSX.Element {
 
       {/* Mock TopBar */}
       <div style={{ ...topbarStyle, background: c0, color: ink0 }}>
-        <span style={{ ...logoStyle, color: ink0 }}>lazyOS</span>
+        <span style={{ ...logoStyle, color: ink0 }}>{BRAND_NAME}</span>
         <span
           style={{
             ...accentPillStyle,

@@ -12,9 +12,14 @@
 
 /* global self */
 
-const VERSION = "lazyos-v79-push-feedback-telemetry";
+const VERSION = "lazyos-v80-css-cachebust";
 const SHELL_CACHE = `${VERSION}-shell`;
-const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
+// 2026-06-06: do NOT precache "/" (HTML). HTML references hash-named CSS/JS that
+// change every build; a precached old "/" served as offline fallback = blank page
+// with dead CSS hashes (the mobile "white page" bug). Precache only static shell
+// assets; navigation is network-only (see fetch handler). Bump VERSION to evict
+// any poisoned caches from earlier builds on the next activate.
+const SHELL_URLS = ["/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -55,7 +55,7 @@ export function seedDefaultOrg(dbPath: string = DB_PATH): SeedResult {
       ).run(
         DEFAULT_ORG_ID,
         DEFAULT_ORG_NAME,
-        "Default-Organisation der lazyOS-Instanz. Sie hält den oder die ersten Workspaces.",
+        "Default-Organisation der laz.ing-Instanz. Sie hält den oder die ersten Workspaces.",
         now,
         now,
       );

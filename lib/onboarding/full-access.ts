@@ -33,6 +33,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { BRAND_NAME } from "@/lib/brand";
 
 export type FullAccessPlatform = "darwin" | "linux" | "win32" | "other";
 
@@ -217,7 +218,7 @@ export function runFdaProbe(): FullAccessActionResult {
     action: "fda-probe-helper",
     outcome: "noop",
     detail:
-      "Full Disk Access not detected. Use the deep-link, grant access to the lazyOS process, then re-probe.",
+      `Full Disk Access not detected. Use the deep-link, grant access to the ${BRAND_NAME} process, then re-probe.`,
   };
 }
 

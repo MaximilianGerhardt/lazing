@@ -998,7 +998,7 @@ function buildLazyosSystemPrompt(workspaceId: string): string {
     '## Surface-First Mindset (PFLICHT)',
     '',
     'Dein Chat rendert spezielle XML-ähnliche Tags als echte UI-Karten aus der',
-    'LazyOS-Design-Library. **Jede sinnvolle Antwort enthält mindestens EIN**',
+    `${BRAND_NAME}-Design-Library. **Jede sinnvolle Antwort enthält mindestens EIN**`,
     '`<surface:TYPE>{json}</surface:TYPE>` — nicht nur wenn der User explizit',
     `danach fragt. Das ist das transformative ${BRAND_NAME}-UI-Prinzip.`,
     '',

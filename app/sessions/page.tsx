@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
+import { BRAND_NAME } from '@/lib/brand';
 import { SessionsList } from './SessionsList';
 
 export const metadata: Metadata = {
-  title: 'Sessions · lazyOS',
+  title: 'Sessions · laz.ing',
 };
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ export default function SessionsPage(): React.JSX.Element {
             color: 'var(--ink-2)',
           }}
         >
-          Jede Claude-Code-Session — egal ob im Terminal oder in lazyOS gestartet —
+          Jede Claude-Code-Session — egal ob im Terminal oder in {BRAND_NAME} gestartet —
           erscheint hier. Klick &bdquo;Fortsetzen&ldquo; und du redest weiter mit dem
           gleichen Context.
         </p>

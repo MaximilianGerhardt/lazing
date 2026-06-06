@@ -13,6 +13,7 @@
 
 import { useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import { BRAND_NAME } from '@/lib/brand';
 
 interface Props {
   workspaceId: string;
@@ -82,7 +83,7 @@ export function BrandingEditor({ workspaceId, initial }: Props) {
           <p style={leadStyle}>
             Logo, Markenfarben und Tonalität dieses Kunden/Projekts. Wird in
             Outbound-Mails, PDFs und Stripe-Receipts genutzt — nicht im
-            lazyOS-UI selbst.
+            {' '}{BRAND_NAME}-UI selbst.
           </p>
         </div>
       </header>
