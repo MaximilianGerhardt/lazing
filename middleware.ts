@@ -143,6 +143,11 @@ const PUBLIC_PATHS = new Set<string>([
   "/api/auth/bootstrap-status",
   // 2026-04-28: Master-Code-Login für Solo-Self-Host (immer aktiv wenn Code gesetzt).
   "/api/auth/master-login",
+  // 2026-06-06 fix: E-Mail+Passwort-Login MUSS public sein (sonst Henne-Ei —
+  // man bräuchte eine Session, um den Login-Endpoint zu erreichen). Eigene
+  // CSRF (same-origin) + timing-safe Compare + generischer 401 in der Route.
+  // /api/auth/password/set bleibt bewusst session-gated (nicht hier).
+  "/api/auth/password/login",
   "/api/push/subscribe",
   "/api/push/send",
   "/api/push/notify-review",
