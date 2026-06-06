@@ -32,7 +32,12 @@ import {
   IconLayers,
 } from './icons';
 import { UpdateNewsLink } from './UpdateNewsLink';
-import type { Organization, Workspace } from './types';
+import type { Workspace } from './types';
+import {
+  communityDotBackground,
+  groupCommunityNodes,
+  type CommunityNode,
+} from './community-groups';
 import { useI18n } from '@/lib/i18n/use-i18n';
 import { BRAND_NAME } from '@/lib/brand';
 
@@ -47,19 +52,13 @@ export interface MobileDrawerProps {
 }
 
 /**
- * D2 (P4-DRAWER) — an entry of the "Kunden" inbox. An org with type ===
- * 'client' reads as a client; other org types stay grouped orgs (no
- * client relabel). `rows` are the visible workspaces, `unread` is the
- * sum of the per-workspace unread counters across `rows`.
+ * D2 (P4-DRAWER) — an entry of the "Kunden" inbox. The grouping algorithm now
+ * lives in the shared, pure `lib/nav/community-groups.ts` (`CommunityNode`),
+ * so the drawer and the `/chats` "Communities" overview cannot drift (IA
+ * realign 2026-06-06). The drawer keeps its hook-bound data acquisition; only
+ * the pure filter→group→sort→orphan step is shared.
  */
-type KundeNode = {
-  orgId: string;
-  name: string;
-  paletteIndex: number | undefined;
-  isClient: boolean;
-  rows: Workspace[];
-  unread: number;
-};
+type KundeNode = CommunityNode;
 
 const SWIPE_CLOSE_THRESHOLD = 60; // px
 
@@ -232,62 +231,10 @@ export function MobileDrawer({
   // are NOT renamed to client. Each node carries the org palette + the
   // aggregated unread, so the render logic only needs to apply the collapse rule
   // (1 workspace ⇒ 1 row).
-  const kunden = useMemo<KundeNode[]>(() => {
-    const visible = workspaces.filter((w) => {
-      if (w.archived) return false;
-      // Virtual root workspaces (Migration 0034) not in the drawer list —
-      // same filter logic as WorkspaceSwitcher.tsx L.72-73.
-      if (w.id === '__root__') return false;
-      if (w.id.startsWith('__org_root__:')) return false;
-      // High-sensitive only visible when it is the current workspace.
-      if (w.sensitivity === 'high' && w.id !== current.id) return false;
-      return true;
-    });
-    const orgIndex = new Map<string, Organization>();
-    for (const o of orgs) orgIndex.set(o.id, o);
-    const groups = new Map<string, Workspace[]>();
-    const orphan: Workspace[] = [];
-    for (const w of visible) {
-      if (w.organizationId && orgIndex.has(w.organizationId)) {
-        const list = groups.get(w.organizationId) ?? [];
-        list.push(w);
-        groups.set(w.organizationId, list);
-      } else {
-        orphan.push(w);
-      }
-    }
-    const sumUnread = (rows: Workspace[]): number =>
-      rows.reduce((s, w) => s + (unreadByWs[w.id] ?? 0), 0);
-    const nodes: KundeNode[] = [];
-    for (const [oid, rows] of groups) {
-      const org = orgIndex.get(oid);
-      nodes.push({
-        orgId: oid,
-        name: org?.name ?? oid,
-        paletteIndex: org?.paletteIndex,
-        isClient: org?.type === 'client',
-        rows,
-        unread: sumUnread(rows),
-      });
-    }
-    // Sorting: clients (client) first (name, locale 'de'), then non-client
-    // orgs (name), then the orphan bucket as a trailing group.
-    nodes.sort((a, b) => {
-      if (a.isClient !== b.isClient) return a.isClient ? -1 : 1;
-      return a.name.localeCompare(b.name, 'de');
-    });
-    if (orphan.length > 0) {
-      nodes.push({
-        orgId: '__orphan__',
-        name: 'Ohne Org',
-        paletteIndex: undefined,
-        isClient: false,
-        rows: orphan,
-        unread: sumUnread(orphan),
-      });
-    }
-    return nodes;
-  }, [workspaces, orgs, current.id, unreadByWs]);
+  const kunden = useMemo<KundeNode[]>(
+    () => groupCommunityNodes(workspaces, orgs, current.id, unreadByWs),
+    [workspaces, orgs, current.id, unreadByWs],
+  );
 
   const handleSelect = useCallback(
     (id: string): void => {
@@ -432,12 +379,12 @@ export function MobileDrawer({
 
           <ul className="topnav-drawer-list topnav-drawer-ws-list" role="list">
             {kunden.map((node) => {
-              const dotStyle =
-                node.paletteIndex !== undefined
-                  ? {
-                      background: `var(--palette-${node.paletteIndex}, var(--a-now))`,
-                    }
-                  : undefined;
+              // IA realign 2026-06-06: per-org colour dot via the REAL
+              // `--palette-N-mid` token (the bare `--palette-N` referenced
+              // before does not exist → every dot silently fell back to the
+              // accent). Shared helper keeps drawer + /chats in sync.
+              const dotBg = communityDotBackground(node.paletteIndex);
+              const dotStyle = dotBg ? { background: dotBg } : undefined;
 
               // D3 — single-workspace client: ONE row, no collapsible header.
               // The row IS the client (collapse customer↔workspace) and opens

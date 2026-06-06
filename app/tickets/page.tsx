@@ -46,6 +46,9 @@ export default async function TicketsPage({
         : undefined,
     query: typeof sp.query === 'string' ? sp.query : undefined,
   };
+  // `?open=1` deep-link (primary "Neues Ticket" button + /tickets/new redirect):
+  // auto-open the QuickCreateDrawer — the same flow the FAB drives.
+  const openDrawerOnLoad = sp.open === '1';
 
   const [rawWorkspaces, tickets, lastFsmActor] = await Promise.all([
     safeListWorkspaces(),
@@ -139,6 +142,7 @@ export default async function TicketsPage({
       <QuickCreateDrawer
         workspaces={workspaces}
         defaultWorkspaceId={filters.workspaceId}
+        initialOpen={openDrawerOnLoad}
       />
     </main>
   );
@@ -457,7 +461,7 @@ function EmptyState({ filters }: { filters: Search }) {
         Leg dein erstes Ticket an — oder sag im Chat, was ansteht.
       </p>
       <Link
-        href="/tickets/new"
+        href="/tickets?open=1"
         style={{
           marginTop: 18,
           display: 'inline-flex',

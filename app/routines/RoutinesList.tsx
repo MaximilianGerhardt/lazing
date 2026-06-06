@@ -21,7 +21,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useCurrentWorkspace, useWorkspaces } from "@/lib/nav/hooks";
+import { useCurrentWorkspace, useUserOrgs, useWorkspaces } from "@/lib/nav/hooks";
+import { isVirtualWorkspaceId } from "@/lib/nav/workspaces-data";
 import { useToast } from "@/lib/ui/tst/useToast";
 
 import { NewRoutineWizard } from "./NewRoutineWizard";
@@ -55,6 +56,7 @@ interface TriggerResult {
 export function RoutinesList({ initial }: Props) {
   const currentWorkspace = useCurrentWorkspace();
   const { workspaces: allWorkspaces } = useWorkspaces();
+  const { orgs: userOrgs } = useUserOrgs();
   const toast = useToast();
 
   const [list, setList] = useState<RoutineSummary[]>(initial);
@@ -131,10 +133,34 @@ export function RoutinesList({ initial }: Props) {
   }, [list, allWorkspaces, currentWorkspace.id]);
 
   // --------- Wizard workspace options ---------
+  // Only REAL, selectable workspaces the user can actually create a routine in.
+  // The raw `useWorkspaces()` snapshot is polluted with phantoms that must NOT
+  // appear in the create-routine picker:
+  //   1. Virtual / aggregating IDs — `__root__` ("Root · Cross-Workspace"),
+  //      `__all__`, `__org_root__:<org>` ("… · Root"). These are nav-only views,
+  //      injected by the workspaces cache; there is no real membership row, so
+  //      a routine created against them would target a non-existent scope.
+  //   2. Stale seed workspaces belonging to an org the user is NOT a member of
+  //      (e.g. the "Demo PV" seed). `/api/workspaces` returns every non-archived
+  //      row org-wide; we scope it back to the user's own orgs here.
+  // The currently active workspace is always kept as a safety fallback so the
+  // picker is never empty even while `useUserOrgs()` is still loading.
   const wizardWorkspaceOptions = useMemo(() => {
-    // Wizard: all known workspaces of the Nav API.
-    return allWorkspaces.map((ws) => ({ id: ws.id, label: ws.label }));
-  }, [allWorkspaces]);
+    const userOrgIds = new Set(userOrgs.map((o) => o.id));
+    const real = allWorkspaces.filter((ws) => {
+      if (isVirtualWorkspaceId(ws.id)) return false; // drop __root__ / __org_root__:* / __all__
+      if (ws.id === currentWorkspace.id) return true; // never hide the active one
+      // Keep workspaces with no org link (legacy / personal) or those belonging
+      // to an org the user is actually a member of. Drop foreign-org seeds.
+      if (!ws.organizationId) return true;
+      // While orgs are still loading we have no membership info yet — keep the
+      // workspace rather than flashing an empty picker; the memo re-runs once
+      // `userOrgs` arrives and prunes foreign-org seeds.
+      if (userOrgIds.size === 0) return true;
+      return userOrgIds.has(ws.organizationId);
+    });
+    return real.map((ws) => ({ id: ws.id, label: ws.label }));
+  }, [allWorkspaces, userOrgs, currentWorkspace.id]);
 
   // --------- Filter ---------
   const filtered = useMemo(() => {
@@ -385,11 +411,18 @@ export function RoutinesList({ initial }: Props) {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onCreated={handleCreated}
-        defaultWorkspaceId={
-          workspaceFilter !== ALL_WORKSPACES
-            ? workspaceFilter
-            : currentWorkspace.id
-        }
+        defaultWorkspaceId={(() => {
+          // Preselect the active filter / workspace, but only if it survived the
+          // phantom filter above — otherwise fall back to the first real option
+          // so the wizard never opens preselected on a non-existent workspace.
+          const preferred =
+            workspaceFilter !== ALL_WORKSPACES
+              ? workspaceFilter
+              : currentWorkspace.id;
+          return wizardWorkspaceOptions.some((o) => o.id === preferred)
+            ? preferred
+            : wizardWorkspaceOptions[0]?.id;
+        })()}
         workspaces={wizardWorkspaceOptions}
       />
     </>

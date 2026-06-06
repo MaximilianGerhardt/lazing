@@ -5,30 +5,40 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { closeMobileDrawer, useCurrentWorkspace, useMobileDrawer } from './hooks';
-import { IconInbox, IconMore } from './icons';
+import { IconInbox, IconGear } from './icons';
 import { MobileDrawer } from './MobileDrawer';
+import { isConversation } from './topnav-visibility';
 import { useI18n } from '@/lib/i18n/use-i18n';
 
 /**
  * Bottom tab bar (ex-ScopeTabs) — the global, persistent iOS bottom tab bar
  * AND the single mount point of the sandwich MobileDrawer.
- * UI/UX realignment 2026-06-03 (Phase B); generalized 2026-06-05 (Phase 2 SP-4/5).
+ * UI/UX realignment 2026-06-03 (Phase B); generalized 2026-06-05 (Phase 2
+ * SP-4/5); mobile-IA realign 2026-06-06 (floating glass pill + /chats).
  *
- * Four top-level tabs — the classic iOS pattern (≤4 of 5 max, HIG bottom-nav):
- *   Chat (`/`) · Inbox (`/inbox`) · Decisions (`/decisions`) · More.
+ * Four top-level tabs — the classic messenger pattern (≤4 of 5 max, HIG
+ * bottom-nav), ALL real <Link> destinations (no toggle in the bar):
+ *   Chats (`/chats`) · Inbox (`/inbox`) · Decisions (`/decisions`) ·
+ *   Settings (`/settings`).
  *
- * "More" is a <button> (NOT a Link) that opens the MobileDrawer — the same
- * sandwich menu the TopNav hamburger opens — by dispatching
- * 'lazyos:drawer:open'. Its active affordance is `aria-expanded` (the drawer
- * is a toggle, not a destination), never `aria-current` (a location marker).
+ * The Chat tab repoints to the new `/chats` OVERVIEW (a WhatsApp-style chat
+ * list with Org/Workspace "Communities" grouping), NOT the active conversation
+ * and NOT the `/workspaces` settings grid (Bug A fix). The active match also
+ * lights the tab inside an open sub-chat conversation, the only conversation
+ * route where the bar still renders.
+ *
+ * The duplicate "More" tab (which opened the SAME drawer the TopNav hamburger
+ * owns — Bug C) is GONE. The hamburger is the single drawer trigger (secondary
+ * nav, HIG drawer-usage). The drawer is still MOUNTED here (SP-5 invariant) so
+ * it stays reachable on routes where TopNav is null.
  *
  * Single drawer mount (SP-5): the MobileDrawer is mounted HERE, not in
  * TopNav. TopNav returns null on /subchats/* — if the drawer lived only in
  * TopNav it would be unreachable on sub-chats (the old "back → list → back"
  * dead-end). Mounting it in the always-present bottom-bar component fixes
- * that. The TopNav hamburger now merely DISPATCHES 'lazyos:drawer:open' and
- * mirrors the open/closed state via 'lazyos:drawer:close' (see hooks.ts), so
- * there is exactly one drawer on every route — no double overlay.
+ * that. The TopNav hamburger DISPATCHES 'lazyos:drawer:open' and mirrors the
+ * open/closed state via 'lazyos:drawer:close' (see hooks.ts), so there is
+ * exactly one drawer on every route — no double overlay.
  *
  * Mounting: GLOBAL (app/layout.tsx, sibling after {children}). The component
  * self-decides what renders:
@@ -38,13 +48,17 @@ import { useI18n } from '@/lib/i18n/use-i18n';
  *     only the BAR is hidden there.)
  *   - The BAR (`<nav>`) is hidden:
  *       · ≥768px via CSS (desktop owns TopNav + hamburger),
- *       · on the chat (`/`) — the composer owns the bottom (calm chat),
+ *       · inside an OPEN conversation — the chat (`/`) AND an open sub-chat
+ *         `/workspaces/<id>/subchats/<subchatId>` — there the composer owns the
+ *         bottom (calm chat; `isConversation()`), so the bar is visible on the
+ *         screen the user LANDS on (`/chats`) and only gone inside a live
+ *         conversation (Bug B fix),
  *       · on `/c/*` — account-less fullscreen.
- *     It IS shown on /subchats/* and every other mobile route.
+ *     It IS shown on `/chats`, the sub-chat LIST, and every other mobile route.
  *
- * Scope carry: the Chat link carries the active, membership-bearing workspace
- * id as `?ws=<id>`, so the customer scope on `/` is reasserted
- * deterministically. Virtual `__` ids are omitted (no pinning to pseudo ids).
+ * Scope carry: the Chats link carries the active, membership-bearing workspace
+ * id as `?ws=<id>`, so the customer scope is reasserted deterministically.
+ * Virtual `__` ids are omitted (no pinning to pseudo ids).
  *
  * Keyboard-aware: when the keyboard is open (visualViewport), `body.kb-open`
  * is set → the bar slides out of the way (it must never hover over an input
@@ -80,19 +94,31 @@ export function ScopeTabs(): React.JSX.Element | null {
   const isExternalSubchat = pathname === '/c' || pathname.startsWith('/c/');
   if (isExternalSubchat) return null;
 
-  // The BAR is hidden on the chat (`/`) — there the composer owns the bottom.
-  // The DRAWER stays mounted so the TopNav hamburger keeps working on `/`.
-  const showBar = pathname !== '/';
+  // The BAR is hidden INSIDE an open conversation (the chat `/` AND an open
+  // sub-chat `/workspaces/*/subchats/<id>`) — there the composer owns the
+  // bottom. It IS shown on `/chats`, the sub-chat list, and every other mobile
+  // route (Bug B fix). The DRAWER stays mounted regardless so the hamburger
+  // keeps working everywhere (SP-5).
+  const showBar = !isConversation(pathname);
 
-  // Carry the real, membership-bearing workspace id on the Chat link only.
+  // Carry the real, membership-bearing workspace id on the Chats link, so the
+  // overview can deep-link a row back into the active scope on `/`.
   const carry =
     ws.id && !ws.id.startsWith('__')
       ? `?ws=${encodeURIComponent(ws.id)}`
       : '';
-  const chatHref = `/${carry}`;
+  const chatsHref = `/chats${carry}`;
+
+  // Chats-tab active: the overview itself OR an open sub-chat conversation
+  // (the only conversation route where the bar still renders). The bare `/`
+  // chat is intentionally NOT in this list — the bar is not rendered there at
+  // all (showBar=false), so a `/`-match would be moot (critic-precise predicate).
+  const chatsActive =
+    pathname === '/chats' ||
+    pathname.startsWith('/chats/') ||
+    /\/subchats(?:\/|$)/.test(pathname);
 
   const isActive = (href: string): boolean => {
-    if (href === '/') return pathname === '/';
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -102,7 +128,7 @@ export function ScopeTabs(): React.JSX.Element | null {
     active: boolean;
     Icon: () => React.JSX.Element;
   }> = [
-    { label: t('nav.chat'), href: chatHref, active: isActive('/'), Icon: TabIconChat },
+    { label: t('nav.chats'), href: chatsHref, active: chatsActive, Icon: TabIconChat },
     {
       label: t('nav.inbox'),
       href: '/inbox',
@@ -114,6 +140,12 @@ export function ScopeTabs(): React.JSX.Element | null {
       href: '/decisions',
       active: isActive('/decisions'),
       Icon: TabIconDecisions,
+    },
+    {
+      label: t('nav.settings'),
+      href: '/settings',
+      active: isActive('/settings'),
+      Icon: TabIconSettings,
     },
   ];
 
@@ -133,25 +165,6 @@ export function ScopeTabs(): React.JSX.Element | null {
               <span className="lazyos-tabbar__label">{tab.label}</span>
             </Link>
           ))}
-
-          {/* "More" — opens the sandwich drawer (not a destination). Active
-              state via aria-expanded (toggle affordance), not aria-current. */}
-          <button
-            type="button"
-            aria-label={t('nav.more')}
-            aria-expanded={drawer.open}
-            aria-controls="topnav-drawer"
-            aria-haspopup="dialog"
-            className="lazyos-tabbar__item"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new Event('lazyos:drawer:open'));
-              }
-            }}
-          >
-            <TabIconMore />
-            <span className="lazyos-tabbar__label">{t('nav.more')}</span>
-          </button>
         </nav>
       ) : null}
 
@@ -214,7 +227,8 @@ function TabIconDecisions(): React.JSX.Element {
   );
 }
 
-// more — overflow menu (reuses the shared IconMore glyph)
-function TabIconMore(): React.JSX.Element {
-  return <IconMore size={24} />;
+// settings — gear (reuses the shared IconGear glyph; the real 4th destination
+// replacing the old duplicate "More" drawer trigger — IA realign 2026-06-06)
+function TabIconSettings(): React.JSX.Element {
+  return <IconGear size={24} />;
 }

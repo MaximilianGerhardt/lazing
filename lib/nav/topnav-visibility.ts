@@ -46,3 +46,22 @@ export function isTopNavHidden(pathname: string): boolean {
     ) || /\/subchats(?:\/|$)/.test(pathname)
   );
 }
+
+/**
+ * True when `pathname` is an OPEN conversation (a live messaging surface where
+ * the composer owns the bottom). IA realign 2026-06-06: the floating bottom
+ * tab bar is hidden here so it never floats over the chat input — standard
+ * messenger behaviour (no tab bar inside an open conversation).
+ *
+ * Two conversation surfaces:
+ *   - the main chat at `/` (ChatShell — composer owns the bottom), and
+ *   - an open internal sub-chat `/workspaces/<id>/subchats/<subchatId>`.
+ *
+ * The sub-chat LIST (`/workspaces/<id>/subchats`) is NOT a conversation — the
+ * bar stays visible there. The match therefore requires a trailing
+ * `/subchats/<segment>` (a subchat id), not the bare `/subchats` list.
+ */
+export function isConversation(pathname: string): boolean {
+  if (pathname === '/') return true;
+  return /\/subchats\/[^/]+$/.test(pathname);
+}

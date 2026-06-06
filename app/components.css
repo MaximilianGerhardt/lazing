@@ -10647,32 +10647,50 @@ button:active,
 }
 
 /* =========================================================================
- * Bottom-Tab-Bar (.lazyos-tabbar) — UI/UX-Neuausrichtung 2026-06-03, Phase B
- * Feste iOS-Bottom-Tab-Bar für die Listen-Surfaces (Decisions · Kalender).
- * Der Chat (/) mountet sie NICHT — dort besitzt der Composer den Boden.
- * Stacked icon-over-label, color-only active state, safe-area-aware.
+ * Bottom-Tab-Bar (.lazyos-tabbar) — Mobile-IA-Realign 2026-06-06.
+ * FLOATING GLASS PILL (detached, fully rounded, elevated, safe-area-aware) —
+ * iMessage/WhatsApp mental model. Present on every primary list screen incl.
+ * the new /chats overview; hidden only INSIDE an open conversation (the chat
+ * `/` and an open sub-chat) where the composer owns the bottom.
+ * Stacked icon-over-label, color + active-pill backdrop, token-only.
+ *
+ * SHARED-FILE CONFLICT NOTE: the offsets `.page-with-tabbar` (calendar ·
+ * decisions) and `.subchat-composer--with-tabbar` (internal sub-chat composer)
+ * depend on this block's height/position and are updated in lock-step below.
  * ========================================================================= */
 .lazyos-tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* Floating pill: centered, detached from the bottom edge with side margins. */
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + 10px); /* float above the home indicator */
+  width: min(440px, calc(100% - 28px));
   /* 55: unter den TopNav-Popovers (z-index 60), über der TopNav-Shell (50). */
   z-index: 55;
   display: flex;
   align-items: stretch;
-  height: calc(49px + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
+  height: 58px; /* pill height (was calc(49px + safe), now a fixed floating pill) */
+  padding: 6px; /* inner gutter for the items */
+  border-radius: var(--radius-pill); /* 100px → fully rounded */
   background: var(--glass);
   -webkit-backdrop-filter: saturate(1.8) blur(20px);
   backdrop-filter: saturate(1.8) blur(20px);
-  border-top: 0.5px solid var(--line);
-  transition: transform var(--dur-base) var(--spring-smooth);
+  border: 0.5px solid var(--line-2); /* hairline ring, all sides */
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.42),
+    0 1px 0 color-mix(in oklab, #fff 6%, transparent) inset; /* lift + top-glint */
+  transition:
+    transform var(--dur-base) var(--spring-smooth),
+    opacity var(--dur-base) var(--spring-smooth);
 }
 
-/* Keyboard offen → Bar aus dem Weg gleiten (nie über einem Eingabefeld). */
+/* Keyboard offen → Bar aus dem Weg gleiten (nie über einem Eingabefeld).
+   160% (statt 110%) weil die schwebende Pille 10px ÜBER der Kante sitzt — sie
+   muss weiter fahren, um vollständig vom Bildschirm zu verschwinden. Das
+   translateX(-50%) bleibt erhalten, sonst springt sie horizontal. */
 body.kb-open .lazyos-tabbar {
-  transform: translateY(110%);
+  transform: translateX(-50%) translateY(160%);
+  opacity: 0;
 }
 
 /* Desktop: Top-Nav + Drawer übernehmen — die mobile Bottom-Bar entfällt. */
@@ -10690,15 +10708,21 @@ body.kb-open .lazyos-tabbar {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  min-height: 49px;
+  min-height: 46px; /* ≥44pt touch target inside the 58px pill (minus padding) */
+  border-radius: calc(var(--radius-pill) - 6px); /* item rounding within the pill */
   text-decoration: none;
   color: var(--ink-3);
   -webkit-tap-highlight-color: transparent;
-  transition: color var(--dur-quick) ease;
+  transition:
+    color var(--dur-quick) ease,
+    background var(--dur-quick) ease;
 }
 
+/* Active = color + a subtle accent pill backdrop (familiar Telegram cue),
+   no layout shift (background only, on-brand Pitch-Black + accent). */
 .lazyos-tabbar__item[aria-current='page'] {
   color: var(--a-now);
+  background: color-mix(in oklab, var(--a-now) 12%, transparent);
 }
 
 /* Taktiles iOS-Press-Feedback — <a>/<Link> erbt NICHT das globale
@@ -10732,11 +10756,12 @@ body.kb-open .lazyos-tabbar {
   }
 }
 
-/* Listen-Surfaces (Decisions · Kalender) reservieren genau die Bottom-Bar-
- * Höhe (safe-area-aware) statt eines hartkodierten Werts. Auf Desktop ist die
- * Bar ausgeblendet → nur minimaler Atem-Abstand. */
+/* Listen-Surfaces (Decisions · Kalender) + die /chats-Übersicht reservieren
+ * Platz, damit die schwebende Pille die letzte Zeile nie verdeckt:
+ *   58px Pille + safe-bottom + 10px Float + 24px Atem-Abstand.
+ * Auf Desktop ist die Bar ausgeblendet → nur minimaler Atem-Abstand. */
 .page-with-tabbar {
-  padding-bottom: calc(49px + var(--safe-bottom) + 20px);
+  padding-bottom: calc(58px + var(--safe-bottom) + 10px + 24px);
 }
 @media (min-width: 768px) {
   .page-with-tabbar {
@@ -10745,31 +10770,79 @@ body.kb-open .lazyos-tabbar {
 }
 
 /* =========================================================================
- * Sub-chat composer bottom inset (Phase 2 SP-5, 2026-06-05)
- * The bottom padding moved out of the inline composerWrap style so it can
- * react to the global bottom tab bar and the keyboard:
- *   - base .subchat-composer keeps the safe-area inset (external `/c/*`,
- *     which has NO bar);
- *   - .subchat-composer--with-tabbar (internal `/subchats/*`) lifts the
- *     composer above the fixed 49px tab bar so the bar never covers it;
- *   - body.kb-open removes the +49px again — the bar slides away
- *     (translateY 110%) when the keyboard is open, so no double inset.
+ * Chat conversation header (.chat-conversation-header) — Mobile-IA-Realign
+ * 2026-06-06. A thin sticky top row on the MAIN chat (`/`) giving the
+ * conversation the standard messenger affordance: BACK to the /chats overview
+ * + the active workspace title. Mobile-only — desktop owns the TopNav +
+ * persistent switcher, so this row is hidden ≥768px. The engine pill stays
+ * inline in the composer area (not duplicated here).
+ * ========================================================================= */
+.chat-conversation-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 44px;
+  margin: 0 auto 4px;
+  padding: 2px clamp(12px, 4vw, 32px);
+  max-width: 860px;
+  width: 100%;
+  box-sizing: border-box;
+  text-decoration: none;
+  color: var(--ink-2);
+  -webkit-tap-highlight-color: transparent;
+}
+.chat-conversation-header__back {
+  width: 32px;
+  height: 32px;
+  margin-left: -6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ink-2);
+}
+.chat-conversation-header__title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-conversation-header:active {
+  opacity: 0.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-conversation-header:active {
+    opacity: 1;
+  }
+}
+/* Desktop: TopNav + persistent switcher own navigation — hide the mobile row. */
+@media (min-width: 768px) {
+  .chat-conversation-header {
+    display: none;
+  }
+}
+
+/* =========================================================================
+ * Sub-chat composer bottom inset (Phase 2 SP-5, 2026-06-05;
+ * Mobile-IA-Realign 2026-06-06).
+ *
+ * Bug-B fix: the floating tab bar is now HIDDEN inside an OPEN conversation
+ * (the chat `/` AND an open sub-chat under /workspaces/[id]/subchats) — there the
+ * composer owns the bottom. So `.subchat-composer--with-tabbar` no longer has a
+ * bar to clear and is NEUTRALIZED to the base safe-area inset (the offset
+ * collapses to the same value as `.subchat-composer`). The modifier class is
+ * kept (still applied by InternalSubchat) so the markup needs no change.
  * ========================================================================= */
 .subchat-composer {
   padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 .subchat-composer--with-tabbar {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 49px + 8px);
-}
-body.kb-open .subchat-composer--with-tabbar {
+  /* Bar hidden inside the open conversation → no bar offset; same as base. */
   padding-bottom: max(8px, env(safe-area-inset-bottom));
-}
-/* Desktop: the bottom bar is hidden (≥768px) → the internal composer needs
- * no bar offset there either. */
-@media (min-width: 768px) {
-  .subchat-composer--with-tabbar {
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-  }
 }
 
 /* ===========================================================================

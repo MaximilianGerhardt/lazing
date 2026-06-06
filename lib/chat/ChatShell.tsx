@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   useCallback,
   useEffect,
@@ -4160,6 +4161,35 @@ export function ChatShell({
     <PinnedDecisionRegistryProvider pinnedHeadline={pinnedDecisionSig}>
     <RunCockpitRegistryProvider>
     <main style={chatMainStyle}>
+      {/* Mobile conversation header (mobile-IA realign 2026-06-06). The chat is
+          a conversation, so it gets the standard messenger top row: BACK to the
+          /chats overview + the active workspace title. Mobile-only (hidden
+          ≥768px via .chat-conversation-header CSS) — desktop keeps the
+          TopNav + persistent switcher. The engine pill stays inline in the
+          composer area (not duplicated here). */}
+      <Link
+        href="/chats"
+        className="chat-conversation-header"
+        aria-label="Zurück zur Chat-Übersicht"
+      >
+        <span className="chat-conversation-header__back" aria-hidden="true">
+          <svg
+            width={22}
+            height={22}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.7}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </span>
+        <span className="chat-conversation-header__title">
+          {currentWorkspace.label || 'Chat'}
+        </span>
+      </Link>
       <section style={sectionStyle}>
         <div ref={streamRef} style={streamStyle} aria-busy={isPending}>
           {/*

@@ -20,6 +20,12 @@ interface Props {
   defaultWorkspaceId?: string;
   /** When true (default), redirects to the new ticket's detail page. */
   autoOpen?: boolean;
+  /**
+   * Open the drawer on first mount. Used by the `/tickets?open=1` deep-link
+   * (the "Neues Ticket" primary button and the `/tickets/new` redirect target)
+   * so the visible create button actually opens the working create flow.
+   */
+  initialOpen?: boolean;
 }
 
 interface FormState {
@@ -48,9 +54,10 @@ export function QuickCreateDrawer({
   workspaces,
   defaultWorkspaceId = 'lazyos',
   autoOpen = true,
+  initialOpen = false,
 }: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initialWorkspaceId =
@@ -68,6 +75,22 @@ export function QuickCreateDrawer({
       return () => clearTimeout(t);
     }
   }, [open]);
+
+  // Honour the `?open=1` deep-link even when this client component instance is
+  // preserved across a soft navigation (e.g. clicking "Neues Ticket" while
+  // already on /tickets) — in that case `useState(initialOpen)` does not re-run,
+  // so we open via effect. Then strip the param from the URL so a refresh or
+  // browser-back does not re-open the drawer. History replace only — no nav.
+  useEffect(() => {
+    if (!initialOpen) return;
+    setOpen(true);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('open')) {
+      url.searchParams.delete('open');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+  }, [initialOpen]);
 
   // Cmd+N / Ctrl+N opens the drawer from anywhere on the page.
   useEffect(() => {
